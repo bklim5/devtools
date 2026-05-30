@@ -53,7 +53,7 @@ export function ByteInspector() {
   return (
     <section className="flex h-full flex-col gap-3 p-4 font-sans text-[#e7e9ee]">
       <header className="text-sm font-semibold text-white/80">
-        Byte Inspector <span className="text-white/40">(skeleton)</span>
+        Byte Inspector <span className="text-white/60">(skeleton)</span>
       </header>
 
       <textarea
@@ -71,10 +71,10 @@ export function ByteInspector() {
           className="min-w-0 flex-1 break-all rounded-md border border-white/10 bg-panel p-3 font-mono text-sm text-white/80"
         >
           <div>
-            <span className="text-white/40">upper:</span> {result.upper}
+            <span className="text-white/60">upper:</span> {result.upper}
           </div>
           <div>
-            <span className="text-white/40">hex:</span> {result.hex}
+            <span className="text-white/60">hex:</span> {result.hex}
           </div>
         </output>
 
@@ -96,7 +96,7 @@ export function ByteInspector() {
         data-testid="skeleton-status"
         className="mt-auto flex items-center gap-4 border-t border-white/10 bg-titlebar px-3 py-2 font-mono text-xs text-white/60"
       >
-        <span className={result.parseState === "ok" ? "text-ok" : "text-white/40"}>
+        <span className={result.parseState === "ok" ? "text-ok" : "text-white/60"}>
           {result.parseState === "ok" ? "● parsed" : "○ empty"}
         </span>
         <span data-testid="skeleton-bytecount">{result.byteLength} bytes</span>
