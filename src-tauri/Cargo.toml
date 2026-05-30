@@ -8,9 +8,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
-# The `_lib` suffix may seem redundant but it is necessary
-# to make the lib name unique and wouldn't conflict with the bin name.
-# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
 name = "devtools_app_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
@@ -23,23 +20,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri-plugin-clipboard-manager = "2.3.2"
 
-# WebDriver automation spike (D-01 / HRN-02). DEBUG-ONLY — placed under
-# `[target.'cfg(debug_assertions)'.dependencies]` (the plugin README's own
-# recommended gating) so it is excluded from release builds; the matching
-# registration in src/lib.rs is under `#[cfg(debug_assertions)]`.
-#
-# CARGO CAVEAT (verified Plan 01-04): cargo emits
-#   warning: Found `debug_assertions` in `target.'cfg(...)'.dependencies`.
-#   This value is not supported for selecting dependencies and will not work as expected.
-# Despite the warning, on this toolchain `cargo tree --release | grep webdriver` = 0
-# while the dev tree = 1, i.e. the plugin IS excluded from the release dep graph. The
-# AUTHORITATIVE final `tauri build` (Plan 01-04 Task 2) re-verifies absence from the
-# built release artifact before sign-off (threat T-01-10 / RESEARCH Pitfall 4). If a
-# future cargo regresses this, switch to the README's feature-flag gating instead.
-#
-# VERSION: `= "0.2"` resolves to the published 0.2.1 (crates.io has 0.1.0/0.1.1/0.1.2/
-# 0.2.1; an earlier transient stale-index read wrongly suggested 0.2 was absent). 0.2.1
-# matches RESEARCH and `cargo check` compiles clean against this stable Tauri 2.11 tree.
-[target.'cfg(debug_assertions)'.dependencies]
+# HRN-02 automation spike (D-01). Embedded W3C WebDriver server for driving the
+# real WKWebView in tests. Registered behind #[cfg(debug_assertions)] in lib.rs
+# so it is compiled out of release builds entirely.
 tauri-plugin-webdriver = "0.2"
-
