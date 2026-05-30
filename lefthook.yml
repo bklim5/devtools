@@ -1,42 +1,21 @@
-# EXAMPLE USAGE:
+# Pre-commit UNIT gate (D-07 / HRN-03) — runs on every `git commit`.
+# Enforces the mechanical half of the per-task Definition of Done so no commit
+# lands with broken types or failing tests, regardless of agent discipline.
 #
-#   Refer for explanation to following link:
-#   https://lefthook.dev/configuration/
+# Install / refresh the git hook:  pnpm lefthook install
+# (the `lefthook` package + the `prepare: lefthook install` script are already in
+#  package.json from Plan 01 — this file only configures the hook.)
 #
-# pre-push:
-#   jobs:
-#     - name: packages audit
-#       tags:
-#         - frontend
-#         - security
-#       run: yarn audit
-#
-#     - name: gems audit
-#       tags:
-#         - backend
-#         - security
-#       run: bundle audit
-#
-# pre-commit:
-#   parallel: true
-#   jobs:
-#     - run: yarn eslint {staged_files}
-#       glob: "*.{js,ts,jsx,tsx}"
-#
-#     - name: rubocop
-#       glob: "*.rb"
-#       exclude:
-#         - config/application.rb
-#         - config/routes.rb
-#       run: bundle exec rubocop --force-exclusion -- {all_files}
-#
-#     - name: govet
-#       files: git ls-files -m
-#       glob: "*.go"
-#       run: go vet -- {files}
-#
-#     - script: "hello.js"
-#       runner: node
-#
-#     - script: "hello.go"
-#       runner: go run
+# D-08 — SCOPE OF THIS GATE: lefthook covers the UNIT gate ONLY.
+# The other two gates in the binding harness stay MANUAL per-task DoD steps,
+# because a git hook cannot run them:
+#   • /codex:review  — disable-model-invocation; must be invoked by the agent
+#   • real-webview UI verification — needs the running app (tauri dev / WKWebView)
+# Do NOT try to wire those into lefthook.
+pre-commit:
+  parallel: true
+  commands:
+    typecheck:
+      run: pnpm tsc --noEmit
+    test:
+      run: pnpm vitest run
