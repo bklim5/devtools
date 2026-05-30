@@ -1,18 +1,17 @@
-// PHASE 1 STUB — Phase 3 replaces this with the real Unix Time Converter tool.
-// Exists only so registry.ts (ported verbatim) resolves its `@/tools/unix-time`
-// import and `tsc`/build pass. enabled:false keeps it out of ENABLED_TOOLS/router.
+// Unix Time Converter — ENABLED in Phase 2 as a shared placeholder (D-01); Phase 3
+// replaces `component` with the real tool UI. Only the registry-facing fields
+// change here (enabled/icon/component/description) — no tool logic yet.
+import { Clock } from "lucide-react";
+import { makePlaceholder } from "@/tools/_placeholder/ToolPlaceholder";
 import type { ToolDefinition } from "@/lib/tools/types";
-
-const StubIcon = () => null;
-const StubComponent = () => null;
 
 export const unixTimeTool: ToolDefinition = {
   id: "unix-time",
   name: "Unix Time",
-  description: "Phase 1 stub — implemented in Phase 3.",
+  description: "Convert unix timestamps to human-readable datetimes",
   category: "time",
   keywords: ["unix", "time", "timestamp", "epoch"],
-  icon: StubIcon,
-  component: StubComponent,
-  enabled: false,
+  icon: Clock,
+  component: makePlaceholder("Unix Time"),
+  enabled: true,
 };
