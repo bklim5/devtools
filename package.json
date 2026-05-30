@@ -1,0 +1,50 @@
+{
+  "name": "devtools",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "pnpm@11.5.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepare": "lefthook install",
+    "e2e": "wdio run wdio.conf.ts"
+  },
+  "dependencies": {
+    "@fontsource/ibm-plex-sans": "5.2.8",
+    "@fontsource/jetbrains-mono": "5.2.8",
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-clipboard-manager": "2.3.2",
+    "@tauri-apps/plugin-opener": "^2",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-router-dom": "7.16.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@tailwindcss/vite": "4.3.0",
+    "@tauri-apps/cli": "^2",
+    "@testing-library/react": "16.3.2",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^4.6.0",
+    "eslint": "10.4.1",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.6.0",
+    "jsdom": "29.1.1",
+    "lefthook": "2.1.9",
+    "prettier": "3.8.3",
+    "tailwindcss": "4.3.0",
+    "typescript": "~5.8.3",
+    "typescript-eslint": "^8.60.0",
+    "vite": "^7.0.4",
+    "vitest": "4.1.7",
+    "webdriverio": "9.27.2"
+  }
+}

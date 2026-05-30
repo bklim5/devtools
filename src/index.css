@@ -1,0 +1,21 @@
+/* Entry stylesheet — imported by src/main.tsx as `./index.css`.
+   Tailwind v4 CSS-first config (NO tailwind.config.js, NO postcss.config).
+   Vendored @fontsource imports are added in Task 3 (FND-05, no CDN). */
+@import "tailwindcss";
+
+/* Design tokens mapped from design/DevTools Mockup.html into Tailwind v4 @theme.
+   These generate utilities like bg-bg-app / bg-win / text-accent / font-sans. */
+@theme {
+  --color-bg-app: #0a0b0d;
+  --color-win: #15171c;
+  --color-titlebar: #1b1e24;
+  --color-sidebar: #101216;
+  --color-pane: #14161b;
+  --color-panel: #181b21;
+  --color-accent: #3b82f6;
+  --color-ok: #34d399;
+  --color-bad: #f0876b;
+
+  --font-sans: "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
