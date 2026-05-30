@@ -89,9 +89,9 @@
 | Last-used tool | Reopened on launch (SHL-06) | ✓ |
 | Recent tools list | ~5-entry MRU powering palette recents (SHL-03) | ✓ |
 | Theme | Theme/accent (SHL-05) | ✓ |
-| Window geometry | Size + position restored on relaunch (SHL-05) | ✓ |
+| Window geometry | Size + position restored on relaunch (SHL-05) | |
 
-**User's choice:** All four selected.
+**User's choice:** Last-used tool, recent tools list, theme. (Window geometry NOT selected here — explicitly deferred to Phase 5 in the next question.)
 **Notes:** Protobuf tree-style (also in SHL-05) deferred to Phase 3, which owns that tool; store schema kept extensible for it.
 
 ### Storage mechanism
@@ -110,15 +110,15 @@
 | Light + dark toggle | Full light theme + toggle | |
 | Dark-only; no theme pref | Defer theme persistence entirely | |
 
-**User's choice:** Dark-only; persist accent.
+**User's choice:** Dark only; persist accent for now — but build with the flexibility to extend to a light theme in the future (store theme as a named value, drive colors via CSS variables).
 
 ### Window geometry timing
 | Option | Description | Selected |
 |--------|-------------|----------|
-| Here, via the seam | Persist/restore in Phase 2 | ✓ |
-| Defer to Phase 5 | With native/tray work | |
+| Here, via the seam | Persist/restore in Phase 2 | |
+| Defer to Phase 5 | With native/tray work | ✓ |
 
-**User's choice:** Here, via the seam.
+**User's choice:** Defer to Phase 5 — "this is the least of the priorities."
 
 ---
 
@@ -131,7 +131,7 @@
 | First tool in registry order | Arbitrary first entry | |
 | Neutral home/welcome | Landing surface before any tool | |
 
-**User's choice:** Protobuf decoder (hero).
+**User's choice:** Protobuf decoder (hero) for now (most-used) — but make the startup-tool resolution configurable in the future (last-used / first-in-list / user preference) via a single seam.
 
 ### Stale last-used tool
 | Option | Description | Selected |
@@ -156,4 +156,4 @@ Placeholder component markup/copy, recents list length (~5), fuzzy-ranker scorin
 
 ## Deferred Ideas
 
-Sidebar density toggle; palette global app-actions and recent-inputs; light theme/toggle; global summon shortcut + tray + single-instance (Phase 5); Protobuf tree-style pref value (Phase 3).
+Sidebar density toggle; palette global app-actions and recent-inputs; light theme/toggle (structured for later); **window-geometry persistence (deferred to Phase 5)**; configurable default/startup tool; global summon shortcut + tray + single-instance (Phase 5); Protobuf tree-style pref value (Phase 3).
