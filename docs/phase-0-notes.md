@@ -181,7 +181,16 @@ Spec selectors are the stable `data-testid`s from Plan 02 (`skeleton-input`,
 
 ### Spike result (verified 2026-05-30, this machine)
 
-- `bash scripts/e2e-spike.sh` → **exit 0**, WebdriverIO `1 passing / 0 failing`.
+- `bash scripts/e2e-spike.sh` → **exit 0**, WebdriverIO `1 passing / 0 failing`
+  (WebKit `v605.1.15` session on macOS — i.e. the real WKWebView). The WDIO log
+  shows the full round-trip: open session → find `skeleton-input` (a `textarea`)
+  → type `hello` → read back the output `upper: HELLO` / `hex: 68656c6c6f` and
+  `5 bytes` → confirm the copy button is `display: block` + `checkVisibility=true`
+  → screenshot → `deleteSession`.
+- **Runner dep note:** `@wdio/spec-reporter` had to be installed — `wdio.conf.ts`
+  uses `reporters: ["spec"]`, and without the package WDIO fails at launch
+  (`Couldn't find plugin "spec" reporter`) BEFORE any session starts. It is now a
+  devDependency; later phases need it for the UI gate.
 - The server came up on `127.0.0.1:4445` (localhost only — threat T-01-11; the
   wdio config pins `127.0.0.1`, never `0.0.0.0`).
 - Real-WKWebView screenshot artifact:
