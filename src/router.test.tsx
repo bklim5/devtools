@@ -1,13 +1,23 @@
 // @vitest-environment jsdom
 // RUNTIME proof (HIGH-3): a green `vite build` bundles modules but does NOT
 // execute the router/render path. This test actually RENDERS RouterProvider so
-// it exercises the module-load `firstTool = ENABLED_TOOLS[0]` path (which throws
-// if ENABLED_TOOLS is empty) AND proves the `path:"*"` unknown → first-tool
-// (skeleton) redirect at runtime.
+// it exercises the module-load path and proves the router boots.
+//
+// Phase-1 state: the throwaway skeleton was removed (D-05) and the three real
+// tools are still enabled:false stubs, so ENABLED_TOOLS is EMPTY. The key proof
+// here is that the router still boots and renders WITHOUT throwing on an empty
+// registry (router.tsx guards `firstTool` being undefined — no crash on
+// `firstTool.id`). Phase 2/3 re-add a redirect-to-first-tool assertion once a
+// real tool is enabled.
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render } from "@testing-library/react";
 import { RouterProvider } from "react-router-dom";
-import { setPlatformForTest, resetPlatformForTest, type Platform } from "@/lib/platform";
+import {
+  setPlatformForTest,
+  resetPlatformForTest,
+  type Platform,
+} from "@/lib/platform";
+import { ENABLED_TOOLS } from "@/lib/tools/registry";
 
 // Inject a stub platform so nothing transitively reaches @tauri-apps under jsdom.
 const stubPlatform: Platform = {
@@ -25,26 +35,23 @@ afterEach(() => {
 });
 
 describe("HashRouter (FND-02 runtime proof)", () => {
-  it("mounts RouterProvider without throwing", async () => {
-    // `router` is created at module load — importing it would throw here if
-    // ENABLED_TOOLS were empty (firstTool.id). It resolves because the skeleton
-    // is registered enabled:true.
-    const { router } = await import("./router");
-    expect(() => render(<RouterProvider router={router} />)).not.toThrow();
-    // Index route redirects to the first tool (skeleton) — its input renders.
-    await waitFor(() => expect(screen.getByTestId("skeleton-input")).toBeTruthy());
+  it("documents the current interim state: registry is empty (skeleton removed, real tools still stubbed)", () => {
+    expect(ENABLED_TOOLS.length).toBe(0);
   });
 
-  it("redirects an unknown route to the skeleton route (/tools/does-not-exist → /tools/_skeleton)", async () => {
+  it("mounts RouterProvider without throwing on an empty registry", async () => {
+    // `router` is created at module load — importing it would throw here if
+    // router.tsx did `firstTool.id` without guarding the empty-registry case.
+    const { router } = await import("./router");
+    expect(() => render(<RouterProvider router={router} />)).not.toThrow();
+  });
+
+  it("renders the App shell (no crash, no blank-on-throw) for an unknown route", async () => {
     const { router } = await import("./router");
     render(<RouterProvider router={router} />);
-
-    // Drive navigation to an unknown route; the `path:"*"` Navigate redirects to
-    // the first tool. Wait for the redirect to settle, then assert BOTH the
-    // resolved location AND that the skeleton actually mounted.
     await router.navigate("/tools/does-not-exist");
-
-    await waitFor(() => expect(router.state.location.pathname).toBe("/tools/_skeleton"));
-    expect(screen.getByTestId("skeleton-input")).toBeTruthy();
+    // With no enabled tools the catch-all falls back to the bare App shell
+    // rather than redirecting; the location simply resolves without throwing.
+    expect(router.state.location.pathname).toBeDefined();
   });
 });

@@ -1,6 +1,4 @@
 import type { ToolDefinition } from "./types";
-// PHASE 1 THROWAWAY — remove with the skeleton before Phase 2 (D-05).
-import { skeletonTool } from "@/tools/_skeleton";
 import { unixTimeTool } from "@/tools/unix-time";
 import { base64Tool } from "@/tools/base64";
 import { protobufDecoderTool } from "@/tools/protobuf-decoder";
@@ -8,15 +6,13 @@ import { protobufDecoderTool } from "@/tools/protobuf-decoder";
 // The single source of truth for which tools exist. The sidebar, search, and
 // router are all generated from this array — adding a tool means importing it
 // and dropping it in here, nothing else.
-export const TOOLS: ToolDefinition[] = [
-  // PHASE 1 THROWAWAY — the skeleton is the FIRST enabled:true entry so
-  // ENABLED_TOOLS is non-empty and router.tsx's `firstTool = ENABLED_TOOLS[0]`
-  // resolves at module load. Remove with the skeleton before Phase 2 (D-05).
-  skeletonTool,
-  unixTimeTool,
-  base64Tool,
-  protobufDecoderTool,
-];
+//
+// The throwaway Phase-1 walking-skeleton was removed (D-05) now that the
+// build+verify harness is proven. The three real tools below are registered
+// enabled:false ID-reserving stubs (they render null until Phase 3 builds their
+// UI), so ENABLED_TOOLS is currently EMPTY — router.tsx guards that case and
+// falls back to the bare App shell until Phase 2/3 enable real tools.
+export const TOOLS: ToolDefinition[] = [unixTimeTool, base64Tool, protobufDecoderTool];
 
 export const ENABLED_TOOLS: ToolDefinition[] = TOOLS.filter((t) => t.enabled !== false);
 
