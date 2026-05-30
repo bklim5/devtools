@@ -1,0 +1,43 @@
+// Preferences schema + store keys + defaults (SHL-05, D-08/D-10).
+//
+// This is the single typed shape of everything Phase 2 persists through the
+// platform `Store` seam (theme/accent, last-used tool, recents). Tools and
+// components never read/write `platform.store` for prefs directly — they go
+// through `usePreferences`/`useRecentTools`, so the schema stays in ONE place
+// and stays extensible.
+//
+// EXTENSIBILITY (do not pre-create): Phase 3 (which owns the Protobuf tool)
+// will add a `protobufTreeStyle` field here — leave room for it; the merge in
+// usePreferences accepts only known fields so adding one is a single edit.
+
+/** Theme is a NAMED value (D-10), NOT a boolean — so a light theme can be added
+ *  later (e.g. "light") without reworking the persistence model. Dark-only in
+ *  Phase 2. */
+export type ThemeName = "dark";
+
+export interface Preferences {
+  /** Named theme (D-10). Dark-only for v1; extensible to "light" later. */
+  theme: ThemeName;
+  /** Accent color as a CSS color value (drives `--accent`; D-10). One of the
+   *  mockup's swatches, but stored as a free string for forward-compat. */
+  accent: string;
+  /** Id of the most recently opened tool (powers opens-to-last, SHL-06). */
+  lastUsedId: string | null;
+  /** Most-recent-first, de-duped, capped list of recently used tool ids
+   *  (powers the palette's recents group, SHL-03/D-05). */
+  recentToolIds: string[];
+}
+
+export const DEFAULT_PREFERENCES: Preferences = {
+  theme: "dark",
+  accent: "#3b82f6",
+  lastUsedId: null,
+  recentToolIds: [],
+};
+
+/** Single namespaced store key holding the whole prefs blob. One key keeps the
+ *  read/merge atomic (no partial-load skew) and the on-disk file tidy. */
+export const PREFERENCES_STORE_KEY = "shell.preferences";
+
+/** Most-recent-first recents cap (≈5, D-05/Open-Question-2). */
+export const RECENT_TOOLS_CAP = 5;
