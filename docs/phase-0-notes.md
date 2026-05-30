@@ -152,23 +152,128 @@ budget unused).
 
 ---
 
-## HRN-02: macOS webview automation path *(placeholder — Plan 01-04)*
+## HRN-02: macOS webview automation path (Plan 01-04 — D-01/D-02/D-03)
 
-> To be filled by Plan 01-04 (the time-boxed `tauri-plugin-webdriver` 0.2 spike, D-01/D-02).
-> Record here: whether the WebDriver plugin reliably drove the real WKWebView
-> (launch → find element → send input → screenshot), or whether the
-> `screencapture` + `chrome-devtools-mcp`-against-`vite preview` fallback was adopted.
-> Whichever path wins becomes the per-task UI-gate driver for all later phases (D-03).
+**Chosen path: D-01 (the `tauri-plugin-webdriver` plugin spike) SUCCEEDED.** The
+embedded W3C WebDriver server drives our actual macOS WKWebView end-to-end:
+launch → find the skeleton input → send keys → assert the instant transform →
+screenshot the real webview. The `screencapture` + `chrome-devtools-mcp` fallback
+(D-02) was **not** needed and is retained only as a documented backstop.
+
+### The reproducible UI-gate command (this is what later phases run)
+
+```bash
+bash scripts/e2e-spike.sh
+```
+
+That script (the per-task UI-gate DRIVER for Phases 2–6) is fully self-contained:
+
+1. starts `pnpm tauri:dev:e2e` (= `tauri dev --features webdriver`) in its own
+   process group, capturing the PID;
+2. polls until the embedded W3C server accepts connections on `127.0.0.1:4445`
+   (bounded by `MAX_WAIT`, default 180s; override with the env var);
+3. runs `pnpm e2e` (WebdriverIO → `test/e2e/skeleton.e2e.ts`) against `:4445`;
+4. ALWAYS tears the `tauri dev` child tree down via a `trap` on EXIT/INT/TERM —
+   no orphan dev-server / Rust app / `:4445` listener leaks.
+
+Spec selectors are the stable `data-testid`s from Plan 02 (`skeleton-input`,
+`skeleton-output`, `skeleton-bytecount`, `skeleton-copy`, `skeleton-status`).
+
+### Spike result (verified 2026-05-30, this machine)
+
+- `bash scripts/e2e-spike.sh` → **exit 0**, WebdriverIO `1 passing / 0 failing`.
+- The server came up on `127.0.0.1:4445` (localhost only — threat T-01-11; the
+  wdio config pins `127.0.0.1`, never `0.0.0.0`).
+- Real-WKWebView screenshot artifact:
+  `test/e2e/__screenshots__/skeleton-wkwebview.png` (gitignored generated output;
+  1960×1360 Retina render of the 980×680 window). It shows the dark Byte Inspector
+  with `hello` typed in, the uppercase/hex output, the always-visible **Copy hex**
+  button, and the status bar (`● parsed · 5 bytes · timing`).
+
+### The gate has teeth (regression caught)
+
+To prove the UI gate is not a rubber stamp, the copy button was temporarily made
+hover-only (`opacity-0 group-hover:opacity-100`) and the same spike re-run: it
+**FAILED** (exit 1, `0 passing / 1 failing`) with the exact assertion
+`copy button is not visible — hover-only copy is forbidden`. The regression was
+then reverted and the spike returned to `1 passing`. (Run logs archived under the
+gitignored `test/e2e/__logs__/`.)
+
+### Important gating correction (security — T-01-10)
+
+The plugin is an **optional Cargo dependency** behind a `webdriver` feature, and
+registration is **double-gated**: `#[cfg(all(debug_assertions, feature =
+"webdriver"))]`. Two corrections were made this plan:
+
+1. The dep was originally in plain `[dependencies]` — it shipped in **every**
+   release build. (`[target.'cfg(debug_assertions)'.dependencies]` does NOT fix
+   this: Cargo warns that `debug_assertions` is unsupported for dependency
+   selection and the crate still leaks into the release tree.) The correct idiom
+   is an optional dep + feature.
+2. A `#[cfg(feature = "webdriver")]`-only gate is still insufficient (codex
+   review): a release built with `--features webdriver` / `--all-features` would
+   compile the server in. The `debug_assertions` half of the double gate excludes
+   it from any release (non-debug) build unconditionally.
+
+See the HRN-04 FINAL build below for the verified absence evidence.
 
 ---
 
-## HRN-04: FINAL release build (post-WebDriver) *(placeholder — Plan 01-04)*
+## HRN-04: FINAL release build (post-WebDriver) — Plan 01-04 (AUTHORITATIVE)
 
-> To be filled by Plan 01-04 after the debug-only WebDriver plugin is added.
-> This is the **authoritative** phase-boundary build. It MUST verify that the
-> WebDriver server (the plugin's `127.0.0.1:4445` surface) is **absent** from the
-> release artifact — i.e. the plugin is correctly gated under
-> `[target.'cfg(debug_assertions)'.dependencies]` + `#[cfg(debug_assertions)]`
-> (RESEARCH Pitfall 4; threat T-01-08). Record the verification method (e.g. confirm
-> the webdriver dep does not appear in the release dependency graph / the endpoint is
-> unreachable in the built `.app`) and the final artifact paths/sizes.
+**Run:** Plan 01-04, on macOS 26.3.1 (arm64), AFTER the optional+double-gated
+WebDriver plugin landed. This is the **authoritative** phase-boundary build (the
+Plan 01-03 build was the first smoke; this one post-dates the plugin and all of
+its gating corrections).
+
+**Command:** `pnpm vitest run && pnpm tsc --noEmit && pnpm tauri build` — all green.
+
+- `pnpm vitest run` → **32/32 passing** (incl. the 19 immovable decoder cases +
+  the skeleton component tests + the router runtime smoke).
+- `pnpm tsc --noEmit` → **clean** (exit 0).
+- `pnpm tauri build` → **exit 0**; `Finished \`release\` profile [optimized]`.
+
+### Toolchain
+
+| Tool  | Version |
+|-------|---------|
+| rustc | 1.96.0 (ac68faa20 2026-05-25) |
+| cargo | 1.96.0 (30a34c682 2026-05-25) |
+| node  | v22.21.1 |
+| vite (frontend build) | 7.3.3 |
+| macOS | 26.3.1, arm64 (aarch64) |
+
+### Artifacts
+
+| Artifact | Path | Size |
+|----------|------|------|
+| `.app`   | `src-tauri/target/release/bundle/macos/devtools-app.app` | 9.7 MB |
+| `.dmg`   | `src-tauri/target/release/bundle/dmg/devtools-app_0.1.0_aarch64.dmg` | ~4.1 MB (4,255,047 bytes) |
+| release binary | `src-tauri/target/release/devtools-app` | — |
+
+- Bundle identifier `com.boonkhailim.devtools-app`; product `devtools-app` v0.1.0
+  (window title `DevTools`). Unsigned (`Signature=adhoc`) — EXPECTED for Phase 1
+  (signing/notarisation is Phase 6 / DST-01; threat T-01-09 accepted for this dev
+  build).
+
+### WebDriver server verified ABSENT from the release artifact (T-01-10)
+
+The plugin is an OPTIONAL dep behind the `webdriver` feature and registration is
+`#[cfg(all(debug_assertions, feature = "webdriver"))]`. A plain `pnpm tauri build`
+enables neither, so the crate and its W3C server are compiled out entirely.
+Evidenced three ways:
+
+1. **Release dependency graph:** `cargo tree --release | grep -c webdriver` → **0**
+   (the default/non-feature debug tree also → 0; only `cargo tree --features
+   webdriver` includes it). i.e. the crate is not even resolved for a release build.
+2. **Release binary symbols/strings:**
+   `strings src-tauri/target/release/devtools-app | grep -ci webdriver` → **0**.
+   (Note: a few unrelated `4445` byte sequences exist in the binary — they are not
+   the WebDriver port surface; the decisive checks are the webdriver-symbol count = 0
+   and the dep-graph = 0.)
+3. **Runtime:** launched ONLY the release `.app`
+   (`xattr -dr com.apple.quarantine …` then `open`) — it ran (PID confirmed), and
+   `nc`/`lsof` showed **nothing listening on `127.0.0.1:4445`** the whole time;
+   then the process was killed cleanly. (By contrast, `bash scripts/e2e-spike.sh`,
+   a debug `--features webdriver` build, DOES bind `:4445` — confirming the gate
+   discriminates correctly.)
