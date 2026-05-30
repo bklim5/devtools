@@ -4,7 +4,7 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: "Plan 01-04 PAUSED at blocker: WebDriver runner (@wdio/cli) missing (Plan-01 gap); awaiting decision (install runner here vs D-02 fallback). Rust plugin side done + corrected to 0.2.1."
-last_updated: "2026-05-30T16:10:04.473Z"
+last_updated: "2026-05-30T16:10:48.617Z"
 last_activity: 2026-05-30
 progress:
   total_phases: 6
@@ -88,6 +88,7 @@ None yet.
 
 - [Phase 1] macOS WKWebView automation is unproven — official `tauri-driver` does not support macOS. Phase 1 must prove the community WebDriver plugin OR land the `screencapture`+`chrome-devtools-mcp` fallback before product phases begin.
 - [Phase 6] Code-signing/notarisation surprises are a known risk; Phase 1 includes a macOS distribution build to surface them early.
+- [Phase 1 / Plan 01-04] WebDriver spike BLOCKED: 'pnpm e2e' fails with 'wdio: command not found'. webdriverio@9.27.2 is installed but ships NO CLI binary; the wdio runner is @wdio/cli (plus @wdio/local-runner + @wdio/mocha-framework), which Plan 01 never installed. Plan 01-04 is forbidden from 'pnpm add'. DECISION NEEDED: (A) install the wdio runner here, or (B) take the documented D-02 fallback (chrome-devtools-mcp + screencapture on vite preview). Rust/plugin side is DONE and corrected: tauri-plugin-webdriver 0.2.1, debug-gated, :4445 confirmed up under 'tauri dev', release dep tree webdriver=0.
 
 ## Session Continuity
 
