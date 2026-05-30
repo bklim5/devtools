@@ -8,8 +8,8 @@
 // Enter navigates to the highlighted tool, records the switch (recents push +
 // last-used), and closes.
 //
-// This file never imports @tauri-apps — recents/prefs go through the hooks, which
-// route to the platform Store seam.
+// This file never imports any Tauri package directly — recents/prefs go through
+// the hooks, which route to the platform Store seam.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ENABLED_TOOLS, getToolById } from "@/lib/tools/registry";
