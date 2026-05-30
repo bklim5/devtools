@@ -5,7 +5,37 @@
 // lives ONLY in tauri.ts, reached via a dynamic import from index.ts.
 
 import type { Platform } from "./index";
-import { createStoreStub } from "./stub";
+import { createStoreStub, type Store } from "./stub";
+
+/** Namespace persisted keys so the app's prefs never collide with anything else
+ *  sharing the origin's localStorage (e.g. under `vite preview`). */
+const NS = "devtools:";
+
+/**
+ * Browser/dev Store impl backed by localStorage (D-09 fallback). Values are
+ * JSON-serialised so objects/arrays round-trip. Persisted values are treated as
+ * UNTRUSTED (threat T-02-02): a corrupt/non-JSON entry yields `undefined` from
+ * `get` rather than throwing. When localStorage is absent (jsdom-without-storage,
+ * node), falls back to the in-memory stub so the seam never throws. This file
+ * must NOT import @tauri-apps/* — that import lives only in tauri.ts.
+ */
+export function createLocalStorageStore(): Store {
+  if (typeof localStorage === "undefined") return createStoreStub();
+  return {
+    async get(key: string): Promise<unknown> {
+      const raw = localStorage.getItem(NS + key);
+      if (raw == null) return undefined;
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return undefined;
+      }
+    },
+    async set(key: string, value: unknown): Promise<void> {
+      localStorage.setItem(NS + key, JSON.stringify(value));
+    },
+  };
+}
 
 export const browserPlatform: Platform = {
   clipboard: {
@@ -24,5 +54,5 @@ export const browserPlatform: Platform = {
       return "";
     },
   },
-  store: createStoreStub(),
+  store: createLocalStorageStore(),
 };

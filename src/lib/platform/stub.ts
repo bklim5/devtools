@@ -1,7 +1,8 @@
-// In-memory store stub for Phase 1. The platform `store` capability is a thin
-// no-op/in-memory placeholder here; Phase 2 (SHL-05) replaces it with the real
-// @tauri-apps/plugin-store impl. Kept in its own module so both the Tauri and
-// browser platform impls share the same stub without duplicating it.
+// In-memory Store impl. Kept as the test/regression stub and the no-localStorage
+// fallback. Phase 2 (SHL-05) added the real on-disk impl (Tauri plugin-store in
+// tauri.ts, localStorage in browser.ts) behind this same `Store` interface; this
+// in-memory Map remains the seam used by tests via setPlatformForTest. Lives in
+// its own module so every impl shares one stub without duplicating it.
 
 export interface Store {
   get(key: string): Promise<unknown>;
