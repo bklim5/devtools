@@ -12,7 +12,7 @@ DevTools ships as a macOS-first Tauri 2 + Vite + React + TS desktop app whose he
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Scaffold + Harness Proof** - Walking skeleton that proves the full build+verify harness end-to-end before any product feature
+- [x] **Phase 1: Scaffold + Harness Proof** - Walking skeleton that proves the full build+verify harness end-to-end before any product feature (completed 2026-05-30)
 - [ ] **Phase 2: Shell** - Registry-driven sidebar, ⌘K command palette, prefs persistence, opens-to-last-tool
 - [ ] **Phase 3: Hero (Protobuf) + Encoding + UX Constraints** - Schema-less Protobuf decoder and Base64/Hex/Bytes under the binding cross-cutting UX constraints — the riskiest path, proven early
 - [ ] **Phase 4: Catalogue** - Unix Time, JWT, Hash, UUID/ULID under the same workflow constraints
@@ -36,7 +36,7 @@ Plans:
 - [x] 01-01-PLAN.md — Scaffold Tauri+React+TS in place, wire @/ alias + Tailwind v4 + vitest, port src/lib/ unchanged (19 tests green), vendor fonts, dark window (FND-01/03/05)
 - [x] 01-02-PLAN.md — HashRouter verbatim, platform capability seam (clipboard), throwaway byte-inspector skeleton with TDD (FND-02/04, HRN-01)
 - [x] 01-03-PLAN.md — lefthook pre-commit unit gate (blocks bad commits) + runnable unsigned tauri build, findings in phase-0-notes.md (HRN-03/04)
-- [ ] 01-04-PLAN.md — macOS webview automation spike (tauri-plugin-webdriver, debug-only) or fallback, skeleton through the full review→unit→ui gate, human sign-off (HRN-01/02)
+- [x] 01-04-PLAN.md — macOS webview automation spike (tauri-plugin-webdriver, debug-only) or fallback, skeleton through the full review→unit→ui gate, human sign-off (HRN-01/02)
 **UI hint**: yes
 
 ### Phase 2: Shell
@@ -106,7 +106,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Scaffold + Harness Proof | 0/4 | Planned | - |
+| 1. Scaffold + Harness Proof | 4/4 | Complete   | 2026-05-30 |
 | 2. Shell | 0/TBD | Not started | - |
 | 3. Hero + Encoding + UX | 0/TBD | Not started | - |
 | 4. Catalogue | 0/TBD | Not started | - |
