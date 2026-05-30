@@ -117,7 +117,7 @@ All versions below are the npm `latest` as of **2026-05-30**, verified via `npm 
 ```bash
 # enable pnpm (NOT installed globally — see Environment Availability)
 corepack enable
-corepack prepare pnpm@latest --activate
+corepack prepare pnpm@11.5.0 --activate
 
 # scaffold (interactive: choose React, TypeScript, pnpm)
 pnpm create tauri-app
@@ -343,7 +343,7 @@ The design (`design/DevTools Mockup.html`) already defines `:root { --bg-app, --
 
 ### Pitfall 7: `pnpm` not on PATH
 **What goes wrong:** D-09 mandates pnpm but it's not installed globally on this machine (verified).
-**How to avoid:** `corepack enable && corepack prepare pnpm@latest --activate` (corepack 0.34.0 ships with Node 22.21.1 — verified present). Pin via `packageManager` field in `package.json` so the version is reproducible.
+**How to avoid:** `corepack enable && corepack prepare pnpm@11.5.0 --activate` (corepack 0.34.0 ships with Node 22.21.1 — verified present). Pin via `packageManager` field in `package.json` so the version is reproducible.
 **Warning signs:** `command not found: pnpm`.
 
 ## Code Examples
@@ -457,7 +457,7 @@ pnpm vite preview --port 4173   # serve the static bundle locally
 
 **Missing dependencies with no fallback:** None.
 **Missing dependencies with fallback:**
-- **pnpm not globally installed** → enable via `corepack enable && corepack prepare pnpm@latest --activate` (corepack is present with Node 22). This is a one-line setup step the planner must include as the first scaffold task.
+- **pnpm not globally installed** → enable via `corepack enable && corepack prepare pnpm@11.5.0 --activate` (corepack is present with Node 22). This is a one-line setup step the planner must include as the first scaffold task.
 
 **Note on cargo version:** cargo 1.83.0 (Oct 2024) is somewhat old relative to 2026. Tauri 2.11 should build fine, but if a Tauri/crate MSRV error appears, `rustup update stable` is the fix. Flag in phase-0-notes.
 
