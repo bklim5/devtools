@@ -36,6 +36,13 @@ function isTauri(): boolean {
 // Tauri, `initPlatform()` swaps in the real impl after a lazy import.
 let active: Platform = browserPlatform;
 
+// Memoised init promise: the FIRST caller resolves the environment impl and every
+// later caller awaits the SAME promise. This is what lets prefsStore.load/save
+// `await initPlatform()` cheaply on every read/write so they can never run
+// against the browser fallback before the real Tauri store is installed (the
+// packaged-app "reads localStorage, writes prefs.json" split-brain bug).
+let initPromise: Promise<Platform> | null = null;
+
 /** Synchronous accessor — always usable; backed by the browser fallback until
  *  the Tauri impl lazily resolves (when inside the WKWebView). Delegates per
  *  capability via getters so it can never drift from `Platform`: adding a
@@ -64,10 +71,14 @@ export async function createPlatform(): Promise<Platform> {
 }
 
 /** Resolve and install the environment-appropriate impl into `platform`.
- *  Call once at startup (main.tsx). No-op-safe to call repeatedly. */
+ *  Memoised: the chosen impl is resolved exactly once and every caller awaits the
+ *  same promise, so it is cheap to `await` on every prefs read/write. */
 export async function initPlatform(): Promise<Platform> {
-  active = await createPlatform();
-  return active;
+  initPromise ??= createPlatform().then((p) => {
+    active = p;
+    return p;
+  });
+  return initPromise;
 }
 
 /** True under vitest or a dev build — never in a production bundle. Guards the
@@ -80,10 +91,13 @@ function isTestOrDev(): boolean {
 }
 
 /** Test seam (FND-04): inject a stub impl so jsdom/node tests exercise the seam
- *  WITHOUT importing @tauri-apps/*. No-op outside test/dev builds. */
+ *  WITHOUT importing @tauri-apps/*. Also seeds the memoised init promise so code
+ *  that `await initPlatform()` (e.g. prefsStore) resolves to the INJECTED stub
+ *  rather than re-resolving the browser fallback. No-op outside test/dev builds. */
 export function setPlatformForTest(p: Platform): void {
   if (!isTestOrDev()) return;
   active = p;
+  initPromise = Promise.resolve(p);
 }
 
 /** Reset the active impl back to the browser fallback (test cleanup).
@@ -91,4 +105,5 @@ export function setPlatformForTest(p: Platform): void {
 export function resetPlatformForTest(): void {
   if (!isTestOrDev()) return;
   active = browserPlatform;
+  initPromise = null;
 }

@@ -15,7 +15,7 @@ import { useNavigate } from "react-router-dom";
 import { ENABLED_TOOLS, getToolById } from "@/lib/tools/registry";
 import type { ToolDefinition } from "@/lib/tools/types";
 import { rankTools } from "@/shell/fuzzy";
-import { useRecentTools } from "@/shell/useRecentTools";
+import { loadPreferences } from "@/shell/prefsStore";
 
 interface PaletteGroup {
   label: string | null;
@@ -58,7 +58,21 @@ export function CommandPalette() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const navigate = useNavigate();
-  const { recentToolIds, recordSwitch } = useRecentTools();
+  // Recents are READ-ONLY here — recording happens centrally on navigation
+  // (useTrackActiveTool in App). We reload them from the store each time the
+  // palette opens so the RECENT group is always current within the session
+  // (the central writer lives in a different hook instance).
+  const [recentToolIds, setRecentToolIds] = useState<string[]>([]);
+  useEffect(() => {
+    if (!open) return;
+    let alive = true;
+    void loadPreferences().then((prefs) => {
+      if (alive) setRecentToolIds(prefs.recentToolIds);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [open]);
 
   // ⌘K toggles the palette; Esc closes it. Global so it works from anywhere.
   // Opening resets the query + highlight HERE (an event handler, not an effect)
@@ -102,11 +116,10 @@ export function CommandPalette() {
 
   const selectTool = useCallback(
     (tool: ToolDefinition) => {
-      navigate(`/tools/${tool.id}`);
-      recordSwitch(tool.id); // atomic recents push + lastUsedId in one blob write
+      navigate(`/tools/${tool.id}`); // the route change records the switch (App)
       setOpen(false);
     },
-    [navigate, recordSwitch],
+    [navigate],
   );
 
   const onListKeyDown = useCallback(

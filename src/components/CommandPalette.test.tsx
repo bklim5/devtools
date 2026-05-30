@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 // SHL-02 / SHL-03: the ⌘K command palette. Opens on ⌘K (never auto-opens, D-07),
 // fuzzy-filters via rankTools, surfaces recents first on an empty query (D-05),
-// switches tool on Enter with no mouse and records the switch (recents + last-used),
-// shows a quiet "No tools match" row on a miss (D-07), and closes on Esc.
+// switches tool on Enter with no mouse (recording the switch is App's job, via
+// the route change), shows a quiet "No tools match" row on a miss (D-07), closes on Esc.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
@@ -110,7 +110,9 @@ describe("CommandPalette (⌘K fuzzy + recents + keyboard nav)", () => {
     expect(row.getAttribute("role")).not.toBe("alert");
   });
 
-  it("↑/↓ + Enter switches tool with no mouse, records the switch, and closes", async () => {
+  it("↑/↓ + Enter switches tool with no mouse and closes", async () => {
+    // Recording the switch (recents + last-used) is App's job via the route
+    // change (useTrackActiveTool) — the palette only navigates and closes.
     const { findByPlaceholderText, queryByPlaceholderText, findByText } = renderPalette();
     act(() => pressMetaK());
     const input = await findByPlaceholderText("Search tools…");
@@ -125,14 +127,6 @@ describe("CommandPalette (⌘K fuzzy + recents + keyboard nav)", () => {
     await waitFor(() =>
       expect(queryByPlaceholderText("Search tools…")).toBeNull(),
     );
-    // The switch is recorded: recents now lead with the chosen id.
-    await waitFor(async () => {
-      const prefs = (await store.get(PREFERENCES_STORE_KEY)) as
-        | { lastUsedId?: string; recentToolIds?: string[] }
-        | undefined;
-      expect(prefs?.lastUsedId).toBe("protobuf-decoder");
-      expect(prefs?.recentToolIds?.[0]).toBe("protobuf-decoder");
-    });
   });
 
   it("ArrowDown moves the highlight to the second result before Enter", async () => {

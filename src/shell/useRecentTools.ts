@@ -14,6 +14,10 @@ import { loadPreferences, normalizeRecents, savePreferences } from "./prefsStore
 
 export interface UseRecentTools {
   recentToolIds: string[];
+  /** False until the async mount-load resolves. The on-navigation recorder
+   *  (useTrackActiveTool) waits on this so its first write can't clobber the
+   *  stored recents before they have loaded (Pitfall 3 timing). */
+  loaded: boolean;
   /** Record a tool as just-used: move/insert at front, de-dupe, cap at ≈5. */
   push: (id: string) => void;
   /**
@@ -34,6 +38,7 @@ function pushRecent(current: string[], id: string): string[] {
 
 export function useRecentTools(): UseRecentTools {
   const [recentToolIds, setRecentToolIds] = useState<string[]>([]);
+  const [loaded, setLoaded] = useState(false);
   // Hold the full loaded prefs so a recents write does not clobber theme/accent/
   // lastUsedId (they share one blob).
   const prefsRef = useRef<Preferences | null>(null);
@@ -43,17 +48,24 @@ export function useRecentTools(): UseRecentTools {
 
   useEffect(() => {
     let alive = true;
-    void loadPreferences().then((loaded) => {
-      if (!alive) return;
-      // Always capture the loaded blob so a later push preserves theme/accent,
-      // but only adopt the loaded recents if the user hasn't pushed yet.
-      if (dirtyRef.current) {
-        prefsRef.current = { ...loaded, recentToolIds: prefsRef.current?.recentToolIds ?? [] };
-        return;
-      }
-      prefsRef.current = loaded;
-      setRecentToolIds(loaded.recentToolIds);
-    });
+    void loadPreferences()
+      .then((loadedPrefs) => {
+        if (!alive) return;
+        // Always capture the loaded blob so a later push preserves theme/accent,
+        // but only adopt the loaded recents if the user hasn't pushed yet.
+        if (dirtyRef.current) {
+          prefsRef.current = {
+            ...loadedPrefs,
+            recentToolIds: prefsRef.current?.recentToolIds ?? [],
+          };
+          return;
+        }
+        prefsRef.current = loadedPrefs;
+        setRecentToolIds(loadedPrefs.recentToolIds);
+      })
+      .finally(() => {
+        if (alive) setLoaded(true);
+      });
     return () => {
       alive = false;
     };
@@ -83,5 +95,5 @@ export function useRecentTools(): UseRecentTools {
   const push = useCallback((id: string) => commit(id, false), [commit]);
   const recordSwitch = useCallback((id: string) => commit(id, true), [commit]);
 
-  return { recentToolIds, push, recordSwitch };
+  return { recentToolIds, loaded, push, recordSwitch };
 }

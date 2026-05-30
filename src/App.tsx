@@ -1,6 +1,7 @@
 import { Outlet } from "react-router-dom";
 import { Sidebar } from "./components/Sidebar";
 import { CommandPalette } from "./components/CommandPalette";
+import { useTrackActiveTool } from "./shell/useTrackActiveTool";
 
 // The registry-driven application shell (SHL-01/02). All layout chrome lives
 // HERE — tools stay layout-agnostic and render inside <main>'s <Outlet/> with no
@@ -20,6 +21,10 @@ function openPalette() {
 }
 
 export function App() {
+  // Persist the open tool as last-used on every route change (sidebar, palette,
+  // deep-link) so the app reopens to it next launch — see useTrackActiveTool.
+  useTrackActiveTool();
+
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-bg-app font-sans text-tx">
       <Sidebar />
