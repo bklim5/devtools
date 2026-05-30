@@ -31,7 +31,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. A trivial walking-skeleton feature passes the complete per-task gate in order — `/codex:review` → `vitest`+`tsc` → real-webview UI verification — demonstrating the gate works end-to-end before any product feature exists.
   4. The macOS real-webview automation path is proven (community WebDriver plugin spike) OR the `screencapture`+`chrome-devtools-mcp` fallback is in place, with the chosen path and rationale recorded in `docs/phase-0-notes.md`.
   5. `tauri build` produces a runnable macOS bundle; tools reach OS capabilities only through `src/lib/platform/` (no direct `@tauri-apps/*` imports), IBM Plex Sans + JetBrains Mono load from vendored local files with no network access, and the phase ends with human sign-off + `gsd-ui-review` audit.
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 01-01-PLAN.md — Scaffold Tauri+React+TS in place, wire @/ alias + Tailwind v4 + vitest, port src/lib/ unchanged (19 tests green), vendor fonts, dark window (FND-01/03/05)
+- [ ] 01-02-PLAN.md — HashRouter verbatim, platform capability seam (clipboard), throwaway byte-inspector skeleton with TDD (FND-02/04, HRN-01)
+- [ ] 01-03-PLAN.md — lefthook pre-commit unit gate (blocks bad commits) + runnable unsigned tauri build, findings in phase-0-notes.md (HRN-03/04)
+- [ ] 01-04-PLAN.md — macOS webview automation spike (tauri-plugin-webdriver, debug-only) or fallback, skeleton through the full review→unit→ui gate, human sign-off (HRN-01/02)
 **UI hint**: yes
 
 ### Phase 2: Shell
@@ -101,7 +106,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Scaffold + Harness Proof | 0/TBD | Not started | - |
+| 1. Scaffold + Harness Proof | 0/4 | Planned | - |
 | 2. Shell | 0/TBD | Not started | - |
 | 3. Hero + Encoding + UX | 0/TBD | Not started | - |
 | 4. Catalogue | 0/TBD | Not started | - |
