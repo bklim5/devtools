@@ -87,6 +87,29 @@ describe("useRecentTools", () => {
     );
   });
 
+  it("recordSwitch persists recents AND lastUsedId in one atomic blob write", async () => {
+    // Seed an existing accent so we can prove the single write preserves it.
+    await store.set(PREFERENCES_STORE_KEY, {
+      theme: "dark",
+      accent: "#10b981",
+      lastUsedId: null,
+      recentToolIds: [],
+    });
+    const { result } = renderHook(() => useRecentTools());
+    await waitFor(() => expect(result.current.recentToolIds).toEqual([]));
+    await act(async () => {
+      result.current.recordSwitch("base64");
+    });
+    const stored = (await platform.store.get(PREFERENCES_STORE_KEY)) as {
+      accent: string;
+      lastUsedId: string | null;
+      recentToolIds: string[];
+    };
+    expect(stored.lastUsedId).toBe("base64");
+    expect(stored.recentToolIds).toEqual(["base64"]);
+    expect(stored.accent).toBe("#10b981"); // other fields untouched
+  });
+
   it("drops non-string ids from a tampered stored recents array (untrusted)", async () => {
     await store.set(PREFERENCES_STORE_KEY, {
       recentToolIds: ["base64", 7, null, "base64", "unix-time"],
