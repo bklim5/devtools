@@ -60,6 +60,7 @@ DevTools is a fast, offline, keyboard-driven **desktop application** (macOS firs
 
 ## Context
 
+- **Current state: Phase 2 (shell) complete** (2026-05-30, verified 20/20 must-haves, user-approved on the real WKWebView). Registry-driven shell shipped — compact Sidebar, ⌘K fuzzy CommandPalette (in-house ranker), App layout, and persistence (theme/accent/last-used/recents) via the real Tauri Store seam, opening straight to the last-used/hero tool. SHL-01/02/03/04/06 validated; **SHL-05 PARTIAL** (window-geometry persistence deferred to Phase 5, D-11). Next: Phase 3 — Hero (Protobuf) + Encoding + UX constraints.
 - **Post-design, pre-implementation handoff.** Full spec in `docs/design-and-plan.md`; harness + locked decisions in `docs/harness-and-decisions.md`; original agent brief preserved in `docs/handoff-instructions.md`.
 - **Verified assets exist:** `scaffold/src/lib/` (decoder.ts ~295 lines zero-deps + 19 tests, bytes.ts, tool types/registry) — port unchanged. `design/DevTools Mockup.html` is the canonical visual system (CSS vars, IBM Plex Sans + JetBrains Mono). React components in `scaffold/` are structure-reference only — rebuild the visual layer against `design/`.
 - **macOS WKWebView automation gap:** official `tauri-driver` supports only Linux/Windows. Community W3C WebDriver plugins for macOS exist (early 2026, 0.1.x). Phase 0 spikes one; fallback is `screencapture` + `chrome-devtools-mcp` against the identical static bundle.
@@ -107,4 +108,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-30 after initialization*
+*Last updated: 2026-05-30 after Phase 2 (shell) completion*
