@@ -63,20 +63,23 @@ path.
 
 ### 3.1 Inner loop — runs per GSD **task**
 
-Every task's Definition of Done = **all three gates green**, in this order, before the next
+Every task's Definition of Done = **all four gates green**, in this order, before the next
 task starts:
 
-1. **`/codex:review`** — `/codex:review --wait --scope working-tree` on the task's diff.
+1. **`/simplify`** — run on the just-written changes to apply reuse / simplification /
+   efficiency / altitude cleanups. Quality only (it does not hunt for bugs — that's the next
+   step). Running it first means review and tests cover the simplified code, not throwaway.
+2. **`/codex:review`** — `/codex:review --wait --scope working-tree` on the task's diff.
    Review-only (it never patches). Findings are addressed before moving on. Because we use
    TDD, unit tests already exist and are green by review time, so review scrutinizes design
    and correctness, not broken plumbing.
-2. **Unit tests** — `vitest` green + `tsc --noEmit` clean. The decoder's **19 cases are the
+3. **Unit tests** — `vitest` green + `tsc --noEmit` clean. The decoder's **19 cases are the
    immovable bar**; every new tool/feature adds its own cases (TDD: tests first).
-3. **UI test** — against **`tauri dev`** (the real WKWebView, hot-reload). Screenshot +
+4. **UI test** — against **`tauri dev`** (the real WKWebView, hot-reload). Screenshot +
    computed-ARIA / a11y check + DOM assertions, diffed against `design/DevTools Mockup.html`
    and the §9 binding constraints. Driven via the macOS WebDriver path (see §3.3).
 
-Gate order is the user's explicit sequence: **review → unit → ui**.
+Gate order is the user's explicit sequence: **simplify → review → unit → ui**.
 
 ### 3.2 Outer loop — runs per **phase boundary** (human sign-off)
 

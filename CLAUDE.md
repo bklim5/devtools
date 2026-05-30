@@ -18,9 +18,10 @@ This file is the slim entry point. The full detail lives in the docs below — r
 ## Build + verify harness (binding — never skip)
 
 **Per task, Definition of Done in this order:**
-1. **`/codex:review`** (`--wait --scope working-tree`) — address findings.
-2. **Unit tests green** — `vitest` + `tsc --noEmit` clean. The decoder's **19 tests are the immovable bar**; new features add their own (TDD).
-3. **Real-webview UI verification** — against `tauri dev` (the actual WKWebView), screenshot + a11y/DOM checks vs `design/`.
+1. **`/simplify`** — apply reuse/simplification/efficiency/altitude cleanups to the just-written changes (quality only, no bug-hunting), so the steps below cover the simplified code.
+2. **`/codex:review`** (`--wait --scope working-tree`) — address findings.
+3. **Unit tests green** — `vitest` + `tsc --noEmit` clean. The decoder's **19 tests are the immovable bar**; new features add their own (TDD).
+4. **Real-webview UI verification** — against `tauri dev` (the actual WKWebView), screenshot + a11y/DOM checks vs `design/`.
 
 **Per phase boundary:** human sign-off on a fresh `tauri build` + a passing `gsd-ui-review` WCAG-AA audit.
 
