@@ -3,29 +3,37 @@
 // execute the router/render path. This test actually RENDERS RouterProvider so
 // it exercises the module-load path and proves the router boots.
 //
-// Phase-2 (plan 02-01) state: the three real tools are now enabled:true as shared
-// placeholders (D-01), so ENABLED_TOOLS is POPULATED. The router's
-// redirect-to-first-tool behaviour (router.tsx) is now active: index and unknown
-// routes Navigate to the first enabled tool. (Phase 1's interim "empty registry"
-// assertion was retired here once the stubs were enabled.)
+// Phase-2 (plan 02-03) state: routes are a pure projection of ENABLED_TOOLS
+// (SHL-04), and the index/catch-all redirect now flows through the single
+// StartupRedirect → resolveStartupTool seam (SHL-06, D-12/13/14): explicit
+// target > real last-used (from prefs) > hero (protobuf-decoder). The old
+// hardcoded "first enabled tool" redirect is gone.
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { cleanup, render } from "@testing-library/react";
+import { cleanup, render, waitFor } from "@testing-library/react";
 import { RouterProvider } from "react-router-dom";
 import {
   setPlatformForTest,
   resetPlatformForTest,
   type Platform,
+  type Store,
 } from "@/lib/platform";
+import { createStoreStub } from "@/lib/platform/stub";
 import { ENABLED_TOOLS } from "@/lib/tools/registry";
+import { HERO_TOOL_ID } from "@/shell/resolveStartupTool";
+import { PREFERENCES_STORE_KEY } from "@/shell/preferences";
 
-// Inject a stub platform so nothing transitively reaches @tauri-apps under jsdom.
-const stubPlatform: Platform = {
-  clipboard: { writeText: async () => {}, readText: async () => "" },
-  store: { get: async () => undefined, set: async () => {} },
-};
+let store: Store;
+
+function makePlatform(s: Store): Platform {
+  return {
+    clipboard: { writeText: async () => {}, readText: async () => "" },
+    store: s,
+  };
+}
 
 beforeEach(() => {
-  setPlatformForTest(stubPlatform);
+  store = createStoreStub();
+  setPlatformForTest(makePlatform(store));
 });
 
 afterEach(() => {
@@ -34,7 +42,7 @@ afterEach(() => {
 });
 
 describe("HashRouter (FND-02 runtime proof)", () => {
-  it("registry is now populated: the three enabled tools surface in ENABLED_TOOLS", () => {
+  it("registry is populated: the three enabled tools surface in ENABLED_TOOLS", () => {
     expect(ENABLED_TOOLS.length).toBeGreaterThan(0);
     const ids = ENABLED_TOOLS.map((t) => t.id);
     expect(ids).toContain("unix-time");
@@ -42,28 +50,63 @@ describe("HashRouter (FND-02 runtime proof)", () => {
     expect(ids).toContain("protobuf-decoder");
   });
 
+  it("derives exactly one tools/<id> route per ENABLED_TOOL, in registry order (SHL-04)", async () => {
+    const { router } = await import("./router");
+    const root = router.routes[0];
+    const toolPaths = (root.children ?? [])
+      .map((c) => c.path)
+      .filter((p): p is string => typeof p === "string" && p.startsWith("tools/"));
+    expect(toolPaths).toEqual(ENABLED_TOOLS.map((t) => `tools/${t.id}`));
+  });
+
+  it("has both an index route and a catch-all '*' route", async () => {
+    const { router } = await import("./router");
+    const children = router.routes[0].children ?? [];
+    expect(children.some((c) => c.index === true)).toBe(true);
+    expect(children.some((c) => c.path === "*")).toBe(true);
+  });
+
   it("mounts RouterProvider without throwing", async () => {
-    // `router` is created at module load — importing it would throw here if
-    // router.tsx mishandled the registry while building routes.
     const { router } = await import("./router");
     expect(() => render(<RouterProvider router={router} />)).not.toThrow();
   });
 
-  it("resolves an unknown route via the catch-all without throwing", async () => {
+  it("first run (no last-used) redirects the index to the hero tool (D-12)", async () => {
     const { router } = await import("./router");
+    await router.navigate("/");
     render(<RouterProvider router={router} />);
-    // The unknown path matches the `*` catch-all (element = <Navigate replace>
-    // to ENABLED_TOOLS[0]). The redirect itself is a render-time effect wired in
-    // Plan 03/04; here we only prove the catch-all resolves without crashing.
-    await router.navigate("/tools/does-not-exist");
-    expect(router.state.location.pathname).toBeDefined();
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(`/tools/${HERO_TOOL_ID}`),
+    );
   });
 
-  it("renders the first enabled tool's placeholder at its route", async () => {
+  it("restores the REAL persisted last-used tool on the index redirect (Pitfall 3, D-13)", async () => {
+    // Seed a valid last-used that differs from the hero.
+    await store.set(PREFERENCES_STORE_KEY, {
+      theme: "dark",
+      accent: "#3b82f6",
+      lastUsedId: "base64",
+      recentToolIds: ["base64"],
+    });
+    const { router } = await import("./router");
+    await router.navigate("/");
+    render(<RouterProvider router={router} />);
+    await waitFor(() => expect(router.state.location.pathname).toBe("/tools/base64"));
+  });
+
+  it("an unknown route falls through the catch-all to the resolved startup tool", async () => {
+    const { router } = await import("./router");
+    await router.navigate("/totally-unknown");
+    render(<RouterProvider router={router} />);
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(`/tools/${HERO_TOOL_ID}`),
+    );
+  });
+
+  it("renders the protobuf-decoder placeholder at its direct route", async () => {
     const { router } = await import("./router");
     const { findByText } = render(<RouterProvider router={router} />);
-    await router.navigate(`/tools/${ENABLED_TOOLS[0].id}`);
-    // The shared placeholder (D-01) renders the tool name + "Coming in Phase 3".
+    await router.navigate(`/tools/${HERO_TOOL_ID}`);
     expect(await findByText("Coming in Phase 3")).toBeDefined();
   });
 });

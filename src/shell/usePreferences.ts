@@ -14,6 +14,10 @@ import { loadPreferences, savePreferences } from "./prefsStore";
 
 export interface UsePreferences {
   preferences: Preferences;
+  /** False until the async mount-load resolves. Consumers that must use the REAL
+   *  persisted values (e.g. last-used startup redirect, Pitfall 3) wait on this
+   *  rather than acting on the default `lastUsedId: null` during the load window. */
+  prefsLoaded: boolean;
   setTheme: (theme: ThemeName) => void;
   setAccent: (accent: string) => void;
   setLastUsedId: (id: string | null) => void;
@@ -21,6 +25,7 @@ export interface UsePreferences {
 
 export function usePreferences(): UsePreferences {
   const [preferences, setPreferences] = useState<Preferences>(DEFAULT_PREFERENCES);
+  const [prefsLoaded, setPrefsLoaded] = useState(false);
   // Keep a ref to the latest prefs so setters merge against the current value
   // without re-subscribing the persist effect to every field. Kept in sync by
   // the load effect and every `update` (never written during render).
@@ -35,10 +40,12 @@ export function usePreferences(): UsePreferences {
   useEffect(() => {
     let alive = true;
     void loadPreferences().then((loaded) => {
-      if (alive && !dirtyRef.current) {
+      if (!alive) return;
+      if (!dirtyRef.current) {
         prefsRef.current = loaded;
         setPreferences(loaded);
       }
+      setPrefsLoaded(true);
     });
     return () => {
       alive = false;
@@ -61,5 +68,5 @@ export function usePreferences(): UsePreferences {
     [update],
   );
 
-  return { preferences, setTheme, setAccent, setLastUsedId };
+  return { preferences, prefsLoaded, setTheme, setAccent, setLastUsedId };
 }
