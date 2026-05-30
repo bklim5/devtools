@@ -14,7 +14,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "lefthook install",
-    "e2e": "wdio run wdio.conf.ts"
+    "e2e": "wdio run wdio.conf.ts",
+    "tauri:dev:e2e": "tauri dev --features webdriver"
   },
   "dependencies": {
     "@fontsource/ibm-plex-sans": "5.2.8",
