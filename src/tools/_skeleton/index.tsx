@@ -41,8 +41,13 @@ export function ByteInspector() {
 
   const onCopy = useCallback(async () => {
     // Copy ALWAYS routes through the platform seam — never @tauri-apps/* here.
-    await platform.clipboard.writeText(result.hex);
-    setCopied(true);
+    // Only flag "Copied" if the write actually succeeded.
+    try {
+      await platform.clipboard.writeText(result.hex);
+      setCopied(true);
+    } catch (err) {
+      console.error("[skeleton] clipboard write failed:", err);
+    }
   }, [result.hex]);
 
   return (

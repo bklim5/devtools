@@ -70,13 +70,25 @@ export async function initPlatform(): Promise<Platform> {
   return active;
 }
 
+/** True under vitest or a dev build — never in a production bundle. Guards the
+ *  test seam so production code can't silently swap capability routing. */
+function isTestOrDev(): boolean {
+  // `import.meta.env` is defined by Vite/vitest; MODE is "test" under vitest,
+  // "development" under `vite dev`, and "production" in the shipped bundle.
+  const env = (import.meta as { env?: { MODE?: string; DEV?: boolean } }).env;
+  return env?.MODE === "test" || env?.DEV === true;
+}
+
 /** Test seam (FND-04): inject a stub impl so jsdom/node tests exercise the seam
- *  WITHOUT importing @tauri-apps/*. */
+ *  WITHOUT importing @tauri-apps/*. No-op outside test/dev builds. */
 export function setPlatformForTest(p: Platform): void {
+  if (!isTestOrDev()) return;
   active = p;
 }
 
-/** Reset the active impl back to the browser fallback (test cleanup). */
+/** Reset the active impl back to the browser fallback (test cleanup).
+ *  No-op outside test/dev builds. */
 export function resetPlatformForTest(): void {
+  if (!isTestOrDev()) return;
   active = browserPlatform;
 }
