@@ -1,8 +1,15 @@
 ---
-phase: 1
-plan: 4
-status: in_progress
-updated: 2026-05-30
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+status: Ready to plan
+last_updated: "2026-05-30T17:04:19.365Z"
+progress:
+  total_phases: 6
+  completed_phases: 1
+  total_plans: 4
+  completed_plans: 4
+  percent: 100
 ---
 
 # Project State
@@ -37,6 +44,7 @@ wave: 3
 ## Next Step (pick up here next session)
 
 Plan 01-04 autonomous tasks are DONE. The ONLY remaining step before phase close is the **Task-3 human-verify checkpoint** (the user runs `pnpm tauri dev` and confirms):
+
 1. Dark window matches design (`--bg-app` #0a0b0d radial-gradient, `--win` #15171c chrome, IBM Plex Sans).
 2. Paste into the skeleton → instant transform (byte count / uppercase / hex), status bar shows parse state · byte count · timing.
 3. Tab to the **Copy hex** button — visible without hover, reachable in ≤1 keystroke; copies.
