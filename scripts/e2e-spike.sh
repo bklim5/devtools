@@ -45,13 +45,17 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-echo "[spike] starting 'pnpm tauri dev' (logs → $DEV_LOG)…"
+# The WebDriver server only exists when the `webdriver` Cargo feature is enabled
+# (the plugin is an optional dep — see src-tauri/Cargo.toml). `pnpm tauri:dev:e2e`
+# is `tauri dev --features webdriver`. A plain `pnpm tauri dev` (and every
+# `pnpm tauri build`) excludes the plugin, so :4445 never binds outside this gate.
+echo "[spike] starting 'pnpm tauri:dev:e2e' (tauri dev --features webdriver; logs → $DEV_LOG)…"
 # `setsid` puts tauri dev in its own process group so the trap can reap the whole
 # tree (vite + Rust app). Fall back to a plain background start if setsid is absent.
 if command -v setsid >/dev/null 2>&1; then
-  setsid pnpm tauri dev >"$DEV_LOG" 2>&1 &
+  setsid pnpm tauri:dev:e2e >"$DEV_LOG" 2>&1 &
 else
-  pnpm tauri dev >"$DEV_LOG" 2>&1 &
+  pnpm tauri:dev:e2e >"$DEV_LOG" 2>&1 &
 fi
 TAURI_DEV_PID=$!
 

@@ -21,6 +21,20 @@ serde_json = "1"
 tauri-plugin-clipboard-manager = "2.3.2"
 
 # HRN-02 automation spike (D-01). Embedded W3C WebDriver server for driving the
-# real WKWebView in tests. Registered behind #[cfg(debug_assertions)] in lib.rs
-# so it is compiled out of release builds entirely.
-tauri-plugin-webdriver = "0.2"
+# real WKWebView in tests. It is an OPTIONAL dependency behind the `webdriver`
+# Cargo feature (below) and is only registered in lib.rs under
+# `#[cfg(feature = "webdriver")]`. The feature is enabled ONLY for the e2e
+# UI-gate run (`pnpm tauri dev --features webdriver`, via scripts/e2e-spike.sh) —
+# NEVER by `pnpm tauri build`. A plain release build therefore excludes the
+# crate AND its W3C server entirely (RESEARCH Pitfall 4 / threats T-01-10 /
+# T-01-11). Override the port via TAURI_WEBDRIVER_PORT if 4445 conflicts.
+#
+# NOTE: `[target.'cfg(debug_assertions)'.dependencies]` does NOT work — Cargo
+# warns "debug_assertions ... is not supported for selecting dependencies" and
+# the dep leaks into the release tree (`cargo tree --release | grep webdriver`
+# = 1). A feature flag is the correct, verified idiom for a build-excluded dep.
+tauri-plugin-webdriver = { version = "0.2", optional = true }
+
+[features]
+# Enabled only for the e2e UI gate (`--features webdriver`); off in release.
+webdriver = ["dep:tauri-plugin-webdriver"]
