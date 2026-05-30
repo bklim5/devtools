@@ -143,19 +143,19 @@ pnpm add -D webdriverio
 ```
 devtools-handoff/                    # D-10: NOT renamed to devtools/
 ├── src/
-│   ├── main.tsx, App.tsx, router.tsx   # router.tsx ported verbatim (FND-02)
-│   ├── styles.css                      # @import "tailwindcss"; @theme {...}; @font-face
+│   ├── main.tsx, App.tsx, router.tsx   # router.tsx ported verbatim (FND-02); main.tsx imports ./index.css
+│   ├── index.css                       # @import "tailwindcss"; @theme {...}; @font-face (entry stylesheet — matches main.tsx's `import "./index.css"`)
 │   ├── components/                     # rebuild visuals vs design/ (Phase 2 mostly)
 │   ├── lib/                            # PORTED UNCHANGED (FND-03)
 │   │   ├── bytes.ts
 │   │   ├── protobuf/{decoder.ts, decoder.test.ts}
-│   │   ├── tools/{types.ts, registry.ts}   # registry imports stubbed (Pitfall 3)
+│   │   ├── tools/{types.ts, registry.ts}   # decoder/bytes/types byte-frozen; registry STUBBED in P01 then skeleton added enabled:true in P02 (control plane — modifiable)
 │   │   └── platform/                   # NEW seam (FND-04, D-11)
 │   │       ├── index.ts                # capability interface + impl picker
 │   │       ├── tauri.ts                # real clipboard impl
 │   │       └── stub.ts                 # store/shortcuts thin stubs (Phase 2 fills)
 │   └── tools/
-│       └── _skeleton/                  # throwaway byte-inspector (D-04/D-05), deleted before Phase 2
+│       └── _skeleton/                  # throwaway byte-inspector (D-04/D-05), registered enabled:true in registry; deleted (with its registry entry) before Phase 2
 ├── src-tauri/                          # created by create-tauri-app
 │   ├── Cargo.toml                      # tauri-plugin-webdriver under [target.'cfg(debug_assertions)'.dependencies]
 │   ├── tauri.conf.json                 # frontendDist: ../dist, devUrl, beforeBuildCommand
@@ -253,7 +253,8 @@ The design (`design/DevTools Mockup.html`) already defines `:root { --bg-app, --
 - **(a) Keep the design's `:root` variables as-is** and reference them in Tailwind via arbitrary values / `@theme inline`. Lowest-friction since the design is already authored this way.
 - **(b) Re-declare design tokens inside `@theme`** as `--color-bg-app`, `--color-accent`, etc., to get auto-generated utilities (`bg-bg-app`).
 ```css
-/* src/styles.css — Source: tailwindcss.com/blog/tailwindcss-v4 [CITED] */
+/* src/index.css — Source: tailwindcss.com/blog/tailwindcss-v4 [CITED] */
+/* NOTE: the entry stylesheet is named index.css to match the verbatim main.tsx `import "./index.css"`. */
 @import "tailwindcss";
 @theme {
   --color-bg-app: #0a0b0d;
@@ -269,10 +270,12 @@ The design (`design/DevTools Mockup.html`) already defines `:root { --bg-app, --
 ### Anti-Patterns to Avoid
 - **`BrowserRouter`** — forbidden (CLAUDE.md, FND-02). Static files 404 on reload. The scaffold already uses `createHashRouter` — port verbatim.
 - **Importing `@tauri-apps/*` inside a tool** — bug per harness-and-decisions §2. Route through `lib/platform`.
-- **Modifying `decoder.ts`/`bytes.ts`/`types.ts`/`decoder.test.ts`** — forbidden without approval; the 19 tests ARE the spec. Stub the registry imports instead (Pitfall 3).
+- **Modifying `decoder.ts`/`bytes.ts`/`types.ts`/`decoder.test.ts`** — forbidden without approval; the 19 tests ARE the spec. Stub the registry imports instead (Pitfall 3). NOTE: `registry.ts` is the explicit control plane and IS modifiable (skeleton is added to its TOOLS array in Plan 02) — it is not part of the byte-frozen set.
 - **Hover-only copy** — explicitly forbidden (§9, CONTEXT D-04). The skeleton's copy must be `always`-visible + focusable; use it to prove the gate catches a hover regression.
 - **Loading Google Fonts at runtime** — the design HTML has `<link>` to `fonts.googleapis.com` (lines 7-9). Strip on port; vendor instead (FND-05).
 - **`@tailwind base;` (v3 syntax)** — silently produces no styles in v4.
+- **Naming the entry stylesheet `styles.css`** — the verbatim `main.tsx` imports `./index.css`; a `styles.css` would leave that import pointing at a nonexistent file and break the build. Name it `index.css`.
+- **Leaving `ENABLED_TOOLS` empty** — `router.tsx` evaluates `firstTool = ENABLED_TOOLS[0]` and uses `firstTool.id` at module load; an empty array throws at startup. Register the skeleton `enabled:true` so it resolves (Plan 02).
 
 ## Don't Hand-Roll
 
@@ -315,14 +318,13 @@ The design (`design/DevTools Mockup.html`) already defines `:root { --bg-app, --
 **Warning signs:** `document is not defined` in component tests, or slow decoder runs.
 
 ### Pitfall 3: porting `registry.ts` unchanged breaks the build (the known issue from CONTEXT)
-**What goes wrong:** `registry.ts` imports `@/tools/unix-time`, `@/tools/base64`, `@/tools/protobuf-decoder` (verified lines 2-4) — none exist in Phase 1. Importing it as-is → unresolved modules → `tsc` + build fail.
-**Why:** those tools belong to Phase 3.
-**How to avoid (planner picks one; do NOT touch decoder/bytes/types):**
-  - **(a) Stub the three tool modules** — create `src/tools/{unix-time,base64,protobuf-decoder}/index.ts` exporting a minimal `ToolDefinition` placeholder so registry imports resolve. Cleanest; registry stays verbatim.
-  - **(b) Temporarily edit the `TOOLS` array** in `registry.ts` to `[]` or to only the skeleton — but this modifies a "port unchanged" file (acceptable since registry is explicitly the rebuild-adjacent control plane, but flag it).
-  - **(c) Skeleton lives outside the registry** entirely (CONTEXT allows this) and registry is ported but not yet imported by a live route until Phase 2.
-**Recommendation:** (a) or (c). (a) keeps registry literally verbatim and exercises the registry→router wiring with the skeleton; (c) is simplest if the skeleton doesn't need a route. Either honors "do NOT alter the decoder/bytes/types files."
-**Warning signs:** build error `Could not resolve "@/tools/unix-time"`.
+**What goes wrong:** `registry.ts` imports `@/tools/unix-time`, `@/tools/base64`, `@/tools/protobuf-decoder` (verified lines 2-4) — none exist in Phase 1. Importing it as-is → unresolved modules → `tsc` + build fail. Compounding this: with all three left `enabled:false`, `ENABLED_TOOLS` is `[]`, and `router.tsx`'s `firstTool = ENABLED_TOOLS[0]` then throws on `firstTool.id` at module load.
+**Why:** those tools belong to Phase 3; the router assumes at least one enabled tool exists.
+**How to avoid (the chosen, executable path; do NOT touch decoder/bytes/types):**
+  - **Phase 1 (Plan 01):** Stub the three Phase-3 tool modules — create `src/tools/{unix-time,base64,protobuf-decoder}/index.ts` exporting minimal `enabled:false` `ToolDefinition` placeholders so the imports resolve and `tsc`/build pass. Registry is ported verbatim at this point.
+  - **Phase 1 (Plan 02):** Add the throwaway skeleton as the FIRST `enabled:true` entry in `registry.ts`'s `TOOLS` array (`import { skeletonTool } from "@/tools/_skeleton"`). `registry.ts` is the explicit control plane and IS modifiable (it is NOT in the byte-frozen set: only decoder.ts/bytes.ts/types.ts are). This makes `ENABLED_TOOLS === [skeletonTool]`, so `firstTool` resolves and `router.tsx` boots — and `router.tsx` can stay verbatim. The skeleton import + array entry are marked throwaway and removed (with the skeleton) before Phase 2.
+**Recommendation:** the two-step above (stub-in-P01, register-skeleton-in-P02) — keeps decoder/bytes/types byte-frozen, resolves all imports, and avoids the empty-ENABLED_TOOLS startup crash while exercising the real registry→router wiring.
+**Warning signs:** build error `Could not resolve "@/tools/unix-time"`; or runtime/module-load `TypeError: Cannot read properties of undefined (reading 'id')` from `firstTool.id`.
 
 ### Pitfall 4: WebDriver plugin shipped in release / port conflict
 **What goes wrong:** plugin compiled into production build (security hole), or `:4445` already bound.
@@ -362,7 +364,7 @@ pre-commit:
 
 ### Vendored fonts (FND-05) — no network at runtime
 ```css
-/* src/styles.css — import the woff2-backed @font-face from fontsource (local, bundled) */
+/* src/index.css — import the woff2-backed @font-face from fontsource (local, bundled) */
 @import "@fontsource/ibm-plex-sans/400.css";
 @import "@fontsource/ibm-plex-sans/500.css";
 @import "@fontsource/ibm-plex-sans/600.css";
@@ -421,20 +423,23 @@ pnpm vite preview --port 4173   # serve the static bundle locally
 | A5 | Fontsource `@font-face` resolves woff2 at build time with zero runtime network | FND-05 / Code Examples | LOW — standard Fontsource behavior; verify by grepping built bundle for `googleapis` |
 | A6 | Unsigned `tauri build` succeeds on this macOS 26.3 / Xcode / cargo 1.83 setup | Pitfall 6 / HRN-04 | MEDIUM — toolchain present; signing surprises are the documented reason this build runs early. Surface in phase-0-notes |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Does `create-tauri-app@4.6.2` offer a Tailwind option in its React flow?**
    - What we know: it prompts for framework + TS/JS + package manager; community templates add Tailwind separately.
    - What's unclear: whether the official React template now includes a Tailwind toggle.
    - Recommendation: scaffold first, then add `@tailwindcss/vite` only if absent. Cheap to check post-scaffold (A1).
+   - **RESOLVED (Plan 01-01, Task 1):** Scaffold first, then add `@tailwindcss/vite@4.3.0` explicitly (`pnpm add -D tailwindcss@4.3.0 @tailwindcss/vite@4.3.0`). The Tailwind plugin is wired in `vite.config.ts` regardless of whether the template offered a toggle; verified by `grep -q '@tailwindcss/vite' vite.config.ts`. If the template already bundled it (A1), the explicit add is a no-op/idempotent.
 
 2. **Skeleton: in-registry vs out-of-registry?**
    - What we know: CONTEXT explicitly leaves this to the planner.
    - Recommendation: out-of-registry (or its own minimal route) keeps registry literally verbatim and avoids the Pitfall-3 churn; in-registry better exercises the registry→router wiring. Either is valid — pick based on whether you want the skeleton to prove the registry path too.
+   - **RESOLVED (Plan 01-02, Task 2 + Task 3; per revision Warning 2):** **In-registry, `enabled:true`.** The skeleton is registered as the first entry in `registry.ts`'s `TOOLS` array so `ENABLED_TOOLS === [skeletonTool]` and `router.tsx`'s `firstTool = ENABLED_TOOLS[0]` resolves at module load — out-of-registry would leave `ENABLED_TOOLS` empty and crash the verbatim router on `firstTool.id`. `registry.ts` is the explicit control plane (NOT byte-frozen; only decoder.ts/bytes.ts/types.ts are), so this edit is sanctioned. The skeleton + its registry entry are marked `// PHASE 1 THROWAWAY` and removed before Phase 2 (D-05).
 
 3. **Static vs variable Fontsource packages?**
    - What we know: both `@fontsource/*` and `@fontsource-variable/*` exist at 5.2.8, OFL-1.1.
    - Recommendation: static weights (explicit 400/500/600/700 sans, 400/500/600 mono per design) — easiest to reason about and verify; variable is a fine smaller-footprint alternative.
+   - **RESOLVED (Plan 01-01, Task 1 + Task 3):** **Static weights.** Use `@fontsource/ibm-plex-sans@5.2.8` (400/500/600/700) + `@fontsource/jetbrains-mono@5.2.8` (400/500/600), imported per-weight in `src/index.css`. Static is easiest to reason about for the "no network at runtime" verification (each weight is an explicit local woff2); the variable packages remain a valid smaller-footprint alternative if footprint becomes a concern later.
 
 ## Environment Availability
 
@@ -500,7 +505,7 @@ pnpm vite preview --port 4173   # serve the static bundle locally
 - `v2.tauri.app/start/create-project/` — create-tauri-app prompts/flow
 - `tailwindcss.com/blog/tailwindcss-v4` — `@import "tailwindcss"` + `@theme` CSS-first config
 - github.com/Choochmeque/tauri-plugin-webdriver — 0.2.1, Cargo dep, port 4445, lib.rs registration, WebdriverIO config
-- Local repo files: `scaffold/src/lib/tools/registry.ts` (missing-import issue), `router.tsx` (HashRouter), `decoder.test.ts` (vitest-only imports), `design/DevTools Mockup.html` (CSS vars, Google Fonts link to strip)
+- Local repo files: `scaffold/src/lib/tools/registry.ts` (missing-import issue), `router.tsx` (HashRouter), `main.tsx` (`import "./index.css"`), `decoder.test.ts` (vitest-only imports), `design/DevTools Mockup.html` (CSS vars, Google Fonts link to strip)
 - Local toolchain probe: Node 22.21.1, cargo 1.83.0, Xcode, macOS 26.3.1, corepack 0.34.0
 
 ### Secondary (MEDIUM confidence)
