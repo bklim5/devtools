@@ -1,0 +1,109 @@
+# Roadmap: DevTools
+
+## Overview
+
+DevTools ships as a macOS-first Tauri 2 + Vite + React + TS desktop app whose hero is a schema-less Protobuf decoder. The journey is deliberately risk-first: Phase 1 proves the **entire build+verify harness end-to-end on a trivial feature** (a walking skeleton) before any product code is written — Tauri shell, ported `src/lib/` with its 19 passing decoder tests, the `src/lib/platform/` seam, self-hosted fonts, the per-task review→unit→ui gate, the macOS real-webview automation spike, and a working `tauri build`. Only then do product features follow the handoff §11 order with no interleaving: the registry-driven Shell (Phase 2), the riskiest path — the Protobuf hero plus Base64/Hex/Bytes plus the binding cross-cutting UX constraints — proven early (Phase 3), the remaining four catalogue tools (Phase 4), macOS native polish (Phase 5), and signed/notarised distribution with auto-update (Phase 6). Every phase is gated by per-task DoD (review → unit → ui) and a phase-boundary human sign-off plus `gsd-ui-review` audit; plans within a phase may run in parallel but never bypass those gates.
+
+## Phases
+
+**Phase Numbering:**
+- Integer phases (1, 2, 3): Planned milestone work
+- Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
+
+Decimal phases appear between their surrounding integers in numeric order.
+
+- [ ] **Phase 1: Scaffold + Harness Proof** - Walking skeleton that proves the full build+verify harness end-to-end before any product feature
+- [ ] **Phase 2: Shell** - Registry-driven sidebar, ⌘K command palette, prefs persistence, opens-to-last-tool
+- [ ] **Phase 3: Hero (Protobuf) + Encoding + UX Constraints** - Schema-less Protobuf decoder and Base64/Hex/Bytes under the binding cross-cutting UX constraints — the riskiest path, proven early
+- [ ] **Phase 4: Catalogue** - Unix Time, JWT, Hash, UUID/ULID under the same workflow constraints
+- [ ] **Phase 5: Native Polish** - Global summon shortcut, tray/menu, single-instance (macOS)
+- [ ] **Phase 6: Distribution** - Code signing + notarisation, DMG, auto-updater (macOS)
+
+## Phase Details
+
+### Phase 1: Scaffold + Harness Proof
+**Goal**: The full build+verify harness is proven end-to-end on a trivial walking-skeleton feature, with the Tauri shell standing, the verified `src/lib/` ported (19 decoder tests green), the platform seam and fonts in place, and a working macOS build — so every subsequent phase can build on a de-risked pipeline.
+**Depends on**: Nothing (first phase)
+**Requirements**: FND-01, FND-02, FND-03, FND-04, FND-05, HRN-01, HRN-02, HRN-03, HRN-04
+**Success Criteria** (what must be TRUE):
+  1. `tauri dev` launches a dark macOS window matching the design's `--win`/`--bg-app` colors, with `react-router` HashRouter wired and unknown routes redirecting to the first tool (no BrowserRouter).
+  2. The verified `src/lib/` (decoder, bytes, tool types, registry) is ported unchanged and `vitest` reports all 19 decoder cases passing on first run; `tsc --noEmit` is clean.
+  3. A trivial walking-skeleton feature passes the complete per-task gate in order — `/codex:review` → `vitest`+`tsc` → real-webview UI verification — demonstrating the gate works end-to-end before any product feature exists.
+  4. The macOS real-webview automation path is proven (community WebDriver plugin spike) OR the `screencapture`+`chrome-devtools-mcp` fallback is in place, with the chosen path and rationale recorded in `docs/phase-0-notes.md`.
+  5. `tauri build` produces a runnable macOS bundle; tools reach OS capabilities only through `src/lib/platform/` (no direct `@tauri-apps/*` imports), IBM Plex Sans + JetBrains Mono load from vendored local files with no network access, and the phase ends with human sign-off + `gsd-ui-review` audit.
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 2: Shell
+**Goal**: A registry-driven application shell where the sidebar, ⌘K palette, and router all derive from a single tool registry, preferences persist across restarts, and the app opens straight to the last-used or summoned tool with no "pick a tool" friction.
+**Depends on**: Phase 1
+**Requirements**: SHL-01, SHL-02, SHL-03, SHL-04, SHL-05, SHL-06
+**Success Criteria** (what must be TRUE):
+  1. The compact sidebar (icon + name) renders entirely from the tool registry, and adding a tool (one file + one registry entry) makes it appear in sidebar, palette, and route with no other wiring (single control plane).
+  2. ⌘K opens a command palette that fuzzy-matches over name+keywords+description, surfaces recently-used tools, and switches tools on Enter — achieving no-mouse tool switching end-to-end.
+  3. Preferences (theme, last-used tool, window geometry, Protobuf tree style) persist across an app restart via the platform store seam.
+  4. Relaunching the app opens directly to the last-used tool (or the summoned tool) with no "pick a tool" step.
+  5. Every plan in the phase passes the per-task gate (review → unit → ui) with no skipping ahead, and the phase ends with a passing `gsd-ui-review` WCAG-AA audit and human sign-off on a fresh `tauri build`.
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 3: Hero (Protobuf) + Encoding + UX Constraints
+**Goal**: The schema-less Protobuf decoder and the Base64/Hex/Bytes tool are shipped to the §1 workflow bar, with the binding cross-cutting UX constraints applied to both — proving the riskiest path (the hero and its ambiguity/workflow constraints) immediately after the shell.
+**Depends on**: Phase 2
+**Requirements**: PRO-01, PRO-02, PRO-03, PRO-04, PRO-05, PRO-06, PRO-07, ENC-01, ENC-02, ENC-03, UX-01, UX-02, UX-03, UX-04, UX-05
+**Success Criteria** (what must be TRUE):
+  1. Pasting hex or base64 bytes renders the recursive wire-format field tree instantly with no decode button (wire types 0/1/2/5 supported, groups 3/4 surfaced as errors not crashes), and the full interpretation runs paste-to-interpretation in under 2 seconds.
+  2. Every LEN field's interpretation chips are computed directly from the decoder's `LenInterpretation` — showing message/string/bytes plus packed-varints/packed-i32/packed-i64 when structurally valid — and the user can resolve ambiguity per node by selecting a chip (VARINT nodes also show zigzag + signed int64); panes are resizable, the tree defaults to cards with a persisted rows/cards toggle, and `#N` numbers render neutral (accent reserved for selected state).
+  3. In the Base64/Hex/Bytes tool, editing any of text/base64/hex derives the other two from an internal `Uint8Array`, modern `Uint8Array` base64/hex APIs are used with a feature-detect polyfill fallback, encoding errors are explicit, and a base64/base64url alphabet toggle works.
+  4. Both tools satisfy the binding cross-cutting constraints: paste transforms instantly (Cmd+V), every output region has a visible focusable copy affordance reachable in ≤1 keystroke (no hover-only copy), a status bar shows parse state · byte count · current encoding · errors · timing, tool components are layout-agnostic (responsive Tailwind, no fixed widths), and WCAG AA holds (visible focus, AA contrast, no opacity-only disabled state).
+  5. Plans run in parallel but every one passes the per-task gate (review → unit → ui) with the decoder's 19 tests still green and new tools adding their own TDD cases; the phase ends with a passing `gsd-ui-review` audit and human sign-off on a `tauri build`.
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 4: Catalogue
+**Goal**: The remaining four tools — Unix Time, JWT, Hash, UUID/ULID — ship under the identical binding workflow constraints, completing the six-tool v1 catalogue.
+**Depends on**: Phase 3
+**Requirements**: TIME-01, JWT-01, HASH-01, UID-01
+**Success Criteria** (what must be TRUE):
+  1. Pasting a unix timestamp (s/ms) shows human-readable local + UTC datetimes and the reverse conversion works; pasting a JWT shows decoded header + payload (and the signature segment) with malformed tokens reported clearly.
+  2. Inputting text/bytes produces MD5 + SHA-1/256/384/512 digests (Web Crypto for SHA, JS lib for MD5), and the user can generate UUIDs/ULIDs with one keystroke and decode a pasted UUID/ULID into its components.
+  3. All four tools honor the cross-cutting constraints (instant paste-transform, ≤1-keystroke visible copy, status bar, WCAG AA, layout-agnostic components) and the app's no-mouse switching and opens-to-last-tool behaviors continue to hold.
+  4. Plans run in parallel but each passes the per-task gate (review → unit → ui) with no skipping ahead; the phase ends with a passing `gsd-ui-review` audit and human sign-off on a `tauri build`.
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 5: Native Polish
+**Goal**: macOS native integration — a global shortcut summons/focuses the app from anywhere, the app has tray/menu presence, and a second launch focuses the existing window — all routed through the platform seam.
+**Depends on**: Phase 4
+**Requirements**: NAT-01, NAT-02
+**Success Criteria** (what must be TRUE):
+  1. A global keyboard shortcut summons and focuses the app window from any other application on macOS, deep-linking via hash routes where applicable.
+  2. The app shows tray/menu presence, and launching a second instance focuses the existing window rather than opening a new one (single-instance).
+  3. Native capabilities are reached through `src/lib/platform/` (no direct `@tauri-apps/*` imports in tools), and offline-by-design still holds (no network at runtime).
+  4. Each plan passes the per-task gate (review → unit → ui); the phase ends with a passing `gsd-ui-review` audit and human sign-off on a `tauri build`.
+**Plans**: TBD
+
+### Phase 6: Distribution
+**Goal**: A signed, notarised, distributable macOS release — a DMG the user can install, with a wired and verifying auto-updater.
+**Depends on**: Phase 5
+**Requirements**: DST-01, DST-02
+**Success Criteria** (what must be TRUE):
+  1. The macOS build is code-signed and notarised and packages as a DMG that installs and launches on a clean machine without Gatekeeper warnings.
+  2. The auto-updater is wired and verifies updates (signature check) before applying them.
+  3. The shipped release preserves the §1 workflow targets end-to-end: paste-to-interpretation under 2s, no-mouse tool switching, one-keystroke copy, opens-to-last-tool, and no network at runtime.
+  4. The release passes a final per-task gate and a phase-boundary human sign-off + `gsd-ui-review` audit on the distributed bundle.
+**Plans**: TBD
+
+## Progress
+
+**Execution Order:**
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 1. Scaffold + Harness Proof | 0/TBD | Not started | - |
+| 2. Shell | 0/TBD | Not started | - |
+| 3. Hero + Encoding + UX | 0/TBD | Not started | - |
+| 4. Catalogue | 0/TBD | Not started | - |
+| 5. Native Polish | 0/TBD | Not started | - |
+| 6. Distribution | 0/TBD | Not started | - |

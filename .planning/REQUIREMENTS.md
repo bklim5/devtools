@@ -103,22 +103,56 @@ Deferred; tracked but not in the current roadmap.
 
 ## Traceability
 
-Phase mapping is finalized by the roadmapper. Proposed mapping below reflects the handoff milestone structure.
+Phase mapping finalized by the roadmapper. Every v1 requirement maps to exactly one phase.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FND-01..05, HRN-01..04 | Phase 1 (Scaffold + Harness Proof) | Pending |
-| SHL-01..06 | Phase 2 (Shell) | Pending |
-| PRO-01..07, ENC-01..03, UX-01..05 | Phase 3 (Hero + #2) | Pending |
-| TIME-01, JWT-01, HASH-01, UID-01 | Phase 4 (Catalogue) | Pending |
-| NAT-01..02 | Phase 5 (Native polish) | Pending |
-| DST-01..02 | Phase 6 (Distribution) | Pending |
+| FND-01 | Phase 1 (Scaffold + Harness Proof) | Pending |
+| FND-02 | Phase 1 (Scaffold + Harness Proof) | Pending |
+| FND-03 | Phase 1 (Scaffold + Harness Proof) | Pending |
+| FND-04 | Phase 1 (Scaffold + Harness Proof) | Pending |
+| FND-05 | Phase 1 (Scaffold + Harness Proof) | Pending |
+| HRN-01 | Phase 1 (Scaffold + Harness Proof) | Pending |
+| HRN-02 | Phase 1 (Scaffold + Harness Proof) | Pending |
+| HRN-03 | Phase 1 (Scaffold + Harness Proof) | Pending |
+| HRN-04 | Phase 1 (Scaffold + Harness Proof) | Pending |
+| SHL-01 | Phase 2 (Shell) | Pending |
+| SHL-02 | Phase 2 (Shell) | Pending |
+| SHL-03 | Phase 2 (Shell) | Pending |
+| SHL-04 | Phase 2 (Shell) | Pending |
+| SHL-05 | Phase 2 (Shell) | Pending |
+| SHL-06 | Phase 2 (Shell) | Pending |
+| PRO-01 | Phase 3 (Hero + Encoding + UX) | Pending |
+| PRO-02 | Phase 3 (Hero + Encoding + UX) | Pending |
+| PRO-03 | Phase 3 (Hero + Encoding + UX) | Pending |
+| PRO-04 | Phase 3 (Hero + Encoding + UX) | Pending |
+| PRO-05 | Phase 3 (Hero + Encoding + UX) | Pending |
+| PRO-06 | Phase 3 (Hero + Encoding + UX) | Pending |
+| PRO-07 | Phase 3 (Hero + Encoding + UX) | Pending |
+| ENC-01 | Phase 3 (Hero + Encoding + UX) | Pending |
+| ENC-02 | Phase 3 (Hero + Encoding + UX) | Pending |
+| ENC-03 | Phase 3 (Hero + Encoding + UX) | Pending |
+| UX-01 | Phase 3 (Hero + Encoding + UX) | Pending |
+| UX-02 | Phase 3 (Hero + Encoding + UX) | Pending |
+| UX-03 | Phase 3 (Hero + Encoding + UX) | Pending |
+| UX-04 | Phase 3 (Hero + Encoding + UX) | Pending |
+| UX-05 | Phase 3 (Hero + Encoding + UX) | Pending |
+| TIME-01 | Phase 4 (Catalogue) | Pending |
+| JWT-01 | Phase 4 (Catalogue) | Pending |
+| HASH-01 | Phase 4 (Catalogue) | Pending |
+| UID-01 | Phase 4 (Catalogue) | Pending |
+| NAT-01 | Phase 5 (Native Polish) | Pending |
+| NAT-02 | Phase 5 (Native Polish) | Pending |
+| DST-01 | Phase 6 (Distribution) | Pending |
+| DST-02 | Phase 6 (Distribution) | Pending |
 
 **Coverage:**
-- v1 requirements: 41 total
-- Mapped to phases: 41 (proposed)
+- v1 requirements: 38 total
+- Mapped to phases: 38 ✓
 - Unmapped: 0 ✓
+
+*Note: an earlier draft of this section stated "41 total" — that was a miscount. The actual count of distinct v1 REQ-IDs is 38 (FND 5, HRN 4, SHL 6, PRO 7, ENC 3, TIME 1, JWT 1, HASH 1, UID 1, UX 5, NAT 2, DST 2). All 38 are mapped.*
 
 ---
 *Requirements defined: 2026-05-30*
-*Last updated: 2026-05-30 after initial definition*
+*Last updated: 2026-05-30 — traceability finalized by roadmapper (per-requirement mapping, count corrected 41→38)*
