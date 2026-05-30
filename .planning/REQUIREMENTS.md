@@ -24,8 +24,8 @@ Requirements for the initial macOS release. Each maps to exactly one roadmap pha
 
 ### Shell (SHL)
 
-- [ ] **SHL-01**: Sidebar (compact mode: icon + name) renders, generated from the tool registry
-- [ ] **SHL-02**: ⌘K command palette opens, fuzzy-matches over name+keywords+description, and Enter switches tools (no mouse)
+- [x] **SHL-01**: Sidebar (compact mode: icon + name) renders, generated from the tool registry <!-- 02-04: registry-driven Sidebar; Task-4 human-verify approved 2026-05-30 -->
+- [x] **SHL-02**: ⌘K command palette opens, fuzzy-matches over name+keywords+description, and Enter switches tools (no mouse) <!-- 02-04: ⌘K CommandPalette (rankTools + ↑/↓+Enter no-mouse); Task-4 human-verify approved 2026-05-30 -->
 - [x] **SHL-03**: Command palette remembers and surfaces recently-used tools
 - [x] **SHL-04**: Registry is the single source of truth — adding a tool (file + one registry entry) makes sidebar, palette, and route appear automatically <!-- 02-01: registry now populated (3 tools enabled), router derives routes from ENABLED_TOOLS; sidebar/palette consumers land in 02-04 -->
 - [~] **SHL-05** (PARTIAL): Preferences persist across restarts: theme, last-used tool, ~~window geometry~~, Protobuf tree style <!-- 02-01: real on-disk Store seam delivered (plugin-store + localStorage); theme/last-used/recents persistence wired in 02-03. WINDOW GEOMETRY deferred to Phase 5 (D-11); Protobuf tree-style key written by Phase 3. Do NOT mark fully Complete at the Phase 2 boundary. -->
@@ -116,8 +116,8 @@ Phase mapping finalized by the roadmapper. Every v1 requirement maps to exactly 
 | HRN-02 | Phase 1 (Scaffold + Harness Proof) | Complete |
 | HRN-03 | Phase 1 (Scaffold + Harness Proof) | Complete |
 | HRN-04 | Phase 1 (Scaffold + Harness Proof) | Complete |
-| SHL-01 | Phase 2 (Shell) | Pending |
-| SHL-02 | Phase 2 (Shell) | Pending |
+| SHL-01 | Phase 2 (Shell) | Complete |
+| SHL-02 | Phase 2 (Shell) | Complete |
 | SHL-03 | Phase 2 (Shell) | Complete |
 | SHL-04 | Phase 2 (Shell) | Complete |
 | SHL-05 | Phase 2 (Shell) | Partial (window geometry → Phase 5, D-11) |

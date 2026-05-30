@@ -54,7 +54,7 @@ Plans:
 - [x] 02-01-PLAN.md — Foundation: install lucide-react@1.17.0 + @tauri-apps/plugin-store@2.4.3, register the Rust store plugin + scope store:default, make the Store seam real (plugin-store / localStorage), add shell CSS tokens, enable the three tools as a shared placeholder (SHL-04/05; D-01/09/10)
 - [x] 02-02-PLAN.md — In-house zero-dependency fuzzy ranker rankTools over name+keywords+description, fully unit-tested (SHL-02; D-06)
 - [x] 02-03-PLAN.md — usePreferences + useRecentTools over the Store seam, single resolveStartupTool seam (explicit > last-used > hero), router index-route wiring + prefs preload (SHL-03/04/05/06; D-08/12/13/14)
-- [ ] 02-04-PLAN.md — Registry-driven compact Sidebar + ⌘K CommandPalette (fuzzy + recents + keyboard nav) + App.tsx shell chrome, ending with the phase human-verify checkpoint (SHL-01/02/03/04/06; D-02/03/04/05/07)
+- [x] 02-04-PLAN.md — Registry-driven compact Sidebar + ⌘K CommandPalette (fuzzy + recents + keyboard nav) + App.tsx shell chrome, ending with the phase human-verify checkpoint (SHL-01/02/03/04/06; D-02/03/04/05/07)
 **UI hint**: yes
 
 ### Phase 3: Hero (Protobuf) + Encoding + UX Constraints

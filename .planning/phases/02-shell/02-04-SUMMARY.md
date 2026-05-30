@@ -55,7 +55,7 @@ patterns-established:
   - "Shell chrome owns all layout; tool components render layout-agnostic inside <Outlet/> (UX-05)"
   - "Untrusted recents rendering: getToolById filters every recent id (ENABLED_TOOLS only) before a row renders or navigates — tampered ids can't synthesize a route (T-02-10/T-02-12)"
 
-requirements-completed: []  # SHL-01/02/03 code-complete; marked Complete only AFTER the Task-4 human-verify phase sign-off
+requirements-completed: [SHL-01, SHL-02, SHL-03, SHL-04, SHL-06]  # marked Complete after Task-4 human-verify phase sign-off (approved 2026-05-30); SHL-05 stays PARTIAL (window geometry → Phase 5, D-11)
 
 # Metrics
 duration: 5min
@@ -64,14 +64,14 @@ completed: 2026-05-30
 
 # Phase 2 Plan 04: Shell Chrome (Sidebar + ⌘K Palette + App) Summary
 
-**The visible registry-driven shell: a compact sidebar (one NavLink per ENABLED_TOOL with mockup-accurate accent-reserved active styling), a ⌘K fuzzy command palette (recents-first empty state, no-mouse ↑/↓+Enter switch, quiet no-match, never auto-opens), and an `App.tsx` that wraps the routed `<Outlet/>` with both — proving the single control plane end-to-end. Build/code tasks complete and fully gated; the Phase-2 real-webview human-verify checkpoint is now pending.**
+**The visible registry-driven shell: a compact sidebar (one NavLink per ENABLED_TOOL with mockup-accurate accent-reserved active styling), a ⌘K fuzzy command palette (recents-first empty state, no-mouse ↑/↓+Enter switch, quiet no-match, never auto-opens), and an `App.tsx` that wraps the routed `<Outlet/>` with both — proving the single control plane end-to-end. Build/code tasks complete and fully gated; the Phase-2 real-webview human-verify checkpoint was approved by the user (2026-05-30) after two production-only startup bugs were found and fixed (commit `d4e44f5`).**
 
 ## Performance
 
-- **Duration:** ~5 min (build/code tasks; checkpoint awaiting human)
+- **Duration:** ~5 min (build/code tasks) + post-checkpoint fix
 - **Started:** 2026-05-30T20:00:23Z
-- **Tasks:** 4 (3 auto complete; Task 4 = human-verify checkpoint, pending)
-- **Files created:** 4 / modified: 4
+- **Tasks:** 4/4 complete (3 auto + Task 4 human-verify APPROVED 2026-05-30)
+- **Files created:** 4 / modified: 4 (+1 created, `useTrackActiveTool.ts`, in the post-checkpoint fix)
 
 ## Accomplishments
 - **Sidebar (SHL-01/04):** a pure projection of `ENABLED_TOOLS` — one `NavLink` per tool (`/tools/<id>`), icon + name (compact density, D-02), the active route's item carrying `aria-current=page` plus the mockup's `.navitem.on` visuals (left accent bar scaleY 0→1, accent-soft tint, icon→accent, name→tx). Accent is reserved to the active item. Pointer + Tab focus only (D-03 — no arrow/j-k nav, no ⌘1..⌘6); visible `focus-visible` ring (UX-04).
@@ -87,9 +87,20 @@ Each build/code task committed atomically (TDD for Tasks 1-2; lefthook pre-commi
 1. **Task 1: Registry-driven compact Sidebar** — `3881a13` (feat)
 2. **Task 2: ⌘K CommandPalette + recordSwitch fix** — `4dba1da` (feat)
 3. **Task 3: Assemble shell chrome in App.tsx** — `3f15524` (feat)
-4. **Task 4: Phase-2 real-webview human-verify** — PENDING (checkpoint; no code)
+4. **Task 4: Phase-2 real-webview human-verify** — ✓ APPROVED 2026-05-30 (user signed off on the real WKWebView after the post-checkpoint fix); two production-only startup bugs found, fixed, and committed in `d4e44f5`
 
-**Plan metadata:** _(this commit)_ (docs: complete plan — written after the checkpoint resolves)
+**Post-checkpoint fix:** `d4e44f5` — "fix(02): persist last-used on every navigation + end the packaged store split-brain"
+
+**Plan metadata:** _(this commit)_ (docs: close the human-verify checkpoint + post-checkpoint fix note)
+
+## Post-checkpoint Fix (Task 4)
+
+During the real-WKWebView sign-off the user found two **production-only** startup bugs that did not surface under `vitest`/dev:
+
+1. **Opened to Unix Time, not the Protobuf hero.** The last-used tool was only stamped on the palette switch path, so sidebar navigation never recorded it — on relaunch the stored `lastUsedId` was stale. **Fix:** added `src/shell/useTrackActiveTool.ts`, a central hook mounted in the shell that records last-used on **every** route change (sidebar clicks, palette switches, deep links alike), making last-used a property of navigation rather than of one switch path.
+2. **Tool switch didn't survive restart (packaged store split-brain).** In the packaged app two store backends were live at once — an early `localStorage` read racing the real `prefs.json` plugin-store — so writes and reads hit different stores. **Fix:** memoized `initPlatform()` and had `prefsStore` **await** the one memoized init, so there is a single resolved store backend; the palette also reloads recents on open so the empty-query group is fresh.
+
+Tests after the fix: **vitest 96/96** (decoder 19 green), `tsc --noEmit` clean, `eslint` 0 errors, `vite build` clean. Committed in `d4e44f5`. The user then rebuilt the app and verified on the real WKWebView → **approved**.
 
 ## Files Created/Modified
 See frontmatter `key-files`. Highlights:
@@ -151,23 +162,23 @@ Per-task DoD gates that map to interactive slash-commands (`/simplify`, `/codex:
 None introduced here. The three tools still render the `makePlaceholder` "Coming in Phase 3" component (the intentional, plan-documented D-01 stub owned by 02-01) — that is the content the shell's Outlet displays until Phase 3 swaps each tool's `component`.
 
 ## Requirements Status
-- **SHL-01** (compact registry-driven sidebar) — code-complete; pending the Task-4 phase sign-off.
-- **SHL-02** (⌘K palette: fuzzy, Enter switches no-mouse) — code-complete; pending sign-off.
-- **SHL-03** (palette surfaces recents) — code-complete; pending sign-off.
-- **SHL-04** (registry single control plane) — already Complete (02-01); re-proven end-to-end here (sidebar+palette+router all derive from `ENABLED_TOOLS`).
-- **SHL-06** (opens to last-used/summoned, no picker) — already Complete (02-03); the shell now renders it.
-- **SHL-05** — remains **PARTIAL** (window-geometry persistence → Phase 5, D-11). Do NOT mark fully complete at the Phase 2 boundary.
+- **SHL-01** (compact registry-driven sidebar) — ✓ **Complete** (Task-4 sign-off approved 2026-05-30).
+- **SHL-02** (⌘K palette: fuzzy, Enter switches no-mouse) — ✓ **Complete** (sign-off approved).
+- **SHL-03** (palette surfaces recents) — ✓ **Complete** (sign-off approved; the post-checkpoint fix also reloads recents on palette open).
+- **SHL-04** (registry single control plane) — ✓ **Complete** (already met in 02-01; re-proven end-to-end here — sidebar+palette+router all derive from `ENABLED_TOOLS`).
+- **SHL-06** (opens to last-used/summoned, no picker) — ✓ **Complete** (data layer 02-03; the shell now renders it and, post-fix, records last-used on every navigation so relaunch opens to the actual last tool).
+- **SHL-05** — remains **PARTIAL** (window-geometry persistence → Phase 5, D-11). The real on-disk Store + theme/last-used/recents persistence are delivered; window geometry is intentionally NOT in scope here.
 
-> Requirements SHL-01/02/03 are marked Complete in REQUIREMENTS.md only AFTER the Task-4 human-verify checkpoint is approved (the binding phase gate), not at code-complete.
+> SHL-01/02/03/04/06 are marked Complete in REQUIREMENTS.md as of the approved Task-4 human-verify sign-off (2026-05-30). SHL-05 stays PARTIAL.
 
 ## User Setup Required
 None.
 
 ## Self-Check: PASSED
 
-Files verified on disk: `src/components/Sidebar.tsx`, `src/components/Sidebar.test.tsx`, `src/components/CommandPalette.tsx`, `src/components/CommandPalette.test.tsx`, `src/App.tsx`, `src/shell/useRecentTools.ts` — all FOUND.
-Commits verified in git history: `3881a13`, `4dba1da`, `3f15524` — all FOUND.
+Files verified on disk: `src/components/Sidebar.tsx`, `src/components/Sidebar.test.tsx`, `src/components/CommandPalette.tsx`, `src/components/CommandPalette.test.tsx`, `src/App.tsx`, `src/shell/useRecentTools.ts`, `src/shell/useTrackActiveTool.ts` (post-checkpoint fix) — all FOUND.
+Commits verified in git history: `3881a13`, `4dba1da`, `3f15524`, `d4e44f5` (post-checkpoint fix) — all FOUND.
 
 ---
 *Phase: 02-shell*
-*Completed (code tasks): 2026-05-30; phase human-verify checkpoint pending*
+*Completed: 2026-05-30 — all 4 tasks done; Task-4 human-verify checkpoint APPROVED by the user.*
