@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Executing Phase 02
-last_updated: "2026-05-30T19:57:23.676Z"
+last_updated: "2026-05-30T20:06:07.000Z"
 progress:
   total_phases: 6
   completed_phases: 1
@@ -16,15 +16,15 @@ progress:
 
 ## Current Position
 
-Phase: 02 (shell) — EXECUTING
-Plan: 4 of 4 (02-01 ✓ done; 02-02 ✓ done; 02-03 ✓ done; 02-04 next)
+Phase: 02 (shell) — EXECUTING (02-04 build/code tasks DONE; **AT the Phase-2 human-verify checkpoint**)
+Plan: 4 of 4 (02-01 ✓ done; 02-02 ✓ done; 02-03 ✓ done; 02-04 Tasks 1-3 ✓ done, Task 4 = human-verify ⏸ PENDING)
 **Phase 2: Shell** — EXECUTING (4 plans across 3 waves). Phase 1 is COMPLETE and human-signed-off.
 
-wave: 1 ✓ COMPLETE (02-01 ✓ foundation; 02-02 ✓ fuzzy ranker). wave: 2 ✓ COMPLETE (02-03 ✓ prefs/recents/startup-resolution). Next: wave 3 (02-04 Sidebar + ⌘K palette + App shell, ending with the phase human-verify checkpoint).
+wave: 1 ✓ COMPLETE (02-01 ✓ foundation; 02-02 ✓ fuzzy ranker). wave: 2 ✓ COMPLETE (02-03 ✓ prefs/recents/startup-resolution). wave: 3 — 02-04 Sidebar + ⌘K palette + App shell CODE COMPLETE; the plan now STOPS at the binding Phase-2 real-webview human-verify checkpoint (Task 4). Not advanced/closed until the user signs off.
 
 ## Active Plan
 
-`02-01`, `02-02`, `02-03` ✓ COMPLETE (waves 1-2 done). Next up: `02-04-PLAN.md` (Phase 2, wave 3 — Sidebar + ⌘K palette + App.tsx shell chrome, consuming the shell `@theme` tokens, `rankTools`, `usePreferences` (theme/accent), and `useRecentTools` (palette recents group)). This is the last plan; it ends with the phase human-verify checkpoint.
+`02-01`, `02-02`, `02-03` ✓ COMPLETE. `02-04` build/code tasks (Sidebar + ⌘K CommandPalette + App.tsx shell chrome) ✓ COMPLETE — commits `3881a13` (Sidebar), `4dba1da` (CommandPalette + atomic recordSwitch fix), `3f15524` (App shell). Full suite **90/90** (decoder 19 green), tsc clean, eslint 0, `vite build` clean. **⏸ AWAITING the Phase-2 human-verify checkpoint (Task 4):** real macOS WKWebView sign-off (opens-to-tool, sidebar active styling, ⌘K fuzzy+recents+keyboard switch, last-used restore across restart, deep-link validation/fallback) + WCAG-AA audit + fresh `tauri build`. Resume signal: user types "approved" (or lists issues to fix). SHL-01/02/03 are code-complete but marked Complete in REQUIREMENTS.md only AFTER this sign-off.
 
 ## Recent Activity
 
@@ -64,11 +64,20 @@ wave: 1 ✓ COMPLETE (02-01 ✓ foundation; 02-02 ✓ fuzzy ranker). wave: 2 ✓
 
 ## Blocker
 
-- None. Phase 1 closed; Phase 2 planned and ready to execute.
+- **⏸ Phase-2 human-verify checkpoint (02-04 Task 4) — AWAITING USER.** All shell code is committed and green; the binding phase-boundary gate is the real-webview sign-off. The executor cannot self-approve it. User must run the verification steps (below) and type "approved" (or list issues) to close Phase 2.
 
 ## Next Step (pick up here next session)
 
-Waves 1-2 complete (02-01 foundation + 02-02 fuzzy ranker + 02-03 prefs/recents/startup-resolution). **Run the LAST plan, wave 3 `02-04`** (Sidebar + ⌘K palette + App.tsx shell chrome), then the phase human-verify checkpoint + `tauri build` + `gsd-ui-review` WCAG-AA sign-off to close Phase 2.
+**Resume the 02-04 checkpoint.** Build/code tasks (Sidebar + ⌘K palette + App shell) are done and committed (`3881a13`, `4dba1da`, `3f15524`); the SUMMARY is written. What remains is the Phase-2 real-webview human-verify sign-off (Task 4):
+1. `pnpm tauri dev` → confirm it opens DIRECTLY into the Protobuf placeholder on first run (no picker).
+2. Compact sidebar lists the 3 tools; click one → left accent bar + accent-soft tint + accent icon; main pane swaps.
+3. ⌘K → palette opens centered; empty query shows RECENT then ALL TOOLS; type "pro" → fuzzy filter; type gibberish → quiet "No tools match"; ↑/↓ + Enter switches with NO mouse + closes; Esc closes.
+4. Switch to base64, QUIT, relaunch → reopens to base64 (last-used restore).
+5. Deep link `#/tools/base64` opens base64; `#/tools/does-not-exist` silently falls back to the hero (no 404/error).
+6. `bash scripts/e2e-spike.sh` UI gate + `gsd-ui-review` WCAG-AA audit (visible focus on sidebar links + palette input, AA contrast, no opacity-only state).
+7. Fresh `pnpm tauri build` succeeds and the bundle launches.
+
+After the user types "approved": run `state advance-plan` + `state update-progress`, mark SHL-01/02/03 Complete in REQUIREMENTS.md (SHL-05 stays PARTIAL), `roadmap update-plan-progress 02`, close Phase 2.
 
 Reminders:
 
