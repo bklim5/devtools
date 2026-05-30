@@ -3,7 +3,13 @@ pub fn run() {
     let builder = tauri::Builder::default()
         // Clipboard seam for the platform layer (FND-04, D-11). The JS side calls
         // it via @tauri-apps/plugin-clipboard-manager behind src/lib/platform/.
-        .plugin(tauri_plugin_clipboard_manager::init());
+        .plugin(tauri_plugin_clipboard_manager::init())
+        // Persistent prefs store (SHL-05, D-09). The JS side calls it via
+        // @tauri-apps/plugin-store behind src/lib/platform/tauri.ts. Registered
+        // UNCONDITIONALLY (both debug and release) — unlike the webdriver plugin
+        // below — so persistence works in the shipped app. Gated at runtime by the
+        // `store:default` capability in capabilities/default.json (threat T-02-01).
+        .plugin(tauri_plugin_store::Builder::new().build());
 
     // WebDriver automation spike (D-01 / HRN-02), DOUBLE-GATED. The plugin embeds a
     // W3C WebDriver server on 127.0.0.1:4445 (localhost only — threat T-01-11) so the

@@ -34,6 +34,7 @@ tauri-plugin-clipboard-manager = "2.3.2"
 # the dep leaks into the release tree (`cargo tree --release | grep webdriver`
 # = 1). A feature flag is the correct, verified idiom for a build-excluded dep.
 tauri-plugin-webdriver = { version = "0.2", optional = true }
+tauri-plugin-store = "2.4.3"
 
 [features]
 # Enabled only for the e2e UI gate (`--features webdriver`); off in release.
