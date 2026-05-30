@@ -25,3 +25,7 @@ test/e2e/__logs__/
 .claude/
 .agents/
 skills-lock.json
+
+# e2e UI-gate artifacts (HRN-02 spike) — generated, not source
+test/e2e/__screenshots__/
+test/e2e/__logs__/
