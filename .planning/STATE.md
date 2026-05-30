@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Executing Phase 02
-last_updated: "2026-05-30T19:42:43.784Z"
+last_updated: "2026-05-30T19:47:49.234Z"
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 8
-  completed_plans: 5
-  percent: 63
+  completed_plans: 6
+  percent: 75
 ---
 
 # Project State
@@ -17,14 +17,14 @@ progress:
 ## Current Position
 
 Phase: 02 (shell) — EXECUTING
-Plan: 2 of 4 (02-01 ✓ done; 02-02 next)
+Plan: 3 of 4 (02-01 ✓ done; 02-02 ✓ done; 02-03 next)
 **Phase 2: Shell** — EXECUTING (4 plans across 3 waves). Phase 1 is COMPLETE and human-signed-off.
 
-wave: 1 (02-01 ✓ complete; 02-02 fuzzy ranker still to run)
+wave: 1 ✓ COMPLETE (02-01 ✓ foundation; 02-02 ✓ fuzzy ranker). Next: wave 2 (02-03).
 
 ## Active Plan
 
-`02-01` ✓ COMPLETE. Next up: `02-02-PLAN.md` (Phase 2, wave 1 — in-house fuzzy ranker, TDD).
+`02-01` and `02-02` ✓ COMPLETE (wave 1 done). Next up: `02-03-PLAN.md` (Phase 2, wave 2 — prefs/recents/startup-resolution over the now-real `platform.store` + router wiring).
 
 ## Recent Activity
 
@@ -48,6 +48,12 @@ wave: 1 (02-01 ✓ complete; 02-02 fuzzy ranker still to run)
   - Gate: 31/31 vitest (decoder 19 green), tsc clean, eslint 0 errors. SUMMARY: `.planning/phases/02-shell/02-01-SUMMARY.md`. Requirements SHL-04 + SHL-05 marked (SHL-05 still PARTIAL — window geometry → Phase 5).
   - Deviations (3 auto-fixed): `defaults:{}` required by plugin-store@2.4.3 (Rule 3); `router.test.tsx` stale empty-registry assertion updated (Rule 1); store.test.ts jsdom env + brittle redirect assertion (Rule 1). No scope creep.
   - lefthook (correctly) blocks committing a red suite → TDD RED was verified via local `vitest run`, then test+impl landed together in the GREEN commit.
+- **Plan 02-02 ✓ COMPLETE** (commit `46f96f9`) — wave 1 done. In-house zero-dependency fuzzy ranker (D-06):
+  - `src/shell/fuzzy.ts` exports `rankTools(query, tools)` (subsequence ranker, best-first) + `subsequenceScore(needle, haystack)` (null=no match). Field weighting name>keywords>description; contiguous-run + word-boundary + earlier-position bonuses. Empty/whitespace query passes through (D-05); no-match → `[]` (D-07); case-insensitive; stable tie-break by registry order.
+  - Imports ONLY the `ToolDefinition` *type* (grep-verified) — no React, no @tauri-apps, no platform; query scanned char-by-char, never a RegExp (T-02-05). No runtime dep added (no cmdk/fuse.js).
+  - `searchTools()` in `registry.ts` left untouched — the palette swaps to `rankTools` in **02-04** (registry.ts is a no-edit file this plan).
+  - Gate: **42/42 vitest** (decoder 19 green; +11 new fuzzy tests, ≥6 required), tsc clean, eslint 0 errors. SUMMARY: `.planning/phases/02-shell/02-02-SUMMARY.md`. No deviations (plan ran exactly as written).
+  - SHL-02 left **Pending** — the ranker is only the matching engine; the ⌘K palette open/Enter-navigate UI (02-04) completes SHL-02. Marking it complete now would be a false claim (no palette exists yet).
 
 ## Blocker
 
@@ -55,11 +61,13 @@ wave: 1 (02-01 ✓ complete; 02-02 fuzzy ranker still to run)
 
 ## Next Step (pick up here next session)
 
-Plan 02-01 is complete. **Continue Phase 2 wave 1:** run `02-02` (in-house fuzzy ranker, TDD), then wave 2 `02-03` (prefs/recents/startup-resolution + router wiring — consumes the now-real `platform.store`), then wave 3 `02-04` (Sidebar + ⌘K palette + App.tsx shell chrome — consumes the shell `@theme` tokens), ending with the phase human-verify checkpoint.
+Wave 1 (02-01 foundation + 02-02 fuzzy ranker) is complete. **Continue Phase 2 wave 2:** run `02-03` (prefs/recents/startup-resolution + router wiring — consumes the now-real `platform.store`), then wave 3 `02-04` (Sidebar + ⌘K palette + App.tsx shell chrome — consumes the shell `@theme` tokens **and `rankTools`**), ending with the phase human-verify checkpoint.
 
 Reminders:
+
 - The 3 tools are now `enabled: true` rendering `makePlaceholder` — `ENABLED_TOOLS` is populated. Do NOT touch `decoder.ts`/`bytes.ts`/`types.ts` (and `registry.ts` stays port-unchanged — its "ENABLED_TOOLS is empty" comment is now stale but must not be edited per the plan's acceptance criteria).
 - `platform.store` is real (get/set unchanged); 02-03 should layer a typed `usePreferences` over it, not widen the seam.
+- `rankTools(query, tools)` from `src/shell/fuzzy.ts` is ready — 02-04's `CommandPalette` consumes it as the filter (caller layers recents/registry order for the empty-query case per D-05). SHL-02 completes in 02-04.
 
 ## Harness reminder (per-task DoD, in order)
 
