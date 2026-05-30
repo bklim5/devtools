@@ -47,5 +47,8 @@ export default defineConfig(async () => ({
   test: {
     environment: "node",
     globals: false,
+    // Exclude the vendored `scaffold/` reference copy so the decoder spec has a
+    // single source of truth in `src/` (scaffold/ is deleted later this phase).
+    exclude: ["**/node_modules/**", "**/dist/**", "scaffold/**"],
   },
 }));
