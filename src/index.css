@@ -41,6 +41,8 @@
   --color-tx-2: #989da7;
   --color-tx-3: #686d77;
   --color-input-bg: #0d0f13;
+  --color-palette: #1a1d23;
+  --color-scrim: rgba(6, 7, 9, 0.66);
   --color-accent-soft: color-mix(in srgb, var(--color-accent) 15%, transparent);
   --color-accent-line: color-mix(in srgb, var(--color-accent) 75%, transparent);
 
