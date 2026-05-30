@@ -26,6 +26,8 @@ export function ByteInspector() {
   const [copied, setCopied] = useState(false);
 
   // Instant transform: runs on every change (which fires on paste/Cmd+V too).
+  // Timing is measured here in the event handler (NOT during render) — render
+  // must stay pure, and this also computes `inspect` exactly once per change.
   // There is intentionally NO decode button — the common case transforms live.
   const onChange = useCallback((next: string) => {
     const start = performance.now();

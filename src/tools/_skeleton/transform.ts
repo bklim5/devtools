@@ -1,9 +1,12 @@
-// PHASE 1 THROWAWAY — delete before Phase 2. Does NOT use the real protobuf/base64 lib.
+// PHASE 1 THROWAWAY — delete before Phase 2. Not the real Protobuf/Base64 tools.
 //
 // This is the trivial transform driving the walking-skeleton "byte inspector"
-// (D-04/D-05). It deliberately does NOT import @/lib/bytes or @/lib/protobuf —
-// the real Base64/Protobuf tools are Phase 3's job. All logic here is inline,
-// trivial string work so the skeleton stays genuinely throwaway.
+// (D-04/D-05). It reuses the low-level UTF-8/hex helpers from @/lib/bytes
+// (a permanent, byte-frozen module) rather than re-implementing them — the
+// real Base64/Protobuf *tools* are Phase 3's job, but their underlying byte
+// helpers already exist and the skeleton should exercise the shared path.
+
+import { utf8ToBytes, bytesToHex } from "@/lib/bytes";
 
 export type ParseState = "empty" | "ok";
 
@@ -20,12 +23,11 @@ export interface Inspection {
 
 /** Inspect a string: UTF-8 byte length + uppercase + hex. Trivial, throwaway. */
 export function inspect(input: string): Inspection {
-  const bytes = new TextEncoder().encode(input);
-  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  const bytes = utf8ToBytes(input);
   return {
     byteLength: bytes.length,
     upper: input.toUpperCase(),
-    hex,
+    hex: bytesToHex(bytes),
     parseState: bytes.length === 0 ? "empty" : "ok",
   };
 }

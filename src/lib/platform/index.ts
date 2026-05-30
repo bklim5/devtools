@@ -37,15 +37,16 @@ function isTauri(): boolean {
 let active: Platform = browserPlatform;
 
 /** Synchronous accessor — always usable; backed by the browser fallback until
- *  the Tauri impl lazily resolves (when inside the WKWebView). */
+ *  the Tauri impl lazily resolves (when inside the WKWebView). Delegates per
+ *  capability via getters so it can never drift from `Platform`: adding a
+ *  capability to the interface flows through automatically (no per-method
+ *  forwarder to keep in sync). */
 export const platform: Platform = {
-  clipboard: {
-    writeText: (text) => active.clipboard.writeText(text),
-    readText: () => active.clipboard.readText(),
+  get clipboard() {
+    return active.clipboard;
   },
-  store: {
-    get: (key) => active.store.get(key),
-    set: (key, value) => active.store.set(key, value),
+  get store() {
+    return active.store;
   },
 };
 
