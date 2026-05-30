@@ -1,6 +1,18 @@
 /* Entry stylesheet — imported by src/main.tsx as `./index.css`.
    Tailwind v4 CSS-first config (NO tailwind.config.js, NO postcss.config).
-   Vendored @fontsource imports are added in Task 3 (FND-05, no CDN). */
+
+   FND-05: fonts are vendored from @fontsource (static weights). These @import
+   rules resolve woff2 at build time (relative url(./files/*.woff2)) — ZERO
+   runtime network. The design HTML loaded these from a Google Fonts CDN; that
+   CDN dependency is deliberately NOT carried over (no runtime font fetch). */
+@import "@fontsource/ibm-plex-sans/400.css";
+@import "@fontsource/ibm-plex-sans/500.css";
+@import "@fontsource/ibm-plex-sans/600.css";
+@import "@fontsource/ibm-plex-sans/700.css";
+@import "@fontsource/jetbrains-mono/400.css";
+@import "@fontsource/jetbrains-mono/500.css";
+@import "@fontsource/jetbrains-mono/600.css";
+
 @import "tailwindcss";
 
 /* Design tokens mapped from design/DevTools Mockup.html into Tailwind v4 @theme.
@@ -18,4 +30,20 @@
 
   --font-sans: "IBM Plex Sans", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+/* FND-01: dark window. Matches the design's radial-gradient over --bg-app
+   (#0a0b0d) with the IBM Plex Sans body font. */
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: radial-gradient(120% 90% at 50% -10%, #14161c 0%, #0a0b0d 60%);
+  color: #e7e9ee;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
 }
