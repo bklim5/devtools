@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 01-02-PLAN.md
-last_updated: "2026-05-30T13:19:09.204Z"
+stopped_at: Completed 01-03-PLAN.md
+last_updated: "2026-05-30T15:30:32.639Z"
 last_activity: 2026-05-30
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 4
-  completed_plans: 2
-  percent: 50
+  completed_plans: 3
+  percent: 75
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-05-30)
 ## Current Position
 
 Phase: 1 (Scaffold + Harness Proof) — EXECUTING
-Plan: 3 of 4
+Plan: 4 of 4
 Status: Ready to execute
 Last activity: 2026-05-30
 
@@ -54,6 +54,7 @@ Progress: [░░░░░░░░░░] 0%
 *Updated after each plan completion*
 | Phase 01 P01 | 9 | 3 tasks | 51 files |
 | Phase 01 P02 | 39 | 3 tasks | 14 files |
+| Phase 01-scaffold-harness-proof P03 | 18 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -72,6 +73,8 @@ Recent decisions affecting current work:
 - [Phase 01]: Platform seam is environment-safe: no top-level @tauri-apps import; runtime __TAURI_INTERNALS__ detection lazily imports the Tauri impl (code-split into its own chunk), browser navigator.clipboard fallback for vite preview, setPlatformForTest for tests.
 - [Phase 01]: Skeleton registered enabled:true as first registry entry so ENABLED_TOOLS[0] resolves and the verbatim HashRouter boots; runtime proven via jsdom RouterProvider smoke test (mount + unknown-route -> /tools/_skeleton redirect).
 - [Phase 01]: router.tsx needed a React-19 JSX type-compat shim (narrow ComponentType|LazyComponent to ComponentType at render site); Phase 2 uses route-level lazy for code-split tools.
+- [Phase 01-scaffold-harness-proof]: lefthook pre-commit unit gate (tsc --noEmit + vitest run, parallel) is now live/mechanical (HRN-03); proven non-destructively via pnpm lefthook run pre-commit on a staged type-error probe; UI gate + /codex:review stay manual per D-08.
+- [Phase 01-scaffold-harness-proof]: First tauri build smoke (HRN-04): runnable unsigned/adhoc macOS devtools-app.app (9.7M) + .dmg (4.1M), ~69s warm build, Rust 1.96.0; webdriver surface verified absent; findings in docs/phase-0-notes.md. Authoritative post-WebDriver final build deferred to Plan 04.
 
 ### Pending Todos
 
@@ -88,6 +91,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-30T13:18:15.251Z
-Stopped at: Completed 01-02-PLAN.md
+Last session: 2026-05-30T15:30:32.636Z
+Stopped at: Completed 01-03-PLAN.md
 Resume file: None

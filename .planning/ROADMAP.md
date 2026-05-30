@@ -35,7 +35,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 Plans:
 - [x] 01-01-PLAN.md — Scaffold Tauri+React+TS in place, wire @/ alias + Tailwind v4 + vitest, port src/lib/ unchanged (19 tests green), vendor fonts, dark window (FND-01/03/05)
 - [x] 01-02-PLAN.md — HashRouter verbatim, platform capability seam (clipboard), throwaway byte-inspector skeleton with TDD (FND-02/04, HRN-01)
-- [ ] 01-03-PLAN.md — lefthook pre-commit unit gate (blocks bad commits) + runnable unsigned tauri build, findings in phase-0-notes.md (HRN-03/04)
+- [x] 01-03-PLAN.md — lefthook pre-commit unit gate (blocks bad commits) + runnable unsigned tauri build, findings in phase-0-notes.md (HRN-03/04)
 - [ ] 01-04-PLAN.md — macOS webview automation spike (tauri-plugin-webdriver, debug-only) or fallback, skeleton through the full review→unit→ui gate, human sign-off (HRN-01/02)
 **UI hint**: yes
 

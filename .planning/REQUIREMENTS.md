@@ -19,8 +19,8 @@ Requirements for the initial macOS release. Each maps to exactly one roadmap pha
 
 - [x] **HRN-01**: A walking-skeleton (trivial) feature exercises the full per-task gate end-to-end: `/codex:review` → `vitest`+`tsc` → real-webview UI verification
 - [ ] **HRN-02**: macOS real-webview UI automation path is proven (community WebDriver plugin spike) OR the documented `screencapture`+`chrome-devtools-mcp` fallback is in place, recorded in `docs/phase-0-notes.md`
-- [ ] **HRN-03**: Per-task Definition of Done (review→unit→ui) and per-phase human sign-off are enforced for every subsequent phase; parallel plans never bypass the gates
-- [ ] **HRN-04**: `tauri build` produces a runnable macOS bundle; build verification runs at each phase boundary
+- [x] **HRN-03**: Per-task Definition of Done (review→unit→ui) and per-phase human sign-off are enforced for every subsequent phase; parallel plans never bypass the gates
+- [x] **HRN-04**: `tauri build` produces a runnable macOS bundle; build verification runs at each phase boundary
 
 ### Shell (SHL)
 
@@ -114,8 +114,8 @@ Phase mapping finalized by the roadmapper. Every v1 requirement maps to exactly 
 | FND-05 | Phase 1 (Scaffold + Harness Proof) | Complete |
 | HRN-01 | Phase 1 (Scaffold + Harness Proof) | Complete |
 | HRN-02 | Phase 1 (Scaffold + Harness Proof) | Pending |
-| HRN-03 | Phase 1 (Scaffold + Harness Proof) | Pending |
-| HRN-04 | Phase 1 (Scaffold + Harness Proof) | Pending |
+| HRN-03 | Phase 1 (Scaffold + Harness Proof) | Complete |
+| HRN-04 | Phase 1 (Scaffold + Harness Proof) | Complete |
 | SHL-01 | Phase 2 (Shell) | Pending |
 | SHL-02 | Phase 2 (Shell) | Pending |
 | SHL-03 | Phase 2 (Shell) | Pending |
