@@ -10,14 +10,14 @@ Requirements for the initial macOS release. Each maps to exactly one roadmap pha
 ### Foundation (FND)
 
 - [x] **FND-01**: Tauri 2 + Vite + React + TS project builds and launches a dark window on macOS from a single repo
-- [ ] **FND-02**: `react-router` HashRouter wired (no BrowserRouter); unknown routes redirect to the first tool
+- [x] **FND-02**: `react-router` HashRouter wired (no BrowserRouter); unknown routes redirect to the first tool
 - [x] **FND-03**: Verified `src/lib/` (decoder, bytes, tool types, registry) ported unchanged with all **19 decoder vitest cases passing**
-- [ ] **FND-04**: `src/lib/platform/` capability seam exists; tools access clipboard/store/shortcuts through it, never importing `@tauri-apps/*` directly
+- [x] **FND-04**: `src/lib/platform/` capability seam exists; tools access clipboard/store/shortcuts through it, never importing `@tauri-apps/*` directly
 - [x] **FND-05**: IBM Plex Sans + JetBrains Mono self-hosted (vendored, SIL OFL); no network/CDN font loading at runtime
 
 ### Harness (HRN)
 
-- [ ] **HRN-01**: A walking-skeleton (trivial) feature exercises the full per-task gate end-to-end: `/codex:review` → `vitest`+`tsc` → real-webview UI verification
+- [x] **HRN-01**: A walking-skeleton (trivial) feature exercises the full per-task gate end-to-end: `/codex:review` → `vitest`+`tsc` → real-webview UI verification
 - [ ] **HRN-02**: macOS real-webview UI automation path is proven (community WebDriver plugin spike) OR the documented `screencapture`+`chrome-devtools-mcp` fallback is in place, recorded in `docs/phase-0-notes.md`
 - [ ] **HRN-03**: Per-task Definition of Done (review→unit→ui) and per-phase human sign-off are enforced for every subsequent phase; parallel plans never bypass the gates
 - [ ] **HRN-04**: `tauri build` produces a runnable macOS bundle; build verification runs at each phase boundary
@@ -108,11 +108,11 @@ Phase mapping finalized by the roadmapper. Every v1 requirement maps to exactly 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | FND-01 | Phase 1 (Scaffold + Harness Proof) | Complete |
-| FND-02 | Phase 1 (Scaffold + Harness Proof) | Pending |
+| FND-02 | Phase 1 (Scaffold + Harness Proof) | Complete |
 | FND-03 | Phase 1 (Scaffold + Harness Proof) | Complete |
-| FND-04 | Phase 1 (Scaffold + Harness Proof) | Pending |
+| FND-04 | Phase 1 (Scaffold + Harness Proof) | Complete |
 | FND-05 | Phase 1 (Scaffold + Harness Proof) | Complete |
-| HRN-01 | Phase 1 (Scaffold + Harness Proof) | Pending |
+| HRN-01 | Phase 1 (Scaffold + Harness Proof) | Complete |
 | HRN-02 | Phase 1 (Scaffold + Harness Proof) | Pending |
 | HRN-03 | Phase 1 (Scaffold + Harness Proof) | Pending |
 | HRN-04 | Phase 1 (Scaffold + Harness Proof) | Pending |
