@@ -27,8 +27,8 @@ Requirements for the initial macOS release. Each maps to exactly one roadmap pha
 - [ ] **SHL-01**: Sidebar (compact mode: icon + name) renders, generated from the tool registry
 - [ ] **SHL-02**: ⌘K command palette opens, fuzzy-matches over name+keywords+description, and Enter switches tools (no mouse)
 - [ ] **SHL-03**: Command palette remembers and surfaces recently-used tools
-- [ ] **SHL-04**: Registry is the single source of truth — adding a tool (file + one registry entry) makes sidebar, palette, and route appear automatically
-- [ ] **SHL-05**: Preferences persist across restarts: theme, last-used tool, window geometry, Protobuf tree style
+- [x] **SHL-04**: Registry is the single source of truth — adding a tool (file + one registry entry) makes sidebar, palette, and route appear automatically <!-- 02-01: registry now populated (3 tools enabled), router derives routes from ENABLED_TOOLS; sidebar/palette consumers land in 02-04 -->
+- [~] **SHL-05** (PARTIAL): Preferences persist across restarts: theme, last-used tool, ~~window geometry~~, Protobuf tree style <!-- 02-01: real on-disk Store seam delivered (plugin-store + localStorage); theme/last-used/recents persistence wired in 02-03. WINDOW GEOMETRY deferred to Phase 5 (D-11); Protobuf tree-style key written by Phase 3. Do NOT mark fully Complete at the Phase 2 boundary. -->
 - [ ] **SHL-06**: App opens to the last-used or summoned tool with no "pick a tool" step
 
 ### Protobuf Decoder — hero (PRO)
@@ -119,8 +119,8 @@ Phase mapping finalized by the roadmapper. Every v1 requirement maps to exactly 
 | SHL-01 | Phase 2 (Shell) | Pending |
 | SHL-02 | Phase 2 (Shell) | Pending |
 | SHL-03 | Phase 2 (Shell) | Pending |
-| SHL-04 | Phase 2 (Shell) | Pending |
-| SHL-05 | Phase 2 (Shell) | Pending |
+| SHL-04 | Phase 2 (Shell) | Complete |
+| SHL-05 | Phase 2 (Shell) | Partial (window geometry → Phase 5, D-11) |
 | SHL-06 | Phase 2 (Shell) | Pending |
 | PRO-01 | Phase 3 (Hero + Encoding + UX) | Pending |
 | PRO-02 | Phase 3 (Hero + Encoding + UX) | Pending |

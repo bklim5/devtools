@@ -51,7 +51,7 @@ Plans:
   5. Every plan in the phase passes the per-task gate (review → unit → ui) with no skipping ahead, and the phase ends with a passing `gsd-ui-review` WCAG-AA audit and human sign-off on a fresh `tauri build`.
 **Plans**: 4 plans
 Plans:
-- [ ] 02-01-PLAN.md — Foundation: install lucide-react@1.17.0 + @tauri-apps/plugin-store@2.4.3, register the Rust store plugin + scope store:default, make the Store seam real (plugin-store / localStorage), add shell CSS tokens, enable the three tools as a shared placeholder (SHL-04/05; D-01/09/10)
+- [x] 02-01-PLAN.md — Foundation: install lucide-react@1.17.0 + @tauri-apps/plugin-store@2.4.3, register the Rust store plugin + scope store:default, make the Store seam real (plugin-store / localStorage), add shell CSS tokens, enable the three tools as a shared placeholder (SHL-04/05; D-01/09/10)
 - [ ] 02-02-PLAN.md — In-house zero-dependency fuzzy ranker rankTools over name+keywords+description, fully unit-tested (SHL-02; D-06)
 - [ ] 02-03-PLAN.md — usePreferences + useRecentTools over the Store seam, single resolveStartupTool seam (explicit > last-used > hero), router index-route wiring + prefs preload (SHL-03/04/05/06; D-08/12/13/14)
 - [ ] 02-04-PLAN.md — Registry-driven compact Sidebar + ⌘K CommandPalette (fuzzy + recents + keyboard nav) + App.tsx shell chrome, ending with the phase human-verify checkpoint (SHL-01/02/03/04/06; D-02/03/04/05/07)
@@ -114,7 +114,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Scaffold + Harness Proof | 4/4 | Complete    | 2026-05-30 |
-| 2. Shell | 0/4 | Planned | - |
+| 2. Shell | 1/4 | In Progress|  |
 | 3. Hero + Encoding + UX | 0/TBD | Not started | - |
 | 4. Catalogue | 0/TBD | Not started | - |
 | 5. Native Polish | 0/TBD | Not started | - |
