@@ -23,3 +23,17 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri-plugin-clipboard-manager = "2.3.2"
 
+# WebDriver automation spike (D-01 / HRN-02). DEBUG-ONLY — gated behind
+# `cfg(debug_assertions)` so the embedded W3C WebDriver server on 127.0.0.1:4445
+# is NEVER compiled into a release build (RESEARCH Pitfall 4 / threat T-01-10).
+# The matching registration in src/lib.rs is also under `#[cfg(debug_assertions)]`.
+# The authoritative post-WebDriver `tauri build` (Plan 01-04 Task 2) verifies this
+# server is absent from the release artifact.
+#
+# VERSION NOTE (Plan 01-04 deviation, Rule 1): RESEARCH/PLAN pinned `= "0.2"`, but
+# crates.io only publishes 0.1.0 (verified via the crates.io API — the claimed
+# 0.2.1 does not exist there). 0.1.0 resolves and `cargo check` compiles cleanly
+# against this stable Tauri 2.11 tree, so we pin the actually-published 0.1.0.
+[target.'cfg(debug_assertions)'.dependencies]
+tauri-plugin-webdriver = "0.1.0"
+
