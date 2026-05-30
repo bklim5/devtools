@@ -42,14 +42,19 @@ Plans:
 ### Phase 2: Shell
 **Goal**: A registry-driven application shell where the sidebar, ⌘K palette, and router all derive from a single tool registry, preferences persist across restarts, and the app opens straight to the last-used or summoned tool with no "pick a tool" friction.
 **Depends on**: Phase 1
-**Requirements**: SHL-01, SHL-02, SHL-03, SHL-04, SHL-05, SHL-06
+**Requirements**: SHL-01, SHL-02, SHL-03, SHL-04, SHL-05 (PARTIAL — window-geometry deferred to Phase 5 per D-11), SHL-06
 **Success Criteria** (what must be TRUE):
   1. The compact sidebar (icon + name) renders entirely from the tool registry, and adding a tool (one file + one registry entry) makes it appear in sidebar, palette, and route with no other wiring (single control plane).
   2. ⌘K opens a command palette that fuzzy-matches over name+keywords+description, surfaces recently-used tools, and switches tools on Enter — achieving no-mouse tool switching end-to-end.
-  3. Preferences (theme, last-used tool, window geometry, Protobuf tree style) persist across an app restart via the platform store seam.
+  3. Preferences (theme, last-used tool, window geometry, Protobuf tree style) persist across an app restart via the platform store seam. *(Phase 2 delivers theme/accent + last-used + recents; window geometry is deferred to Phase 5 (D-11) and the Protobuf tree-style value is written by Phase 3 — SHL-05 is therefore PARTIAL at the Phase 2 boundary.)*
   4. Relaunching the app opens directly to the last-used tool (or the summoned tool) with no "pick a tool" step.
   5. Every plan in the phase passes the per-task gate (review → unit → ui) with no skipping ahead, and the phase ends with a passing `gsd-ui-review` WCAG-AA audit and human sign-off on a fresh `tauri build`.
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 02-01-PLAN.md — Foundation: install lucide-react@1.17.0 + @tauri-apps/plugin-store@2.4.3, register the Rust store plugin + scope store:default, make the Store seam real (plugin-store / localStorage), add shell CSS tokens, enable the three tools as a shared placeholder (SHL-04/05; D-01/09/10)
+- [ ] 02-02-PLAN.md — In-house zero-dependency fuzzy ranker rankTools over name+keywords+description, fully unit-tested (SHL-02; D-06)
+- [ ] 02-03-PLAN.md — usePreferences + useRecentTools over the Store seam, single resolveStartupTool seam (explicit > last-used > hero), router index-route wiring + prefs preload (SHL-03/04/05/06; D-08/12/13/14)
+- [ ] 02-04-PLAN.md — Registry-driven compact Sidebar + ⌘K CommandPalette (fuzzy + recents + keyboard nav) + App.tsx shell chrome, ending with the phase human-verify checkpoint (SHL-01/02/03/04/06; D-02/03/04/05/07)
 **UI hint**: yes
 
 ### Phase 3: Hero (Protobuf) + Encoding + UX Constraints
@@ -86,6 +91,8 @@ Plans:
   2. The app shows tray/menu presence, and launching a second instance focuses the existing window rather than opening a new one (single-instance).
   3. Native capabilities are reached through `src/lib/platform/` (no direct `@tauri-apps/*` imports in tools), and offline-by-design still holds (no network at runtime).
   4. Each plan passes the per-task gate (review → unit → ui); the phase ends with a passing `gsd-ui-review` audit and human sign-off on a `tauri build`.
+
+  *Note: window-geometry persistence (SHL-05's deferred clause, D-11) lands here alongside the native window work.*
 **Plans**: TBD
 
 ### Phase 6: Distribution
@@ -107,7 +114,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Scaffold + Harness Proof | 4/4 | Complete    | 2026-05-30 |
-| 2. Shell | 0/TBD | Not started | - |
+| 2. Shell | 0/4 | Planned | - |
 | 3. Hero + Encoding + UX | 0/TBD | Not started | - |
 | 4. Catalogue | 0/TBD | Not started | - |
 | 5. Native Polish | 0/TBD | Not started | - |
