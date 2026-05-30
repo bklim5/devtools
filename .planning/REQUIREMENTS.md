@@ -9,11 +9,11 @@ Requirements for the initial macOS release. Each maps to exactly one roadmap pha
 
 ### Foundation (FND)
 
-- [ ] **FND-01**: Tauri 2 + Vite + React + TS project builds and launches a dark window on macOS from a single repo
+- [x] **FND-01**: Tauri 2 + Vite + React + TS project builds and launches a dark window on macOS from a single repo
 - [ ] **FND-02**: `react-router` HashRouter wired (no BrowserRouter); unknown routes redirect to the first tool
-- [ ] **FND-03**: Verified `src/lib/` (decoder, bytes, tool types, registry) ported unchanged with all **19 decoder vitest cases passing**
+- [x] **FND-03**: Verified `src/lib/` (decoder, bytes, tool types, registry) ported unchanged with all **19 decoder vitest cases passing**
 - [ ] **FND-04**: `src/lib/platform/` capability seam exists; tools access clipboard/store/shortcuts through it, never importing `@tauri-apps/*` directly
-- [ ] **FND-05**: IBM Plex Sans + JetBrains Mono self-hosted (vendored, SIL OFL); no network/CDN font loading at runtime
+- [x] **FND-05**: IBM Plex Sans + JetBrains Mono self-hosted (vendored, SIL OFL); no network/CDN font loading at runtime
 
 ### Harness (HRN)
 
@@ -107,11 +107,11 @@ Phase mapping finalized by the roadmapper. Every v1 requirement maps to exactly 
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FND-01 | Phase 1 (Scaffold + Harness Proof) | Pending |
+| FND-01 | Phase 1 (Scaffold + Harness Proof) | Complete |
 | FND-02 | Phase 1 (Scaffold + Harness Proof) | Pending |
-| FND-03 | Phase 1 (Scaffold + Harness Proof) | Pending |
+| FND-03 | Phase 1 (Scaffold + Harness Proof) | Complete |
 | FND-04 | Phase 1 (Scaffold + Harness Proof) | Pending |
-| FND-05 | Phase 1 (Scaffold + Harness Proof) | Pending |
+| FND-05 | Phase 1 (Scaffold + Harness Proof) | Complete |
 | HRN-01 | Phase 1 (Scaffold + Harness Proof) | Pending |
 | HRN-02 | Phase 1 (Scaffold + Harness Proof) | Pending |
 | HRN-03 | Phase 1 (Scaffold + Harness Proof) | Pending |
