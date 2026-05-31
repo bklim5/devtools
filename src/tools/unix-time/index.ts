@@ -1,9 +1,9 @@
-// Unix Time Converter — ENABLED in Phase 2 as a shared placeholder (D-01); Phase 3
-// replaces `component` with the real tool UI. Only the registry-facing fields
-// change here (enabled/icon/component/description) — no tool logic yet.
+// Unix Time Converter — the real tool (Phase 4, 04-02; TIME-01). The placeholder
+// shipped in Phase 2 (D-01); this plan swaps `component` to the real UnixTimeTool.
+// unixTimeTool is already in registry.ts's TOOLS array (no registry edit needed).
 import { Clock } from "lucide-react";
-import { makePlaceholder } from "@/tools/_placeholder/ToolPlaceholder";
 import type { ToolDefinition } from "@/lib/tools/types";
+import UnixTimeTool from "./UnixTimeTool";
 
 export const unixTimeTool: ToolDefinition = {
   id: "unix-time",
@@ -12,6 +12,6 @@ export const unixTimeTool: ToolDefinition = {
   category: "time",
   keywords: ["unix", "time", "timestamp", "epoch"],
   icon: Clock,
-  component: makePlaceholder("Unix Time"),
+  component: UnixTimeTool,
   enabled: true,
 };
