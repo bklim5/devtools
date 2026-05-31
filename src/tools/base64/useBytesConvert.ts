@@ -1,8 +1,9 @@
 // useBytesConvert (ENC-01/02/03, D-12/D-13): ONE internal Uint8Array is the single
 // source of truth. Editing any of text/base64/hex parses ONLY that field back to
-// bytes, then re-derives the OTHER TWO from those bytes. On a parse failure, only
-// that field's error is set and bytes + the other two strings stay last-good — the
-// user still sees the raw text they typed. The alphabet toggle re-derives ONLY the
+// bytes, then re-derives the OTHER TWO from those bytes. On a parse failure there
+// are no valid bytes, so the OTHER TWO panes are CLEARED (not left stale) and only
+// that field's error is set — the user still sees the raw text they typed plus a
+// named error (user-directed refinement of D-13). The alphabet toggle re-derives ONLY the
 // base64 string (no re-parse → no round-trip mangling). All byte work routes through
 // src/lib/bytes.ts; NO btoa/atob/TextEncoder and NO @tauri-apps here.
 import { useCallback, useMemo, useState } from "react";
@@ -57,6 +58,19 @@ export function useBytesConvert(): BytesConvert {
     [],
   );
 
+  // A parse failure means there are no valid bytes. Clear the derived panes —
+  // `text` plus the one OTHER field (`clearOther`) — but keep the raw input the
+  // user just typed in `field`, and flag only that field.
+  const failParse = useCallback(
+    (field: keyof FieldErrors, clearOther: (raw: string) => void, e: unknown) => {
+      setBytes(EMPTY);
+      setText("");
+      clearOther("");
+      setError(field, (e as Error).message);
+    },
+    [setError],
+  );
+
   const editText = useCallback(
     (raw: string) => {
       setText(raw);
@@ -80,11 +94,11 @@ export function useBytesConvert(): BytesConvert {
         setHex(bytesToHex(next));
         clearErrors();
       } catch (e) {
-        // Last-good: do NOT touch bytes/text/hex; flag only this field.
-        setError("base64", (e as Error).message);
+        // Keep the raw base64 above; clear text + hex.
+        failParse("base64", setHex, e);
       }
     },
-    [alphabet, clearErrors, setError],
+    [alphabet, clearErrors, failParse],
   );
 
   const editHex = useCallback(
@@ -97,10 +111,11 @@ export function useBytesConvert(): BytesConvert {
         setBase64(bytesToBase64(next, alphabet));
         clearErrors();
       } catch (e) {
-        setError("hex", (e as Error).message);
+        // Keep the raw hex above; clear text + base64.
+        failParse("hex", setBase64, e);
       }
     },
-    [alphabet, clearErrors, setError],
+    [alphabet, clearErrors, failParse],
   );
 
   // Re-derive ONLY base64 from the CURRENT bytes — never re-parse the base64 string
@@ -108,9 +123,12 @@ export function useBytesConvert(): BytesConvert {
   const setAlphabet = useCallback(
     (next: Base64Alphabet) => {
       setAlphabetState(next);
-      setBase64(bytesToBase64(bytes, next));
+      // Re-derive base64 from the current bytes — but only when base64 actually
+      // reflects them. If base64 is mid-error (it holds the user's raw,
+      // unparseable input), leave that text alone instead of blanking it.
+      if (!errors.base64) setBase64(bytesToBase64(bytes, next));
     },
-    [bytes],
+    [bytes, errors.base64],
   );
 
   const byteCount = bytes.length;

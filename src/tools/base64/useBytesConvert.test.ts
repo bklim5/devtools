@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // useBytesConvert: ONE internal Uint8Array is the source of truth; editing any of
 // text/base64/hex re-derives the OTHER TWO from the new bytes (ENC-01/02). Invalid
-// input flags ONLY that field and leaves the other two + bytes at last-good (D-13).
+// input flags ONLY that field and CLEARS the other two + bytes (user-directed refinement of D-13).
 // The alphabet toggle re-derives ONLY the base64 string from current bytes (ENC-03,
 // no round-trip re-parse). All byte work routes through src/lib/bytes.ts.
 import { describe, expect, it } from "vitest";
@@ -46,27 +46,40 @@ describe("useBytesConvert", () => {
     expect(result.current.errors.base64).toBeUndefined();
   });
 
-  it("editHex with an odd length flags ONLY the hex field and keeps the others last-good", () => {
+  it("editHex with an odd length flags ONLY the hex field and clears the others", () => {
     const { result } = renderHook(() => useBytesConvert());
-    act(() => result.current.editText("hello")); // establish last-good
+    act(() => result.current.editText("hello")); // establish prior values
     act(() => result.current.editHex("6"));
     expect(result.current.errors.hex).toBe("Hex must have an even number of digits");
     // raw input is shown back to the user
     expect(result.current.hex).toBe("6");
-    // text + base64 keep their LAST-GOOD values; bytes untouched
-    expect(result.current.text).toBe("hello");
-    expect(result.current.base64).toBe("aGVsbG8=");
-    expect(result.current.byteCount).toBe(5);
+    // text + base64 are CLEARED (no stale last-good); bytes reset to empty
+    expect(result.current.text).toBe("");
+    expect(result.current.base64).toBe("");
+    expect(result.current.byteCount).toBe(0);
     expect(result.current.errors.text).toBeUndefined();
     expect(result.current.errors.base64).toBeUndefined();
   });
 
-  it("editHex with invalid characters flags ONLY the hex field", () => {
+  it("editHex with invalid characters flags ONLY the hex field and clears the others", () => {
     const { result } = renderHook(() => useBytesConvert());
     act(() => result.current.editText("hi"));
     act(() => result.current.editHex("zz"));
     expect(result.current.errors.hex).toBe("Invalid hex characters");
-    expect(result.current.text).toBe("hi");
+    expect(result.current.text).toBe("");
+    expect(result.current.base64).toBe("");
+  });
+
+  it("editBase64 with invalid input flags ONLY base64 and clears the others", () => {
+    const { result } = renderHook(() => useBytesConvert());
+    act(() => result.current.editText("hello")); // establish prior values
+    act(() => result.current.editBase64("@@@@"));
+    expect(result.current.errors.base64).toBeDefined();
+    // raw input stays in the base64 field
+    expect(result.current.base64).toBe("@@@@");
+    expect(result.current.text).toBe("");
+    expect(result.current.hex).toBe("");
+    expect(result.current.byteCount).toBe(0);
   });
 
   it("editText never errors and re-derives even from earlier-errored state", () => {
@@ -76,6 +89,15 @@ describe("useBytesConvert", () => {
     expect(result.current.errors.hex).toBeUndefined();
     expect(result.current.text).toBe("hi");
     expect(result.current.hex).toBe("6869");
+  });
+
+  it("setAlphabet during a base64 error keeps the raw input (does not blank it)", () => {
+    const { result } = renderHook(() => useBytesConvert());
+    act(() => result.current.editBase64("@@@@")); // error: base64 holds raw "@@@@"
+    expect(result.current.errors.base64).toBeDefined();
+    act(() => result.current.setAlphabet("base64url"));
+    expect(result.current.alphabet).toBe("base64url");
+    expect(result.current.base64).toBe("@@@@"); // preserved, not re-derived to ""
   });
 
   it("setAlphabet(base64url) changes ONLY the base64 string; text + hex unchanged", () => {
