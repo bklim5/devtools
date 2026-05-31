@@ -7,8 +7,8 @@
 // hover-gated (UX-02). Per-field errors render as a text-bad node below the field
 // AND in the status bar (not opacity-only, UX-04). No fixed widths anywhere (UX-05).
 // Clipboard goes through the platform seam ONLY — never the Tauri APIs directly.
-import { useState } from "react";
-import { Copy } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Check, Copy } from "lucide-react";
 import { platform } from "@/lib/platform";
 import type { Base64Alphabet } from "@/lib/bytes";
 import { useBytesConvert } from "./useBytesConvert";
@@ -27,6 +27,23 @@ interface PaneProps {
 
 function Pane({ label, value, onChange, error, headerExtra, paneId }: PaneProps) {
   const errorId = `${paneId}-error`;
+  // Momentary "Copied" confirmation so the user knows the click reached the
+  // clipboard (the OS gives no feedback of its own). Each copy bumps a tick so
+  // the effect re-arms — rapid re-clicks restart the window instead of letting
+  // an in-flight timer cut it short. Cleanup cancels the timer on unmount.
+  const [copyTick, setCopyTick] = useState(0);
+  const copied = copyTick > 0;
+  useEffect(() => {
+    if (copyTick === 0) return;
+    const timer = setTimeout(() => setCopyTick(0), 1200);
+    return () => clearTimeout(timer);
+  }, [copyTick]);
+
+  function handleCopy() {
+    void platform.clipboard.writeText(value);
+    setCopyTick((n) => n + 1);
+  }
+
   return (
     <section className="flex min-w-0 flex-col gap-2">
       <div className="flex items-center justify-between gap-3">
@@ -41,12 +58,21 @@ function Pane({ label, value, onChange, error, headerExtra, paneId }: PaneProps)
         </div>
         <button
           type="button"
-          onClick={() => void platform.clipboard.writeText(value)}
+          onClick={handleCopy}
           aria-label={`Copy ${label}`}
-          className="flex items-center gap-1.5 rounded-[7px] border border-bd bg-input-bg px-2 py-1 text-[11.5px] text-tx-2 outline-none transition-colors hover:border-bd-2 hover:text-tx focus-visible:ring-2 focus-visible:ring-accent"
+          className={[
+            "flex items-center gap-1.5 rounded-[7px] border bg-input-bg px-2 py-1 text-[11.5px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent",
+            copied
+              ? "border-accent-line text-accent"
+              : "border-bd text-tx-2 hover:border-bd-2 hover:text-tx",
+          ].join(" ")}
         >
-          <Copy className="h-3.5 w-3.5" aria-hidden="true" />
-          <span>Copy</span>
+          {copied ? (
+            <Check className="h-3.5 w-3.5" aria-hidden="true" />
+          ) : (
+            <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+          )}
+          <span>{copied ? "Copied" : "Copy"}</span>
         </button>
       </div>
       <textarea

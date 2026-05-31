@@ -5,7 +5,7 @@
 // + encoding; each pane has a VISIBLE focusable <button> copy (NOT hover-gated) that
 // writes the pane value through the platform clipboard seam (no @tauri-apps).
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, within } from "@testing-library/react";
 import {
   resetPlatformForTest,
   setPlatformForTest,
@@ -81,6 +81,71 @@ describe("Base64Tool", () => {
     const copyB64 = container.querySelector("button[aria-label='Copy Base64']")!;
     fireEvent.click(copyB64);
     expect(writeText).toHaveBeenCalledWith("aGVsbG8=");
+  });
+
+  it("copy shows a momentary 'Copied' confirmation that reverts to 'Copy'", () => {
+    vi.useFakeTimers();
+    try {
+      const { container } = render(<Base64Tool />);
+      fireEvent.change(textareaFor(container, "base64-pane-text"), {
+        target: { value: "hello" },
+      });
+      const copyText = container.querySelector(
+        "button[aria-label='Copy Text']",
+      )!;
+      expect(copyText.textContent).toContain("Copy");
+      expect(copyText.textContent).not.toContain("Copied");
+
+      fireEvent.click(copyText);
+      expect(copyText.textContent).toContain("Copied");
+
+      act(() => {
+        vi.advanceTimersByTime(1200);
+      });
+      expect(copyText.textContent).not.toContain("Copied");
+      expect(copyText.textContent).toContain("Copy");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a rapid second copy re-arms the 'Copied' window (timer restarts)", () => {
+    vi.useFakeTimers();
+    try {
+      const { container } = render(<Base64Tool />);
+      fireEvent.change(textareaFor(container, "base64-pane-text"), {
+        target: { value: "hello" },
+      });
+      const copyText = container.querySelector(
+        "button[aria-label='Copy Text']",
+      )!;
+      fireEvent.click(copyText);
+      // ...most of the window elapses, then a second click before it ends
+      act(() => vi.advanceTimersByTime(1000));
+      fireEvent.click(copyText);
+      // Old (first) timer's deadline passes — confirmation must still be showing
+      act(() => vi.advanceTimersByTime(400));
+      expect(copyText.textContent).toContain("Copied");
+      // Full window after the SECOND click then reverts
+      act(() => vi.advanceTimersByTime(800));
+      expect(copyText.textContent).not.toContain("Copied");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a field error clears the OTHER panes (no stale last-good shown)", () => {
+    const { container } = render(<Base64Tool />);
+    fireEvent.change(textareaFor(container, "base64-pane-text"), {
+      target: { value: "hello" },
+    });
+    expect(textareaFor(container, "base64-pane-hex").value).toBe("68656c6c6f");
+    // odd-length hex → error; text + base64 panes are cleared
+    fireEvent.change(textareaFor(container, "base64-pane-hex"), {
+      target: { value: "6" },
+    });
+    expect(textareaFor(container, "base64-pane-text").value).toBe("");
+    expect(textareaFor(container, "base64-pane-b64").value).toBe("");
   });
 
   it("the base64/base64url toggle re-derives base64 (and only base64)", () => {
