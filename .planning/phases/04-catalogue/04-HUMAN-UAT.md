@@ -1,14 +1,14 @@
 ---
-status: partial
+status: issues
 phase: 04-catalogue
 source: [04-VERIFICATION via 04-06 boundary gate]
 started: 2026-05-31T14:30:00Z
-updated: 2026-05-31T14:30:00Z
+updated: 2026-05-31T15:30:00Z
 ---
 
 ## Current Test
 
-[testing paused — 5 items outstanding; human AFK, sign-off deferred to manual verification of Phase 4 + Phase 5]
+[human verification complete — 3/5 passed, 2 items have issues (Hash, UUID); see Gaps]
 
 <!--
 DEFERRED HUMAN SIGN-OFF. The 04-06 phase-boundary gate's automated layers are all
@@ -36,14 +36,14 @@ expected: |
   reinterprets the magnitude. Typing an ISO into the reverse field derives the
   timestamp back into the forward field. The live "now" updates on a 1s tick and
   copies via a visible focusable copy.
-result: [pending]
+result: passed
 
 ### 2. JWT
 expected: |
   At #/tools/jwt, paste a real JWT → header + payload pretty-printed, the signature
   shown raw, and `alg` surfaced; an expired token shows an "expired" flag. Pasting a
   2-segment (malformed) string shows a clear field-scoped error with no crash.
-result: [pending]
+result: passed
 
 ### 3. Hash
 expected: |
@@ -52,7 +52,12 @@ expected: |
   input encoding to hex `616263` yields the same digests. The UPPER casing toggle
   uppercases the displayed + copied digest. Each digest copies in ≤1 keystroke via a
   visible focusable copy.
-result: [pending]
+result: issue
+notes: |
+  Digests correct. Two issues: (1) the hex/base64 input-encoding option is unwanted —
+  input should always be treated as text (drop the encoding selector). (2) The UI
+  reflows/flickers/"jumps" on every keystroke as digest rows resize — reserve fixed
+  space for all digest rows so the layout is stable while typing.
 
 ### 4. UUID/ULID
 expected: |
@@ -61,7 +66,12 @@ expected: |
   yields multiple copyable entries plus a Copy-all. Pasting a UUID and a ULID renders
   correct breakdowns (UUID version/variant; ULID/v7 embedded timestamp). Pasting
   garbage shows a clear error.
-result: [pending]
+result: issue
+notes: |
+  Generation + breakdowns work. Three issues: (1) batch-count input UX — can't
+  backspace below the minimum of 1 to type 2-9, forcing select-then-replace. (2) No
+  upper bound — user can request unbounded counts and crash the app; cap at 100. (3)
+  Generate button lacks `cursor: pointer`.
 
 ### 5. Cross-cutting
 expected: |
@@ -69,17 +79,58 @@ expected: |
   shows a status bar; ⌘K switches tools with no mouse; relaunching the app opens to
   the last-used tool; and the visuals match the Phase-3 look (cards/chips/status bar,
   accent reserved for selected/active only).
-result: [pending]
+result: passed
 
 ## Summary
 
 total: 5
-passed: 0
-issues: 0
-pending: 5
+passed: 3
+issues: 2
+pending: 0
 skipped: 0
 blocked: 0
 
 ## Gaps
 
-<!-- None yet — no test has been executed; sign-off deferred to manual verification. -->
+### G-04-1: Hash — remove input-encoding selector (text-only)
+source_test: 3 (Hash)
+severity: medium
+detail: |
+  The Hash tool currently offers a hex/base64 input-encoding option. Product decision:
+  input is ALWAYS treated as text — remove the encoding selector and the hex/base64
+  decode path entirely. Simplifies the tool to its common case.
+status: failed
+
+### G-04-2: Hash — stable layout (no flicker/reflow while typing)
+source_test: 3 (Hash)
+severity: medium
+detail: |
+  On every keystroke the digest rows resize and the whole tool UI reflows/flickers/
+  "jumps". Reserve fixed vertical space for all digest rows (MD5 + SHA-256, etc.) so
+  the layout stays put as the input changes.
+status: failed
+
+### G-04-3: UUID — batch-count input UX
+source_test: 4 (UUID/ULID)
+severity: medium
+detail: |
+  The batch count field won't let the user backspace below the minimum of 1, so typing
+  2-9 requires selecting and replacing the existing "1". Allow clearing/editing the
+  field normally (e.g. allow transient empty, clamp on blur/submit).
+status: failed
+
+### G-04-4: UUID — cap batch count at 100
+source_test: 4 (UUID/ULID)
+severity: high
+detail: |
+  Batch count has no upper bound; a large count can generate unbounded entries and
+  crash the app. Cap the maximum at 100 for now (clamp input + guard generation).
+status: failed
+
+### G-04-5: UUID — Generate button cursor
+source_test: 4 (UUID/ULID)
+severity: low
+detail: |
+  The Generate button does not show `cursor: pointer` on hover. Add it (and audit
+  other interactive buttons for the same).
+status: failed
