@@ -136,6 +136,36 @@ describe("ProtobufDecoder", () => {
     expect(written).toContain('"1": "150"');
   });
 
+  it("resets stale per-node selection + expansion on a new decode (no leak into display or copy)", () => {
+    const { container } = render(<ProtobufDecoder />);
+    const fnums = () =>
+      Array.from(container.querySelectorAll("[data-fnum]")).map((n) => n.textContent ?? "");
+
+    // Payload A: {3:{1:150}} — outer #3 is a message, auto-expanded → inner #1 shows.
+    fireEvent.change(input(container), { target: { value: "1a03089601" } });
+    expect(fnums().some((t) => t.includes("#1"))).toBe(true);
+
+    // Override the OUTER node to its non-message floor chip (last radio in the first
+    // group) → its subtree hides. This stores a non-message selection at path "0".
+    const firstGroup = container.querySelector('[role="radiogroup"]')!;
+    const radios = firstGroup.querySelectorAll('[role="radio"]');
+    fireEvent.click(radios[radios.length - 1]);
+    expect(fnums().some((t) => t.includes("#1"))).toBe(false); // subtree hidden by the selection
+
+    // Payload B: {3:{1:300}} — different bytes, still a message at path "0". A new
+    // decode MUST reset selection/expansion (D-04/D-05) — otherwise the stale
+    // non-message selection hides the subtree and serializes it as hex in copy.
+    fireEvent.change(input(container), { target: { value: "1a0308ac02" } });
+    expect(fnums().some((t) => t.includes("#1"))).toBe(true); // auto-expanded again
+
+    const copyAll = within(container).getByRole("button", { name: /copy all as json/i });
+    fireEvent.click(copyAll);
+    const calls = writeText.mock.calls;
+    const written = calls[calls.length - 1][0];
+    expect(written).toContain('"3"');
+    expect(written).toContain('"1"'); // nested object, not a hex string
+  });
+
   it("per-node copy writes the selected reading through the clipboard seam", () => {
     const { container } = render(<ProtobufDecoder />);
     fireEvent.change(input(container), { target: { value: "089601" } });
