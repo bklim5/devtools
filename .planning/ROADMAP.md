@@ -105,7 +105,13 @@ Plans:
   4. Each plan passes the per-task gate (review → unit → ui); the phase ends with a passing `gsd-ui-review` audit and human sign-off on a `tauri build`.
 
   *Note: window-geometry persistence (SHL-05's deferred clause, D-11) lands here alongside the native window work.*
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 05-01-PLAN.md — Rust foundation (Wave 1): add tauri-plugin-single-instance@2.4.2 + global-shortcut@2.3.2 + window-state@2.4.1 + tray-icon feature; register single-instance FIRST in lib.rs; tray icon + menu (Show/Quit) in setup(); grant least-privilege capabilities; window visible:false for flash-free restore; keep webdriver release-exclusion intact (NAT-02; D-02/03)
+- [ ] 05-02-PLAN.md — Platform-seam extension (Wave 1): install @tauri-apps/plugin-global-shortcut@2.3.2; extend Platform with window + nativeShortcut (real impl in tauri.ts ONLY, no-ops in browser.ts); Wave-0 platform.test.ts coverage; grep audit clean (NAT-01)
+- [ ] 05-03-PLAN.md — Shell wiring (Wave 2): summon.ts with SUMMON_CHORD constant (CommandOrControl+Shift+D) + registerSummon() over the seam (unminimize→show→setFocus order, graceful register-failure); wire into main.tsx; real-WKWebView e2e for HashRouter deep-link + launch-with-plugins (NAT-01; D-01/03/04)
+- [ ] 05-04-PLAN.md — Phase boundary (Wave 3, autonomous: false): full suite + seam/release/offline/capability audits + fresh tauri build + e2e + gsd-ui-review WCAG-AA + HUMAN packaged-build sign-off (NAT-01/NAT-02/SHL-05, OS-level — batches the deferred Phase-4 UAT); mark phase complete after approval (NAT-01/NAT-02)
+**UI hint**: yes
 
 ### Phase 6: Distribution
 **Goal**: A signed, notarised, distributable macOS release — a DMG the user can install, with a wired and verifying auto-updater.
@@ -129,5 +135,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 2. Shell | 2/4 | In Progress|  |
 | 3. Hero + Encoding + UX | 1/4 | In Progress|  |
 | 4. Catalogue | 6/6 | Complete (sign-off deferred) | 2026-05-31 |
-| 5. Native Polish | 0/TBD | Not started | - |
+| 5. Native Polish | 0/4 | Planned | - |
 | 6. Distribution | 0/TBD | Not started | - |
