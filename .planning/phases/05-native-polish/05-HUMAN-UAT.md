@@ -52,7 +52,7 @@ blocked: 0
 
 ## Gaps
 
-### G-05-1: Summon chord fails (collision) + make it user-configurable
+### G-05-1: Summon chord fails on the default (collision + silent failure)
 source_test: 1 (Global summon)
 severity: high
 requirement: NAT-01
@@ -62,12 +62,23 @@ detail: |
   `register()` throws, and registerSummon() (summon.ts:61-76) catches+warns silently so
   the failure is invisible in the packaged app.
 
-  Required fixes:
-  1. Choose a non-colliding default chord (avoid Spotlight Cmd+Space, screenshot
-     Cmd+Shift+3/4, AND Finder Cmd+Shift+D / "Don't Save").
-  2. Make the summon chord USER-CONFIGURABLE — capture a chord from the user, persist
-     it (platform.store), unregister the old chord and register the new one, and
-     surface registration failures to the user (not just console.warn).
-  3. Decide where the configuration UI lives (no settings/preferences surface exists
-     yet) — this is the open design question for gap planning / discuss-phase.
+  DECISION (user, 2026-05-31): user-configurable shortcut + a real Settings surface
+  are DEFERRED to a dedicated future "Settings" phase (see Deferred below). The summon
+  feature is a "bring the RUNNING app to front" affordance only — a global hotkey
+  cannot launch a fully-quit app without a separate always-running background helper,
+  which is out of milestone scope (tray click + single-instance cover the not-running
+  case).
+
+  IN-PHASE fix to close NAT-01 honestly (recommended, ~3 lines, awaiting user confirm):
+  1. Swap the default chord for a non-colliding one (avoid Spotlight Cmd+Space,
+     screenshot Cmd+Shift+3/4, AND Finder Cmd+Shift+D / "Don't Save").
+  2. Surface a failed registration to the user instead of only console.warn.
 status: failed
+
+## Deferred (future Settings phase)
+
+- **Configurable summon shortcut** — chord recorder UI + persistence (platform.store)
+  + unregister-old/register-new + visible failure. Builds on the working default chord
+  delivered by G-05-1.
+- **Theme selection**, **licenses/acknowledgements**, and other preferences.
+- Capture via `/gsd-add-backlog` or insert as a phase after Phase 6 (Distribution).
