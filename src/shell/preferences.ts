@@ -15,6 +15,10 @@
  *  Phase 2. */
 export type ThemeName = "dark";
 
+/** Protobuf wire-format tree layout (PRO-06, D-07). Two layouts only: stacked
+ *  "cards" (default) and dense "rows". Persisted so the toggle survives reload. */
+export type ProtobufTreeStyle = "cards" | "rows";
+
 export interface Preferences {
   /** Named theme (D-10). Dark-only for v1; extensible to "light" later. */
   theme: ThemeName;
@@ -26,6 +30,8 @@ export interface Preferences {
   /** Most-recent-first, de-duped, capped list of recently used tool ids
    *  (powers the palette's recents group, SHL-03/D-05). */
   recentToolIds: string[];
+  /** Protobuf tree layout (PRO-06, D-07). Persisted; default "cards". */
+  protobufTreeStyle: ProtobufTreeStyle;
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -33,6 +39,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   accent: "#3b82f6",
   lastUsedId: null,
   recentToolIds: [],
+  protobufTreeStyle: "cards",
 };
 
 /** Single namespaced store key holding the whole prefs blob. One key keeps the

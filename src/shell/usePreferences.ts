@@ -9,7 +9,12 @@
 // the seam routes to the real impl (tauri.ts) or the browser/in-memory fallback.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { DEFAULT_PREFERENCES, type Preferences, type ThemeName } from "./preferences";
+import {
+  DEFAULT_PREFERENCES,
+  type Preferences,
+  type ProtobufTreeStyle,
+  type ThemeName,
+} from "./preferences";
 import { loadPreferences, savePreferences } from "./prefsStore";
 
 export interface UsePreferences {
@@ -21,6 +26,7 @@ export interface UsePreferences {
   setTheme: (theme: ThemeName) => void;
   setAccent: (accent: string) => void;
   setLastUsedId: (id: string | null) => void;
+  setTreeStyle: (style: ProtobufTreeStyle) => void;
 }
 
 export function usePreferences(): UsePreferences {
@@ -67,6 +73,17 @@ export function usePreferences(): UsePreferences {
     (id: string | null) => update({ lastUsedId: id }),
     [update],
   );
+  const setTreeStyle = useCallback(
+    (style: ProtobufTreeStyle) => update({ protobufTreeStyle: style }),
+    [update],
+  );
 
-  return { preferences, prefsLoaded, setTheme, setAccent, setLastUsedId };
+  return {
+    preferences,
+    prefsLoaded,
+    setTheme,
+    setAccent,
+    setLastUsedId,
+    setTreeStyle,
+  };
 }

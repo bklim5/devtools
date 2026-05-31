@@ -15,12 +15,19 @@ import {
   PREFERENCES_STORE_KEY,
   RECENT_TOOLS_CAP,
   type Preferences,
+  type ProtobufTreeStyle,
   type ThemeName,
 } from "./preferences";
 
 /** Only "dark" is valid in Phase 2 (D-10). Anything else → default. */
 function coerceTheme(value: unknown): ThemeName {
   return value === "dark" ? "dark" : DEFAULT_PREFERENCES.theme;
+}
+
+/** Untrusted (threat T-03-01): accept only "rows", default everything else —
+ *  unknown strings AND non-strings — to "cards" (PRO-06, D-07). */
+function coerceTreeStyle(value: unknown): ProtobufTreeStyle {
+  return value === "rows" ? "rows" : "cards";
 }
 
 function coerceAccent(value: unknown): string {
@@ -60,6 +67,7 @@ export function mergePreferences(stored: unknown): Preferences {
     accent: coerceAccent(blob.accent),
     lastUsedId: coerceLastUsedId(blob.lastUsedId),
     recentToolIds: normalizeRecents(blob.recentToolIds),
+    protobufTreeStyle: coerceTreeStyle(blob.protobufTreeStyle),
   };
 }
 

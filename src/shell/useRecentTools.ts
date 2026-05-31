@@ -9,7 +9,11 @@
 // `platform.store` (Pitfall 5: write on switch, not per render).
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { RECENT_TOOLS_CAP, type Preferences } from "./preferences";
+import {
+  DEFAULT_PREFERENCES,
+  RECENT_TOOLS_CAP,
+  type Preferences,
+} from "./preferences";
 import { loadPreferences, normalizeRecents, savePreferences } from "./prefsStore";
 
 export interface UseRecentTools {
@@ -75,12 +79,9 @@ export function useRecentTools(): UseRecentTools {
   // the merged blob in ONE write (preserving theme/accent — they share the blob).
   const commit = useCallback((id: string, setLastUsed: boolean) => {
     dirtyRef.current = true;
-    const base = prefsRef.current ?? {
-      theme: "dark" as const,
-      accent: "#3b82f6",
-      lastUsedId: null,
-      recentToolIds: [],
-    };
+    // Derive the cold-start fallback from DEFAULT_PREFERENCES so it never drifts
+    // when the schema gains a field (it gained protobufTreeStyle in Phase 3).
+    const base = prefsRef.current ?? { ...DEFAULT_PREFERENCES };
     const nextRecents = pushRecent(base.recentToolIds, id);
     const nextPrefs: Preferences = {
       ...base,

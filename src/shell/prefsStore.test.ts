@@ -12,7 +12,7 @@ import {
 } from "@/lib/platform";
 import { createStoreStub } from "@/lib/platform/stub";
 import { makeMemoryPlatform } from "./testStore";
-import { loadPreferences, savePreferences } from "./prefsStore";
+import { loadPreferences, mergePreferences, savePreferences } from "./prefsStore";
 import { DEFAULT_PREFERENCES, PREFERENCES_STORE_KEY } from "./preferences";
 
 let store: Store;
@@ -54,5 +54,33 @@ describe("prefsStore routes through the init-resolved platform store", () => {
     });
     // ...and NOT smeared into localStorage (the split-brain the fix prevents).
     expect(localStorage.getItem(`devtools:${PREFERENCES_STORE_KEY}`)).toBeNull();
+  });
+});
+
+// protobufTreeStyle is read from the same untrusted on-disk blob (threat T-03-01:
+// the user can hand-edit prefs.json). mergePreferences must accept only the two
+// valid enum values and coerce everything else — absent, unknown strings, and
+// non-strings — to the "cards" default, exactly like the Phase-2 coercers.
+describe("protobufTreeStyle coercion", () => {
+  it("defaults to \"cards\" when absent", () => {
+    expect(mergePreferences({}).protobufTreeStyle).toBe("cards");
+  });
+
+  it("preserves a valid \"rows\" value", () => {
+    expect(mergePreferences({ protobufTreeStyle: "rows" }).protobufTreeStyle).toBe(
+      "rows",
+    );
+  });
+
+  it("coerces an unknown string to \"cards\" (untrusted hand-edited prefs.json)", () => {
+    expect(
+      mergePreferences({ protobufTreeStyle: "banana" }).protobufTreeStyle,
+    ).toBe("cards");
+  });
+
+  it("coerces a non-string value to \"cards\"", () => {
+    expect(mergePreferences({ protobufTreeStyle: 42 }).protobufTreeStyle).toBe(
+      "cards",
+    );
   });
 });

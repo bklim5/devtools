@@ -80,6 +80,21 @@ describe("usePreferences", () => {
     expect(stored.lastUsedId).toBe("base64");
   });
 
+  it("setTreeStyle persists the choice and round-trips through a fresh load", async () => {
+    const first = renderHook(() => usePreferences());
+    await act(async () => {
+      first.result.current.setTreeStyle("rows");
+    });
+    // Local state reflects the choice immediately (write-on-change).
+    expect(first.result.current.preferences.protobufTreeStyle).toBe("rows");
+    // A fresh hook over the SAME memory store loads "rows" back, proving
+    // savePreferences persisted protobufTreeStyle to the seam (PRO-06, D-07).
+    const second = renderHook(() => usePreferences());
+    await waitFor(() =>
+      expect(second.result.current.preferences.protobufTreeStyle).toBe("rows"),
+    );
+  });
+
   it("falls back to DEFAULT_PREFERENCES for a corrupt/garbage stored blob", async () => {
     // A non-object value (e.g. a corrupt entry surfaced as a primitive).
     await store.set(PREFERENCES_STORE_KEY, "not-an-object");
