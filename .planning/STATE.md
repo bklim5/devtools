@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-05-31T21:14:52.291Z"
+last_updated: "2026-05-31T21:21:50.000Z"
 progress:
   total_phases: 6
   completed_phases: 4
@@ -16,19 +16,25 @@ progress:
 
 ## Current Position
 
-Phase: 05 (native-polish) — EXECUTING
-Plan: 4 of 4
+Phase: 04 (catalogue) — EXECUTING
+Plan: 1 of 7
 Next: Phase 05 — Wave 1 (05-01 Rust foundation ✓, 05-02 JS platform seam ✓) + Wave 2 (05-03 shell summon wiring ✓) DONE. Only **05-04 (phase boundary + human sign-off)** remains — a fresh `tauri build` + gsd-ui-review WCAG-AA, confirming D-01..D-04 and the OS-level summon/single-instance/tray behaviors (batched with the deferred Phase-4 UAT).
 
 **Phase 4 (Catalogue) — execution + ALL automated gates COMPLETE 2026-05-31; HUMAN SIGN-OFF DEFERRED.** All 6 plans done; the four catalogue tools (Unix Time, JWT, Hash, UUID/ULID) shipped, completing the six-tool v1 catalogue. The 04-06 phase-boundary gate is green on every automated layer: **269/269 vitest** (decoder 19 untouched), tsc clean, eslint 0, **four real-WKWebView e2e specs passing on webkit** (incl. the load-bearing hash SHA-256 and uuid-ulid `crypto.randomUUID` secure-context checks — A1 CONFIRMED on the packaged webview), a fresh **`tauri build`** producing a runnable `.app` + `.dmg` (exit 0, no webdriver in the release binary), and a **PASSING WCAG-AA audit (24/24, no blockers)** recorded in `04-UI-REVIEW.md`. TIME-01 / JWT-01 / HASH-01 / UID-01 are Complete.
 
-> **⚠️ DEFERRED PHASE-BOUNDARY HUMAN SIGN-OFF (NOT approved).** The packaged-build human sign-off (04-06 Task 2, `checkpoint:human-verify`) was DEFERRED at the user's explicit request — the user is AFK and will manually verify Phase 4 (and Phase 5) later. The phase is closed for **forward progress only**; the sign-off is tracked as explicit **verification debt** in `.planning/phases/04-catalogue/04-HUMAN-UAT.md` (status: partial, 5 pending per-tool checks). This was NOT self-approved. Packaged app to verify: `src-tauri/target/release/bundle/macos/devtools-app.app` (+ `…/dmg/devtools-app_0.1.0_aarch64.dmg`). If manual verification surfaces issues → `/gsd-plan-phase 4 --gaps`.
+> **⚠️ DEFERRED PHASE-BOUNDARY HUMAN SIGN-OFF (NOT approved).** The packaged-build human sign-off (04-06 Task 2, `checkpoint:human-verify`) was DEFERRED at the user's explicit request — the user is AFK and will manually verify Phase 4 (and Phase 5) later. The phase is closed for **forward progress only**; the sign-off is tracked as explicit **verification debt** in `.planning/phases/04-catalogue/04-HUMAN-UAT.md`. This was NOT self-approved. Packaged app to verify: `src-tauri/target/release/bundle/macos/devtools-app.app` (+ `…/dmg/devtools-app_0.1.0_aarch64.dmg`).
+>
+> **UPDATE 2026-05-31:** the earlier deferred human UAT DID surface 5 UX defects (G-04-1..G-04-5 in Hash + UUID/ULID) — all 5 are now CLOSED in source by plan **`04-07`** (see Active Plan), green on the full unit suite + 7/7 real-WKWebView e2e. The packaged-build human RE-VERIFY of those two tools is the only remaining check (UX-only, corrected in source) and folds into the deferred Phase-4/Phase-5 human sign-off. A fresh `tauri build` of the fix is NOT yet produced — rebuild before the human verifies. If further issues surface → `/gsd-plan-phase 4 --gaps`.
 
 **Phase 3 (Hero + Encoding + UX) COMPLETE — signed off 2026-05-31.** All 4 plans done; both tools (Protobuf hero + Base64/Hex/Bytes) shipped, code-reviewed, verified on the real macOS WKWebView (e2e), WCAG-AA audited, and built (`tauri build` → .app + .dmg, exit 0). PRO-01..07 + ENC-01..03 + UX-01..05 all Complete. Phase-boundary gates: 182/182 vitest (decoder 19 untouched), tsc clean, eslint 0; gsd-ui-review 19/24 with both AA blockers fixed (--tx-3 #868b95, accent #5b9bf8).
 
 **BACKLOG (user feedback at 03 sign-off, 2026-05-31):** add a **decimal-byte-array (JS `Uint8Array`) input mode** to the Protobuf decoder — paste e.g. `10, 3, 80, 81, 82` (comma/space-separated 0–255) and decode as protobuf, alongside hex/base64. New `InputEncoding` variant + parser + a third encoding-toggle segment. Capture for a Phase-3 polish increment or Phase-4 scope discussion. (Not yet planned.)
 
 ## Active Plan
+
+**Phase 4 gap-closure `04-07` ✓ COMPLETE (2026-05-31)** — the five Phase-4 human-UAT defects (G-04-1..G-04-5) are CLOSED in source. 3 commits (`6d651626` Hash text-only + stable layout, `713d8c5b` UUID editable count + cap 100 + cursor-pointer on tool buttons, `1d2b9bfa` cursor-pointer on shared CopyButton). **G-04-1**: Hash input is ALWAYS UTF-8 text — the hex/base64 encoding selector, `parseInput`, `EncodingToggle`, the `encoding` state, and the entire error path are deleted (`utf8ToBytes` never throws). **G-04-2**: all five Hash digest rows render from mount in fixed-height (`min-h-[2.5rem]`/`leading-5`) containers, so typing swaps only inner text — no reflow/flicker. **G-04-3**: UUID count is a raw string (`countText`) clamped on read via `clampCount` (1..100), normalized on blur — clearable/retypable without select-then-replace. **G-04-4**: hard 100-cap in three layers (`max={100}`, `clampCount`, `generateBatch` `Math.min(n, MAX_COUNT)`); no `1000` remains. **G-04-5**: `cursor-pointer` on the shared `CopyButton` base class (covers every per-row copy) + Generate/Copy-all/KindToggle/CasingToggle. Gate: **276/276 vitest** (decoder 19 untouched; net −1 = three removed Hash encoding tests replaced by one empty-state test, +2 UUID cap/clear tests), tsc clean, eslint 0, **7/7 real-WKWebView e2e on webkit** (hash + uuid-ulid specs confirm the refactors didn't regress selectors/flow). One deviation (Rule 3, env-only): orphaned vite server (:1420) + a stray packaged release `devtools-app` (single-instance lock) blocked the first two e2e attempts — killed both, re-ran clean. **Remaining: packaged-build human re-verify of Hash + UUID/ULID** — folds into the deferred Phase-4/Phase-5 human sign-off (UX-only fixes, corrected in source). SUMMARY: `.planning/phases/04-catalogue/04-07-SUMMARY.md`.
+
+---
 
 **Phase 5 (native-polish) EXECUTING — Wave 1 `05-01` (Rust) + `05-02` (JS seam) ✓ + Wave 2 `05-03` (shell summon wiring, NAT-01) ✓ COMPLETE. Only `05-04` (phase-boundary human sign-off) remains.**
 
