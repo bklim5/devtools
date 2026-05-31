@@ -137,7 +137,7 @@ Phase mapping finalized by the roadmapper. Every v1 requirement maps to exactly 
 | UX-03 | Phase 3 (Hero + Encoding + UX) | Complete (both tools) |
 | UX-04 | Phase 3 (Hero + Encoding + UX) | Complete (03-UI-REVIEW AA fixes applied) |
 | UX-05 | Phase 3 (Hero + Encoding + UX) | Complete (both tools) |
-| TIME-01 | Phase 4 (Catalogue) | Partial (04-01 timeFormat lib; tool UI in 04-02) |
+| TIME-01 | Phase 4 (Catalogue) | Complete (04-02 — UnixTimeTool shipped over shared timeFormat lib; two-way s/ms convert, D-06) |
 | JWT-01 | Phase 4 (Catalogue) | Complete (04-03 — decodeJwt + JwtTool shipped; display-only, D-09/D-10) |
 | HASH-01 | Phase 4 (Catalogue) | Complete (04-04 — hashes.ts md5/sha + HashTool shipped; js-md5 + Web Crypto, secure-context A1 confirmed on real WKWebView) |
 | UID-01 | Phase 4 (Catalogue) | Complete (04-05 — decodeId + UuidUlidTool shipped; generate v4/v7/ULID on-open+regen+batch, decode auto-detect, CSPRNG, secure-context confirmed on real WKWebView) |
