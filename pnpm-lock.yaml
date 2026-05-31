@@ -23,6 +23,9 @@ importers:
       '@tauri-apps/plugin-store':
         specifier: 2.4.3
         version: 2.4.3
+      js-md5:
+        specifier: 0.8.3
+        version: 0.8.3
       lucide-react:
         specifier: 1.17.0
         version: 1.17.0(react@19.2.6)
@@ -2387,6 +2390,9 @@ packages:
   jiti@2.7.0:
     resolution: {integrity: sha512-AC/7JofJvZGrrneWNaEnJeOLUx+JlGt7tNa0wZiRPT4MY1wmfKjt2+6O2p2uz2+skll8OZZmJMNqeke7kKbNgQ==}
     hasBin: true
+
+  js-md5@0.8.3:
+    resolution: {integrity: sha512-qR0HB5uP6wCuRMrWPTrkMaev7MJZwJuuw4fnwAzRgP4J4/F8RwtodOKpGp4XpqsLBFzzgqIO42efFAyz2Et6KQ==}
 
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
@@ -5799,6 +5805,8 @@ snapshots:
       picomatch: 4.0.4
 
   jiti@2.7.0: {}
+
+  js-md5@0.8.3: {}
 
   js-tokens@4.0.0: {}
 
