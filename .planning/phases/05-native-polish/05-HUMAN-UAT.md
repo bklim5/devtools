@@ -62,23 +62,29 @@ detail: |
   `register()` throws, and registerSummon() (summon.ts:61-76) catches+warns silently so
   the failure is invisible in the packaged app.
 
-  DECISION (user, 2026-05-31): user-configurable shortcut + a real Settings surface
-  are DEFERRED to a dedicated future "Settings" phase (see Deferred below). The summon
-  feature is a "bring the RUNNING app to front" affordance only — a global hotkey
-  cannot launch a fully-quit app without a separate always-running background helper,
-  which is out of milestone scope (tray click + single-instance cover the not-running
-  case).
+  DECISION (user, 2026-05-31): ship NO auto-registered global chord. Rationale:
+  macOS gives no reliable "is this chord taken?" API; any hardcoded default is a guess
+  that may either fail silently OR shadow one of the user's own shortcuts system-wide
+  while the app runs. Since the tray "Show DevTools" + single-instance already provide
+  reliable, conflict-free summon, a contended global key grab is not worth the risk.
 
-  IN-PHASE fix to close NAT-01 honestly (recommended, ~3 lines, awaiting user confirm):
-  1. Swap the default chord for a non-colliding one (avoid Spotlight Cmd+Space,
-     screenshot Cmd+Shift+3/4, AND Finder Cmd+Shift+D / "Don't Save").
-  2. Surface a failed registration to the user instead of only console.warn.
+  IN-PHASE change (Phase 5 gap closure):
+  1. Stop auto-registering the summon chord at startup — remove the registerSummon()
+     call from main.tsx (and/or make registerSummon a no-op / delete summon.ts's
+     registration path). KEEP the platform seam (platform.nativeShortcut + summon
+     action) intact — the future Settings phase reuses it for an explicit opt-in.
+  2. Summon is delivered THIS milestone via the tray menu + single-instance only.
+
+  IMPLICATION: NAT-01 (global summon shortcut, user-configurable) is NOT delivered as a
+  hotkey this milestone — its hotkey form DEFERS to the future Settings phase. Mark
+  NAT-01 accordingly (deferred/partial) at Phase 5 completion; do NOT claim it complete.
 status: failed
 
 ## Deferred (future Settings phase)
 
 - **Configurable summon shortcut** — chord recorder UI + persistence (platform.store)
-  + unregister-old/register-new + visible failure. Builds on the working default chord
-  delivered by G-05-1.
+  + unregister-old/register-new + visible failure. Reuses the platform.nativeShortcut
+  + summon seam left in place by G-05-1 (no chord is registered until the user opts in).
+  This is where NAT-01's hotkey form is actually delivered.
 - **Theme selection**, **licenses/acknowledgements**, and other preferences.
 - Capture via `/gsd-add-backlog` or insert as a phase after Phase 6 (Distribution).
