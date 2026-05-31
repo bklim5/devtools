@@ -3,8 +3,8 @@
 // swaps `component` for the real tool UI without touching registry.ts.
 // Icons/labels/keywords are D-18 discretion.
 import { Fingerprint } from "lucide-react";
-import { makePlaceholder } from "@/tools/_placeholder/ToolPlaceholder";
 import type { ToolDefinition } from "@/lib/tools/types";
+import UuidUlidTool from "./UuidUlidTool";
 
 export const uuidUlidTool: ToolDefinition = {
   id: "uuid-ulid",
@@ -13,6 +13,6 @@ export const uuidUlidTool: ToolDefinition = {
   category: "generators",
   keywords: ["uuid", "ulid", "guid", "id", "generate", "v4", "v7"],
   icon: Fingerprint,
-  component: makePlaceholder("UUID / ULID"),
+  component: UuidUlidTool,
   enabled: true,
 };
