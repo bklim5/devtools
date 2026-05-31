@@ -18,6 +18,7 @@ import {
   type Store,
 } from "@/lib/platform";
 import { createStoreStub } from "@/lib/platform/stub";
+import { noopWindow, noopNativeShortcut } from "@/shell/testStore";
 import { ENABLED_TOOLS } from "@/lib/tools/registry";
 import { HERO_TOOL_ID } from "@/shell/resolveStartupTool";
 import { PREFERENCES_STORE_KEY } from "@/shell/preferences";
@@ -28,6 +29,8 @@ function makePlatform(s: Store): Platform {
   return {
     clipboard: { writeText: async () => {}, readText: async () => "" },
     store: s,
+    window: noopWindow,
+    nativeShortcut: noopNativeShortcut,
   };
 }
 

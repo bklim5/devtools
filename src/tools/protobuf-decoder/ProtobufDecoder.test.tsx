@@ -16,6 +16,7 @@ import {
   type Platform,
 } from "@/lib/platform";
 import { createStoreStub } from "@/lib/platform/stub";
+import { noopWindow, noopNativeShortcut } from "@/shell/testStore";
 import ProtobufDecoder from "./ProtobufDecoder";
 
 let writeText: ReturnType<typeof vi.fn<(text: string) => Promise<void>>>;
@@ -25,6 +26,8 @@ beforeEach(() => {
   const p: Platform = {
     clipboard: { writeText, readText: async () => "" },
     store: createStoreStub(),
+    window: noopWindow,
+    nativeShortcut: noopNativeShortcut,
   };
   setPlatformForTest(p);
 });

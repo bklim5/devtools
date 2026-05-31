@@ -22,6 +22,18 @@ describe("platform seam", () => {
     const stub: Platform = {
       clipboard: { writeText, readText: vi.fn().mockResolvedValue("") },
       store: { get: vi.fn(), set: vi.fn() },
+      window: {
+        show: vi.fn().mockResolvedValue(undefined),
+        setFocus: vi.fn().mockResolvedValue(undefined),
+        unminimize: vi.fn().mockResolvedValue(undefined),
+        minimize: vi.fn().mockResolvedValue(undefined),
+        isVisible: vi.fn().mockResolvedValue(true),
+      },
+      nativeShortcut: {
+        register: vi.fn().mockResolvedValue(undefined),
+        unregister: vi.fn().mockResolvedValue(undefined),
+        isRegistered: vi.fn().mockResolvedValue(false),
+      },
     };
     setPlatformForTest(stub);
 
@@ -57,5 +69,68 @@ describe("platform seam", () => {
 
     expect(writeText).toHaveBeenCalledWith("via-navigator");
     vi.unstubAllGlobals();
+  });
+});
+
+// NAT-01: the seam's two new native capabilities. Outside Tauri (jsdom) they MUST
+// degrade to harmless no-ops so tests + `vite preview` never throw (threat T-05-05),
+// and the `platform` accessor MUST forward them to the active impl (getter wiring).
+describe("platform seam — native capabilities (NAT-01)", () => {
+  it("nativeShortcut.isRegistered resolves false under the browser fallback (Test 5)", async () => {
+    setPlatformForTest(browserPlatform);
+    await expect(platform.nativeShortcut.isRegistered("CmdOrCtrl+Shift+K")).resolves.toBe(
+      false,
+    );
+  });
+
+  it("nativeShortcut.register/unregister resolve without throwing in the fallback (Test 6)", async () => {
+    setPlatformForTest(browserPlatform);
+    // No-op register does NOT invoke the handler and does NOT touch @tauri-apps.
+    const handler = vi.fn();
+    await expect(
+      platform.nativeShortcut.register("CmdOrCtrl+Shift+K", handler),
+    ).resolves.toBeUndefined();
+    await expect(
+      platform.nativeShortcut.unregister("CmdOrCtrl+Shift+K"),
+    ).resolves.toBeUndefined();
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("window no-ops resolve in the fallback; isVisible resolves true (Test 7)", async () => {
+    setPlatformForTest(browserPlatform);
+    await expect(platform.window.isVisible()).resolves.toBe(true);
+    await expect(platform.window.show()).resolves.toBeUndefined();
+    await expect(platform.window.setFocus()).resolves.toBeUndefined();
+    await expect(platform.window.unminimize()).resolves.toBeUndefined();
+    await expect(platform.window.minimize()).resolves.toBeUndefined();
+  });
+
+  it("accessor delegates nativeShortcut/window to an injected stub (Test 8)", async () => {
+    const register = vi.fn().mockResolvedValue(undefined);
+    const show = vi.fn().mockResolvedValue(undefined);
+    const stub: Platform = {
+      clipboard: { writeText: vi.fn(), readText: vi.fn() },
+      store: { get: vi.fn(), set: vi.fn() },
+      window: {
+        show,
+        setFocus: vi.fn(),
+        unminimize: vi.fn(),
+        minimize: vi.fn(),
+        isVisible: vi.fn(),
+      },
+      nativeShortcut: {
+        register,
+        unregister: vi.fn(),
+        isRegistered: vi.fn(),
+      },
+    };
+    setPlatformForTest(stub);
+
+    const handler = () => {};
+    await platform.nativeShortcut.register("CmdOrCtrl+Shift+K", handler);
+    await platform.window.show();
+
+    expect(register).toHaveBeenCalledWith("CmdOrCtrl+Shift+K", handler);
+    expect(show).toHaveBeenCalledTimes(1);
   });
 });

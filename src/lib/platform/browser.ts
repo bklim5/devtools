@@ -55,4 +55,24 @@ export const browserPlatform: Platform = {
     },
   },
   store: createLocalStorageStore(),
+  // Harmless no-ops outside Tauri (NAT-01, threat T-05-05): the seam must never
+  // throw under vite preview / jsdom. `isVisible` resolves true (there is no
+  // hidden window to summon in the browser); `isRegistered` resolves false (no
+  // OS shortcut is ever registered). This file must NOT import @tauri-apps/*.
+  window: {
+    async show(): Promise<void> {},
+    async setFocus(): Promise<void> {},
+    async unminimize(): Promise<void> {},
+    async minimize(): Promise<void> {},
+    async isVisible(): Promise<boolean> {
+      return true;
+    },
+  },
+  nativeShortcut: {
+    async register(): Promise<void> {},
+    async unregister(): Promise<void> {},
+    async isRegistered(): Promise<boolean> {
+      return false;
+    },
+  },
 };

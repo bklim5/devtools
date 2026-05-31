@@ -20,6 +20,20 @@ export interface Platform {
   };
   /** STUB in Phase 1 (in-memory). Phase 2 (SHL-05) swaps in the real store. */
   store: Store;
+  /** Native window summon/focus control (NAT-01). No-op in the browser fallback. */
+  window: {
+    show(): Promise<void>;
+    setFocus(): Promise<void>;
+    unminimize(): Promise<void>;
+    minimize(): Promise<void>;
+    isVisible(): Promise<boolean>;
+  };
+  /** OS-level global hotkey register/unregister (NAT-01). No-op in the browser fallback. */
+  nativeShortcut: {
+    register(accelerator: string, handler: () => void): Promise<void>;
+    unregister(accelerator: string): Promise<void>;
+    isRegistered(accelerator: string): Promise<boolean>;
+  };
 }
 
 /**
@@ -54,6 +68,12 @@ export const platform: Platform = {
   },
   get store() {
     return active.store;
+  },
+  get window() {
+    return active.window;
+  },
+  get nativeShortcut() {
+    return active.nativeShortcut;
   },
 };
 

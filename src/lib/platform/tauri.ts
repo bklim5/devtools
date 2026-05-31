@@ -3,9 +3,20 @@
 // runtime `__TAURI_INTERNALS__` check — never via a top-level import in index.ts.
 // This keeps the Tauri impl out of the vite-preview fallback bundle and out of
 // jsdom/node test runs (so tests need no @tauri-apps mock).
+//
+// Capabilities reached here: clipboard (plugin-clipboard-manager), store
+// (plugin-store), window summon/focus (api/window), and OS-level global
+// shortcuts (plugin-global-shortcut, NAT-01). All of these are JS-reachable
+// native surfaces — and ALL of them live behind this single seam file.
 
 import { writeText, readText } from "@tauri-apps/plugin-clipboard-manager";
 import { load } from "@tauri-apps/plugin-store";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import {
+  register,
+  unregister,
+  isRegistered,
+} from "@tauri-apps/plugin-global-shortcut";
 import type { Platform } from "./index";
 import type { Store } from "./stub";
 
@@ -38,4 +49,25 @@ export const tauriPlatform: Platform = {
     readText: () => readText(),
   },
   store: createTauriStore(),
+  window: {
+    // macOS focus regression (RESEARCH Pitfall 1 / tauri issue #12834): order
+    // matters. The shell summon flow (Plan 03) calls unminimize() → show() →
+    // setFocus() in that order so a minimized/hidden window reliably comes to
+    // the foreground (mirrors the Rust summon path in Plan 01, D-03).
+    show: () => getCurrentWindow().show(),
+    setFocus: () => getCurrentWindow().setFocus(),
+    unminimize: () => getCurrentWindow().unminimize(),
+    minimize: () => getCurrentWindow().minimize(),
+    isVisible: () => getCurrentWindow().isVisible(),
+  },
+  nativeShortcut: {
+    // Filter to Pressed so the handler fires once per chord, not on key-up too
+    // (RESEARCH Pitfall 2 — the plugin emits both Pressed and Released states).
+    register: (accelerator, handler) =>
+      register(accelerator, (event) => {
+        if (event.state === "Pressed") handler();
+      }),
+    unregister: (accelerator) => unregister(accelerator),
+    isRegistered: (accelerator) => isRegistered(accelerator),
+  },
 };
