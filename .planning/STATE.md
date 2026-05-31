@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-05-31T12:49:52.182Z"
+last_updated: "2026-05-31T12:56:59.340Z"
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 18
-  completed_plans: 14
-  percent: 78
+  completed_plans: 15
+  percent: 83
 ---
 
 # Project State
@@ -17,7 +17,7 @@ progress:
 ## Current Position
 
 Phase: 04 (catalogue) — EXECUTING
-Plan: 3 of 6
+Plan: 4 of 6
 
 **Phase 3 (Hero + Encoding + UX) COMPLETE — signed off 2026-05-31.** All 4 plans done; both tools (Protobuf hero + Base64/Hex/Bytes) shipped, code-reviewed, verified on the real macOS WKWebView (e2e), WCAG-AA audited, and built (`tauri build` → .app + .dmg, exit 0). PRO-01..07 + ENC-01..03 + UX-01..05 all Complete. Phase-boundary gates: 182/182 vitest (decoder 19 untouched), tsc clean, eslint 0; gsd-ui-review 19/24 with both AA blockers fixed (--tx-3 #868b95, accent #5b9bf8).
 
@@ -25,11 +25,13 @@ Plan: 3 of 6
 
 ## Active Plan
 
-**Phase 4 (catalogue) EXECUTING — Wave 1 (04-01 foundation) + Wave 2 `04-02` (Unix Time) ✓ DONE.**
+**Phase 4 (catalogue) EXECUTING — Wave 1 (04-01 foundation) + Wave 2 `04-02` (Unix Time) + `04-03` (JWT) ✓ DONE.**
+
+**`04-03` (JWT Debugger, JWT-01) ✓ COMPLETE** — 2 commits (`0c8ed1ed` decodeJwt pure module + TDD, `0ad69e05` JwtTool UI + registry swap + e2e). Shipped the display-only JWT tool: pure `decodeJwt(token)` splits on `.`, base64url-decodes header+payload via `bytes.ts` (no hand-rolled base64) + `JSON.parse`s each, signature shown RAW, `alg` lifted from the header — a discriminated union `{empty|error(scope:token/header/payload)|ok}` that NEVER throws past the boundary (T-04-07; tested vs adversarial `...`/`a.b.c.d.e`/NULs/1000-dots). `JwtTool` renders pretty Header/Payload + raw Signature + alg, each block with a visible focusable CopyButton (UX-02); `exp`/`iat`/`nbf` humanized (absolute ISO + relative) via the shared `timeFormat` lib, expired/not-yet-valid tokens flagged with a `text-bad` badge (D-10, advisory only — "signature not verified" note, no key field, D-09/T-04-09). Empty = neutral; malformed = single field-scoped `aria-invalid` + `text-bad` error, never a crash. Registry `index.ts` swapped `makePlaceholder("JWT")` → real `JwtTool` (registry.ts untouched). **Real-WKWebView gate ADDED + GREEN**: `test/e2e/jwt.e2e.ts` pastes a standard HS256 token at `#/tools/jwt`, asserts the decoded payload renders + `Copy Payload` is displayed; `bash scripts/e2e-spike.sh` → **4 passing on webkit** (base64, jwt, protobuf, unix-time). Gate: **229/229 vitest** (decoder 19 untouched, +15 new), tsc clean, eslint 0. **JWT-01 Complete.** One deviation (Rule 1): `Date.now()` in render → moved 'now' to `useState`+1s interval (React Compiler purity lint, same fix UnixTimeTool used). Out-of-scope note: `base64.e2e.ts` showed an intermittent click flake (1 of 3 runs; re-runs 4/4) — pre-existing, not this plan's code. SUMMARY: `.planning/phases/04-catalogue/04-03-SUMMARY.md`.
 
 **`04-02` (Unix Time tool, TIME-01) ✓ COMPLETE** — 2 commits (`3e6783d6` UnixTimeTool + TDD, `06445f18` registry swap + e2e gate). Shipped the real two-way Unix Time converter into the registry-driven shell over Plan 01's shared `timeFormat` lib (zero date-math duplication): forward pane pastes an s/ms timestamp → instant LOCAL + UTC + ISO rows each with a visible focusable copy (UX-01/02), `classifyUnit` magnitude auto-detect + an s/ms override toggle (aria-pressed, accent = selected only); reverse ISO/datetime field derives the timestamp back into the forward field (two-way, D-06); live "now" on a 1s interval (cleanup on unmount) with copy. Empty = neutral; malformed = field-scoped `aria-invalid` + `text-bad` error, never a crash (T-04-05). Registry `index.ts` swapped `makePlaceholder` → real `UnixTimeTool` (registry.ts untouched — entry already in TOOLS from 04-01). **Real-WKWebView gate ADDED + GREEN**: `test/e2e/unix-time.e2e.ts` types `1469922850259`, asserts ISO `2016-07-30T23:54:10.259Z` renders on paste + a `Copy ISO 8601` button is displayed; `bash scripts/e2e-spike.sh` → **3 passing on webkit** (base64, protobuf, unix-time). Gate: **214/214 vitest** (decoder 19 untouched, +8 new), tsc clean, eslint 0. **TIME-01 Complete.** Two decisions: (1) empty forward field defaults the active unit to **ms** so the reverse ISO field derives full-precision ms back (s would floor away milliseconds on round-trip); (2) timing (`performance.now`) is measured in the change handler not render — the React Compiler purity lint forbids impure clock reads in the render body, so the forward derive stays render-pure (mirrors Base64's event-scoped `timed()`). No deviations (plan ran as written). SUMMARY: `.planning/phases/04-catalogue/04-02-SUMMARY.md`.
 
-**Next: Wave 2 remaining — `04-03` (JWT, also consumes `timeFormat`), `04-04` (Hash), `04-05` (UUID/ULID), then `04-06` / phase boundary (human sign-off on `tauri build` + gsd-ui-review WCAG-AA).**
+**Next: Wave 2 remaining — `04-04` (Hash), `04-05` (UUID/ULID), then `04-06` / phase boundary (human sign-off on `tauri build` + gsd-ui-review WCAG-AA).**
 
 ---
 

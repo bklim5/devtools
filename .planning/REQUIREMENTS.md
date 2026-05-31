@@ -53,7 +53,7 @@ Requirements for the initial macOS release. Each maps to exactly one roadmap pha
 
 ### JWT Debugger (JWT)
 
-- [ ] **JWT-01**: User pastes a JWT and sees decoded header + payload (and signature segment), with malformed tokens reported clearly
+- [x] **JWT-01**: User pastes a JWT and sees decoded header + payload (and signature segment), with malformed tokens reported clearly
 
 ### Hash Generator (HASH)
 
@@ -138,7 +138,7 @@ Phase mapping finalized by the roadmapper. Every v1 requirement maps to exactly 
 | UX-04 | Phase 3 (Hero + Encoding + UX) | Complete (03-UI-REVIEW AA fixes applied) |
 | UX-05 | Phase 3 (Hero + Encoding + UX) | Complete (both tools) |
 | TIME-01 | Phase 4 (Catalogue) | Partial (04-01 timeFormat lib; tool UI in 04-02) |
-| JWT-01 | Phase 4 (Catalogue) | Partial (04-01 timeFormat lib; tool UI in 04-03) |
+| JWT-01 | Phase 4 (Catalogue) | Complete (04-03 — decodeJwt + JwtTool shipped; display-only, D-09/D-10) |
 | HASH-01 | Phase 4 (Catalogue) | Partial (04-01 js-md5 installed; tool UI in 04-04) |
 | UID-01 | Phase 4 (Catalogue) | Partial (04-01 ulid/uuidv7 libs; tool UI in 04-05) |
 | NAT-01 | Phase 5 (Native Polish) | Pending |
