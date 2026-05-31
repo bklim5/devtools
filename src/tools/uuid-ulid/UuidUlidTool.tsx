@@ -50,9 +50,19 @@ function generate(kind: Kind): string {
   }
 }
 
+/** Hard cap on batch generation — no path may produce more than 100 entries (G-04-4). */
+const MAX_COUNT = 100;
+
 function generateBatch(kind: Kind, count: number): string[] {
-  const n = Math.max(1, Math.min(count, 1000));
+  const n = Math.max(1, Math.min(count, MAX_COUNT));
   return Array.from({ length: n }, () => generate(kind));
+}
+
+/** Clamp a raw count string to a valid 1..100 number for generation (G-04-3/G-04-4). */
+function clampCount(text: string): number {
+  const n = Number.parseInt(text, 10);
+  if (!Number.isFinite(n) || n < 1) return 1;
+  return Math.min(n, MAX_COUNT);
 }
 
 interface GeneratedRowProps {
@@ -93,7 +103,7 @@ function KindToggle({ value, onChange }: KindToggleProps) {
             onClick={() => onChange(id)}
             aria-pressed={active}
             className={[
-              "rounded-[5px] px-2 py-0.5 text-[11px] font-medium outline-none transition-colors",
+              "cursor-pointer rounded-[5px] px-2 py-0.5 text-[11px] font-medium outline-none transition-colors",
               "focus-visible:ring-2 focus-visible:ring-accent",
               active
                 ? "border border-accent-line bg-accent-soft text-accent"
@@ -157,14 +167,17 @@ function Breakdown({ decoded }: { decoded: Extract<DecodedId, { kind: "ok" }> })
 
 export default function UuidUlidTool() {
   const [kind, setKind] = useState<Kind>("uuid-v4");
-  const [count, setCount] = useState(1);
+  // The count is held as the RAW STRING so the field can be cleared and retyped normally
+  // (transient empty allowed, G-04-3); the numeric count for generation is derived by
+  // clamping on read (1..100, G-04-4).
+  const [countText, setCountText] = useState("1");
   const [ids, setIds] = useState<string[]>(() => generateBatch("uuid-v4", 1));
   const [decodeRaw, setDecodeRaw] = useState("");
   const [copiedAll, confirmCopyAll] = useCopyFeedback();
 
   const regenerate = useCallback(
-    (k: Kind = kind, c: number = count) => setIds(generateBatch(k, c)),
-    [kind, count],
+    (k: Kind = kind, c: number = clampCount(countText)) => setIds(generateBatch(k, c)),
+    [kind, countText],
   );
 
   // Generate ONE on open (D-16) via the lazy useState initializer above — no mount
@@ -173,14 +186,15 @@ export default function UuidUlidTool() {
 
   function handleKind(next: Kind) {
     setKind(next);
-    regenerate(next, count);
+    regenerate(next, clampCount(countText));
   }
 
+  // Store the raw text as typed (so the user can clear it / type 2-9 without select-then-
+  // replace, G-04-3) and regenerate using the clamped value (G-04-4). The field is
+  // normalized back to a valid number on blur.
   function handleCount(raw: string) {
-    const n = Number.parseInt(raw, 10);
-    const next = Number.isFinite(n) && n > 0 ? Math.min(n, 1000) : 1;
-    setCount(next);
-    regenerate(kind, next);
+    setCountText(raw);
+    regenerate(kind, clampCount(raw));
   }
 
   function handleCopyAll() {
@@ -214,9 +228,10 @@ export default function UuidUlidTool() {
                 id="uuid-ulid-count"
                 type="number"
                 min={1}
-                max={1000}
-                value={count}
+                max={100}
+                value={countText}
                 onChange={(e) => handleCount(e.target.value)}
+                onBlur={() => setCountText(String(clampCount(countText)))}
                 className="w-16 rounded-[7px] border border-bd bg-input-bg px-2 py-1 font-mono text-[12px] text-tx outline-none transition-colors focus-visible:border-accent-line focus-visible:ring-2 focus-visible:ring-accent"
               />
             </label>
@@ -224,7 +239,7 @@ export default function UuidUlidTool() {
               type="button"
               autoFocus
               onClick={() => regenerate()}
-              className="rounded-[7px] border border-accent-line bg-accent-soft px-3 py-1 text-[12px] font-medium text-accent outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent"
+              className="cursor-pointer rounded-[7px] border border-accent-line bg-accent-soft px-3 py-1 text-[12px] font-medium text-accent outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent"
             >
               Generate
             </button>
@@ -234,7 +249,7 @@ export default function UuidUlidTool() {
                 onClick={handleCopyAll}
                 aria-label="Copy all generated ids"
                 className={[
-                  "rounded-[7px] border bg-input-bg px-3 py-1 text-[12px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent",
+                  "cursor-pointer rounded-[7px] border bg-input-bg px-3 py-1 text-[12px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent",
                   copiedAll
                     ? "border-accent-line text-accent"
                     : "border-bd text-tx-2 hover:border-bd-2 hover:text-tx",

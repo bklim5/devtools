@@ -132,6 +132,21 @@ describe("UuidUlidTool", () => {
     expect(writeText).toHaveBeenCalledWith(ids.join("\n"));
   });
 
+  it("a batch count of 250 generates at most 100 entries (hard cap, G-04-4)", () => {
+    const { container } = render(<UuidUlidTool />);
+    const count = container.querySelector<HTMLInputElement>("#uuid-ulid-count")!;
+    fireEvent.change(count, { target: { value: "250" } });
+    expect(genValues(container)).toHaveLength(100);
+  });
+
+  it("the count field can be cleared to '' without snapping back to 1 (G-04-3)", () => {
+    const { container } = render(<UuidUlidTool />);
+    const count = container.querySelector<HTMLInputElement>("#uuid-ulid-count")!;
+    fireEvent.change(count, { target: { value: "" } });
+    // The FIELD shows the transient empty value (no select-then-replace forced).
+    expect(count.value).toBe("");
+  });
+
   it("decoding the v7 vector shows version 7 and a humanized timestamp", () => {
     const { container } = render(<UuidUlidTool />);
     fireEvent.change(decodeField(container), { target: { value: UUID_V7 } });
