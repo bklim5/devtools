@@ -1,28 +1,35 @@
 ---
-status: issues
+status: partial
 phase: 04-catalogue
 source: [04-VERIFICATION via 04-06 boundary gate]
 started: 2026-05-31T14:30:00Z
-updated: 2026-05-31T15:30:00Z
+updated: 2026-05-31T22:30:00Z
 ---
 
 ## Current Test
 
-[human verification complete — 3/5 passed, 2 items have issues (Hash, UUID); see Gaps]
+[human verification round 1 complete — 3/5 passed, 2 items had issues (Hash, UUID).
+All 5 issues (G-04-1..G-04-5) now CLOSED IN SOURCE by plan 04-07 and verified by the
+automated harness; awaiting human re-verify on a freshly rebuilt packaged app — see Gaps]
 
 <!--
 DEFERRED HUMAN SIGN-OFF. The 04-06 phase-boundary gate's automated layers are all
-GREEN (full unit suite 269/269 incl. decoder 19 untouched, tsc clean, eslint 0,
-four real-WKWebView e2e specs passing on webkit incl. the hash SHA-256 and
-uuid-ulid crypto secure-context checks, a fresh `tauri build` producing a runnable
-.app + .dmg, and a passing WCAG-AA audit recorded in 04-UI-REVIEW.md).
+GREEN (full unit suite now 276/276 incl. decoder 19 untouched, tsc clean, eslint 0,
+real-WKWebView e2e specs passing on webkit incl. the hash SHA-256 and
+uuid-ulid crypto secure-context checks, and a passing WCAG-AA audit recorded in
+04-UI-REVIEW.md).
 
-The packaged-build human sign-off (plan 04-06 Task 2, checkpoint:human-verify) is
-DEFERRED at the user's explicit request — the user is AFK and will manually verify
-Phase 4 (and Phase 5) later. The phase is closed for FORWARD PROGRESS only;
-the sign-off is tracked here as explicit verification debt and is NOT approved.
+Round-1 packaged human UAT found 5 UX defects (G-04-1..G-04-5). Plan 04-07
+(commits 6d651626, 713d8c5b, 1d2b9bfa) closed all 5 in source — confirmed by 276/276
+vitest, clean code review (04-REVIEW.md), and 7/7 real-WKWebView e2e on webkit.
 
-Packaged app to verify:
+REMAINING DEBT (NOT self-approved): the packaged-build human sign-off (plan 04-06
+Task 2, checkpoint:human-verify) is still DEFERRED at the user's explicit request —
+the user is AFK and will manually verify Phase 4 (and Phase 5) later. IMPORTANT: the
+04-07 fixes are NOT yet in the on-disk packaged .app/.dmg — a FRESH `tauri build` is
+required before the human re-verify so the 5 corrected behaviors are exercised.
+
+Packaged app to (re)build + verify:
   src-tauri/target/release/bundle/macos/devtools-app.app
   src-tauri/target/release/bundle/dmg/devtools-app_0.1.0_aarch64.dmg
 -->
@@ -58,6 +65,9 @@ notes: |
   input should always be treated as text (drop the encoding selector). (2) The UI
   reflows/flickers/"jumps" on every keystroke as digest rows resize — reserve fixed
   space for all digest rows so the layout is stable while typing.
+  RESOLVED IN SOURCE by 04-07 (G-04-1, G-04-2): encoding selector + parse path removed
+  (input is now always UTF-8 text); five digest rows render from mount in fixed-height
+  containers (no reflow). Pending human re-verify on a fresh packaged build.
 
 ### 4. UUID/ULID
 expected: |
@@ -72,6 +82,10 @@ notes: |
   backspace below the minimum of 1 to type 2-9, forcing select-then-replace. (2) No
   upper bound — user can request unbounded counts and crash the app; cap at 100. (3)
   Generate button lacks `cursor: pointer`.
+  RESOLVED IN SOURCE by 04-07 (G-04-3, G-04-4, G-04-5): count is now an editable string
+  (clearable, clamped 1..100 on read/blur); batch hard-capped at 100 in both clampCount
+  and generateBatch; cursor-pointer added on Generate/Copy-all/toggles and the shared
+  CopyButton. Pending human re-verify on a fresh packaged build.
 
 ### 5. Cross-cutting
 expected: |
@@ -99,7 +113,11 @@ detail: |
   The Hash tool currently offers a hex/base64 input-encoding option. Product decision:
   input is ALWAYS treated as text — remove the encoding selector and the hex/base64
   decode path entirely. Simplifies the tool to its common case.
-status: failed
+status: resolved
+resolution: |
+  04-07 commit 6d651626 — encoding selector, EncodingToggle, parseInput, and the
+  error path removed; input parsed via utf8ToBytes (never throws). Verified by 276/276
+  vitest + clean code review. Human re-verify on a fresh packaged build still pending.
 
 ### G-04-2: Hash — stable layout (no flicker/reflow while typing)
 source_test: 3 (Hash)
@@ -108,7 +126,11 @@ detail: |
   On every keystroke the digest rows resize and the whole tool UI reflows/flickers/
   "jumps". Reserve fixed vertical space for all digest rows (MD5 + SHA-256, etc.) so
   the layout stays put as the input changes.
-status: failed
+status: resolved
+resolution: |
+  04-07 commit 6d651626 — five digest rows render from mount in fixed-height
+  (min-h-[2.5rem]) containers; typing swaps text only, no reflow. Verified by 276/276
+  vitest + clean code review. Human re-verify on a fresh packaged build still pending.
 
 ### G-04-3: UUID — batch-count input UX
 source_test: 4 (UUID/ULID)
@@ -117,7 +139,11 @@ detail: |
   The batch count field won't let the user backspace below the minimum of 1, so typing
   2-9 requires selecting and replacing the existing "1". Allow clearing/editing the
   field normally (e.g. allow transient empty, clamp on blur/submit).
-status: failed
+status: resolved
+resolution: |
+  04-07 commit 713d8c5b — count is now a raw string (countText), clearable/retypable,
+  clamped 1..100 on read and normalized on blur. Verified by 276/276 vitest + clean
+  code review. Human re-verify on a fresh packaged build still pending.
 
 ### G-04-4: UUID — cap batch count at 100
 source_test: 4 (UUID/ULID)
@@ -125,7 +151,11 @@ severity: high
 detail: |
   Batch count has no upper bound; a large count can generate unbounded entries and
   crash the app. Cap the maximum at 100 for now (clamp input + guard generation).
-status: failed
+status: resolved
+resolution: |
+  04-07 commit 713d8c5b — batch hard-capped at 100 via max={100}, clampCount, and
+  generateBatch (MAX_COUNT=100); no 1000 path remains. Verified by 276/276 vitest +
+  clean code review. Human re-verify on a fresh packaged build still pending.
 
 ### G-04-5: UUID — Generate button cursor
 source_test: 4 (UUID/ULID)
@@ -133,4 +163,8 @@ severity: low
 detail: |
   The Generate button does not show `cursor: pointer` on hover. Add it (and audit
   other interactive buttons for the same).
-status: failed
+status: resolved
+resolution: |
+  04-07 commits 713d8c5b + 1d2b9bfa — cursor-pointer added to Generate, Copy-all,
+  kind/casing toggles, and the shared CopyButton (covers every tool's copy buttons).
+  Verified by clean code review. Human re-verify on a fresh packaged build still pending.
