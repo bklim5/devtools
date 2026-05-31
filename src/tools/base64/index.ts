@@ -1,8 +1,9 @@
-// Base64 / Hex / Bytes — ENABLED in Phase 2 as a shared placeholder (D-01); Phase 3
-// replaces `component` with the real tool UI. Only the registry-facing fields
-// change here (enabled/icon/component/description) — no tool logic yet.
+// Base64 / Hex / Bytes — Phase 3 swaps `component` from the Phase-2 placeholder to
+// the real Base64Tool (three derived panes + alphabet toggle + status bar + copy).
+// Only the registry-facing `component` changes here; the tool logic lives in
+// Base64Tool.tsx / useBytesConvert.ts / StatusBar.tsx.
 import { Binary } from "lucide-react";
-import { makePlaceholder } from "@/tools/_placeholder/ToolPlaceholder";
+import Base64Tool from "./Base64Tool";
 import type { ToolDefinition } from "@/lib/tools/types";
 
 export const base64Tool: ToolDefinition = {
@@ -12,6 +13,6 @@ export const base64Tool: ToolDefinition = {
   category: "encoding",
   keywords: ["base64", "hex", "bytes", "encode", "decode"],
   icon: Binary,
-  component: makePlaceholder("Base64"),
+  component: Base64Tool,
   enabled: true,
 };
