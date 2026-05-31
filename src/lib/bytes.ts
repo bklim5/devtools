@@ -8,13 +8,17 @@
 export type Base64Alphabet = "base64" | "base64url";
 
 // Minimal structural types for the proposal APIs we feature-detect.
-type ToBase64 = (opts?: { alphabet?: Base64Alphabet }) => string;
+type ToBase64 = (opts?: { alphabet?: Base64Alphabet; omitPadding?: boolean }) => string;
 type FromBase64 = (s: string, opts?: { alphabet?: Base64Alphabet }) => Uint8Array;
 
 export function bytesToBase64(bytes: Uint8Array, alphabet: Base64Alphabet = "base64"): string {
   const native = (bytes as unknown as { toBase64?: ToBase64 }).toBase64;
   if (typeof native === "function") {
-    return native.call(bytes, { alphabet });
+    // The native API keeps "=" padding unless omitPadding is set. base64url is
+    // conventionally unpadded, so we must ask for it explicitly — otherwise the
+    // real webview (which has native toBase64) keeps padding while the btoa
+    // fallback below strips it, an observable native/fallback split.
+    return native.call(bytes, { alphabet, omitPadding: alphabet === "base64url" });
   }
   let bin = "";
   for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
