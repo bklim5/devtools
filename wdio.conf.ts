@@ -7,11 +7,11 @@
 // surface is unreachable off-box. Port is overridable via TAURI_WEBDRIVER_PORT
 // (matching the Rust `init_with_port` / env-var override) for conflict cases.
 //
-// The spike itself lives in test/e2e/skeleton.e2e.ts (launch → find element →
-// send keys → screenshot the real WKWebView). The reproducible driver that
-// starts tauri dev, waits for :4445, runs this config, and tears the child down
-// is scripts/e2e-spike.sh — that script is the per-task UI-gate runner for later
-// phases.
+// Specs live per-tool in test/e2e/*.e2e.ts (launch → navigate → drive → assert →
+// screenshot the real WKWebView). The reproducible driver that starts tauri dev,
+// waits for :4445, runs this config, and tears the child down is scripts/e2e-spike.sh
+// — the per-task UI-gate runner. Each shipped tool adds its own spec (the Phase-1
+// skeleton spec was removed with the skeleton at Phase-1 close, D-05).
 
 const WEBDRIVER_HOST = "127.0.0.1"; // localhost ONLY — never 0.0.0.0
 const WEBDRIVER_PORT = Number(process.env.TAURI_WEBDRIVER_PORT ?? "4445");
@@ -26,7 +26,7 @@ export const config: WebdriverIO.Config = {
   port: WEBDRIVER_PORT,
   path: "/",
 
-  specs: ["./test/e2e/skeleton.e2e.ts"],
+  specs: ["./test/e2e/*.e2e.ts"],
   maxInstances: 1,
 
   // A single empty capability set: the embedded server drives the one app
