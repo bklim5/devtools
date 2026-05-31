@@ -39,7 +39,10 @@
   --color-bd-2: rgba(255, 255, 255, 0.12);
   --color-tx: #e7e9ee;
   --color-tx-2: #989da7;
-  --color-tx-3: #686d77;
+  /* tx-3 raised from the mockup's #686d77 (~3.8:1, fails WCAG-AA for 11–12.5px
+     body text) to #868b95 (~5:1 on card, ~5.7:1 on bg-app) — still the dimmest
+     of the text ramp, but AA-compliant. 03-UI-REVIEW blocker fix. */
+  --color-tx-3: #868b95;
   --color-input-bg: #0d0f13;
   --color-palette: #1a1d23;
   --color-scrim: rgba(6, 7, 9, 0.66);
