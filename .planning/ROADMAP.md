@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Scaffold + Harness Proof** - Walking skeleton that proves the full build+verify harness end-to-end before any product feature (completed 2026-05-30)
 - [ ] **Phase 2: Shell** - Registry-driven sidebar, ⌘K command palette, prefs persistence, opens-to-last-tool
 - [ ] **Phase 3: Hero (Protobuf) + Encoding + UX Constraints** - Schema-less Protobuf decoder and Base64/Hex/Bytes under the binding cross-cutting UX constraints — the riskiest path, proven early
-- [ ] **Phase 4: Catalogue** - Unix Time, JWT, Hash, UUID/ULID under the same workflow constraints
+- [x] **Phase 4: Catalogue** - Unix Time, JWT, Hash, UUID/ULID under the same workflow constraints (execution + automated gates complete 2026-05-31; **human sign-off DEFERRED** — user AFK, will manually verify Phase 4 + Phase 5 later; tracked in 04-HUMAN-UAT.md, status: partial)
 - [ ] **Phase 5: Native Polish** - Global summon shortcut, tray/menu, single-instance (macOS)
 - [ ] **Phase 6: Distribution** - Code signing + notarisation, DMG, auto-updater (macOS)
 
@@ -91,7 +91,7 @@ Plans:
 - [x] 04-03-PLAN.md — JWT tool (Wave 2): pure decodeJwt (split→base64url→JSON + field-scoped error taxonomy), humanized+flagged exp/iat/nbf claims, display-only, component swap + e2e (JWT-01; D-07/08/09/10)
 - [x] 04-04-PLAN.md — Hash tool (Wave 2): hashes.ts (js-md5 sync + Web Crypto SHA async) vs known vectors, text/hex/base64 input toggle → single Uint8Array, 5 stacked digests + casing toggle + per-row copy, component swap + e2e (HASH-01; D-01/11/12/13/14/19)
 - [x] 04-05-PLAN.md — UUID/ULID tool (Wave 2): generate v4/v7/ULID (on-open + 1-keystroke regen + batch + copy-all) + decodeId auto-detect breakdown, component swap + e2e (UID-01; D-02/15/16/17)
-- [ ] 04-06-PLAN.md — Phase boundary (Wave 3): full suite + fresh tauri build + four real-WKWebView e2e + gsd-ui-review WCAG-AA audit + human sign-off + mark phase complete (autonomous: false)
+- [x] 04-06-PLAN.md — Phase boundary (Wave 3): full suite + fresh tauri build + four real-WKWebView e2e + gsd-ui-review WCAG-AA audit + mark phase complete (autonomous: false) — **Task 1 (automated gates) COMPLETE; human sign-off DEFERRED (user AFK), tracked in 04-HUMAN-UAT.md**
 **UI hint**: yes
 
 ### Phase 5: Native Polish
@@ -128,6 +128,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 1. Scaffold + Harness Proof | 4/4 | Complete    | 2026-05-30 |
 | 2. Shell | 2/4 | In Progress|  |
 | 3. Hero + Encoding + UX | 1/4 | In Progress|  |
-| 4. Catalogue | 0/6 | Planned | - |
+| 4. Catalogue | 6/6 | Complete (sign-off deferred) | 2026-05-31 |
 | 5. Native Polish | 0/TBD | Not started | - |
 | 6. Distribution | 0/TBD | Not started | - |

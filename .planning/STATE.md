@@ -6,18 +6,23 @@ status: unknown
 last_updated: "2026-05-31T13:13:17.601Z"
 progress:
   total_phases: 6
-  completed_phases: 3
-  total_plans: 18
-  completed_plans: 17
-  percent: 94
+  completed_phases: 4   # Phases 5 (Native Polish) + 6 (Distribution) remain; Phase 4 sign-off DEFERRED (verification debt, 04-HUMAN-UAT.md)
+  total_plans: 18       # planned-so-far (Phases 1-4); Phases 5-6 plans are TBD
+  completed_plans: 18
+  percent: 67           # 4 of 6 phases executed; not the milestone-complete figure
 ---
 
 # Project State
 
 ## Current Position
 
-Phase: 04 (catalogue) — EXECUTING
-Plan: 6 of 6
+Phase: 04 (catalogue) — EXECUTION COMPLETE, HUMAN SIGN-OFF DEFERRED
+Plan: 6 of 6 ✓ (Task 1 automated gates green; Task 2 human sign-off deferred)
+Next: Phase 05 (Native Polish)
+
+**Phase 4 (Catalogue) — execution + ALL automated gates COMPLETE 2026-05-31; HUMAN SIGN-OFF DEFERRED.** All 6 plans done; the four catalogue tools (Unix Time, JWT, Hash, UUID/ULID) shipped, completing the six-tool v1 catalogue. The 04-06 phase-boundary gate is green on every automated layer: **269/269 vitest** (decoder 19 untouched), tsc clean, eslint 0, **four real-WKWebView e2e specs passing on webkit** (incl. the load-bearing hash SHA-256 and uuid-ulid `crypto.randomUUID` secure-context checks — A1 CONFIRMED on the packaged webview), a fresh **`tauri build`** producing a runnable `.app` + `.dmg` (exit 0, no webdriver in the release binary), and a **PASSING WCAG-AA audit (24/24, no blockers)** recorded in `04-UI-REVIEW.md`. TIME-01 / JWT-01 / HASH-01 / UID-01 are Complete.
+
+> **⚠️ DEFERRED PHASE-BOUNDARY HUMAN SIGN-OFF (NOT approved).** The packaged-build human sign-off (04-06 Task 2, `checkpoint:human-verify`) was DEFERRED at the user's explicit request — the user is AFK and will manually verify Phase 4 (and Phase 5) later. The phase is closed for **forward progress only**; the sign-off is tracked as explicit **verification debt** in `.planning/phases/04-catalogue/04-HUMAN-UAT.md` (status: partial, 5 pending per-tool checks). This was NOT self-approved. Packaged app to verify: `src-tauri/target/release/bundle/macos/devtools-app.app` (+ `…/dmg/devtools-app_0.1.0_aarch64.dmg`). If manual verification surfaces issues → `/gsd-plan-phase 4 --gaps`.
 
 **Phase 3 (Hero + Encoding + UX) COMPLETE — signed off 2026-05-31.** All 4 plans done; both tools (Protobuf hero + Base64/Hex/Bytes) shipped, code-reviewed, verified on the real macOS WKWebView (e2e), WCAG-AA audited, and built (`tauri build` → .app + .dmg, exit 0). PRO-01..07 + ENC-01..03 + UX-01..05 all Complete. Phase-boundary gates: 182/182 vitest (decoder 19 untouched), tsc clean, eslint 0; gsd-ui-review 19/24 with both AA blockers fixed (--tx-3 #868b95, accent #5b9bf8).
 
@@ -107,9 +112,18 @@ Prior Phase 2 context: All Phase 2 plans ✓ COMPLETE. `02-04` (Sidebar + ⌘K C
 
 ## Blocker
 
-- **None.** Phase-3 Wave 1 is complete: 03-01, 03-02, 03-03 all committed, green, and (for 03-03) approved on the real WKWebView with an automated e2e gate. Wave 2 = 03-04 (the Protobuf hero UI), an `autonomous: false` plan that ends the phase with a human sign-off checkpoint covering BOTH Phase-3 tools.
+- **None blocking forward progress.** Phase 4 execution + all automated gates are complete; Phase 5 can be planned now.
+- **Verification debt (non-blocking):** the Phase-4 packaged-build HUMAN SIGN-OFF is DEFERRED (user AFK; will verify Phase 4 + Phase 5 manually later). Tracked in `04-HUMAN-UAT.md` (status: partial, 5 pending). NOT approved — must be confirmed by the user before it can be marked done.
 
 ## Next Step (pick up here next session)
+
+**Phase 5 — Native Polish.** Plan it with `/gsd-plan-phase 5`. Goal: macOS native integration — a global keyboard shortcut summons/focuses the app from anywhere (NAT-01), tray/menu presence + single-instance so a second launch focuses the existing window (NAT-02), all routed through `src/lib/platform/` (no direct `@tauri-apps/*` in tools). **Window-geometry persistence (SHL-05's deferred clause, D-11) lands here** alongside the native window work. Per-task gate (simplify → /codex:review → vitest+tsc → real-WKWebView e2e) + a phase-boundary human sign-off on a fresh `tauri build` + gsd-ui-review WCAG-AA.
+
+> **Carry forward — Phase 4 verification debt:** the Phase-4 packaged-build human sign-off is DEFERRED (user AFK). When the user returns they intend to manually verify **Phase 4 AND Phase 5** together. Resume the Phase-4 UAT via `/gsd-verify-work 4` (or fold it into the Phase-5 sign-off) — 5 pending per-tool checks tracked in `.planning/phases/04-catalogue/04-HUMAN-UAT.md` (status: partial). Do NOT mark that sign-off approved until the user actually confirms.
+
+**OPEN BACKLOG (carried forward — user feedback at 03 sign-off, 2026-05-31):** add a **decimal-byte-array (JS `Uint8Array`) input mode** to the Protobuf decoder — paste e.g. `10, 3, 80, 81, 82` (comma/space-separated 0–255) and decode as protobuf, alongside hex/base64. New `InputEncoding` variant + parser + a third encoding-toggle segment. Capture for a Phase-3 polish increment or a Phase-4/5 scope discussion. (Not yet planned.)
+
+Prior Next Step (Phase 3 / 03-04) — DONE, retained for history:
 
 **Phase 3 — execute Wave 2 / `03-04` (the Protobuf hero UI).** Wave 1 (03-01 prefs, 03-02 logic core, 03-03 Base64/Hex/Bytes tool) is ✓ COMPLETE. `03-04` renders thin React components over 03-02's pure logic into the shell's `<Outlet/>`: resizable input/output split, recursive cards/rows field tree, `LenInterpretation` chips with smart default + per-node override, VARINT zigzag/signed readings, auto-expanded nested messages, neutral `#N` (accent = selection only), visible focusable copy + copy-all-as-JSON, persisted rows/cards toggle (via 03-01's `protobufTreeStyle`/`setTreeStyle`), and a `ProtobufStatusBar`. It completes PRO-01/03/04/05/06/07 and flips UX-01..05 to Complete, then ends the phase with the human sign-off checkpoint. **Per the standing harness rule, 03-04 must add `test/e2e/protobuf-decoder.e2e.ts` and run `scripts/e2e-spike.sh` as its real-webview gate.**
 

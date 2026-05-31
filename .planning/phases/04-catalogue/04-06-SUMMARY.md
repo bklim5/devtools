@@ -40,10 +40,10 @@ key-decisions:
   - "No AA fixes were required this phase: the four tools are token-pure and were built on the Phase-3 AA-corrected @theme, so every text/background pair clears 4.5:1 (the accent-on-accent-soft selected-chip flagged in Phase-3 now measures 4.88:1 over card with the #5b9bf8 accent)"
   - "Phase completion (ROADMAP/REQUIREMENTS/STATE — Task 3) is GATED on the human typing 'approved'; nothing is marked complete before the packaged-build sign-off (threat T-04-18)"
 
-requirements-completed: []  # TIME-01/JWT-01/HASH-01/UID-01 are marked complete in Task 3, AFTER human approval
+requirements-completed: [TIME-01, JWT-01, HASH-01, UID-01]  # marked complete by the Wave-2 plans (04-02..05) after their automated + real-WKWebView e2e gates; re-verified here
 
 # Metrics
-duration: in-progress
+duration: ~1 session (Task 1 automated gates; Task 2 sign-off deferred)
 completed: 2026-05-31
 ---
 
@@ -54,8 +54,8 @@ completed: 2026-05-31
 ## Status
 
 - **Task 1 (auto): COMPLETE** — full-suite + fresh tauri build + per-tool e2e + WCAG-AA audit. Committed `5709a974`.
-- **Task 2 (checkpoint:human-verify, blocking): AWAITING APPROVAL** — the human must verify the freshly-built packaged macOS app and type "approved". NOT self-approved.
-- **Task 3 (auto, post-approval): PENDING** — mark TIME-01/JWT-01/HASH-01/UID-01 complete + Phase 4 complete across ROADMAP/REQUIREMENTS/STATE. Runs ONLY after "approved".
+- **Task 2 (checkpoint:human-verify, blocking): DEFERRED (NOT approved).** At the user's explicit request the packaged-build human sign-off is deferred — the user is AFK and will manually verify Phase 4 (and Phase 5) later. This was **NOT self-approved**; recording it as approved would be a false claim. The phase is closed for **forward progress only**, with the sign-off tracked as explicit verification debt in `04-HUMAN-UAT.md` (status: partial, 5 pending per-tool checks).
+- **Task 3 (auto): DONE for forward progress, ANNOTATED as deferred.** TIME-01/JWT-01/HASH-01/UID-01 were already marked Complete by the Wave-2 plans (04-02..05) after their automated + real-WKWebView e2e gates. ROADMAP + STATE now mark Phase 4 done **with the human sign-off explicitly DEFERRED/tracked**, STATE Next Step points at Phase 5, and the open BACKLOG (protobuf decimal-byte-array input mode) is carried forward.
 
 ## Task 1 — what was verified
 
@@ -68,26 +68,34 @@ completed: 2026-05-31
 ## Task Commits
 
 1. **Task 1: record passing WCAG-AA audit for the four catalogue tools** — `5709a974` (docs)
+2. **Phase-4 close (forward progress): 04-HUMAN-UAT.md + ROADMAP/STATE annotated, sign-off deferred** — `docs(phase-04): close phase execution — automated gates green, human sign-off deferred to manual verification` (docs)
 
-(Task 1 needed no source changes — the suite, build, e2e, and contrast were all already green/passing, so the only artifact is the audit record. Task 3's planning-doc updates will commit after approval.)
+(Task 1 needed no source changes — the suite, build, e2e, and contrast were all already green/passing, so the only artifact is the audit record. The phase-close commit adds the deferred-sign-off UAT tracker and annotates ROADMAP/STATE; it fabricates no human approval.)
 
 ## Deviations from Plan
 
 None so far. The plan ran exactly as written for Task 1; the AA audit found no blockers (the four tools inherit the Phase-3 AA-corrected tokens), so the "apply fixes, re-run until AA passes" branch was a no-op.
 
-## Checkpoint (Task 2) — awaiting human sign-off
+## Checkpoint (Task 2) — human sign-off DEFERRED (NOT approved)
 
 The freshly-built packaged macOS app is at:
 `src-tauri/target/release/bundle/macos/devtools-app.app` (also `…/dmg/devtools-app_0.1.0_aarch64.dmg`).
 
-The user verifies the four new tools in the packaged app per the plan's per-tool steps (Unix Time, JWT, Hash, UUID/ULID) + the cross-cutting behaviors (paste-instant, ≤1-keystroke visible copy, status bar, ⌘K no-mouse switching, opens-to-last). On "approved" → Task 3 closes the phase; on issues → captured for `/gsd-plan-phase 4 --gaps`.
+The user is AFK and has **explicitly deferred** the packaged-build sign-off — they will manually verify Phase 4 (and Phase 5) together later. To make forward progress without fabricating an approval, the phase is closed on its automated gates and the sign-off is tracked as **verification debt** in `.planning/phases/04-catalogue/04-HUMAN-UAT.md` (status: partial, 5 pending per-tool checks: Unix Time, JWT, Hash, UUID/ULID, cross-cutting). When the user returns, resume via `/gsd-verify-work 4` (or fold into the Phase-5 sign-off); on issues → `/gsd-plan-phase 4 --gaps`. **This sign-off is NOT approved.**
+
+## Deviation from the plan's gating (honest note)
+
+Plan 04-06 gates Task 3 (marking the phase complete) on the human typing "approved" (threat T-04-18: "closing the phase without a verifiable record"). That gate was **consciously relaxed for forward progress only**, at the user's explicit instruction, AND the verifiable-record requirement is still honored a different way: the automated record (04-UI-REVIEW.md WCAG-AA 24/24, the e2e + build evidence) stands, the requirement completions trace to the Wave-2 plans' own gates, and the missing human sign-off is recorded as open debt in 04-HUMAN-UAT.md rather than papered over. No approval was fabricated.
 
 ## Self-Check
 
 - `04-UI-REVIEW.md` exists on disk (created this plan). ✓
+- `04-HUMAN-UAT.md` created on disk (status: partial, total=5, pending=5). ✓
 - Task 1 commit `5709a974` present in git history. ✓
-- (Task 3 planning-doc updates + their commit are intentionally deferred until after "approved".)
+- ROADMAP.md + STATE.md mark Phase 4 done for forward progress **with the human sign-off explicitly DEFERRED and tracked** (not approved). ✓
+- TIME-01/JWT-01/HASH-01/UID-01 already `[x]` Complete in REQUIREMENTS.md (set by 04-02..05). ✓ — **Note:** the REQUIREMENTS.md *Traceability table* row for **TIME-01 is stale** (still reads "Partial (04-01 timeFormat lib; tool UI in 04-02)") even though the checkbox is `[x]` and 04-02 shipped the tool. Per the task instruction ("if any are not [complete], leave them as-is and note it — do not change"), this stale traceability row was **left unchanged and is noted here** for a future cleanup.
+- **Honest status:** human sign-off DEFERRED, NOT approved. No human approval was fabricated.
 
 ---
 *Phase: 04-catalogue*
-*Status: Task 1 complete; Task 2 (human sign-off) awaiting approval; Task 3 pending approval.*
+*Status: Task 1 (automated gates) COMPLETE; Task 2 human sign-off DEFERRED (verification debt, NOT approved); phase closed for forward progress.*
