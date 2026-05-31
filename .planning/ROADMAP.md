@@ -86,7 +86,7 @@ Plans:
   4. Plans run in parallel but each passes the per-task gate (review → unit → ui) with no skipping ahead; the phase ends with a passing `gsd-ui-review` audit and human sign-off on a `tauri build`.
 **Plans**: 6 plans
 Plans:
-- [ ] 04-01-PLAN.md — Foundation (Wave 1): relocate shared StatusBar → src/components + extract CopyButton (D-04), install js-md5@0.8.3, hand-roll ulid.ts + uuidv7.ts + shared timeFormat.ts (TDD vectors), register all four tools as placeholders in registry.ts (TIME-01/JWT-01/HASH-01/UID-01; D-01/02/03/04)
+- [x] 04-01-PLAN.md — Foundation (Wave 1): relocate shared StatusBar → src/components + extract CopyButton (D-04), install js-md5@0.8.3, hand-roll ulid.ts + uuidv7.ts + shared timeFormat.ts (TDD vectors), register all four tools as placeholders in registry.ts (TIME-01/JWT-01/HASH-01/UID-01; D-01/02/03/04)
 - [ ] 04-02-PLAN.md — Unix Time tool (Wave 2): two-way s/ms↔local/UTC/ISO over timeFormat, auto-detect+override unit, reverse field, live now, status bar + focusable copy, component swap + e2e (TIME-01; D-03/05/06)
 - [ ] 04-03-PLAN.md — JWT tool (Wave 2): pure decodeJwt (split→base64url→JSON + field-scoped error taxonomy), humanized+flagged exp/iat/nbf claims, display-only, component swap + e2e (JWT-01; D-07/08/09/10)
 - [ ] 04-04-PLAN.md — Hash tool (Wave 2): hashes.ts (js-md5 sync + Web Crypto SHA async) vs known vectors, text/hex/base64 input toggle → single Uint8Array, 5 stacked digests + casing toggle + per-row copy, component swap + e2e (HASH-01; D-01/11/12/13/14/19)

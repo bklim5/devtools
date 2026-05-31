@@ -137,10 +137,10 @@ Phase mapping finalized by the roadmapper. Every v1 requirement maps to exactly 
 | UX-03 | Phase 3 (Hero + Encoding + UX) | Complete (both tools) |
 | UX-04 | Phase 3 (Hero + Encoding + UX) | Complete (03-UI-REVIEW AA fixes applied) |
 | UX-05 | Phase 3 (Hero + Encoding + UX) | Complete (both tools) |
-| TIME-01 | Phase 4 (Catalogue) | Pending |
-| JWT-01 | Phase 4 (Catalogue) | Pending |
-| HASH-01 | Phase 4 (Catalogue) | Pending |
-| UID-01 | Phase 4 (Catalogue) | Pending |
+| TIME-01 | Phase 4 (Catalogue) | Partial (04-01 timeFormat lib; tool UI in 04-02) |
+| JWT-01 | Phase 4 (Catalogue) | Partial (04-01 timeFormat lib; tool UI in 04-03) |
+| HASH-01 | Phase 4 (Catalogue) | Partial (04-01 js-md5 installed; tool UI in 04-04) |
+| UID-01 | Phase 4 (Catalogue) | Partial (04-01 ulid/uuidv7 libs; tool UI in 04-05) |
 | NAT-01 | Phase 5 (Native Polish) | Pending |
 | NAT-02 | Phase 5 (Native Polish) | Pending |
 | DST-01 | Phase 6 (Distribution) | Pending |
