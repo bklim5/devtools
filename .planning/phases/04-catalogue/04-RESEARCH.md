@@ -439,19 +439,19 @@ sha512("abc")  = ddaf35a193617aba...  (128 hex) [VERIFIED prefix]
 | A3 | Adding new tool imports + array entries to `registry.ts` is permitted (it is the registry's stated purpose) despite "registry internals immovable" | Registry section | LOW — confirm with planner/user; the alternative (a separate registration file) would be a larger change. The file's own comment says adding a tool = drop it in `TOOLS`. |
 | A4 | The magnitude heuristic boundaries (s: 1e9–1e11, ms: 1e12–1e14) are acceptable defaults | Date/Time D-05 | LOW — D-20 makes granularity discretionary; boundaries are TDD-tunable. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **StatusBar home: `src/components/` vs `src/shell/`?**
    - Known: it is presentational and tool-agnostic; `src/shell/` holds shell-wiring hooks, `src/components/` does not yet exist.
-   - Recommendation: create `src/components/StatusBar.tsx` (cleaner neutral home). Planner decides; either keeps Phase-3 tests green as long as imports are fixed.
+   - **RESOLVED:** Relocate to `src/components/StatusBar.tsx` (cleaner neutral home). Adopted by Plan 04-01 Task 1; Phase-3 tests stay green by fixing the Base64 import line.
 
 2. **Does CONTEXT's "registry.ts internals immovable" forbid adding tool entries?**
    - Known: registry.ts explicitly documents adding a tool = import + array entry; that's how Base64/Protobuf were enabled in prior phases.
-   - Recommendation: treat array-entry additions as sanctioned registration (not an internals edit). Flag for the planner to confirm.
+   - **RESOLVED:** Adding `TOOLS` array entries is sanctioned tool registration, NOT a forbidden internals edit — it is the registry's documented purpose. Adopted by Plan 04-01 Task 4.
 
 3. **ULID monotonicity for batches (D-16)?**
    - Known: UID-01 doesn't require monotonic batches; the spec defines optional monotonicity.
-   - Recommendation: ship fresh-random-per-ULID for v1 (simpler, fully spec-valid). Monotonic batch is discretion, not required.
+   - **RESOLVED:** Ship fresh-random-per-ULID for v1 (simpler, fully spec-valid). Adopted by Plan 04-05. Monotonic batch is discretion, not required this phase.
 
 ## Sources
 

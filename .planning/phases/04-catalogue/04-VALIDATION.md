@@ -1,8 +1,8 @@
 ---
 phase: 4
 slug: catalogue
-status: draft
-nyquist_compliant: false
+status: approved
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-05-31
 ---
@@ -47,7 +47,7 @@ created: 2026-05-31
 | 4-HASH-input | hash | — | HASH-01 | — | text/hex/base64 → bytes → 5 digests; lowercase default + uppercase toggle | unit + e2e | vitest + `hash.e2e.ts` | ❌ W0 | ⬜ pending |
 | 4-JWT-decode | jwt | — | JWT-01 | — | split→base64url→JSON happy path; 3 error classes (count / non-base64url / non-JSON) | unit | `npx vitest run src/tools/jwt/decodeJwt.test.ts` | ❌ W0 | ⬜ pending |
 | 4-JWT-claims | jwt | — | JWT-01 | — | `exp` expired flag / `nbf` not-yet-valid flag humanized | unit | (same suite) | ❌ W0 | ⬜ pending |
-| 4-TIME-heuristic | unix-time | — | TIME-01 | — | s/ms heuristic boundaries; manual override; empty=neutral | unit | `npx vitest run src/tools/unix-time/timeFormat.test.ts` | ❌ W0 | ⬜ pending |
+| 4-TIME-heuristic | unix-time | — | TIME-01 | — | s/ms heuristic boundaries; manual override; empty=neutral | unit | `npx vitest run src/lib/timeFormat.test.ts` | ❌ W0 | ⬜ pending |
 | 4-TIME-twoway | unix-time | — | TIME-01 | — | forward local+UTC+ISO; reverse ISO→ts; live "now" | unit + e2e | vitest + `unix-time.e2e.ts` | ❌ W0 | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
@@ -56,7 +56,7 @@ created: 2026-05-31
 
 ## Wave 0 Requirements
 
-- [ ] Relocate `StatusBar` → `src/components/StatusBar.tsx`; fix the 2 import lines (Base64 + Protobuf); full suite holds (decoder 19 + Base64 prop/aria contract from `Base64Tool.test.tsx`)
+- [ ] Relocate `StatusBar` → `src/components/StatusBar.tsx`; fix the Base64 import line (the Protobuf decoder uses its own status rendering — no shared-StatusBar import — so the D-04 "where it cleanly fits" Protobuf clause is a no-op this phase); full suite holds (decoder 19 + Base64 prop/aria contract from `Base64Tool.test.tsx`)
 - [ ] `npm install js-md5@0.8.3` (the single vendored dep — MIT, offline, accepts `string` + `Uint8Array`)
 - [ ] `src/lib/ulid.ts` + `src/lib/ulid.test.ts` — Crockford base32 encode/decode + known vectors (`01ARZ3NDEKTSV4RRFFQ69G5FAV` → `1469922850259` ms; `encodeTime(0)="0000000000"`; overflow `7ZZZZZZZZZ`)
 - [ ] `src/lib/uuidv7.ts` + `src/lib/uuidv7.test.ts` — RFC 9562 layout + canonical vector
@@ -77,11 +77,11 @@ created: 2026-05-31
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 15s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 15s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** approved 2026-05-31 (plans 04-01..04-06 satisfy per-task `<automated>` coverage; `wave_0_complete` flips true once Wave-1 plan 04-01 lands)
