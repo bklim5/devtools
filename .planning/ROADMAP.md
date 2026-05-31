@@ -84,7 +84,14 @@ Plans:
   2. Inputting text/bytes produces MD5 + SHA-1/256/384/512 digests (Web Crypto for SHA, JS lib for MD5), and the user can generate UUIDs/ULIDs with one keystroke and decode a pasted UUID/ULID into its components.
   3. All four tools honor the cross-cutting constraints (instant paste-transform, ≤1-keystroke visible copy, status bar, WCAG AA, layout-agnostic components) and the app's no-mouse switching and opens-to-last-tool behaviors continue to hold.
   4. Plans run in parallel but each passes the per-task gate (review → unit → ui) with no skipping ahead; the phase ends with a passing `gsd-ui-review` audit and human sign-off on a `tauri build`.
-**Plans**: TBD
+**Plans**: 6 plans
+Plans:
+- [ ] 04-01-PLAN.md — Foundation (Wave 1): relocate shared StatusBar → src/components + extract CopyButton (D-04), install js-md5@0.8.3, hand-roll ulid.ts + uuidv7.ts + shared timeFormat.ts (TDD vectors), register all four tools as placeholders in registry.ts (TIME-01/JWT-01/HASH-01/UID-01; D-01/02/03/04)
+- [ ] 04-02-PLAN.md — Unix Time tool (Wave 2): two-way s/ms↔local/UTC/ISO over timeFormat, auto-detect+override unit, reverse field, live now, status bar + focusable copy, component swap + e2e (TIME-01; D-03/05/06)
+- [ ] 04-03-PLAN.md — JWT tool (Wave 2): pure decodeJwt (split→base64url→JSON + field-scoped error taxonomy), humanized+flagged exp/iat/nbf claims, display-only, component swap + e2e (JWT-01; D-07/08/09/10)
+- [ ] 04-04-PLAN.md — Hash tool (Wave 2): hashes.ts (js-md5 sync + Web Crypto SHA async) vs known vectors, text/hex/base64 input toggle → single Uint8Array, 5 stacked digests + casing toggle + per-row copy, component swap + e2e (HASH-01; D-01/11/12/13/14/19)
+- [ ] 04-05-PLAN.md — UUID/ULID tool (Wave 2): generate v4/v7/ULID (on-open + 1-keystroke regen + batch + copy-all) + decodeId auto-detect breakdown, component swap + e2e (UID-01; D-02/15/16/17)
+- [ ] 04-06-PLAN.md — Phase boundary (Wave 3): full suite + fresh tauri build + four real-WKWebView e2e + gsd-ui-review WCAG-AA audit + human sign-off + mark phase complete (autonomous: false)
 **UI hint**: yes
 
 ### Phase 5: Native Polish
@@ -121,6 +128,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 1. Scaffold + Harness Proof | 4/4 | Complete    | 2026-05-30 |
 | 2. Shell | 2/4 | In Progress|  |
 | 3. Hero + Encoding + UX | 1/4 | In Progress|  |
-| 4. Catalogue | 0/TBD | Not started | - |
+| 4. Catalogue | 0/6 | Planned | - |
 | 5. Native Polish | 0/TBD | Not started | - |
 | 6. Distribution | 0/TBD | Not started | - |
