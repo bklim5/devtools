@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-05-31T15:14:26.437Z"
+last_updated: "2026-05-31T15:21:05.120Z"
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 22
-  completed_plans: 20
-  percent: 91
+  completed_plans: 21
+  percent: 95
 ---
 
 # Project State
@@ -17,8 +17,8 @@ progress:
 ## Current Position
 
 Phase: 05 (native-polish) — EXECUTING
-Plan: 3 of 4
-Next: Phase 05 — Wave 1 done (05-01 Rust foundation ✓, 05-02 JS platform seam ✓). Execute 05-03 (shell wiring: register the summon chord on startup via `platform.nativeShortcut`/`platform.window` — the seam is now ready) then 05-04 (phase boundary + human sign-off).
+Plan: 4 of 4
+Next: Phase 05 — Wave 1 (05-01 Rust foundation ✓, 05-02 JS platform seam ✓) + Wave 2 (05-03 shell summon wiring ✓) DONE. Only **05-04 (phase boundary + human sign-off)** remains — a fresh `tauri build` + gsd-ui-review WCAG-AA, confirming D-01..D-04 and the OS-level summon/single-instance/tray behaviors (batched with the deferred Phase-4 UAT).
 
 **Phase 4 (Catalogue) — execution + ALL automated gates COMPLETE 2026-05-31; HUMAN SIGN-OFF DEFERRED.** All 6 plans done; the four catalogue tools (Unix Time, JWT, Hash, UUID/ULID) shipped, completing the six-tool v1 catalogue. The 04-06 phase-boundary gate is green on every automated layer: **269/269 vitest** (decoder 19 untouched), tsc clean, eslint 0, **four real-WKWebView e2e specs passing on webkit** (incl. the load-bearing hash SHA-256 and uuid-ulid `crypto.randomUUID` secure-context checks — A1 CONFIRMED on the packaged webview), a fresh **`tauri build`** producing a runnable `.app` + `.dmg` (exit 0, no webdriver in the release binary), and a **PASSING WCAG-AA audit (24/24, no blockers)** recorded in `04-UI-REVIEW.md`. TIME-01 / JWT-01 / HASH-01 / UID-01 are Complete.
 
@@ -30,7 +30,9 @@ Next: Phase 05 — Wave 1 done (05-01 Rust foundation ✓, 05-02 JS platform sea
 
 ## Active Plan
 
-**Phase 5 (native-polish) EXECUTING — Wave 1 `05-01` (Rust native foundation) + `05-02` (JS platform seam, NAT-01) ✓ COMPLETE.**
+**Phase 5 (native-polish) EXECUTING — Wave 1 `05-01` (Rust) + `05-02` (JS seam) ✓ + Wave 2 `05-03` (shell summon wiring, NAT-01) ✓ COMPLETE. Only `05-04` (phase-boundary human sign-off) remains.**
+
+**`05-03` (shell summon wiring — NAT-01) ✓ COMPLETE** — 2 commits (`271c92ba` summon.ts + 4 TDD unit tests, `75651651` main.tsx wiring + real-WKWebView e2e). Wired NAT-01 end-to-end through the seam: new `src/shell/summon.ts` owns **`SUMMON_CHORD = "CommandOrControl+Shift+D"`** as a single named constant (D-01 — Cmd on macOS, avoids Spotlight/screenshot chords) + an `async registerSummon()` that `await initPlatform()` then registers the chord via **`platform.nativeShortcut.register`**; the handler summons the window in the macOS-safe order **`unminimize → show → setFocus`** (D-03 / RESEARCH Pitfall 1, issue #12834). Register failure (chord taken, Pitfall 2 / T-05-07) is caught + `console.warn`'d and NEVER rethrown — a collision cannot crash startup. A guarded `deepLink(id)` helper validates any id through `getToolById` (ENABLED_TOOLS only) before touching `window.location.hash` (HashRouter only, T-05-08) — not called by v1, present for a future deep-link. **Zero `@tauri-apps` imports** in summon.ts (grep-asserted `= 0`, T-05-04). `main.tsx` chains `registerSummon()` onto the existing `initPlatform()` preload (registered once, after the real impl, non-blocking, single `.catch`). **Real-WKWebView e2e ADDED + GREEN**: `test/e2e/summon.e2e.ts` asserts the webview-observable surface the OS-global hotkey can't (WebDriver can't fire an OS chord — VALIDATION Manual-Only): (1) the app launches NON-BLANK to the hero tool despite window-state `visible:false` + the new Rust plugins + the startup summon (Pitfall 6 / A5), and (2) the HashRouter deep-link path works (`#/tools/base64` renders). `scripts/e2e-spike.sh` → **7 passing on webkit** (exit 0). Gate: **277/277 vitest** (decoder 19 untouched, +4 new), tsc clean, eslint 0. **NAT-01 wired end-to-end** — the only remaining NAT-01 confirmation is the OS-level hotkey summon/focus at the 05-04 packaged-build human sign-off. One deviation (Rule 3): `deepLink` had to be EXPORTED (not the "private helper" the plan worded) because a truly-unused private fn trips `tsc` `noUnusedLocals` (TS6133), which the binding lefthook typecheck blocks — exporting keeps the validated path present with no behavior change. SUMMARY: `.planning/phases/05-native-polish/05-03-SUMMARY.md`.
 
 **`05-02` (JS platform seam — window + nativeShortcut, NAT-01) ✓ COMPLETE** — 2 commits (`81019eb5` install `@tauri-apps/plugin-global-shortcut@2.3.2`, `e85df138` seam extension + tests). Extended `src/lib/platform/` with the two JS-reachable native caps NAT-01 needs, following the exact clipboard/store pattern: `Platform` interface gains **`window`** (show/setFocus/unminimize/minimize/isVisible) and **`nativeShortcut`** (register/unregister/isRegistered), each with a per-capability accessor getter on the `platform` const (so interface ↔ impl can never drift). Real impls live ONLY in `tauri.ts` (still the sole `@tauri-apps/*` importer): window via `@tauri-apps/api/window` `getCurrentWindow()`, shortcuts via `@tauri-apps/plugin-global-shortcut` with the handler **filtered on `e.state === "Pressed"`** so it fires once per chord (RESEARCH Pitfall 2); the file-header comment updated to note the two new surfaces. `browser.ts` degrades to harmless no-ops (register resolves, `isRegistered`→false, `isVisible`→true) so jsdom/`vite preview` never throw (T-05-05). Did NOT add `@tauri-apps/plugin-window-state` JS — window-state is fully Rust-auto (Plan 01). **Grep audit clean** (T-05-04): the only real `@tauri-apps` import statements in `src/` are `tauri.ts` (real) + `index.ts` (dynamic `import("./tauri")`); all other matches are comments (confirmed via `grep -rn 'from "@tauri-apps"'` → zero outside the seam). `platform.test.ts` +4 tests (fallback no-ops for both caps + accessor delegation via an injected stub). Gate: **273/273 vitest** (decoder 19 untouched, +4 new), tsc clean, eslint 0. **NAT-01 seam delivered** — Plan 03 can now call `platform.nativeShortcut.register`/`platform.window.*` without importing `@tauri-apps`. One deviation (Rule 3): the interface widening broke `tsc` on EVERY inline `Platform` test stub (router.test + testStore + 6 tool tests), not just `platform.test.ts` as the plan anticipated; fixed DRY via shared `noopWindow`/`noopNativeShortcut` exported from `src/shell/testStore.ts` and reused everywhere (no production behavior changed). **No automated coverage of the REAL native behaviors** (actual OS shortcut registration, window summon) — they need the Tauri runtime/OS events the WKWebView gate can't drive, so they're exercised by Plan 03 + batched into the Phase-5 packaged-build human sign-off (05-04). Tasks 2-4 landed in one atomic green commit (the binding lefthook gate forbids a red tree and `--no-verify`; the interface+impl+all-stub-widenings are one type-coherent change). SUMMARY: `.planning/phases/05-native-polish/05-02-SUMMARY.md`.
 
