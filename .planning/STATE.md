@@ -16,8 +16,8 @@ progress:
 
 ## Current Position
 
-Phase: 04 (catalogue) — EXECUTING
-Plan: 1 of 7
+Phase: 04 (catalogue) — execution COMPLETE (7/7 plans; gap-closure 04-07 done). Only the deferred packaged-build human sign-off remains (verification debt, batched with Phase 5).
+Plan: 7 of 7
 Next: Phase 05 — Wave 1 (05-01 Rust foundation ✓, 05-02 JS platform seam ✓) + Wave 2 (05-03 shell summon wiring ✓) DONE. Only **05-04 (phase boundary + human sign-off)** remains — a fresh `tauri build` + gsd-ui-review WCAG-AA, confirming D-01..D-04 and the OS-level summon/single-instance/tray behaviors (batched with the deferred Phase-4 UAT).
 
 **Phase 4 (Catalogue) — execution + ALL automated gates COMPLETE 2026-05-31; HUMAN SIGN-OFF DEFERRED.** All 6 plans done; the four catalogue tools (Unix Time, JWT, Hash, UUID/ULID) shipped, completing the six-tool v1 catalogue. The 04-06 phase-boundary gate is green on every automated layer: **269/269 vitest** (decoder 19 untouched), tsc clean, eslint 0, **four real-WKWebView e2e specs passing on webkit** (incl. the load-bearing hash SHA-256 and uuid-ulid `crypto.randomUUID` secure-context checks — A1 CONFIRMED on the packaged webview), a fresh **`tauri build`** producing a runnable `.app` + `.dmg` (exit 0, no webdriver in the release binary), and a **PASSING WCAG-AA audit (24/24, no blockers)** recorded in `04-UI-REVIEW.md`. TIME-01 / JWT-01 / HASH-01 / UID-01 are Complete.
