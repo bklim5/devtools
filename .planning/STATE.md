@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-05-31T13:05:54.568Z"
+last_updated: "2026-05-31T13:13:17.601Z"
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 18
-  completed_plans: 16
-  percent: 89
+  completed_plans: 17
+  percent: 94
 ---
 
 # Project State
@@ -17,7 +17,7 @@ progress:
 ## Current Position
 
 Phase: 04 (catalogue) — EXECUTING
-Plan: 5 of 6
+Plan: 6 of 6
 
 **Phase 3 (Hero + Encoding + UX) COMPLETE — signed off 2026-05-31.** All 4 plans done; both tools (Protobuf hero + Base64/Hex/Bytes) shipped, code-reviewed, verified on the real macOS WKWebView (e2e), WCAG-AA audited, and built (`tauri build` → .app + .dmg, exit 0). PRO-01..07 + ENC-01..03 + UX-01..05 all Complete. Phase-boundary gates: 182/182 vitest (decoder 19 untouched), tsc clean, eslint 0; gsd-ui-review 19/24 with both AA blockers fixed (--tx-3 #868b95, accent #5b9bf8).
 
@@ -25,7 +25,9 @@ Plan: 5 of 6
 
 ## Active Plan
 
-**Phase 4 (catalogue) EXECUTING — Wave 1 (04-01 foundation) + Wave 2 `04-02` (Unix Time) + `04-03` (JWT) + `04-04` (Hash) ✓ DONE.**
+**Phase 4 (catalogue) EXECUTING — Wave 1 (04-01 foundation) + Wave 2 `04-02` (Unix Time) + `04-03` (JWT) + `04-04` (Hash) + `04-05` (UUID/ULID) ✓ DONE. Wave 2 COMPLETE — all four catalogue tools shipped.**
+
+**`04-05` (UUID/ULID tool, UID-01) ✓ COMPLETE** — 2 commits (`527c84f5` decodeId pure module + TDD, `1da64bbd` UuidUlidTool UI + registry swap + e2e). Shipped the UUID/ULID tool consuming Plan-01's `ulid.ts`/`uuidv7.ts` verbatim (zero duplication). Pure `decodeId(input)` discriminated union `{empty|error|ok uuid|ok ulid}` (D-17): trims, shape-matches the 8-4-4-4-12 UUID layout (case-insensitive) or the 26-char Crockford ULID, delegates to `decodeUuid`/`decodeUlid`, and NEVER throws past the boundary (T-04-14 — wrong length, bad hex nibble, out-of-alphabet I/L/O/U, and a generic non-id all return an explicit `kind:"error"`); 10 TDD cases pinned to fixed vectors (v7 `017f22e2…`→version 7 + ts 1645557742000; ULID `01ARZ3…`→ts 1469922850259). `UuidUlidTool.tsx` (D-15/D-16): kind toggle (UUID v4 / UUID v7 / ULID, aria-pressed, accent=selected only) + count input; ONE id generated on open via a **lazy `useState` initializer** (NOT a mount effect — the React Compiler `set-state-in-effect` lint forbids it, same purity class as the 04-02/03 clock fixes); a default-focused **Generate** button regenerates in ≤1 keystroke; count>1 → N fresh rows each with its own visible focusable `CopyButton` + a **Copy all** (newline-joined). Decode field runs `decodeId` on every change (paste-instant) → breakdown (UUID: type/version/variant + humanized embedded ts for v7; ULID: humanized ts + randomness hex), empty neutral, malformed = single field-scoped `aria-invalid`+`text-bad` error. Generation = `crypto.randomUUID` (v4) + the Plan-01 CSPRNG libs (v7/ULID) — never a non-crypto PRNG (T-04-15, grep-clean); no `@tauri-apps` (clipboard via platform seam). Registry `index.ts` swapped `makePlaceholder("UUID / ULID")` → real `UuidUlidTool` (registry.ts untouched). **Real-WKWebView gate ADDED + GREEN**: `test/e2e/uuid-ulid.e2e.ts` at `#/tools/uuid-ulid` asserts an id is generated on open (the secure-context check for `crypto.randomUUID`/`getRandomValues` — **A1 now CONFIRMED for those specific APIs**), Copy is displayed, Generate produces a DIFFERENT id, and a pasted ULID's decoded 2016 timestamp renders; `bash scripts/e2e-spike.sh` → **6 passing on webkit** (base64, hash, jwt, protobuf, unix-time, uuid-ulid). Gate: **269/269 vitest** (decoder 19 untouched, +22 new: 10 decodeId + 12 tool), tsc clean, eslint 0. **UID-01 Complete.** No plan deviations. Out-of-scope note: first e2e run hit the pre-existing intermittent `base64.e2e.ts` cold-start flake (logged 04-03/04-04); immediate re-run was 6/6 green. SUMMARY: `.planning/phases/04-catalogue/04-05-SUMMARY.md`.
 
 **`04-04` (Hash tool, HASH-01) ✓ COMPLETE** — 2 commits (`59eb09ff` hashes.ts pure digest module + TDD, `544bf64f` HashTool UI + registry swap + e2e). Shipped the Hash tool — the ONLY plan consuming js-md5 + Web Crypto. Pure `hashes.ts`: `md5Hex` (js-md5, sync), `shaHex` (Web Crypto `crypto.subtle.digest`, async), `digestAll`, `ALGORITHMS`; hex via `bytes.ts` `bytesToHex` (no hand-rolled hex/crypto, T-04-11), lowercase-canonical; 10 TDD cases pinned to known-good vectors (md5("")=`d41d8cd9…`, sha256("")=`e3b0c4…b855`, sha1/256/384/512 "abc" prefixes). `HashTool.tsx`: input-encoding toggle (UTF-8/hex/base64, aria-pressed, accent=selected) parses one internal `Uint8Array` via `bytes.ts` (D-11); MD5 renders SYNCHRONOUSLY (useMemo, paste-instant) while the four SHA resolve async; all five shown stacked (D-12), each row a visible focusable `CopyButton` (UX-02). Lowercase-default hex + uppercase casing toggle applied on display AND copied value (D-13); canonical digest stays lowercase. **Pitfall-3 stale guard:** async SHA result tagged with its source `Uint8Array` (`shaResult.src === bytes`) so a resolved-then-retyped digest is detected as stale — stronger than a bare cleanup flag, and avoids the lint-forbidden synchronous setState-in-effect (on error `md5Row` is null so the whole digest block hides, no flush needed). Field-scoped error on bad encoding (aria-invalid + text-bad, never opacity-only); empty = neutral. Registry `index.ts` swapped `makePlaceholder("Hash")` → real `HashTool` (registry.ts untouched). **Real-WKWebView gate ADDED + GREEN**: `test/e2e/hash.e2e.ts` types "abc" at `#/tools/hash`, asserts MD5 = `900150983cd24fb0d6963f7d28e17f72` AND (load-bearing) SHA-256 starts with `ba7816bf8f01cfea` via `crypto.subtle.digest` on the packaged webview — **confirming Assumption A1 (`tauri://` is a secure context for Web Crypto)**; `bash scripts/e2e-spike.sh` → **5 passing on webkit** (base64, hash, jwt, protobuf, unix-time). Gate: **247/247 vitest** (decoder 19 untouched, +18 new), tsc clean, eslint 0. **HASH-01 Complete.** No deviations (plan ran as written). Out-of-scope note: the first e2e run hit the pre-existing intermittent `base64.e2e.ts` cold-start navigation flake (logged at 04-03); immediate re-run was 5/5 green. SUMMARY: `.planning/phases/04-catalogue/04-04-SUMMARY.md`.
 
@@ -33,7 +35,7 @@ Plan: 5 of 6
 
 **`04-02` (Unix Time tool, TIME-01) ✓ COMPLETE** — 2 commits (`3e6783d6` UnixTimeTool + TDD, `06445f18` registry swap + e2e gate). Shipped the real two-way Unix Time converter into the registry-driven shell over Plan 01's shared `timeFormat` lib (zero date-math duplication): forward pane pastes an s/ms timestamp → instant LOCAL + UTC + ISO rows each with a visible focusable copy (UX-01/02), `classifyUnit` magnitude auto-detect + an s/ms override toggle (aria-pressed, accent = selected only); reverse ISO/datetime field derives the timestamp back into the forward field (two-way, D-06); live "now" on a 1s interval (cleanup on unmount) with copy. Empty = neutral; malformed = field-scoped `aria-invalid` + `text-bad` error, never a crash (T-04-05). Registry `index.ts` swapped `makePlaceholder` → real `UnixTimeTool` (registry.ts untouched — entry already in TOOLS from 04-01). **Real-WKWebView gate ADDED + GREEN**: `test/e2e/unix-time.e2e.ts` types `1469922850259`, asserts ISO `2016-07-30T23:54:10.259Z` renders on paste + a `Copy ISO 8601` button is displayed; `bash scripts/e2e-spike.sh` → **3 passing on webkit** (base64, protobuf, unix-time). Gate: **214/214 vitest** (decoder 19 untouched, +8 new), tsc clean, eslint 0. **TIME-01 Complete.** Two decisions: (1) empty forward field defaults the active unit to **ms** so the reverse ISO field derives full-precision ms back (s would floor away milliseconds on round-trip); (2) timing (`performance.now`) is measured in the change handler not render — the React Compiler purity lint forbids impure clock reads in the render body, so the forward derive stays render-pure (mirrors Base64's event-scoped `timed()`). No deviations (plan ran as written). SUMMARY: `.planning/phases/04-catalogue/04-02-SUMMARY.md`.
 
-**Next: Wave 2 remaining — `04-05` (UUID/ULID), then `04-06` / phase boundary (human sign-off on `tauri build` + gsd-ui-review WCAG-AA).** Note: A1 (`tauri://` secure context for Web Crypto) now CONFIRMED for `crypto.subtle.digest` on the real WKWebView (04-04) — de-risks 04-05's `crypto.getRandomValues`/`crypto.randomUUID`, though its own e2e should still confirm those specific APIs.
+**Next: `04-06` / phase boundary — human sign-off on a fresh `tauri build` + a passing `gsd-ui-review` WCAG-AA audit covering all four new catalogue tools.** Wave 2 is now complete (04-02..05 all shipped, green, real-WKWebView gated). Note: A1 (`tauri://` secure context for Web Crypto) is now CONFIRMED on the real WKWebView for BOTH `crypto.subtle.digest` (04-04) AND `crypto.randomUUID`/`getRandomValues` (04-05).
 
 ---
 
