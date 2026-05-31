@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-05-31T15:07:03.328Z"
+last_updated: "2026-05-31T15:14:26.437Z"
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 22
-  completed_plans: 19
-  percent: 86
+  completed_plans: 20
+  percent: 91
 ---
 
 # Project State
@@ -17,8 +17,8 @@ progress:
 ## Current Position
 
 Phase: 05 (native-polish) — EXECUTING
-Plan: 2 of 4
-Next: Phase 05 — Wave 1 done (05-01 Rust foundation ✓). Execute 05-02 (JS platform seam: window summon + nativeShortcut, browser no-ops, seam unit tests) then 05-03 (shell wiring: register the summon chord on startup) then 05-04 (phase boundary + human sign-off).
+Plan: 3 of 4
+Next: Phase 05 — Wave 1 done (05-01 Rust foundation ✓, 05-02 JS platform seam ✓). Execute 05-03 (shell wiring: register the summon chord on startup via `platform.nativeShortcut`/`platform.window` — the seam is now ready) then 05-04 (phase boundary + human sign-off).
 
 **Phase 4 (Catalogue) — execution + ALL automated gates COMPLETE 2026-05-31; HUMAN SIGN-OFF DEFERRED.** All 6 plans done; the four catalogue tools (Unix Time, JWT, Hash, UUID/ULID) shipped, completing the six-tool v1 catalogue. The 04-06 phase-boundary gate is green on every automated layer: **269/269 vitest** (decoder 19 untouched), tsc clean, eslint 0, **four real-WKWebView e2e specs passing on webkit** (incl. the load-bearing hash SHA-256 and uuid-ulid `crypto.randomUUID` secure-context checks — A1 CONFIRMED on the packaged webview), a fresh **`tauri build`** producing a runnable `.app` + `.dmg` (exit 0, no webdriver in the release binary), and a **PASSING WCAG-AA audit (24/24, no blockers)** recorded in `04-UI-REVIEW.md`. TIME-01 / JWT-01 / HASH-01 / UID-01 are Complete.
 
@@ -30,7 +30,9 @@ Next: Phase 05 — Wave 1 done (05-01 Rust foundation ✓). Execute 05-02 (JS pl
 
 ## Active Plan
 
-**Phase 5 (native-polish) EXECUTING — Wave 1 `05-01` (Rust native foundation, NAT-02 Rust half + SHL-05/D-11) ✓ COMPLETE.**
+**Phase 5 (native-polish) EXECUTING — Wave 1 `05-01` (Rust native foundation) + `05-02` (JS platform seam, NAT-01) ✓ COMPLETE.**
+
+**`05-02` (JS platform seam — window + nativeShortcut, NAT-01) ✓ COMPLETE** — 2 commits (`81019eb5` install `@tauri-apps/plugin-global-shortcut@2.3.2`, `e85df138` seam extension + tests). Extended `src/lib/platform/` with the two JS-reachable native caps NAT-01 needs, following the exact clipboard/store pattern: `Platform` interface gains **`window`** (show/setFocus/unminimize/minimize/isVisible) and **`nativeShortcut`** (register/unregister/isRegistered), each with a per-capability accessor getter on the `platform` const (so interface ↔ impl can never drift). Real impls live ONLY in `tauri.ts` (still the sole `@tauri-apps/*` importer): window via `@tauri-apps/api/window` `getCurrentWindow()`, shortcuts via `@tauri-apps/plugin-global-shortcut` with the handler **filtered on `e.state === "Pressed"`** so it fires once per chord (RESEARCH Pitfall 2); the file-header comment updated to note the two new surfaces. `browser.ts` degrades to harmless no-ops (register resolves, `isRegistered`→false, `isVisible`→true) so jsdom/`vite preview` never throw (T-05-05). Did NOT add `@tauri-apps/plugin-window-state` JS — window-state is fully Rust-auto (Plan 01). **Grep audit clean** (T-05-04): the only real `@tauri-apps` import statements in `src/` are `tauri.ts` (real) + `index.ts` (dynamic `import("./tauri")`); all other matches are comments (confirmed via `grep -rn 'from "@tauri-apps"'` → zero outside the seam). `platform.test.ts` +4 tests (fallback no-ops for both caps + accessor delegation via an injected stub). Gate: **273/273 vitest** (decoder 19 untouched, +4 new), tsc clean, eslint 0. **NAT-01 seam delivered** — Plan 03 can now call `platform.nativeShortcut.register`/`platform.window.*` without importing `@tauri-apps`. One deviation (Rule 3): the interface widening broke `tsc` on EVERY inline `Platform` test stub (router.test + testStore + 6 tool tests), not just `platform.test.ts` as the plan anticipated; fixed DRY via shared `noopWindow`/`noopNativeShortcut` exported from `src/shell/testStore.ts` and reused everywhere (no production behavior changed). **No automated coverage of the REAL native behaviors** (actual OS shortcut registration, window summon) — they need the Tauri runtime/OS events the WKWebView gate can't drive, so they're exercised by Plan 03 + batched into the Phase-5 packaged-build human sign-off (05-04). Tasks 2-4 landed in one atomic green commit (the binding lefthook gate forbids a red tree and `--no-verify`; the interface+impl+all-stub-widenings are one type-coherent change). SUMMARY: `.planning/phases/05-native-polish/05-02-SUMMARY.md`.
 
 **`05-01` (native Rust foundation) ✓ COMPLETE** — 2 commits (`da963c26` Cargo.toml plugin deps + tray-icon feature, `55cff023` lib.rs plugin registration + tray + capabilities + window config). Registered the three official Tauri 2 plugins with **single-instance FIRST** in the builder (its callback ignores untrusted `_argv`/`_cwd` per T-05-02 and summons the `main` window `unminimize → show → set_focus`), added `tauri-plugin-global-shortcut` + `tauri-plugin-window-state`, and built the macOS **tray icon + Show/Quit menu in `setup()`** (D-02 regular dock app + tray) reusing `default_window_icon()`. All three summon sites (single-instance callback, tray "Show", tray left-click) use the D-03 `unminimize → show → set_focus` order (issue #12834). Capabilities granted least-privilege (`global-shortcut:allow-register/unregister/is-registered` + `window-state:default`, no wildcard, T-05-01); `tauri.conf.json` window set `"visible": false` for flash-free geometry restore (Pitfall 6); `security.csp` byte-for-byte unchanged (offline holds, T-05-03). Plugin crates added cfg-targeted (`cfg(any(target_os = ...))` — the supported idiom) so future Windows/Linux inherit them; macOS-only build for now. **webdriver double-gate preserved verbatim** and re-verified: `cargo tree --release | grep -c webdriver` = **0** (T-01-10/11). Full `pnpm tauri build` → runnable `.app` + `.dmg` (exit 0). Gate: **269/269 vitest** (decoder 19 untouched), tsc clean. **NAT-02 Rust half delivered** (the JS/seam half + shell wiring are Plans 02/03). One deviation (Rule 2): added `.show_menu_on_left_click(false)` so the tray left-click summons the window (in tray-icon 0.23 a `.menu()` tray pops the menu on left-click by default, which would have suppressed the requested left-click-to-summon). **No automated coverage of the core behaviors** — single-instance second launch, tray click, geometry restore are OS/process-level, outside the WKWebView gate; they are batched into the Phase-5 human packaged-build sign-off (05-04/T2) alongside the deferred Phase-4 UAT. SUMMARY: `.planning/phases/05-native-polish/05-01-SUMMARY.md`.
 

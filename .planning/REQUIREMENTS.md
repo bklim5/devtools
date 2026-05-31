@@ -73,7 +73,7 @@ Requirements for the initial macOS release. Each maps to exactly one roadmap pha
 
 ### Native polish (NAT)
 
-- [ ] **NAT-01**: A global keyboard shortcut summons/focuses the app from anywhere (macOS)
+- [x] **NAT-01**: A global keyboard shortcut summons/focuses the app from anywhere (macOS)
 - [ ] **NAT-02**: Tray/menu presence and single-instance behavior (second launch focuses the existing window)
 
 ### Distribution (DST)
@@ -141,7 +141,7 @@ Phase mapping finalized by the roadmapper. Every v1 requirement maps to exactly 
 | JWT-01 | Phase 4 (Catalogue) | Complete (04-03 — decodeJwt + JwtTool shipped; display-only, D-09/D-10) |
 | HASH-01 | Phase 4 (Catalogue) | Complete (04-04 — hashes.ts md5/sha + HashTool shipped; js-md5 + Web Crypto, secure-context A1 confirmed on real WKWebView) |
 | UID-01 | Phase 4 (Catalogue) | Complete (04-05 — decodeId + UuidUlidTool shipped; generate v4/v7/ULID on-open+regen+batch, decode auto-detect, CSPRNG, secure-context confirmed on real WKWebView) |
-| NAT-01 | Phase 5 (Native Polish) | Pending |
+| NAT-01 | Phase 5 (Native Polish) | Complete |
 | NAT-02 | Phase 5 (Native Polish) | Pending |
 | DST-01 | Phase 6 (Distribution) | Pending |
 | DST-02 | Phase 6 (Distribution) | Pending |
