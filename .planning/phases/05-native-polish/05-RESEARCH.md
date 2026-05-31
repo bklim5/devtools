@@ -330,26 +330,21 @@ await platform.nativeShortcut.register("CommandOrControl+Shift+D", async () => {
 
 **These assumptions should be confirmed in `/gsd-discuss-phase 5` before locking the plan** — especially A4 (accessory vs regular app) and A6 (hide vs minimize), which shape the whole summon UX.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Default summon chord**
-   - What we know: `CommandOrControl+Shift+<key>` is the safe syntax (`CommandOrControl`→Cmd on macOS); collisions silently disable the handler.
-   - What's unclear: the exact key (D? Space is taken by Spotlight).
-   - Recommendation: pick in discuss; make it a constant in the shell, and ideally surface a "shortcut" pref later (out of scope for v1 unless cheap).
+> Resolved during Phase-5 planning (no discuss session — user AFK). Each maps to an **ADOPTED DEFAULT** (D-01..D-04) in the plans, routed to the human checkpoint **05-04 Task 2** for confirmation/adjustment at sign-off.
 
-2. **Accessory (menu-bar-only) vs regular (dock) app**
+1. **Default summon chord** → **RESOLVED: D-01 = `CommandOrControl+Shift+D`** (single named constant in the shell; collision-checked; a shortcut pref is out of scope for v1). ADOPTED DEFAULT, confirm at sign-off (05-04/T2).
+   - What we know: `CommandOrControl+Shift+<key>` is the safe syntax (`CommandOrControl`→Cmd on macOS); collisions silently disable the handler. Space is taken by Spotlight.
+
+2. **Accessory (menu-bar-only) vs regular (dock) app** → **RESOLVED: D-02 = regular dock app + tray** (not accessory). ADOPTED DEFAULT, confirm at sign-off (05-04/T2).
    - What we know: tray + main window suggests a regular app; an accessory app hides the dock icon and changes activation.
-   - What's unclear: product intent.
-   - Recommendation: confirm in discuss (A4). Default to **regular** app with a tray.
 
-3. **Hidden vs minimized when not summoned**
+3. **Hidden vs minimized when not summoned** → **RESOLVED: D-03 = `minimize()`/`unminimize()`** (not `hide()`); summon order = unminimize→show→setFocus (issue #12834). ADOPTED DEFAULT, confirm at sign-off (05-04/T2).
    - What we know: `hide()` triggers the macOS focus/callback quirks (Pitfalls 1, 5); `minimize()` is more reliable.
-   - What's unclear: desired UX (does closing the window quit, hide to tray, or minimize?).
-   - Recommendation: confirm in discuss (A6).
 
-4. **Where the global-shortcut handler lives (JS seam vs Rust)**
+4. **Where the global-shortcut handler lives (JS seam vs Rust)** → **RESOLVED: D-04 = JS-through-the-seam handler first**, isolated Rust fallback if packaged-build focus proves flaky. ADOPTED DEFAULT, confirm at sign-off (05-04/T2).
    - What we know: JS keeps it in the seam (cleaner); Rust is more reliable for macOS activation.
-   - Recommendation: start JS-through-the-seam; if packaged-build focus is flaky, fall back to a Rust handler emitting a JS event. Plan for both.
 
 ## Environment Availability
 

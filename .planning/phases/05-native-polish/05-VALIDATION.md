@@ -1,8 +1,8 @@
 ---
 phase: 5
 slug: native-polish
-status: draft
-nyquist_compliant: false
+status: ready
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-05-31
 ---
@@ -38,10 +38,17 @@ created: 2026-05-31
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 5-XX | TBD | TBD | NAT-01 | T-05-xx | Platform-seam window/shortcut API present; no `@tauri-apps/*` import in tools (grep) | unit | `pnpm vitest run` + grep guard | ❌ W0 | ⬜ pending |
-| 5-XX | TBD | TBD | NAT-02 | T-05-xx | Single-instance registered FIRST in lib.rs; browser/stub backends no-op gracefully | unit | `pnpm vitest run` + grep guard | ❌ W0 | ⬜ pending |
+| 05-01/T1 | 01 | 1 | NAT-02 / SHL-05 | T-05-01..03 | Plugins pinned (si 2.4.2 / gs 2.3.2 / ws 2.4.1) in Cargo.toml | unit | `grep Cargo.toml && cargo check` | ❌ W0 | ⬜ pending |
+| 05-01/T2 | 01 | 1 | NAT-02 / SHL-05 | T-05-01..03 | single-instance registered FIRST in lib.rs; least-privilege caps; webdriver excluded from release | unit | `grep lib.rs/caps/conf && cargo check && cargo tree --release \| grep -c webdriver = 0` | ❌ W0 | ⬜ pending |
+| 05-02/T1 | 02 | 1 | NAT-01 | T-05-04 | JS global-shortcut plugin pinned 2.3.2 | unit | `node -e ...plugin-global-shortcut==2.3.2` | ❌ W0 | ⬜ pending |
+| 05-02/T2 | 02 | 1 | NAT-01 | T-05-04..05 | `Platform.window` + `nativeShortcut` added; browser/stub no-op | unit | `grep index.ts/browser.ts` | ❌ W0 | ⬜ pending |
+| 05-02/T3 | 02 | 1 | NAT-01 | T-05-04..06 | real impl ONLY in tauri.ts; no `@tauri-apps/*` outside seam (grep audit) | unit | `grep tauri.ts + seam audit` | ❌ W0 | ⬜ pending |
+| 05-02/T4 (Wave-0 seam test) | 02 | 1 | NAT-01 | T-05-04..06 | seam interface shape + graceful browser/stub no-op asserted | tdd | `pnpm vitest run platform.test.ts && tsc` | ❌ W0 | ⬜ pending |
+| 05-03/T1 (summon) | 03 | 2 | NAT-01 | T-05-07..08 | `SUMMON_CHORD` + `registerSummon()` over seam; unminimize→show→setFocus; graceful failure | tdd | `grep summon.ts && pnpm vitest run summon.test.ts && tsc` | ❌ W0 | ⬜ pending |
+| 05-03/T2 (wire + e2e) | 03 | 2 | NAT-01 | T-05-07..09 | `registerSummon()` chained after `initPlatform()` in main.tsx; HashRouter deep-link | e2e | `grep main.tsx && bash scripts/e2e-spike.sh && vitest && tsc && eslint` | ❌ W0 | ⬜ pending |
+| 05-04/T1 (full gate) | 04 | 3 | NAT-01, NAT-02 | T-05-01..10 | full suite + seam/release/offline/capability audits + fresh `tauri build` + WCAG-AA | gate | `vitest && tsc && eslint && cargo tree --release \| grep -c webdriver = 0 && UI-REVIEW exists` | ❌ W0 | ⬜ pending |
 
-*Planner fills exact task IDs/waves. Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
+*Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky. (05-04/T2 is the human-verify checkpoint — no automated verify; 05-04/T3 is doc bookkeeping.)*
 
 ---
 
@@ -76,4 +83,4 @@ created: 2026-05-31
 - [ ] Manual-only OS behaviors batched into the Phase 5 human sign-off (expected to join the deferred Phase 4 UAT)
 - [ ] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** approved 2026-05-31 (Nyquist-compliant; Wave 0 = 05-02/T4 seam test; OS-level behaviors batched into the Phase 5 human sign-off)
