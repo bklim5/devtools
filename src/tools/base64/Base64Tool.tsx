@@ -13,7 +13,7 @@ import { platform } from "@/lib/platform";
 import type { Base64Alphabet } from "@/lib/bytes";
 import { useCopyFeedback } from "@/shell/useCopyFeedback";
 import { useBytesConvert } from "./useBytesConvert";
-import { StatusBar, type ParseState } from "./StatusBar";
+import { StatusBar, type ParseState } from "@/components/StatusBar";
 
 interface PaneProps {
   label: string;

@@ -1,9 +1,10 @@
 // Shared tool status bar (UX-03): parse state · byte count · current encoding ·
-// errors · timing. Generic + presentational so the protobuf tool (03-04) reuses
-// it verbatim — it takes only primitives, owns no tool logic. Mirrors the mockup's
-// `.statusbar` (.st-left / .st-right) with Tailwind tokens. Always renders, even
-// for empty input (neutral "0 bytes"); errors show in text-bad (never opacity-only,
-// UX-04). Lives here in the first tool to consume it; 03-04 imports from this path.
+// errors · timing. Generic + presentational so every tool reuses it verbatim —
+// it takes only primitives, owns no tool logic. Mirrors the mockup's `.statusbar`
+// (.st-left / .st-right) with Tailwind tokens. Always renders, even for empty
+// input (neutral "0 bytes"); errors show in text-bad (never opacity-only, UX-04).
+// Lives at a tool-agnostic path (D-04) so Base64, Unix Time, JWT, Hash, and
+// UUID/ULID all import from here.
 export type ParseState = "ok" | "error" | "empty";
 
 export interface StatusBarProps {
