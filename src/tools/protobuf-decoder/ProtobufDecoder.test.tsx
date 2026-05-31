@@ -79,29 +79,31 @@ describe("ProtobufDecoder", () => {
     expect(status.querySelector(".text-bad")).toBeNull();
   });
 
-  it("surfaces the auto-detected encoding as an accent chip (D-01 refinement)", () => {
+  it("shows the auto-detected encoding via the toggle's active (accent) segment (D-01)", () => {
     const { container } = render(<ProtobufDecoder />);
     fireEvent.change(input(container), { target: { value: "089601" } });
-    const chip = container.querySelector("[data-encoding-chip]") as HTMLElement;
-    expect(chip).toBeTruthy();
-    expect(chip.textContent?.toLowerCase()).toContain("hex");
-    // accent = the active detection (the override toggle selects it) — D-08
-    expect(chip.className).toContain("text-accent");
+    // No separate chip — the encoding toggle's active segment IS the readout.
+    expect(container.querySelector("[data-encoding-chip]")).toBeNull();
+    const hexBtn = within(container).getByRole("button", { name: /^hex$/i });
+    expect(hexBtn.getAttribute("aria-pressed")).toBe("true");
+    expect(hexBtn.className).toContain("text-accent"); // accent = active (D-08)
+    expect(
+      within(container).getByRole("button", { name: /^base64$/i }).getAttribute("aria-pressed"),
+    ).toBe("false");
   });
 
-  it("a manual override toggle forces base64", () => {
+  it("a manual override toggle forces base64 (active segment moves)", () => {
     const { container } = render(<ProtobufDecoder />);
-    // "AA==" is base64 but would NOT be valid hex; auto-detect picks base64 anyway,
-    // so force the question by typing something hex-shaped then overriding.
     fireEvent.change(input(container), { target: { value: "6869" } }); // valid hex -> detected hex
-    expect(
-      (container.querySelector("[data-encoding-chip]") as HTMLElement).textContent?.toLowerCase(),
-    ).toContain("hex");
-    const base64Override = within(container).getByRole("button", { name: /^base64$/i });
-    fireEvent.click(base64Override);
-    expect(
-      (container.querySelector("[data-encoding-chip]") as HTMLElement).textContent?.toLowerCase(),
-    ).toContain("base64");
+    const hexBtn = within(container).getByRole("button", { name: /^hex$/i });
+    const base64Btn = within(container).getByRole("button", { name: /^base64$/i });
+    expect(hexBtn.getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(base64Btn);
+    expect(base64Btn.getAttribute("aria-pressed")).toBe("true");
+    expect(hexBtn.getAttribute("aria-pressed")).toBe("false");
+    // clicking the active segment again clears the override → back to auto-detect (hex)
+    fireEvent.click(base64Btn);
+    expect(hexBtn.getAttribute("aria-pressed")).toBe("true");
   });
 
   it("clicking an example chip fills + decodes the input (D-03)", () => {

@@ -66,11 +66,12 @@ describe("Protobuf Decoder (real WKWebView)", () => {
       `#N must be neutral, not accent blue — got ${fnumColor.value}`,
     );
 
-    // 3. The detected-encoding ACCENT chip reads "hex" (D-01 refinement).
-    const encChip = await $("[data-encoding-chip]");
+    // 3. The encoding toggle's ACTIVE segment reflects the detected encoding (hex) —
+    //    a single control doubling as the detection readout (D-01 refinement).
+    const hexToggle = await $("button=hex");
     assert(
-      (await encChip.getText()).toLowerCase().includes("hex"),
-      `expected detected encoding "hex", got "${await encChip.getText()}"`,
+      (await hexToggle.getAttribute("aria-pressed")) === "true",
+      "expected the hex encoding segment to be active for detected hex",
     );
 
     await demoPause(1200);
