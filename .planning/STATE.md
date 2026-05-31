@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Executing Phase 03
-last_updated: "2026-05-31T01:21:00.000Z"
+last_updated: "2026-05-31T00:27:07.791Z"
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 12
-  completed_plans: 9
-  percent: 75
+  completed_plans: 10
+  percent: 83
 ---
 
 # Project State
@@ -17,14 +17,18 @@ progress:
 ## Current Position
 
 Phase: 03 (hero-protobuf-encoding-ux-constraints) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 **Phase 2: Shell** — all 4 plans across 3 waves complete and signed off. Phase 1 is COMPLETE and human-signed-off.
 
 wave: 1 ✓ COMPLETE (02-01 ✓ foundation; 02-02 ✓ fuzzy ranker). wave: 2 ✓ COMPLETE (02-03 ✓ prefs/recents/startup-resolution). wave: 3 ✓ COMPLETE (02-04 ✓ Sidebar + ⌘K palette + App shell — code + Phase-2 real-webview human-verify approved).
 
 ## Active Plan
 
-**Phase 3 EXECUTING — Plan 1 of 4 (03-01) ✓ COMPLETE; next is 03-02.** `03-01` (protobufTreeStyle prefs persistence) closed — commit `e0f5403f`. Extended the Phase-2 prefs seam with one field `protobufTreeStyle: "cards" | "rows"` (default `"cards"`), a `coerceTreeStyle` untrusted-merge coercer wired into `mergePreferences` (only `"rows"` honored; `"banana"`/`42` → `"cards"`, threat T-03-01), and a write-on-change `setTreeStyle` setter on `usePreferences`. TDD RED (4 coercion + 1 round-trip cases) + GREEN impl landed together (lefthook blocks red suites, Phase-2 precedent). Gate: **101/101 vitest** (decoder 19 green), tsc clean, eslint 0. No `@tauri-apps` import added, `Store` seam not widened, no port-unchanged file touched. Deviation (1, Rule 3): `useRecentTools` cold-start fallback now derives from `DEFAULT_PREFERENCES` instead of a hardcoded literal so it can't drift on schema growth. **PRO-06 stays PARTIAL** — only the persistence layer exists; the tree + rows/cards toggle UI lands in 03-04. SUMMARY: `.planning/phases/03-hero-protobuf-encoding-ux-constraints/03-01-SUMMARY.md`. Real-WKWebView verification of the toggle deferred to 03-04 (this plan has no UI surface).
+**Phase 3 EXECUTING — Plans 1-2 of 4 (03-01 ✓, 03-02 ✓) COMPLETE; next is 03-03.** `03-02` (Protobuf logic core) closed — commits `06009dc2` (detectEncoding), `a1cb51d3` (interpretationChips), `863f9b6e` (useDecode + copyAsJson). Built the four pure, node-unit-tested modules under `src/tools/protobuf-decoder/` that map the UI 1:1 onto the REAL decoder shape (mockup keys never referenced): `detectEncoding` (D-02 hex/base64 classifier, import-free, empty→base64); `chipsForField`/`defaultChipId` (chips gated on present `LenInterpretation` keys, locked D-04 precedence message>string>packed-varints>packed-i32>packed-i64>bytes(hex), default=first present; VARINT exposes uint64/int64/sint(zigzag)/bool; i64→double, i32→float defaults); `decodeInput` (wraps bytes-conversion + `decodeMessage` in ONE try/catch so groups/truncation/oversize/bad-bytes surface as an error STRING never a crash — PRO-02, T-03-03; empty=neutral; manual encoding override D-01; timed); `fieldsToJson` (field-numbers-as-keys, selected interpretation per node, nested-message recurse, repeated→array, packed→array of readings; returns a string only, NO `@tauri-apps`/clipboard — T-03-05; clipboard write lands in 03-04 via the platform seam). TDD RED+GREEN landed together (lefthook blocks red, Phase-2 precedent). Gate: **131/131 vitest** (decoder 19 green; +49 in this plan's 5 suites), tsc clean, eslint 0. No deviations — plan executed exactly as written. **PRO-02 Complete; PRO-01/03/04 PARTIAL** (logic done & tested; paste→render + chip-render + chip-selection UI lands in 03-04). SUMMARY: `.planning/phases/03-hero-protobuf-encoding-ux-constraints/03-02-SUMMARY.md`. Real-WKWebView UI verification of these behaviors deferred to 03-04 (this plan ships no UI surface).
+
+---
+
+Prior 03-01 context: **`03-01`** (protobufTreeStyle prefs persistence) closed — commit `e0f5403f`. Extended the Phase-2 prefs seam with one field `protobufTreeStyle: "cards" | "rows"` (default `"cards"`), a `coerceTreeStyle` untrusted-merge coercer wired into `mergePreferences` (only `"rows"` honored; `"banana"`/`42` → `"cards"`, threat T-03-01), and a write-on-change `setTreeStyle` setter on `usePreferences`. TDD RED (4 coercion + 1 round-trip cases) + GREEN impl landed together (lefthook blocks red suites, Phase-2 precedent). Gate: **101/101 vitest** (decoder 19 green), tsc clean, eslint 0. No `@tauri-apps` import added, `Store` seam not widened, no port-unchanged file touched. Deviation (1, Rule 3): `useRecentTools` cold-start fallback now derives from `DEFAULT_PREFERENCES` instead of a hardcoded literal so it can't drift on schema growth. **PRO-06 stays PARTIAL** — only the persistence layer exists; the tree + rows/cards toggle UI lands in 03-04. SUMMARY: `.planning/phases/03-hero-protobuf-encoding-ux-constraints/03-01-SUMMARY.md`. Real-WKWebView verification of the toggle deferred to 03-04 (this plan has no UI surface).
 
 ---
 
@@ -76,9 +80,11 @@ Prior Phase 2 context: All Phase 2 plans ✓ COMPLETE. `02-04` (Sidebar + ⌘K C
 
 ## Next Step (pick up here next session)
 
-**Phase 2 execution is complete.** Records are finalized: 02-04-SUMMARY closes Task 4 (approved) with the post-checkpoint fix note; SHL-01/02/03/04/06 Complete in REQUIREMENTS.md (SHL-05 PARTIAL); ROADMAP marks 02-04 completed (4/4 plans, Phase 2 Complete). What remains is the formal **phase-verification / close** step for Phase 2, then **plan Phase 3** (Hero + Encoding + UX): `/gsd-plan-phase 3` — the real Protobuf decoder, Base64/Hex/Bytes, and the cross-cutting UX bar render inside the shell's Outlet (the shell + palette switch path are done; tools are layout-agnostic per UX-05).
+**Phase 3 EXECUTING — next is Plan 3 of 4 (`03-03`).** Plans 03-01 (prefs) and 03-02 (logic core) are ✓ COMPLETE, committed, and green. `03-02` shipped the four pure modules under `src/tools/protobuf-decoder/` (`detectEncoding`, `interpretationChips`, `useDecode`/`decodeInput`, `copyAsJson`/`fieldsToJson`) that 03-04 will render thin React components over. Pick up by executing `03-03` (per the phase's wave plan), then `03-04` (the Protobuf UI + Base64/Hex/Bytes + UX bar inside the shell's Outlet — wires the clipboard via `src/lib/platform/`, the only place `platform.clipboard` is allowed; carries the real-WKWebView UI verification for PRO-01/03/04 + the rows/cards toggle from 03-01).
 
 Reminders:
+
+- **03-04 consumes 03-02's logic core:** `decodeInput(raw, override?)` for paste→decode (error-as-string, neutral empty, manual override), `chipsForField`/`defaultChipId` for chip rendering + smart default, `fieldsToJson(fields, selection)` for copy-as-JSON. The selection model is a Map keyed by node path (`"<index>"` / `"<parentPath>.<index>"`) — reuse it verbatim in the UI. Clipboard write is via the `src/lib/platform/` seam ONLY (copyAsJson deliberately returns a string).
 
 - The 3 tools are `enabled: true` rendering `makePlaceholder` — `ENABLED_TOOLS` is populated. Do NOT touch `decoder.ts`/`bytes.ts`/`types.ts` (and `registry.ts` stays port-unchanged — its "ENABLED_TOOLS is empty" comment is stale but must not be edited).
 - 02-04 consumes: shell `@theme` tokens (02-01), `rankTools` from `src/shell/fuzzy.ts` (02-02), `usePreferences` for theme/accent application via CSS variables (02-03), and `useRecentTools` for the palette's empty-query recents group per D-05 (02-03). The router already redirects to last-used/hero via `StartupRedirect`/`resolveStartupTool`.
@@ -88,6 +94,12 @@ Reminders:
 ## Harness reminder (per-task DoD, in order)
 
 simplify → /codex:review → unit (vitest + tsc) → real-webview UI. Phase boundary: human sign-off on `tauri build` + gsd-ui-review WCAG-AA. Never skip gates; parallelize plans but not past the gates.
+
+## Decisions (Phase 3)
+
+- **03-02:** LEN chip precedence locked as message > string > packed-varints > packed-i32 > packed-i64 > bytes(hex); chips are gated on present `LenInterpretation` keys (never a hard-coded full list), default-selected = first present per precedence (D-04). Chips bind strictly to the real `FieldValue`/`LenInterpretation` keys — the mockup's invented keys are never referenced.
+- **03-02:** `decodeInput` wraps BOTH bytes-conversion and `decodeMessage` in one try/catch, so every error (bad bytes, groups, truncation, oversize) becomes a status string and never throws past the boundary (PRO-02, threat T-03-03); empty input is a neutral empty state; a manual encoding override forces hex/base64 (D-01).
+- **03-02:** `fieldsToJson` keys by field number, serializes the selected interpretation per node (path-keyed selection Map, fallback to smart default), recurses nested messages, and collects repeated field numbers into arrays; packed-* selections emit an array of readings. Returns a string only — no `@tauri-apps`/clipboard (T-03-05).
 
 ## Notes
 

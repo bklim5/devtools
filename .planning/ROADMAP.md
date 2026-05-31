@@ -70,7 +70,7 @@ Plans:
 **Plans**: 4 plans
 Plans:
 - [x] 03-01-PLAN.md — Add persisted protobufTreeStyle (cards/rows) to the Preferences seam (PRO-06; D-07)
-- [ ] 03-02-PLAN.md — Protobuf pure logic: detectEncoding, chip derivation + smart default, decode orchestration (errors-as-strings), copy-as-JSON (PRO-01/02/03/04; D-01/02/04/06/11)
+- [x] 03-02-PLAN.md — Protobuf pure logic: detectEncoding, chip derivation + smart default, decode orchestration (errors-as-strings), copy-as-JSON (PRO-01/02/03/04; D-01/02/04/06/11)
 - [ ] 03-03-PLAN.md — Base64/Hex/Bytes tool: single-Uint8Array derive, alphabet toggle, status bar, focusable copy + registry swap (ENC-01/02/03, UX-01/02/03/04/05; D-12/13/14)
 - [ ] 03-04-PLAN.md — Protobuf hero UI: resizable split, recursive cards/rows tree, LenInterpretation chips, per-node + copy-all-as-JSON, persisted toggle, neutral #N + registry swap + phase sign-off (PRO-01..07, UX-01..05; D-03/05/08/09/10)
 **UI hint**: yes

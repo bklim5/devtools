@@ -33,10 +33,10 @@ Requirements for the initial macOS release. Each maps to exactly one roadmap pha
 
 ### Protobuf Decoder — hero (PRO)
 
-- [ ] **PRO-01**: User pastes hex or base64 bytes and the field tree renders instantly (no decode button)
-- [ ] **PRO-02**: Recursive field tree walks the wire format with no `.proto`; wire types 0/1/2/5 supported, groups (3/4) surfaced as errors not crashes
-- [ ] **PRO-03**: Every LEN field's interpretation chips are computed directly from the decoder's `LenInterpretation` — message/string/bytes **plus** packed-varints/packed-i32/packed-i64 when structurally valid
-- [ ] **PRO-04**: User can resolve interpretation ambiguity per node by selecting a chip; VARINT nodes also show zigzag + signed int64 readings
+- [~] **PRO-01**: User pastes hex or base64 bytes and the field tree renders instantly (no decode button) — logic core (detectEncoding + decodeInput, error-as-string, timed) done & tested in 03-02; paste→render UI lands in 03-04
+- [x] **PRO-02**: Recursive field tree walks the wire format with no `.proto`; wire types 0/1/2/5 supported, groups (3/4) surfaced as errors not crashes — decodeInput wraps decodeMessage so groups/truncation/oversize become error strings, never crashes (03-02)
+- [~] **PRO-03**: Every LEN field's interpretation chips are computed directly from the decoder's `LenInterpretation` — message/string/bytes **plus** packed-varints/packed-i32/packed-i64 when structurally valid — chipsForField derivation done & tested in 03-02; chip rendering UI lands in 03-04
+- [~] **PRO-04**: User can resolve interpretation ambiguity per node by selecting a chip; VARINT nodes also show zigzag + signed int64 readings — selection model + VARINT zigzag/int64 readings done & tested in 03-02; chip-selection UI lands in 03-04
 - [ ] **PRO-05**: Input/output panes are resizable
 - [ ] **PRO-06**: Tree renders as cards by default, with a persisted rows/cards format toggle
 - [ ] **PRO-07**: `#N` field numbers render neutral (not accent); strong accent reserved for selected/active state only
@@ -122,10 +122,10 @@ Phase mapping finalized by the roadmapper. Every v1 requirement maps to exactly 
 | SHL-04 | Phase 2 (Shell) | Complete |
 | SHL-05 | Phase 2 (Shell) | Partial (window geometry → Phase 5, D-11) |
 | SHL-06 | Phase 2 (Shell) | Complete |
-| PRO-01 | Phase 3 (Hero + Encoding + UX) | Pending |
-| PRO-02 | Phase 3 (Hero + Encoding + UX) | Pending |
-| PRO-03 | Phase 3 (Hero + Encoding + UX) | Pending |
-| PRO-04 | Phase 3 (Hero + Encoding + UX) | Pending |
+| PRO-01 | Phase 3 (Hero + Encoding + UX) | Partial (decode logic core in 03-02; paste→render UI in 03-04) |
+| PRO-02 | Phase 3 (Hero + Encoding + UX) | Complete |
+| PRO-03 | Phase 3 (Hero + Encoding + UX) | Partial (chip derivation in 03-02; chip rendering UI in 03-04) |
+| PRO-04 | Phase 3 (Hero + Encoding + UX) | Partial (selection model + readings in 03-02; chip-selection UI in 03-04) |
 | PRO-05 | Phase 3 (Hero + Encoding + UX) | Pending |
 | PRO-06 | Phase 3 (Hero + Encoding + UX) | Partial (persistence layer in 03-01; tree + toggle UI lands in 03-04) |
 | PRO-07 | Phase 3 (Hero + Encoding + UX) | Pending |
