@@ -25,6 +25,12 @@ function assert(cond: boolean, message: string): asserts cond {
   if (!cond) throw new Error(message);
 }
 
+// Slow-motion for watching the run on the real app: set E2E_DEMO=1. Inert (no-op)
+// in normal gate runs, so the committed gate stays fast.
+async function demoPause(ms: number): Promise<void> {
+  if (process.env.E2E_DEMO) await browser.pause(ms);
+}
+
 describe("Protobuf Decoder (real WKWebView)", () => {
   it("decodes on paste, shows chips + neutral #N, overrides per node, copies, and never crashes", async () => {
     // Navigate to the hero tool via HashRouter (deterministic).
@@ -34,10 +40,12 @@ describe("Protobuf Decoder (real WKWebView)", () => {
 
     const input = await $("#protobuf-input");
     await input.waitForExist({ timeout: 15_000 });
+    await demoPause(1200);
 
     // 1. Paste {1:150} -> field tree renders INSTANTLY (no decode button) — PRO-01.
     await input.click();
     await input.setValue("089601");
+    await demoPause(1800);
     const fnum = await $("[data-fnum]");
     await fnum.waitForExist({ timeout: 5_000 });
     assert(
@@ -65,8 +73,10 @@ describe("Protobuf Decoder (real WKWebView)", () => {
       `expected detected encoding "hex", got "${await encChip.getText()}"`,
     );
 
+    await demoPause(1200);
     // 4. Nested payload auto-expands the sub-message (D-05): #3 + nested #1 both visible.
     await input.setValue("1a03089601");
+    await demoPause(1800);
     const nested3 = await $("[data-fnum]*=#3");
     await nested3.waitForExist({ timeout: 5_000 });
     const nested1 = await $("[data-fnum]*=#1");
@@ -77,6 +87,7 @@ describe("Protobuf Decoder (real WKWebView)", () => {
 
     // 5. Group byte "1c" -> status-bar error + inline error, NOT a white-screen — PRO-02.
     await input.setValue("1c");
+    await demoPause(1800);
     const status = await $("footer[role='status']");
     assert(
       (await status.getText()).toLowerCase().includes("error"),
@@ -103,6 +114,15 @@ describe("Protobuf Decoder (real WKWebView)", () => {
       "copy-all-as-JSON button is not visible — hover-only copy is forbidden",
     );
 
+    // 6b. Clicking copy-all shows the momentary "Copied" confirmation (it wrote to
+    //     the real clipboard) — the shared useCopyFeedback affordance.
+    await copyAll.click();
+    assert(
+      (await copyAll.getText()).includes("Copied"),
+      `expected copy-all to confirm "Copied", got "${await copyAll.getText()}"`,
+    );
+    await demoPause(1800);
+
     // 7. Per-node override: select the "int64" chip -> accent moves to it.
     const int64Chip = await $('[role="radio"]=int64');
     await int64Chip.click();
@@ -110,12 +130,14 @@ describe("Protobuf Decoder (real WKWebView)", () => {
       (await int64Chip.getAttribute("aria-checked")) === "true",
       "clicking the int64 chip did not move the selection to it",
     );
+    await demoPause(1500);
 
     // 8. Rows/cards toggle flips the tree layout.
     const rowsToggle = await $("button=rows");
     await rowsToggle.click();
     const treeRows = await $(".tree-rows");
     assert(await treeRows.isExisting(), "rows toggle did not switch the tree to rows layout");
+    await demoPause(1500);
 
     // 9. Screenshot the real WKWebView (the HRN-02 artifact for this tool).
     mkdirSync(SCREENSHOT_DIR, { recursive: true });
