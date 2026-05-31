@@ -195,7 +195,6 @@ export default function Base64Tool() {
       <StatusBar
         parseState={parseState}
         byteCount={byteCount}
-        encoding={alphabet}
         error={firstError}
         timingMs={timingMs}
       />

@@ -9,8 +9,13 @@ export type ParseState = "ok" | "error" | "empty";
 export interface StatusBarProps {
   parseState: ParseState;
   byteCount: number;
-  /** Human label for the current encoding/alphabet (e.g. "base64url"). */
-  encoding: string;
+  /**
+   * Human label for the current encoding (e.g. "base64url"). Optional: most
+   * useful when the encoding is AUTO-DETECTED (the protobuf hero tool). Tools
+   * where the user picks the encoding explicitly (Base64) omit it to avoid a
+   * redundant chip.
+   */
+  encoding?: string;
   /** Active error text, if any — named here AND inline on the field (D-13). */
   error?: string | null;
   /** Last operation timing in ms (optional; omitted when not measured). */
@@ -46,7 +51,7 @@ export function StatusBar({
         <span aria-label="byte count">
           {byteCount} {byteCount === 1 ? "byte" : "bytes"}
         </span>
-        <span aria-label="encoding">{encoding}</span>
+        {encoding ? <span aria-label="encoding">{encoding}</span> : null}
       </div>
       <div className="flex min-w-0 items-center gap-[11px]">
         {error ? (

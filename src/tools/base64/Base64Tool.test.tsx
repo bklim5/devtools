@@ -176,7 +176,7 @@ describe("Base64Tool", () => {
     );
   });
 
-  it("status bar shows byte count + current encoding", () => {
+  it("status bar shows byte count and omits the redundant encoding chip", () => {
     const { container } = render(<Base64Tool />);
     fireEvent.change(textareaFor(container, "base64-pane-text"), {
       target: { value: "hello" },
@@ -184,6 +184,8 @@ describe("Base64Tool", () => {
     const status = container.querySelector("footer[role='status']")!;
     const bar = within(status as HTMLElement);
     expect(bar.getByLabelText("byte count").textContent).toContain("5 bytes");
-    expect(bar.getByLabelText("encoding").textContent).toBe("base64");
+    // The alphabet toggle above already shows base64/base64url; the status bar
+    // does not repeat it (the encoding chip is reserved for auto-detection).
+    expect(bar.queryByLabelText("encoding")).toBeNull();
   });
 });
