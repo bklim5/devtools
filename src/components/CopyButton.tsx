@@ -31,7 +31,7 @@ export function CopyButton({ value, label, className }: CopyButtonProps) {
       onClick={handleCopy}
       aria-label={`Copy ${label}`}
       className={[
-        "flex items-center gap-1.5 rounded-[7px] border bg-input-bg px-2 py-1 text-[11.5px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent",
+        "flex cursor-pointer items-center gap-1.5 rounded-[7px] border bg-input-bg px-2 py-1 text-[11.5px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent",
         copied
           ? "border-accent-line text-accent"
           : "border-bd text-tx-2 hover:border-bd-2 hover:text-tx",
