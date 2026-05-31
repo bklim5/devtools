@@ -43,9 +43,9 @@ Requirements for the initial macOS release. Each maps to exactly one roadmap pha
 
 ### Encoding — Base64/Hex/Bytes (ENC)
 
-- [ ] **ENC-01**: Editing any of text / base64 / hex derives the other two; internal representation is `Uint8Array`
-- [ ] **ENC-02**: Modern `Uint8Array` base64/hex APIs used when present, with feature-detect polyfill fallback; encoding errors are explicit
-- [ ] **ENC-03**: Alphabet toggle switches base64 vs base64url
+- [x] **ENC-01**: Editing any of text / base64 / hex derives the other two; internal representation is `Uint8Array` — Complete (03-03)
+- [x] **ENC-02**: Modern `Uint8Array` base64/hex APIs used when present, with feature-detect polyfill fallback; encoding errors are explicit — Complete (03-03)
+- [x] **ENC-03**: Alphabet toggle switches base64 vs base64url — Complete (03-03)
 
 ### Unix Time (TIME)
 
@@ -65,11 +65,11 @@ Requirements for the initial macOS release. Each maps to exactly one roadmap pha
 
 ### Cross-cutting UX constraints (UX)
 
-- [ ] **UX-01**: Every tool's primary input transforms instantly on paste (Cmd+V)
-- [ ] **UX-02**: Every output region has a visible, focusable copy affordance reachable in ≤1 keystroke (no hover-only copy)
-- [ ] **UX-03**: Every tool shows a status bar: parse state · byte count · current encoding · errors · timing
-- [ ] **UX-04**: WCAG AA across the board — visible focus indicators, AA text contrast, disabled state not signalled by opacity alone
-- [ ] **UX-05**: Tool components are layout-agnostic (no fixed widths; responsive Tailwind) so layout chrome lives only in the shell
+- [ ] **UX-01**: Every tool's primary input transforms instantly on paste (Cmd+V) — Partial (Base64 ✓ 03-03; Protobuf 03-04)
+- [ ] **UX-02**: Every output region has a visible, focusable copy affordance reachable in ≤1 keystroke (no hover-only copy) — Partial (Base64 ✓ 03-03; Protobuf 03-04)
+- [ ] **UX-03**: Every tool shows a status bar: parse state · byte count · current encoding · errors · timing — Partial (Base64 ✓ 03-03; Protobuf 03-04)
+- [ ] **UX-04**: WCAG AA across the board — visible focus indicators, AA text contrast, disabled state not signalled by opacity alone — Partial (Base64 ✓ 03-03; phase-boundary gsd-ui-review + Protobuf 03-04)
+- [ ] **UX-05**: Tool components are layout-agnostic (no fixed widths; responsive Tailwind) so layout chrome lives only in the shell — Partial (Base64 ✓ 03-03; Protobuf 03-04)
 
 ### Native polish (NAT)
 
@@ -129,14 +129,14 @@ Phase mapping finalized by the roadmapper. Every v1 requirement maps to exactly 
 | PRO-05 | Phase 3 (Hero + Encoding + UX) | Pending |
 | PRO-06 | Phase 3 (Hero + Encoding + UX) | Partial (persistence layer in 03-01; tree + toggle UI lands in 03-04) |
 | PRO-07 | Phase 3 (Hero + Encoding + UX) | Pending |
-| ENC-01 | Phase 3 (Hero + Encoding + UX) | Pending |
-| ENC-02 | Phase 3 (Hero + Encoding + UX) | Pending |
-| ENC-03 | Phase 3 (Hero + Encoding + UX) | Pending |
-| UX-01 | Phase 3 (Hero + Encoding + UX) | Pending |
-| UX-02 | Phase 3 (Hero + Encoding + UX) | Pending |
-| UX-03 | Phase 3 (Hero + Encoding + UX) | Pending |
-| UX-04 | Phase 3 (Hero + Encoding + UX) | Pending |
-| UX-05 | Phase 3 (Hero + Encoding + UX) | Pending |
+| ENC-01 | Phase 3 (Hero + Encoding + UX) | Complete (03-03) |
+| ENC-02 | Phase 3 (Hero + Encoding + UX) | Complete (03-03) |
+| ENC-03 | Phase 3 (Hero + Encoding + UX) | Complete (03-03) |
+| UX-01 | Phase 3 (Hero + Encoding + UX) | Partial (Base64 ✓ 03-03; Protobuf 03-04) |
+| UX-02 | Phase 3 (Hero + Encoding + UX) | Partial (Base64 ✓ 03-03; Protobuf 03-04) |
+| UX-03 | Phase 3 (Hero + Encoding + UX) | Partial (Base64 ✓ 03-03; Protobuf 03-04) |
+| UX-04 | Phase 3 (Hero + Encoding + UX) | Partial (Base64 ✓ 03-03; phase-boundary UI review + Protobuf 03-04) |
+| UX-05 | Phase 3 (Hero + Encoding + UX) | Partial (Base64 ✓ 03-03; Protobuf 03-04) |
 | TIME-01 | Phase 4 (Catalogue) | Pending |
 | JWT-01 | Phase 4 (Catalogue) | Pending |
 | HASH-01 | Phase 4 (Catalogue) | Pending |

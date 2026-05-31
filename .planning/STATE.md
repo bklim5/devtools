@@ -8,8 +8,8 @@ progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 12
-  completed_plans: 10
-  percent: 83
+  completed_plans: 11
+  percent: 92
 ---
 
 # Project State
@@ -17,14 +17,22 @@ progress:
 ## Current Position
 
 Phase: 03 (hero-protobuf-encoding-ux-constraints) — EXECUTING
-Plan: 3 of 4
-**Phase 2: Shell** — all 4 plans across 3 waves complete and signed off. Phase 1 is COMPLETE and human-signed-off.
+Plan: Wave 1 ✓ COMPLETE (03-01, 03-02, 03-03); Wave 2 (03-04) is NEXT
+**Phase 2: Shell** — all 4 plans complete and signed off. Phase 1 is COMPLETE and human-signed-off.
 
-wave: 1 ✓ COMPLETE (02-01 ✓ foundation; 02-02 ✓ fuzzy ranker). wave: 2 ✓ COMPLETE (02-03 ✓ prefs/recents/startup-resolution). wave: 3 ✓ COMPLETE (02-04 ✓ Sidebar + ⌘K palette + App shell — code + Phase-2 real-webview human-verify approved).
+wave: 1 ✓ COMPLETE — 03-01 ✓ (protobufTreeStyle prefs), 03-02 ✓ (protobuf logic core), 03-03 ✓ (Base64/Hex/Bytes tool, approved on the real WKWebView + automated e2e). wave: 2 → 03-04 (Protobuf hero UI, ends the phase with a human sign-off checkpoint).
 
 ## Active Plan
 
-**Phase 3 EXECUTING — Plans 1-2 of 4 (03-01 ✓, 03-02 ✓) COMPLETE; next is 03-03.** `03-02` (Protobuf logic core) closed — commits `06009dc2` (detectEncoding), `a1cb51d3` (interpretationChips), `863f9b6e` (useDecode + copyAsJson). Built the four pure, node-unit-tested modules under `src/tools/protobuf-decoder/` that map the UI 1:1 onto the REAL decoder shape (mockup keys never referenced): `detectEncoding` (D-02 hex/base64 classifier, import-free, empty→base64); `chipsForField`/`defaultChipId` (chips gated on present `LenInterpretation` keys, locked D-04 precedence message>string>packed-varints>packed-i32>packed-i64>bytes(hex), default=first present; VARINT exposes uint64/int64/sint(zigzag)/bool; i64→double, i32→float defaults); `decodeInput` (wraps bytes-conversion + `decodeMessage` in ONE try/catch so groups/truncation/oversize/bad-bytes surface as an error STRING never a crash — PRO-02, T-03-03; empty=neutral; manual encoding override D-01; timed); `fieldsToJson` (field-numbers-as-keys, selected interpretation per node, nested-message recurse, repeated→array, packed→array of readings; returns a string only, NO `@tauri-apps`/clipboard — T-03-05; clipboard write lands in 03-04 via the platform seam). TDD RED+GREEN landed together (lefthook blocks red, Phase-2 precedent). Gate: **131/131 vitest** (decoder 19 green; +49 in this plan's 5 suites), tsc clean, eslint 0. No deviations — plan executed exactly as written. **PRO-02 Complete; PRO-01/03/04 PARTIAL** (logic done & tested; paste→render + chip-render + chip-selection UI lands in 03-04). SUMMARY: `.planning/phases/03-hero-protobuf-encoding-ux-constraints/03-02-SUMMARY.md`. Real-WKWebView UI verification of these behaviors deferred to 03-04 (this plan ships no UI surface).
+**Phase 3 — Wave 1 COMPLETE; next is Wave 2 / 03-04 (the Protobuf hero UI).**
+
+`03-03` (Base64/Hex/Bytes tool) ✓ CLOSED — 8 commits (`00296c24`, `929fcc39`, then verification-feedback `423898ae`/`63a8935d`/`025b97b5`/`d16f009d`/`6bf732d4`/`e1358476`). Shipped the real tool into the Outlet (registry off `makePlaceholder`): three panes over one internal `Uint8Array`, alphabet toggle, per-field errors, status bar, visible focusable copy. **Real-WKWebView human-verify APPROVED by the user (2026-05-31)** after 5 feedback fixes: (1) **`bytes.ts` native `toBase64` now passes `omitPadding` for base64url** — the real webview kept `=` while the btoa fallback stripped it (approved port-unchanged edit; only `decoder.ts`+19 tests are locked; fix proven by a prototype-stub test since Node 22 lacks native `toBase64`); (2) **field parse error now CLEARS the other panes** (user-directed refinement of D-13, not last-good); (3) **"Copied" confirmation** (tick, ~1.2s, per-click re-arm); (4) **`setAlphabet` guard** so toggling during a base64 error keeps the raw input (code-review find); (5) **trimmed the redundant status-bar encoding chip** (reserved for auto-detection; **03-04 should surface detected encoding as an ACCENT CHIP** — recorded in 03-CONTEXT.md `<refinements>`). **Automated real-WKWebView gate ADDED**: `test/e2e/base64.e2e.ts` drives the actual webview (derive · clear-on-error · base64url-no-padding · focusable copy), `wdio.conf` now globs `test/e2e/*.e2e.ts`, stale `skeleton.e2e.ts` removed (D-05). `bash scripts/e2e-spike.sh` → **1 passing on webkit**. Gate: **155/155 vitest** (decoder 19 untouched), tsc clean, eslint 0. **ENC-01/02/03 Complete; UX-01..05 Partial** (Base64 ✓; Protobuf 03-04 must also satisfy). SUMMARY: `.planning/phases/03-hero-protobuf-encoding-ux-constraints/03-03-SUMMARY.md`.
+
+**Standing harness rule (user-directed 2026-05-31):** the real-webview UI gate = build + drive the ACTUAL WKWebView; every verify-gate run writes/updates the per-tool `test/e2e/<tool>.e2e.ts` and RUNS `scripts/e2e-spike.sh`. Chromium/chrome-devtools-mcp screenshots are a preview only. (Memory: verify-gate-builds-real-app.)
+
+---
+
+Prior 03-02 context: **Plan 3 of 4 was 03-03; 03-02 was the prior.** `03-02` (Protobuf logic core) closed — commits `06009dc2` (detectEncoding), `a1cb51d3` (interpretationChips), `863f9b6e` (useDecode + copyAsJson). Built the four pure, node-unit-tested modules under `src/tools/protobuf-decoder/` that map the UI 1:1 onto the REAL decoder shape (mockup keys never referenced): `detectEncoding` (D-02 hex/base64 classifier, import-free, empty→base64); `chipsForField`/`defaultChipId` (chips gated on present `LenInterpretation` keys, locked D-04 precedence message>string>packed-varints>packed-i32>packed-i64>bytes(hex), default=first present; VARINT exposes uint64/int64/sint(zigzag)/bool; i64→double, i32→float defaults); `decodeInput` (wraps bytes-conversion + `decodeMessage` in ONE try/catch so groups/truncation/oversize/bad-bytes surface as an error STRING never a crash — PRO-02, T-03-03; empty=neutral; manual encoding override D-01; timed); `fieldsToJson` (field-numbers-as-keys, selected interpretation per node, nested-message recurse, repeated→array, packed→array of readings; returns a string only, NO `@tauri-apps`/clipboard — T-03-05; clipboard write lands in 03-04 via the platform seam). TDD RED+GREEN landed together (lefthook blocks red, Phase-2 precedent). Gate: **131/131 vitest** (decoder 19 green; +49 in this plan's 5 suites), tsc clean, eslint 0. No deviations — plan executed exactly as written. **PRO-02 Complete; PRO-01/03/04 PARTIAL** (logic done & tested; paste→render + chip-render + chip-selection UI lands in 03-04). SUMMARY: `.planning/phases/03-hero-protobuf-encoding-ux-constraints/03-02-SUMMARY.md`. Real-WKWebView UI verification of these behaviors deferred to 03-04 (this plan ships no UI surface).
 
 ---
 
@@ -76,11 +84,11 @@ Prior Phase 2 context: All Phase 2 plans ✓ COMPLETE. `02-04` (Sidebar + ⌘K C
 
 ## Blocker
 
-- **None.** Phase-2 human-verify checkpoint (02-04 Task 4) was APPROVED by the user (2026-05-30) after the post-checkpoint fix (`d4e44f5`). All Phase 2 plans are committed, green, and signed off.
+- **None.** Phase-3 Wave 1 is complete: 03-01, 03-02, 03-03 all committed, green, and (for 03-03) approved on the real WKWebView with an automated e2e gate. Wave 2 = 03-04 (the Protobuf hero UI), an `autonomous: false` plan that ends the phase with a human sign-off checkpoint covering BOTH Phase-3 tools.
 
 ## Next Step (pick up here next session)
 
-**Phase 3 EXECUTING — next is Plan 3 of 4 (`03-03`).** Plans 03-01 (prefs) and 03-02 (logic core) are ✓ COMPLETE, committed, and green. `03-02` shipped the four pure modules under `src/tools/protobuf-decoder/` (`detectEncoding`, `interpretationChips`, `useDecode`/`decodeInput`, `copyAsJson`/`fieldsToJson`) that 03-04 will render thin React components over. Pick up by executing `03-03` (per the phase's wave plan), then `03-04` (the Protobuf UI + Base64/Hex/Bytes + UX bar inside the shell's Outlet — wires the clipboard via `src/lib/platform/`, the only place `platform.clipboard` is allowed; carries the real-WKWebView UI verification for PRO-01/03/04 + the rows/cards toggle from 03-01).
+**Phase 3 — execute Wave 2 / `03-04` (the Protobuf hero UI).** Wave 1 (03-01 prefs, 03-02 logic core, 03-03 Base64/Hex/Bytes tool) is ✓ COMPLETE. `03-04` renders thin React components over 03-02's pure logic into the shell's `<Outlet/>`: resizable input/output split, recursive cards/rows field tree, `LenInterpretation` chips with smart default + per-node override, VARINT zigzag/signed readings, auto-expanded nested messages, neutral `#N` (accent = selection only), visible focusable copy + copy-all-as-JSON, persisted rows/cards toggle (via 03-01's `protobufTreeStyle`/`setTreeStyle`), and a `ProtobufStatusBar`. It completes PRO-01/03/04/05/06/07 and flips UX-01..05 to Complete, then ends the phase with the human sign-off checkpoint. **Per the standing harness rule, 03-04 must add `test/e2e/protobuf-decoder.e2e.ts` and run `scripts/e2e-spike.sh` as its real-webview gate.**
 
 Reminders:
 
@@ -100,6 +108,10 @@ simplify → /codex:review → unit (vitest + tsc) → real-webview UI. Phase bo
 - **03-02:** LEN chip precedence locked as message > string > packed-varints > packed-i32 > packed-i64 > bytes(hex); chips are gated on present `LenInterpretation` keys (never a hard-coded full list), default-selected = first present per precedence (D-04). Chips bind strictly to the real `FieldValue`/`LenInterpretation` keys — the mockup's invented keys are never referenced.
 - **03-02:** `decodeInput` wraps BOTH bytes-conversion and `decodeMessage` in one try/catch, so every error (bad bytes, groups, truncation, oversize) becomes a status string and never throws past the boundary (PRO-02, threat T-03-03); empty input is a neutral empty state; a manual encoding override forces hex/base64 (D-01).
 - **03-02:** `fieldsToJson` keys by field number, serializes the selected interpretation per node (path-keyed selection Map, fallback to smart default), recurses nested messages, and collects repeated field numbers into arrays; packed-* selections emit an array of readings. Returns a string only — no `@tauri-apps`/clipboard (T-03-05).
+- **03-03 (D-13 refined, user-directed):** on a field parse error the OTHER two panes are CLEARED (bytes→empty), not left at last-good — the edited field keeps its raw text + a named error. Unified via a `failParse(field, clearOther, e)` helper; a `setAlphabet` guard preserves the raw base64 when it is mid-error.
+- **03-03 (`bytes.ts`, approved port-unchanged edit):** native `Uint8Array.toBase64` now receives `omitPadding: alphabet === "base64url"` so the real webview drops base64url padding like the btoa fallback. Only `decoder.ts`+its 19 tests are locked; this is a user-reported correctness fix, proven by a prototype-stub test (Node 22 has no native `toBase64`).
+- **03-03 (status bar):** `StatusBar.encoding` is now OPTIONAL; the Base64 tool omits the redundant chip (the alphabet toggle already shows it). **03-04 must surface the AUTO-DETECTED encoding as an ACCENT CHIP** (the active/selected interpretation per D-08), recorded in `03-CONTEXT.md` `<refinements>`.
+- **03-03 (verify-gate, standing rule):** the real-webview UI gate builds + drives the actual WKWebView; each tool gets `test/e2e/<tool>.e2e.ts` run via `scripts/e2e-spike.sh`. Base64's spec passes on webkit; `wdio.conf` globs `test/e2e/*.e2e.ts`; stale `skeleton.e2e.ts` removed.
 
 ## Notes
 
