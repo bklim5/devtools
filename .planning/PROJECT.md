@@ -12,38 +12,43 @@ DevTools is a fast, offline, keyboard-driven **desktop application** (macOS firs
 
 ### Validated
 
-(None yet — ship to validate)
+- **Foundation & harness (Phase 1)** — Tauri 2 + Vite + React + TS dark-window app from one repo; `src/lib/` ported unchanged (19 decoder tests green); `src/lib/platform/` seam; the full build+verify harness proven end-to-end on a walking skeleton + macOS real-WKWebView automation (`scripts/e2e-spike.sh`).
+- **Shell (Phase 2)** — registry-driven sidebar + ⌘K palette (fuzzy, recents); registry as single control plane; preferences persistence (theme/accent/last-used/recents; window geometry → Phase 5); opens-to-last-used/hero, no picker.
+- **Hero + Encoding + UX (Phase 3)** — the schema-less **Protobuf decoder** (paste→instant wire-format tree, LenInterpretation chips + per-node override, VARINT readings, resizable panes, cards/rows toggle, neutral `#N`, copy + copy-all-as-JSON) and **Base64/Hex/Bytes** (three-pane derive, base64/base64url, explicit errors). Binding UX constraints (paste-instant, visible focusable copy, status bar, WCAG-AA, layout-agnostic) validated across both tools — verified on the real WKWebView + a passing gsd-ui-review.
 
 ### Active
 
 <!-- All hypotheses until shipped and validated. Grouped; REQ-IDs assigned in REQUIREMENTS.md. -->
 
-**Foundation & harness**
-- [ ] Tauri 2 + Vite + React + TS app builds and renders a dark window on macOS from one repo
-- [ ] Verified `src/lib/` (decoder, bytes, tool types) ported unchanged; **19 decoder vitest cases pass**
-- [ ] **Walking-skeleton phase that proves the full build+verify harness end-to-end before any product feature** (codex review → unit tests → real-webview UI verification, plus phase-boundary sign-off)
-- [ ] `src/lib/platform/` capability seam (clipboard/store/shortcuts) so tools never import `@tauri-apps/*` directly
+**Foundation & harness** — ✓ validated Phase 1
+- [x] Tauri 2 + Vite + React + TS app builds and renders a dark window on macOS from one repo
+- [x] Verified `src/lib/` (decoder, bytes, tool types) ported unchanged; **19 decoder vitest cases pass**
+- [x] **Walking-skeleton phase that proves the full build+verify harness end-to-end before any product feature** (codex review → unit tests → real-webview UI verification, plus phase-boundary sign-off)
+- [x] `src/lib/platform/` capability seam (clipboard/store/shortcuts) so tools never import `@tauri-apps/*` directly
 
-**Shell**
-- [ ] Sidebar (compact mode) generated from the tool registry
-- [ ] ⌘K command palette (tool-switcher; fuzzy match over name+keywords+description; recent-tool memory)
-- [ ] Registry as the single control plane (sidebar, palette, router all derive from it)
-- [ ] Preferences persistence (theme, last-used tool, window geometry, tree-style toggle)
-- [ ] Opens to last-used or summoned tool (no "pick a tool" friction)
+**Shell** — ✓ validated Phase 2
+- [x] Sidebar (compact mode) generated from the tool registry
+- [x] ⌘K command palette (tool-switcher; fuzzy match over name+keywords+description; recent-tool memory)
+- [x] Registry as the single control plane (sidebar, palette, router all derive from it)
+- [x] Preferences persistence (theme, last-used tool, tree-style toggle) — window geometry deferred to Phase 5
+- [x] Opens to last-used or summoned tool (no "pick a tool" friction)
 
 **Six tools (hero first)**
-- [ ] Protobuf Decoder (hero): schema-less wire-format tree, all viable LEN interpretations surfaced from `LenInterpretation`, resizable panes, packed-repeated UI, status bar, **cards default with rows/cards toggle**
-- [ ] Base64 / Hex / Bytes with feature-detect polyfill (`Uint8Array.toBase64`/`fromBase64`/`toHex`/`fromHex`)
+- [x] Protobuf Decoder (hero): schema-less wire-format tree, all viable LEN interpretations surfaced from `LenInterpretation`, resizable panes, packed-repeated UI, status bar, **cards default with rows/cards toggle** — ✓ Phase 3
+- [x] Base64 / Hex / Bytes with feature-detect polyfill (`Uint8Array.toBase64`/`fromBase64`/`toHex`/`fromHex`) — ✓ Phase 3
 - [ ] Unix Time Converter
 - [ ] JWT Debugger
 - [ ] Hash Generator (Web Crypto SHA family + small MD5 lib)
 - [ ] UUID / ULID Generator + Decoder
 
-**Workflow constraints (binding — apply to every tool)**
-- [ ] Paste-transforms-instantly (no decode button for the common case)
-- [ ] Copy-result-instantly via visible, focusable affordance (≤1 keystroke; no hover-only copy)
-- [ ] Status bar: parse state · byte count · current encoding · errors · timing
-- [ ] WCAG AA accessibility across the board (visible focus, AA contrast, no opacity-only disabled state)
+**Workflow constraints (binding — apply to every tool)** — ✓ validated Phase 3 (both tools)
+- [x] Paste-transforms-instantly (no decode button for the common case)
+- [x] Copy-result-instantly via visible, focusable affordance (≤1 keystroke; no hover-only copy)
+- [x] Status bar: parse state · byte count · current encoding · errors · timing
+- [x] WCAG AA accessibility across the board (visible focus, AA contrast, no opacity-only disabled state)
+
+**Ideas / backlog (not yet scheduled)**
+- [ ] Protobuf decoder: decimal-byte-array (JS `Uint8Array`) input mode — paste `10, 3, 80, 81, 82` and decode, alongside hex/base64 (user feedback at Phase-3 sign-off, 2026-05-31)
 
 **Native polish & distribution (macOS)**
 - [ ] Global shortcut to summon, tray/menu, single-instance
@@ -108,4 +113,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-30 after Phase 2 (shell) completion*
+*Last updated: 2026-05-31 after Phase 3 (Hero Protobuf + Encoding + UX) completion & sign-off*

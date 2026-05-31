@@ -160,6 +160,20 @@ None - no external service configuration required.
 - All 11 created/modified files FOUND on disk.
 - All 3 task commits (`7f799d9d`, `45c88634`, `11373bca`) FOUND in git history.
 
+## Post-Review & Sign-Off Addendum (2026-05-31)
+
+Task 3 (phase-boundary human-verify) is **APPROVED**. The orchestrator's `/simplify` + `/code-review` round on the hero, plus the WCAG-AA audit and the user's manual review, produced these follow-ups (all committed, gated, and re-verified on the real WKWebView):
+
+- **Real bug fixed (code-review):** per-node selection + collapsed state were keyed by structural path, so a new decode misapplied stale entries — hiding a now-message subtree and serializing it as hex in copy-as-JSON. Now reset on each decode (smart defaults + auto-expand, D-04/D-05) + regression test. Commit `8b7d397e`.
+- **Simplify:** inlined the pass-through `ProtobufStatusBar` into the shared `StatusBar`; `preventDefault` on the resize arrow keys (`8b7d397e`, `e545d147`).
+- **Copy confirmation (user):** extracted a shared `useCopyFeedback` hook (Base64 refactored onto it) and wired it into the protobuf per-node + copy-all buttons (`665ad08d`, `74ebe8d1`).
+- **Encoding chip removed (user):** the standalone detected-encoding chip duplicated the `hex|base64` toggle; removed it — the toggle's active segment now reflects the effective encoding and is the readout (`5853fb66`).
+- **WCAG-AA fixes (gsd-ui-review 19/24):** `--tx-3` #686d77→#868b95 and `--accent` #3b82f6→#5b9bf8 so muted text and selected/active accent text clear AA (`5f78b612`, `5d2e1dfe`, audit `b593e3be`).
+
+Final gates: **182/182 vitest** (decoder 19 untouched), tsc clean, eslint 0; **both tools' e2e pass on webkit**; fresh `tauri build` → `.app` + `.dmg` (exit 0). Requirements PRO-01..07 + ENC-01..03 + UX-01..05 all Complete.
+
+**User backlog (not yet planned):** add a decimal-byte-array (JS `Uint8Array`) input mode to the Protobuf decoder (`10, 3, 80, 81, 82` → decode), alongside hex/base64.
+
 ---
 *Phase: 03-hero-protobuf-encoding-ux-constraints*
-*Completed: 2026-05-31 (pending phase-boundary sign-off)*
+*Completed + signed off: 2026-05-31*

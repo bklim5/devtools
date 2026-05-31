@@ -33,13 +33,13 @@ Requirements for the initial macOS release. Each maps to exactly one roadmap pha
 
 ### Protobuf Decoder — hero (PRO)
 
-- [~] **PRO-01**: User pastes hex or base64 bytes and the field tree renders instantly (no decode button) — logic core (detectEncoding + decodeInput, error-as-string, timed) done & tested in 03-02; paste→render UI lands in 03-04
-- [x] **PRO-02**: Recursive field tree walks the wire format with no `.proto`; wire types 0/1/2/5 supported, groups (3/4) surfaced as errors not crashes — decodeInput wraps decodeMessage so groups/truncation/oversize become error strings, never crashes (03-02)
-- [~] **PRO-03**: Every LEN field's interpretation chips are computed directly from the decoder's `LenInterpretation` — message/string/bytes **plus** packed-varints/packed-i32/packed-i64 when structurally valid — chipsForField derivation done & tested in 03-02; chip rendering UI lands in 03-04
-- [~] **PRO-04**: User can resolve interpretation ambiguity per node by selecting a chip; VARINT nodes also show zigzag + signed int64 readings — selection model + VARINT zigzag/int64 readings done & tested in 03-02; chip-selection UI lands in 03-04
-- [ ] **PRO-05**: Input/output panes are resizable
-- [ ] **PRO-06**: Tree renders as cards by default, with a persisted rows/cards format toggle
-- [ ] **PRO-07**: `#N` field numbers render neutral (not accent); strong accent reserved for selected/active state only
+- [x] **PRO-01**: User pastes hex or base64 bytes and the field tree renders instantly (no decode button) — Complete (logic 03-02; paste→render UI 03-04)
+- [x] **PRO-02**: Recursive field tree walks the wire format with no `.proto`; wire types 0/1/2/5 supported, groups (3/4) surfaced as errors not crashes — Complete (03-02; rendered 03-04)
+- [x] **PRO-03**: Every LEN field's interpretation chips are computed directly from the decoder's `LenInterpretation` — message/string/bytes **plus** packed-varints/packed-i32/packed-i64 when structurally valid — Complete (derivation 03-02; chip UI 03-04)
+- [x] **PRO-04**: User can resolve interpretation ambiguity per node by selecting a chip; VARINT nodes also show zigzag + signed int64 readings — Complete (model 03-02; selection UI 03-04)
+- [x] **PRO-05**: Input/output panes are resizable — Complete (ResizableSplit, 03-04)
+- [x] **PRO-06**: Tree renders as cards by default, with a persisted rows/cards format toggle — Complete (persistence 03-01; tree + toggle UI 03-04)
+- [x] **PRO-07**: `#N` field numbers render neutral (not accent); strong accent reserved for selected/active state only — Complete (03-04)
 
 ### Encoding — Base64/Hex/Bytes (ENC)
 
@@ -65,11 +65,11 @@ Requirements for the initial macOS release. Each maps to exactly one roadmap pha
 
 ### Cross-cutting UX constraints (UX)
 
-- [ ] **UX-01**: Every tool's primary input transforms instantly on paste (Cmd+V) — Partial (Base64 ✓ 03-03; Protobuf 03-04)
-- [ ] **UX-02**: Every output region has a visible, focusable copy affordance reachable in ≤1 keystroke (no hover-only copy) — Partial (Base64 ✓ 03-03; Protobuf 03-04)
-- [ ] **UX-03**: Every tool shows a status bar: parse state · byte count · current encoding · errors · timing — Partial (Base64 ✓ 03-03; Protobuf 03-04)
-- [ ] **UX-04**: WCAG AA across the board — visible focus indicators, AA text contrast, disabled state not signalled by opacity alone — Partial (Base64 ✓ 03-03; phase-boundary gsd-ui-review + Protobuf 03-04)
-- [ ] **UX-05**: Tool components are layout-agnostic (no fixed widths; responsive Tailwind) so layout chrome lives only in the shell — Partial (Base64 ✓ 03-03; Protobuf 03-04)
+- [x] **UX-01**: Every tool's primary input transforms instantly on paste (Cmd+V) — Complete (both tools, 03-03/03-04)
+- [x] **UX-02**: Every output region has a visible, focusable copy affordance reachable in ≤1 keystroke (no hover-only copy) — Complete (both tools; verified by e2e + UI audit)
+- [x] **UX-03**: Every tool shows a status bar: parse state · byte count · current encoding · errors · timing — Complete (both tools)
+- [x] **UX-04**: WCAG AA across the board — visible focus indicators, AA text contrast, disabled state not signalled by opacity alone — Complete (03-UI-REVIEW; tx-3 + accent AA fixes applied)
+- [x] **UX-05**: Tool components are layout-agnostic (no fixed widths; responsive Tailwind) so layout chrome lives only in the shell — Complete (both tools)
 
 ### Native polish (NAT)
 
@@ -122,21 +122,21 @@ Phase mapping finalized by the roadmapper. Every v1 requirement maps to exactly 
 | SHL-04 | Phase 2 (Shell) | Complete |
 | SHL-05 | Phase 2 (Shell) | Partial (window geometry → Phase 5, D-11) |
 | SHL-06 | Phase 2 (Shell) | Complete |
-| PRO-01 | Phase 3 (Hero + Encoding + UX) | Partial (decode logic core in 03-02; paste→render UI in 03-04) |
+| PRO-01 | Phase 3 (Hero + Encoding + UX) | Complete (03-02 logic + 03-04 UI) |
 | PRO-02 | Phase 3 (Hero + Encoding + UX) | Complete |
-| PRO-03 | Phase 3 (Hero + Encoding + UX) | Partial (chip derivation in 03-02; chip rendering UI in 03-04) |
-| PRO-04 | Phase 3 (Hero + Encoding + UX) | Partial (selection model + readings in 03-02; chip-selection UI in 03-04) |
-| PRO-05 | Phase 3 (Hero + Encoding + UX) | Pending |
-| PRO-06 | Phase 3 (Hero + Encoding + UX) | Partial (persistence layer in 03-01; tree + toggle UI lands in 03-04) |
-| PRO-07 | Phase 3 (Hero + Encoding + UX) | Pending |
+| PRO-03 | Phase 3 (Hero + Encoding + UX) | Complete (03-02 derivation + 03-04 UI) |
+| PRO-04 | Phase 3 (Hero + Encoding + UX) | Complete (03-02 model + 03-04 UI) |
+| PRO-05 | Phase 3 (Hero + Encoding + UX) | Complete (03-04 ResizableSplit) |
+| PRO-06 | Phase 3 (Hero + Encoding + UX) | Complete (03-01 persistence + 03-04 toggle UI) |
+| PRO-07 | Phase 3 (Hero + Encoding + UX) | Complete (03-04) |
 | ENC-01 | Phase 3 (Hero + Encoding + UX) | Complete (03-03) |
 | ENC-02 | Phase 3 (Hero + Encoding + UX) | Complete (03-03) |
 | ENC-03 | Phase 3 (Hero + Encoding + UX) | Complete (03-03) |
-| UX-01 | Phase 3 (Hero + Encoding + UX) | Partial (Base64 ✓ 03-03; Protobuf 03-04) |
-| UX-02 | Phase 3 (Hero + Encoding + UX) | Partial (Base64 ✓ 03-03; Protobuf 03-04) |
-| UX-03 | Phase 3 (Hero + Encoding + UX) | Partial (Base64 ✓ 03-03; Protobuf 03-04) |
-| UX-04 | Phase 3 (Hero + Encoding + UX) | Partial (Base64 ✓ 03-03; phase-boundary UI review + Protobuf 03-04) |
-| UX-05 | Phase 3 (Hero + Encoding + UX) | Partial (Base64 ✓ 03-03; Protobuf 03-04) |
+| UX-01 | Phase 3 (Hero + Encoding + UX) | Complete (both tools) |
+| UX-02 | Phase 3 (Hero + Encoding + UX) | Complete (both tools) |
+| UX-03 | Phase 3 (Hero + Encoding + UX) | Complete (both tools) |
+| UX-04 | Phase 3 (Hero + Encoding + UX) | Complete (03-UI-REVIEW AA fixes applied) |
+| UX-05 | Phase 3 (Hero + Encoding + UX) | Complete (both tools) |
 | TIME-01 | Phase 4 (Catalogue) | Pending |
 | JWT-01 | Phase 4 (Catalogue) | Pending |
 | HASH-01 | Phase 4 (Catalogue) | Pending |

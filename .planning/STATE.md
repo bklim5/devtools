@@ -2,29 +2,36 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Executing Phase 03
-last_updated: "2026-05-31T00:27:07.791Z"
+status: "Phase 03 COMPLETE + signed off — ready to plan Phase 04 (catalogue)"
+last_updated: "2026-05-31T09:54:17.345Z"
 progress:
   total_phases: 6
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 12
-  completed_plans: 11
-  percent: 92
+  completed_plans: 12
+  percent: 100
 ---
 
 # Project State
 
 ## Current Position
 
-Phase: 03 (hero-protobuf-encoding-ux-constraints) — EXECUTING
-Plan: Wave 1 ✓ COMPLETE (03-01, 03-02, 03-03); Wave 2 (03-04) is NEXT
-**Phase 2: Shell** — all 4 plans complete and signed off. Phase 1 is COMPLETE and human-signed-off.
+Phase: 4 (catalogue) — NOT STARTED. **Phases 1, 2, 3 COMPLETE and human-signed-off.**
+Plan: Not started
 
-wave: 1 ✓ COMPLETE — 03-01 ✓ (protobufTreeStyle prefs), 03-02 ✓ (protobuf logic core), 03-03 ✓ (Base64/Hex/Bytes tool, approved on the real WKWebView + automated e2e). wave: 2 → 03-04 (Protobuf hero UI, ends the phase with a human sign-off checkpoint).
+**Phase 3 (Hero + Encoding + UX) COMPLETE — signed off 2026-05-31.** All 4 plans done; both tools (Protobuf hero + Base64/Hex/Bytes) shipped, code-reviewed, verified on the real macOS WKWebView (e2e), WCAG-AA audited, and built (`tauri build` → .app + .dmg, exit 0). PRO-01..07 + ENC-01..03 + UX-01..05 all Complete. Phase-boundary gates: 182/182 vitest (decoder 19 untouched), tsc clean, eslint 0; gsd-ui-review 19/24 with both AA blockers fixed (--tx-3 #868b95, accent #5b9bf8).
+
+**BACKLOG (user feedback at 03 sign-off, 2026-05-31):** add a **decimal-byte-array (JS `Uint8Array`) input mode** to the Protobuf decoder — paste e.g. `10, 3, 80, 81, 82` (comma/space-separated 0–255) and decode as protobuf, alongside hex/base64. New `InputEncoding` variant + parser + a third encoding-toggle segment. Capture for a Phase-3 polish increment or Phase-4 scope discussion. (Not yet planned.)
 
 ## Active Plan
 
-**Phase 3 — Wave 1 COMPLETE; next is Wave 2 / 03-04 (the Protobuf hero UI).**
+**None — Phase 3 closed. Next: plan Phase 4 (catalogue: Unix Time, JWT, Hash, UUID/ULID).**
+
+---
+
+Prior (Phase 3) Active-Plan history:
+
+**Phase 3 / 03-03** (Base64/Hex/Bytes tool) ✓ CLOSED — 8 commits (`00296c24`, `929fcc39`, then verification-feedback `423898ae`/`63a8935d`/`025b97b5`/`d16f009d`/`6bf732d4`/`e1358476`).
 
 `03-03` (Base64/Hex/Bytes tool) ✓ CLOSED — 8 commits (`00296c24`, `929fcc39`, then verification-feedback `423898ae`/`63a8935d`/`025b97b5`/`d16f009d`/`6bf732d4`/`e1358476`). Shipped the real tool into the Outlet (registry off `makePlaceholder`): three panes over one internal `Uint8Array`, alphabet toggle, per-field errors, status bar, visible focusable copy. **Real-WKWebView human-verify APPROVED by the user (2026-05-31)** after 5 feedback fixes: (1) **`bytes.ts` native `toBase64` now passes `omitPadding` for base64url** — the real webview kept `=` while the btoa fallback stripped it (approved port-unchanged edit; only `decoder.ts`+19 tests are locked; fix proven by a prototype-stub test since Node 22 lacks native `toBase64`); (2) **field parse error now CLEARS the other panes** (user-directed refinement of D-13, not last-good); (3) **"Copied" confirmation** (tick, ~1.2s, per-click re-arm); (4) **`setAlphabet` guard** so toggling during a base64 error keeps the raw input (code-review find); (5) **trimmed the redundant status-bar encoding chip** (reserved for auto-detection; **03-04 should surface detected encoding as an ACCENT CHIP** — recorded in 03-CONTEXT.md `<refinements>`). **Automated real-WKWebView gate ADDED**: `test/e2e/base64.e2e.ts` drives the actual webview (derive · clear-on-error · base64url-no-padding · focusable copy), `wdio.conf` now globs `test/e2e/*.e2e.ts`, stale `skeleton.e2e.ts` removed (D-05). `bash scripts/e2e-spike.sh` → **1 passing on webkit**. Gate: **155/155 vitest** (decoder 19 untouched), tsc clean, eslint 0. **ENC-01/02/03 Complete; UX-01..05 Partial** (Base64 ✓; Protobuf 03-04 must also satisfy). SUMMARY: `.planning/phases/03-hero-protobuf-encoding-ux-constraints/03-03-SUMMARY.md`.
 
