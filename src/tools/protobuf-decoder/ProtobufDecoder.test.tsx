@@ -9,7 +9,7 @@
 //   - the rows/cards toggle reads + persists protobufTreeStyle via usePreferences — D-07
 //   - copy-all-as-JSON writes fieldsToJson(...) through the platform clipboard seam — D-11
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, within } from "@testing-library/react";
 import {
   resetPlatformForTest,
   setPlatformForTest,
@@ -172,5 +172,37 @@ describe("ProtobufDecoder", () => {
     const nodeCopy = container.querySelector("button[data-copy-node]") as HTMLButtonElement;
     fireEvent.click(nodeCopy);
     expect(writeText).toHaveBeenCalledWith("150");
+  });
+
+  it("copy-all shows a momentary 'Copied' confirmation that reverts", () => {
+    vi.useFakeTimers();
+    try {
+      const { container } = render(<ProtobufDecoder />);
+      fireEvent.change(input(container), { target: { value: "089601" } });
+      const copyAll = within(container).getByRole("button", { name: /copy all as json/i });
+      expect(copyAll.textContent).toContain("Copy all as JSON");
+      fireEvent.click(copyAll);
+      expect(copyAll.textContent).toContain("Copied");
+      act(() => vi.advanceTimersByTime(1200));
+      expect(copyAll.textContent).toContain("Copy all as JSON");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("per-node copy shows a momentary confirmation (accent state)", () => {
+    vi.useFakeTimers();
+    try {
+      const { container } = render(<ProtobufDecoder />);
+      fireEvent.change(input(container), { target: { value: "089601" } });
+      const nodeCopy = container.querySelector("button[data-copy-node]") as HTMLButtonElement;
+      expect(nodeCopy.className).not.toContain("text-accent");
+      fireEvent.click(nodeCopy);
+      expect(nodeCopy.className).toContain("text-accent");
+      act(() => vi.advanceTimersByTime(1200));
+      expect(nodeCopy.className).not.toContain("text-accent");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

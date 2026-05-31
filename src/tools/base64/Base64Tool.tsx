@@ -7,10 +7,11 @@
 // hover-gated (UX-02). Per-field errors render as a text-bad node below the field
 // AND in the status bar (not opacity-only, UX-04). No fixed widths anywhere (UX-05).
 // Clipboard goes through the platform seam ONLY — never the Tauri APIs directly.
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Check, Copy } from "lucide-react";
 import { platform } from "@/lib/platform";
 import type { Base64Alphabet } from "@/lib/bytes";
+import { useCopyFeedback } from "@/shell/useCopyFeedback";
 import { useBytesConvert } from "./useBytesConvert";
 import { StatusBar, type ParseState } from "./StatusBar";
 
@@ -27,21 +28,11 @@ interface PaneProps {
 
 function Pane({ label, value, onChange, error, headerExtra, paneId }: PaneProps) {
   const errorId = `${paneId}-error`;
-  // Momentary "Copied" confirmation so the user knows the click reached the
-  // clipboard (the OS gives no feedback of its own). Each copy bumps a tick so
-  // the effect re-arms — rapid re-clicks restart the window instead of letting
-  // an in-flight timer cut it short. Cleanup cancels the timer on unmount.
-  const [copyTick, setCopyTick] = useState(0);
-  const copied = copyTick > 0;
-  useEffect(() => {
-    if (copyTick === 0) return;
-    const timer = setTimeout(() => setCopyTick(0), 1200);
-    return () => clearTimeout(timer);
-  }, [copyTick]);
+  const [copied, confirmCopy] = useCopyFeedback();
 
   function handleCopy() {
     void platform.clipboard.writeText(value);
-    setCopyTick((n) => n + 1);
+    confirmCopy();
   }
 
   return (

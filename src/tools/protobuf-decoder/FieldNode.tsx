@@ -10,8 +10,9 @@
 //   - sub-messages live at value.interpretations.message and recurse FieldTree,
 //     auto-expanded by default (D-05) — collapse is opt-in, tracked as a collapsed set.
 //   - a visible, focusable <button> copies the selected reading (no hover-only, D-10).
-import { ChevronDown, ChevronRight, Copy } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Copy } from "lucide-react";
 import type { DecodedField, WireType } from "@/lib/protobuf/decoder";
+import { useCopyFeedback } from "@/shell/useCopyFeedback";
 import { chipsForField, defaultChipId } from "./interpretationChips";
 import { FieldTree } from "./FieldTree";
 
@@ -48,6 +49,7 @@ export function FieldNode({
   const chips = chipsForField(field);
   const selectedId = selection.get(path) ?? defaultChipId(field);
   const selectedChip = chips.find((c) => c.id === selectedId) ?? chips[0];
+  const [copied, confirmCopy] = useCopyFeedback();
 
   const isLen = field.value.kind === "len";
   const message =
@@ -78,11 +80,24 @@ export function FieldNode({
         <button
           type="button"
           data-copy-node
-          onClick={() => onCopyNode(selectedChip?.value ?? "")}
+          onClick={() => {
+            onCopyNode(selectedChip?.value ?? "");
+            confirmCopy();
+          }}
           aria-label={`Copy field ${field.fieldNumber} value`}
-          className={`${isLen ? "" : "ml-auto "}flex items-center gap-1 rounded-[6px] border border-bd bg-input-bg px-1.5 py-1 text-tx-2 outline-none transition-colors hover:border-bd-2 hover:text-tx focus-visible:ring-2 focus-visible:ring-accent`}
+          className={[
+            isLen ? "" : "ml-auto",
+            "flex items-center gap-1 rounded-[6px] border bg-input-bg px-1.5 py-1 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent",
+            copied
+              ? "border-accent-line text-accent"
+              : "border-bd text-tx-2 hover:border-bd-2 hover:text-tx",
+          ].join(" ")}
         >
-          <Copy className="h-3 w-3" aria-hidden="true" />
+          {copied ? (
+            <Check className="h-3 w-3" aria-hidden="true" />
+          ) : (
+            <Copy className="h-3 w-3" aria-hidden="true" />
+          )}
         </button>
       </div>
 
