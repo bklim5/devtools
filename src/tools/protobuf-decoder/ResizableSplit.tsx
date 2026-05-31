@@ -69,6 +69,9 @@ export function ResizableSplit({
     (e: React.KeyboardEvent) => {
       if (e.key === "ArrowLeft") setRatio((r) => clamp(r - 0.02));
       else if (e.key === "ArrowRight") setRatio((r) => clamp(r + 0.02));
+      else return;
+      // The arrow is a resize nudge — don't also scroll an ancestor.
+      e.preventDefault();
     },
     [clamp],
   );
