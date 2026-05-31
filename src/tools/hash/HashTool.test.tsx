@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
-// HashTool (HASH-01, UX-01..05, D-11/D-12/D-13/D-14): paste text/hex/base64 (via an input-
-// encoding toggle, single internal Uint8Array) → MD5 + SHA-1/256/384/512 digests all shown
-// at once, stacked (UX-01 — no compute button). MD5 is sync; SHA are async (use waitFor).
-// Empty is neutral; a bad encoding is a field-scoped error (aria-invalid + text-bad, never
-// opacity-only), no crash, no stale digests. A casing toggle (D-13) flips hex to uppercase.
-// Each digest row exposes a VISIBLE focusable copy <button> (UX-02). crypto.subtle is present
-// in the Node test env (Node 22). Clipboard goes through the platform seam ONLY.
+// HashTool (HASH-01, UX-01..05, D-12/D-13; G-04-1/G-04-2): paste TEXT (always UTF-8 — no
+// input-encoding toggle, G-04-1) → MD5 + SHA-1/256/384/512 digests all shown at once,
+// stacked (UX-01 — no compute button). MD5 is sync; SHA are async (use waitFor). Empty is
+// neutral; UTF-8 never errors so there is no error path. The five digest rows ALWAYS render
+// in fixed-height containers from mount so typing never reflows (G-04-2) — the empty test
+// asserts on status/empty digest text, NOT on row absence. A casing toggle (D-13) flips hex
+// to uppercase. Each digest row exposes a VISIBLE focusable copy <button> (UX-02).
+// crypto.subtle is present in the Node test env (Node 22). Clipboard goes through the seam.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import {
@@ -51,7 +52,7 @@ const MD5_ABC = "900150983cd24fb0d6963f7d28e17f72";
 const SHA256_ABC_PREFIX = "ba7816bf8f01cfea";
 
 describe("HashTool", () => {
-  it("typing 'abc' (UTF-8) renders the MD5 digest and (async) the SHA-256 digest", async () => {
+  it("typing 'abc' renders the MD5 digest and (async) the SHA-256 digest", async () => {
     const { container } = render(<HashTool />);
     fireEvent.change(inputFor(container), { target: { value: "abc" } });
     // MD5 is sync.
@@ -62,58 +63,15 @@ describe("HashTool", () => {
     });
   });
 
-  it("hex '616263' yields the SAME digests as text 'abc' (single Uint8Array path)", async () => {
-    const { container } = render(<HashTool />);
-    // Switch the input encoding to hex.
-    const hexBtn = Array.from(container.querySelectorAll("button")).find(
-      (b) => b.textContent === "hex",
-    )!;
-    fireEvent.click(hexBtn);
-    fireEvent.change(inputFor(container), { target: { value: "616263" } });
-    expect(rowText(container, "MD5")).toBe(MD5_ABC);
-    await waitFor(() => {
-      expect(rowText(container, "SHA-256")).toMatch(new RegExp(`^${SHA256_ABC_PREFIX}`));
-    });
-  });
-
-  it("the input-encoding toggle exposes UTF-8 / hex / base64 with aria-pressed", () => {
-    const { container } = render(<HashTool />);
-    const labels = ["UTF-8", "hex", "base64"];
-    for (const label of labels) {
-      const btn = Array.from(container.querySelectorAll("button")).find(
-        (b) => b.textContent === label,
-      )!;
-      expect(btn).toBeTruthy();
-      expect(btn.getAttribute("aria-pressed")).not.toBeNull();
-    }
-  });
-
-  it("invalid input for the chosen encoding shows a field-scoped error, no stale digests", () => {
-    const { container } = render(<HashTool />);
-    const hexBtn = Array.from(container.querySelectorAll("button")).find(
-      (b) => b.textContent === "hex",
-    )!;
-    fireEvent.click(hexBtn);
-    // Odd-length hex is invalid.
-    fireEvent.change(inputFor(container), { target: { value: "abc" } });
-    const field = inputFor(container);
-    expect(field.getAttribute("aria-invalid")).toBe("true");
-    const err = container.querySelector("#hash-input-error")!;
-    expect(err).toBeTruthy();
-    expect(err.className).toContain("text-bad");
-    expect(container.querySelector("footer[role='status']")!.textContent).toContain(
-      "Error",
-    );
-    // No digest rows render in the error state.
-    expect(container.querySelector("[data-algo='MD5']")).toBeNull();
-  });
-
-  it("empty input → status 'empty', no digests, no error", () => {
+  it("empty input → status 'empty', no digest values, no error (rows still present, G-04-2)", () => {
     const { container } = render(<HashTool />);
     expect(container.querySelector("footer[role='status']")!.textContent).toContain(
       "Empty",
     );
-    expect(container.querySelector("[data-algo='MD5']")).toBeNull();
+    // The five rows ALWAYS render (fixed-height, no reflow) — but carry no digest text.
+    expect(rowText(container, "MD5")).toBe("");
+    expect(rowText(container, "SHA-256")).toBe("");
+    // UTF-8 never errors, so there is no field-scoped error element.
     expect(container.querySelector("#hash-input-error")).toBeNull();
   });
 
