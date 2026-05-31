@@ -28,7 +28,7 @@ Requirements for the initial macOS release. Each maps to exactly one roadmap pha
 - [x] **SHL-02**: ⌘K command palette opens, fuzzy-matches over name+keywords+description, and Enter switches tools (no mouse) <!-- 02-04: ⌘K CommandPalette (rankTools + ↑/↓+Enter no-mouse); Task-4 human-verify approved 2026-05-30 -->
 - [x] **SHL-03**: Command palette remembers and surfaces recently-used tools
 - [x] **SHL-04**: Registry is the single source of truth — adding a tool (file + one registry entry) makes sidebar, palette, and route appear automatically <!-- 02-01: registry now populated (3 tools enabled), router derives routes from ENABLED_TOOLS; sidebar/palette consumers land in 02-04 -->
-- [~] **SHL-05** (PARTIAL): Preferences persist across restarts: theme, last-used tool, ~~window geometry~~, Protobuf tree style <!-- 02-01: real on-disk Store seam delivered (plugin-store + localStorage); theme/last-used/recents persistence wired in 02-03. WINDOW GEOMETRY deferred to Phase 5 (D-11); Protobuf tree-style key written by Phase 3. Do NOT mark fully Complete at the Phase 2 boundary. -->
+- [x] **SHL-05**: Preferences persist across restarts: theme, last-used tool, window geometry, Protobuf tree style <!-- 02-01: real on-disk Store seam delivered (plugin-store + localStorage); theme/last-used/recents persistence wired in 02-03; Protobuf tree-style key written by Phase 3. WINDOW GEOMETRY now ships via tauri-plugin-window-state (05-01, D-11) and was human-verified at the Phase-5 sign-off (2026-06-01) — fully Complete. -->
 - [x] **SHL-06**: App opens to the last-used or summoned tool with no "pick a tool" step
 
 ### Protobuf Decoder — hero (PRO)
@@ -73,8 +73,8 @@ Requirements for the initial macOS release. Each maps to exactly one roadmap pha
 
 ### Native polish (NAT)
 
-- [x] **NAT-01**: A global keyboard shortcut summons/focuses the app from anywhere (macOS)
-- [ ] **NAT-02**: Tray/menu presence and single-instance behavior (second launch focuses the existing window)
+- [~] **NAT-01** (DEFERRED): A global keyboard shortcut summons/focuses the app from anywhere (macOS) <!-- Phase 5 (05-02/05-03) built the platform seam (platform.nativeShortcut) + shell/summon.ts registration path. At human sign-off (2026-06-01) the global HOTKEY form was PARKED (decision G-05-1): the default Cmd+Shift+D collided with a macOS system shortcut and macOS offers no reliable "is this chord taken?" API, so no auto-registered chord ships this milestone. Summon is delivered v1 via the tray "Show DevTools" menu + single-instance focus. The configurable user-set hotkey + Settings UI DEFER to a future Settings phase, which reuses the intact seam. Do NOT mark Complete. -->
+- [x] **NAT-02**: Tray/menu presence and single-instance behavior (second launch focuses the existing window) <!-- Phase 5 (05-01 Rust foundation): single-instance registered FIRST, tray icon + Show/Quit menu, summon order unminimize→show→setFocus. Human-verified at the Phase-5 sign-off (2026-06-01): tray menu + single-instance both PASS. -->
 
 ### Distribution (DST)
 
@@ -120,7 +120,7 @@ Phase mapping finalized by the roadmapper. Every v1 requirement maps to exactly 
 | SHL-02 | Phase 2 (Shell) | Complete |
 | SHL-03 | Phase 2 (Shell) | Complete |
 | SHL-04 | Phase 2 (Shell) | Complete |
-| SHL-05 | Phase 2 (Shell) | Partial (window geometry → Phase 5, D-11) |
+| SHL-05 | Phase 2 (Shell) + Phase 5 (geometry) | Complete (theme/last-tool/tree-style in Phase 2; window geometry via tauri-plugin-window-state in 05-01, human-verified 2026-06-01) |
 | SHL-06 | Phase 2 (Shell) | Complete |
 | PRO-01 | Phase 3 (Hero + Encoding + UX) | Complete (03-02 logic + 03-04 UI) |
 | PRO-02 | Phase 3 (Hero + Encoding + UX) | Complete |
@@ -141,8 +141,8 @@ Phase mapping finalized by the roadmapper. Every v1 requirement maps to exactly 
 | JWT-01 | Phase 4 (Catalogue) | Complete (04-03 — decodeJwt + JwtTool shipped; display-only, D-09/D-10) |
 | HASH-01 | Phase 4 (Catalogue) | Complete (04-04 — hashes.ts md5/sha + HashTool shipped; js-md5 + Web Crypto, secure-context A1 confirmed on real WKWebView) |
 | UID-01 | Phase 4 (Catalogue) | Complete (04-05 — decodeId + UuidUlidTool shipped; generate v4/v7/ULID on-open+regen+batch, decode auto-detect, CSPRNG, secure-context confirmed on real WKWebView) |
-| NAT-01 | Phase 5 (Native Polish) | Complete |
-| NAT-02 | Phase 5 (Native Polish) | Pending |
+| NAT-01 | Phase 5 (Native Polish) | Deferred — global-hotkey form PARKED (G-05-1: default chord collided + no macOS "chord taken?" API); seam built, summon ships via tray + single-instance; configurable hotkey → future Settings phase |
+| NAT-02 | Phase 5 (Native Polish) | Complete (05-01 — single-instance + tray Show/Quit; human-verified 2026-06-01) |
 | DST-01 | Phase 6 (Distribution) | Pending |
 | DST-02 | Phase 6 (Distribution) | Pending |
 

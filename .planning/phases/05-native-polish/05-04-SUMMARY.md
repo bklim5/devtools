@@ -3,7 +3,7 @@ phase: 05-native-polish
 plan: 04
 subsystem: phase-boundary
 tags: [tauri, wcag-aa, tauri-build, e2e, phase-gate, human-sign-off]
-status: paused-at-checkpoint
+status: complete
 
 # Dependency graph
 requires:
@@ -37,8 +37,8 @@ requirements: [NAT-01, NAT-02]
 
 # Metrics
 duration: "~3.5 min (autonomous gate; cargo release build dominates wall time)"
-completed: pending-human-sign-off
-tasks: "1 of 3 (Task 2 = human checkpoint, PAUSED; Task 3 = post-approval doc bookkeeping)"
+completed: 2026-06-01 (human sign-off received; Task 3 bookkeeping done)
+tasks: "3 of 3 — Task 2 human checkpoint APPROVED 2026-06-01 (NAT-02/SHL-05 verified; NAT-01 hotkey PARKED via G-05-1; Phase-4 amendments verified); Task 3 doc bookkeeping complete"
 ---
 
 # Phase 5 Plan 04: Phase Boundary + Human Sign-Off Summary

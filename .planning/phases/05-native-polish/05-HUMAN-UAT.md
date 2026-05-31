@@ -1,14 +1,16 @@
 ---
-status: issues
+status: resolved
 phase: 05-native-polish
 source: [05-04 boundary gate, checkpoint:human-verify]
 started: 2026-05-31T15:00:00Z
-updated: 2026-05-31T15:30:00Z
+updated: 2026-06-01T00:10:00Z
 ---
 
 ## Current Test
 
-[human verification complete — tray / single-instance / geometry PASS; summon chord FAILED; see Gaps]
+[human verification complete — tray / single-instance / geometry PASS. Summon chord FAILED in round 1;
+resolved by decision G-05-1 (global hotkey PARKED — auto-registration removed from startup, summon via
+tray + single-instance). Phase 5 signed off 2026-06-01. See Gaps.]
 
 ## Tests
 
@@ -23,6 +25,9 @@ notes: |
   plugin-global-shortcut `register()` throws — and registerSummon() swallows the error
   with a console.warn (invisible in a packaged app). User wants a USER-CONFIGURABLE
   shortcut, not just a different hardcoded default.
+  RESOLVED 2026-06-01 (G-05-1): global hotkey PARKED — startup auto-registration removed
+  (commit 388f501b); summon ships via tray + single-instance; configurable hotkey defers
+  to a future Settings phase. NAT-01 marked Deferred (not Complete).
 
 ### 2. Tray (NAT-02)
 expected: |
@@ -78,6 +83,15 @@ detail: |
   IMPLICATION: NAT-01 (global summon shortcut, user-configurable) is NOT delivered as a
   hotkey this milestone — its hotkey form DEFERS to the future Settings phase. Mark
   NAT-01 accordingly (deferred/partial) at Phase 5 completion; do NOT claim it complete.
+status: resolved
+resolution: |
+  2026-06-01 — RESOLVED BY DECISION (user re-confirmed parking at the Phase-5 sign-off).
+  Code change (commit 388f501b): removed the registerSummon() call from main.tsx so the
+  app no longer auto-registers any global chord at startup; the platform seam
+  (platform.nativeShortcut) and shell/summon.ts registration path are KEPT intact for a
+  future Settings phase. Summon ships v1 via the tray "Show DevTools" menu + single-instance.
+  NAT-01 marked Deferred (not Complete) in REQUIREMENTS.md + Traceability. Gates after the
+  change: 276/276 vitest, tsc, eslint, 7/7 real-WKWebView e2e; fresh tauri build (.app + .dmg).
 status: failed
 
 ## Deferred (future Settings phase)

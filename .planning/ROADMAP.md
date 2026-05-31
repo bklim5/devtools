@@ -15,8 +15,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Scaffold + Harness Proof** - Walking skeleton that proves the full build+verify harness end-to-end before any product feature (completed 2026-05-30)
 - [ ] **Phase 2: Shell** - Registry-driven sidebar, ⌘K command palette, prefs persistence, opens-to-last-tool
 - [ ] **Phase 3: Hero (Protobuf) + Encoding + UX Constraints** - Schema-less Protobuf decoder and Base64/Hex/Bytes under the binding cross-cutting UX constraints — the riskiest path, proven early
-- [x] **Phase 4: Catalogue** - Unix Time, JWT, Hash, UUID/ULID under the same workflow constraints (execution + automated gates complete 2026-05-31; **human sign-off DEFERRED** — user AFK, will manually verify Phase 4 + Phase 5 later; tracked in 04-HUMAN-UAT.md, status: partial)
-- [ ] **Phase 5: Native Polish** - Global summon shortcut, tray/menu, single-instance (macOS)
+- [x] **Phase 4: Catalogue** - Unix Time, JWT, Hash, UUID/ULID under the same workflow constraints (complete 2026-05-31; the 5 human-UAT defects closed by 04-07 and **human-verified + signed off 2026-06-01** alongside Phase 5)
+- [x] **Phase 5: Native Polish** - Tray/menu + single-instance (NAT-02) shipped & human-verified 2026-06-01; window-geometry restore (SHL-05) done. **NAT-01 global summon hotkey PARKED** (G-05-1 — chord collision + no macOS "taken?" API; summon via tray + single-instance; configurable hotkey → future Settings phase)
 - [ ] **Phase 6: Distribution** - Code signing + notarisation, DMG, auto-updater (macOS)
 
 ## Phase Details
@@ -94,8 +94,8 @@ Plans:
 - [x] 04-06-PLAN.md — Phase boundary (Wave 3): full suite + fresh tauri build + four real-WKWebView e2e + gsd-ui-review WCAG-AA audit + mark phase complete (autonomous: false) — **Task 1 (automated gates) COMPLETE; human sign-off DEFERRED (user AFK), tracked in 04-HUMAN-UAT.md**
 **UI hint**: yes
 
-### Phase 5: Native Polish
-**Goal**: macOS native integration — a global shortcut summons/focuses the app from anywhere, the app has tray/menu presence, and a second launch focuses the existing window — all routed through the platform seam.
+### Phase 5: Native Polish ✓ COMPLETE (signed off 2026-06-01)
+**Goal**: macOS native integration — a global shortcut summons/focuses the app from anywhere, the app has tray/menu presence, and a second launch focuses the existing window — all routed through the platform seam. *(Outcome: tray + single-instance + window-geometry shipped & human-verified; the global-hotkey summon was PARKED per decision G-05-1 — summon ships via tray + single-instance, configurable hotkey defers to a future Settings phase.)*
 **Depends on**: Phase 4
 **Requirements**: NAT-01, NAT-02
 **Success Criteria** (what must be TRUE):
@@ -110,7 +110,7 @@ Plans:
 - [x] 05-01-PLAN.md — Rust foundation (Wave 1): add tauri-plugin-single-instance@2.4.2 + global-shortcut@2.3.2 + window-state@2.4.1 + tray-icon feature; register single-instance FIRST in lib.rs; tray icon + menu (Show/Quit) in setup(); grant least-privilege capabilities; window visible:false for flash-free restore; keep webdriver release-exclusion intact (NAT-02; D-02/03)
 - [x] 05-02-PLAN.md — Platform-seam extension (Wave 1): install @tauri-apps/plugin-global-shortcut@2.3.2; extend Platform with window + nativeShortcut (real impl in tauri.ts ONLY, no-ops in browser.ts); Wave-0 platform.test.ts coverage; grep audit clean (NAT-01)
 - [x] 05-03-PLAN.md — Shell wiring (Wave 2): summon.ts with SUMMON_CHORD constant (CommandOrControl+Shift+D) + registerSummon() over the seam (unminimize→show→setFocus order, graceful register-failure); wire into main.tsx; real-WKWebView e2e for HashRouter deep-link + launch-with-plugins (NAT-01; D-01/03/04)
-- [ ] 05-04-PLAN.md — Phase boundary (Wave 3, autonomous: false): full suite + seam/release/offline/capability audits + fresh tauri build + e2e + gsd-ui-review WCAG-AA + HUMAN packaged-build sign-off (NAT-01/NAT-02/SHL-05, OS-level — batches the deferred Phase-4 UAT); mark phase complete after approval (NAT-01/NAT-02)
+- [x] 05-04-PLAN.md — Phase boundary (Wave 3, autonomous: false): full suite + seam/release/offline/capability audits + fresh tauri build + e2e + gsd-ui-review WCAG-AA + HUMAN packaged-build sign-off (NAT-01/NAT-02/SHL-05, OS-level — batched the deferred Phase-4 UAT). **Signed off 2026-06-01**: tray + single-instance + geometry PASS; Phase-4 amendments PASS; NAT-01 hotkey PARKED (G-05-1, summon removed from startup)
 **UI hint**: yes
 
 ### Phase 6: Distribution
@@ -135,5 +135,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 2. Shell | 2/4 | In Progress|  |
 | 3. Hero + Encoding + UX | 1/4 | In Progress|  |
 | 4. Catalogue | 6/6 | Complete (sign-off deferred) | 2026-05-31 |
-| 5. Native Polish | 0/4 | Planned | - |
+| 5. Native Polish | 4/4 | Complete | 2026-06-01 |
 | 6. Distribution | 0/TBD | Not started | - |

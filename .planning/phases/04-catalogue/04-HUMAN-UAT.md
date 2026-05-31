@@ -1,16 +1,16 @@
 ---
-status: partial
+status: complete
 phase: 04-catalogue
 source: [04-VERIFICATION via 04-06 boundary gate]
 started: 2026-05-31T14:30:00Z
-updated: 2026-05-31T22:30:00Z
+updated: 2026-06-01T00:10:00Z
 ---
 
 ## Current Test
 
-[human verification round 1 complete — 3/5 passed, 2 items had issues (Hash, UUID).
-All 5 issues (G-04-1..G-04-5) now CLOSED IN SOURCE by plan 04-07 and verified by the
-automated harness; awaiting human re-verify on a freshly rebuilt packaged app — see Gaps]
+[SIGNED OFF 2026-06-01. Round 1: 3/5 passed, 2 items had issues (Hash, UUID). All 5 issues
+(G-04-1..G-04-5) closed in source by plan 04-07; the user human-verified the Phase-4
+amendments at the batched Phase-5 sign-off. Deferred Phase-4 sign-off is now CLOSED.]
 
 <!--
 DEFERRED HUMAN SIGN-OFF. The 04-06 phase-boundary gate's automated layers are all

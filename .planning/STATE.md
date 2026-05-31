@@ -2,29 +2,29 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: unknown
-last_updated: "2026-05-31T21:21:50.000Z"
+status: phase-complete
+last_updated: "2026-06-01T00:12:00.000Z"
 progress:
   total_phases: 6
-  completed_phases: 4
-  total_plans: 23
-  completed_plans: 22
-  percent: 96
+  completed_phases: 5
+  total_plans: 27
+  completed_plans: 27
+  percent: 83
 ---
 
 # Project State
 
 ## Current Position
 
-Phase: 04 (catalogue) — execution COMPLETE (7/7 plans; gap-closure 04-07 done). Only the deferred packaged-build human sign-off remains (verification debt, batched with Phase 5).
-Plan: 7 of 7
-Next: Phase 05 — Wave 1 (05-01 Rust foundation ✓, 05-02 JS platform seam ✓) + Wave 2 (05-03 shell summon wiring ✓) DONE. Only **05-04 (phase boundary + human sign-off)** remains — a fresh `tauri build` + gsd-ui-review WCAG-AA, confirming D-01..D-04 and the OS-level summon/single-instance/tray behaviors (batched with the deferred Phase-4 UAT).
+Phase: 05 (native-polish) — ✓ COMPLETE + SIGNED OFF 2026-06-01. Phase 4 deferred sign-off also CLOSED in the same session.
+Plan: 4 of 4
+Next: **Phase 6 (Distribution)** — code signing + notarisation, DMG, auto-updater (DST-01, DST-02). `/gsd-discuss-phase 6` or `/gsd-plan-phase 6`.
 
-**Phase 4 (Catalogue) — execution + ALL automated gates COMPLETE 2026-05-31; HUMAN SIGN-OFF DEFERRED.** All 6 plans done; the four catalogue tools (Unix Time, JWT, Hash, UUID/ULID) shipped, completing the six-tool v1 catalogue. The 04-06 phase-boundary gate is green on every automated layer: **269/269 vitest** (decoder 19 untouched), tsc clean, eslint 0, **four real-WKWebView e2e specs passing on webkit** (incl. the load-bearing hash SHA-256 and uuid-ulid `crypto.randomUUID` secure-context checks — A1 CONFIRMED on the packaged webview), a fresh **`tauri build`** producing a runnable `.app` + `.dmg` (exit 0, no webdriver in the release binary), and a **PASSING WCAG-AA audit (24/24, no blockers)** recorded in `04-UI-REVIEW.md`. TIME-01 / JWT-01 / HASH-01 / UID-01 are Complete.
+**Phase 5 (Native Polish) ✓ COMPLETE — signed off 2026-06-01.** All 4 plans done. Human-verified on the packaged macOS app: **tray menu (Show/Quit) + single-instance** (NAT-02) PASS; **window-geometry restore** (SHL-05, via tauri-plugin-window-state) PASS; Phase-4 amendments PASS. **NAT-01 global summon hotkey PARKED (decision G-05-1):** the default `Cmd+Shift+D` collided with a macOS system shortcut and macOS gives no reliable "is this chord taken?" API, so no auto-registered chord ships this milestone — summon is delivered via the tray + single-instance. The startup auto-registration was REMOVED (commit `388f501b`: `registerSummon()` call deleted from `main.tsx`); the platform seam (`platform.nativeShortcut`) + `shell/summon.ts` are kept intact for a **future Settings phase** to reuse as an explicit, user-configurable opt-in. NAT-01 marked **Deferred** (not Complete) in REQUIREMENTS + Traceability. Gates after the change: **276/276 vitest** (decoder 19 untouched), tsc clean, eslint 0, **7/7 real-WKWebView e2e on webkit**, a fresh **`tauri build`** (.app + .dmg, exit 0), WCAG-AA 24/24 in `05-UI-REVIEW.md`. Confirmed adopted defaults: D-02 (regular dock app + tray) ✓, D-03 (unminimize→show→setFocus) ✓; D-01 (global chord) PARKED; D-04 (JS-seam handler) retained in the seam for the future Settings phase.
 
-> **⚠️ DEFERRED PHASE-BOUNDARY HUMAN SIGN-OFF (NOT approved).** The packaged-build human sign-off (04-06 Task 2, `checkpoint:human-verify`) was DEFERRED at the user's explicit request — the user is AFK and will manually verify Phase 4 (and Phase 5) later. The phase is closed for **forward progress only**; the sign-off is tracked as explicit **verification debt** in `.planning/phases/04-catalogue/04-HUMAN-UAT.md`. This was NOT self-approved. Packaged app to verify: `src-tauri/target/release/bundle/macos/devtools-app.app` (+ `…/dmg/devtools-app_0.1.0_aarch64.dmg`).
->
-> **UPDATE 2026-05-31:** the earlier deferred human UAT DID surface 5 UX defects (G-04-1..G-04-5 in Hash + UUID/ULID) — all 5 are now CLOSED in source by plan **`04-07`** (see Active Plan), green on the full unit suite + 7/7 real-WKWebView e2e. The packaged-build human RE-VERIFY of those two tools is the only remaining check (UX-only, corrected in source) and folds into the deferred Phase-4/Phase-5 human sign-off. A fresh `tauri build` of the fix is NOT yet produced — rebuild before the human verifies. If further issues surface → `/gsd-plan-phase 4 --gaps`.
+**Phase 4 (Catalogue) ✓ COMPLETE — signed off 2026-06-01 (batched with Phase 5).** All 7 plans done; the four catalogue tools shipped, completing the six-tool v1 catalogue. The 5 human-UAT defects (G-04-1..G-04-5 in Hash + UUID/ULID) were closed in source by plan `04-07` and **human-verified on the packaged build** at this sign-off. TIME-01 / JWT-01 / HASH-01 / UID-01 Complete. The earlier deferred-sign-off verification debt is **CLEARED** (`04-HUMAN-UAT.md` status: complete).
+
+**Build note (2026-06-01):** `pnpm tauri build` is green (.app + .dmg). One transient gotcha — Tauri's `bundle_dmg.sh` flaked once for the user (`hdiutil`/AppleScript step) while several unrelated DMGs were mounted; unmounting them and retrying produced a clean build. Robust DMG/signing hardening is Phase-6 (Distribution) work.
 
 **Phase 3 (Hero + Encoding + UX) COMPLETE — signed off 2026-05-31.** All 4 plans done; both tools (Protobuf hero + Base64/Hex/Bytes) shipped, code-reviewed, verified on the real macOS WKWebView (e2e), WCAG-AA audited, and built (`tauri build` → .app + .dmg, exit 0). PRO-01..07 + ENC-01..03 + UX-01..05 all Complete. Phase-boundary gates: 182/182 vitest (decoder 19 untouched), tsc clean, eslint 0; gsd-ui-review 19/24 with both AA blockers fixed (--tx-3 #868b95, accent #5b9bf8).
 
