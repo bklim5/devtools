@@ -103,10 +103,11 @@ describe("HashRouter (FND-02 runtime proof)", () => {
     );
   });
 
-  it("renders the protobuf-decoder placeholder at its direct route", async () => {
+  it("renders the real protobuf-decoder tool at its direct route", async () => {
     const { router } = await import("./router");
-    const { findByText } = render(<RouterProvider router={router} />);
+    const { findByLabelText } = render(<RouterProvider router={router} />);
     await router.navigate(`/tools/${HERO_TOOL_ID}`);
-    expect(await findByText("Coming in Phase 3")).toBeDefined();
+    // 03-04 swapped the placeholder for the real hero UI — its input is present.
+    expect(await findByLabelText("Protobuf input")).toBeDefined();
   });
 });

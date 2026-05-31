@@ -1,9 +1,9 @@
-// Protobuf Decoder (hero) — ENABLED in Phase 2 as a shared placeholder (D-01);
-// Phase 3 replaces `component` with the real schema-less wire-format tree UI.
-// Only the registry-facing fields change here (enabled/icon/component/description)
-// — no tool logic yet, and decoder.ts/bytes.ts/types.ts stay untouched.
+// Protobuf Decoder (hero) registry entry. Phase 3 (03-04) swaps `component` from
+// the shared placeholder to the real schema-less wire-format tree UI. Only the
+// registry-facing fields live here — decoder.ts/bytes.ts/types.ts/registry.ts stay
+// untouched (the single control plane derives sidebar/palette/router from this).
 import { Boxes } from "lucide-react";
-import { makePlaceholder } from "@/tools/_placeholder/ToolPlaceholder";
+import ProtobufDecoder from "./ProtobufDecoder";
 import type { ToolDefinition } from "@/lib/tools/types";
 
 export const protobufDecoderTool: ToolDefinition = {
@@ -13,6 +13,6 @@ export const protobufDecoderTool: ToolDefinition = {
   category: "inspectors",
   keywords: ["protobuf", "proto", "decode", "wire", "bytes"],
   icon: Boxes,
-  component: makePlaceholder("Protobuf Decoder"),
+  component: ProtobufDecoder,
   enabled: true,
 };
