@@ -2,6 +2,9 @@ import type { ToolDefinition } from "./types";
 import { unixTimeTool } from "@/tools/unix-time";
 import { base64Tool } from "@/tools/base64";
 import { protobufDecoderTool } from "@/tools/protobuf-decoder";
+import { jwtTool } from "@/tools/jwt";
+import { hashTool } from "@/tools/hash";
+import { uuidUlidTool } from "@/tools/uuid-ulid";
 
 // The single source of truth for which tools exist. The sidebar, search, and
 // router are all generated from this array — adding a tool means importing it
@@ -12,7 +15,14 @@ import { protobufDecoderTool } from "@/tools/protobuf-decoder";
 // enabled:false ID-reserving stubs (they render null until Phase 3 builds their
 // UI), so ENABLED_TOOLS is currently EMPTY — router.tsx guards that case and
 // falls back to the bare App shell until Phase 2/3 enable real tools.
-export const TOOLS: ToolDefinition[] = [unixTimeTool, base64Tool, protobufDecoderTool];
+export const TOOLS: ToolDefinition[] = [
+  unixTimeTool,
+  base64Tool,
+  protobufDecoderTool,
+  jwtTool,
+  hashTool,
+  uuidUlidTool,
+];
 
 export const ENABLED_TOOLS: ToolDefinition[] = TOOLS.filter((t) => t.enabled !== false);
 
