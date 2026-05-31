@@ -49,7 +49,7 @@ Requirements for the initial macOS release. Each maps to exactly one roadmap pha
 
 ### Unix Time (TIME)
 
-- [ ] **TIME-01**: User pastes a unix timestamp (s/ms) and sees human-readable local + UTC datetimes, and the reverse
+- [x] **TIME-01**: User pastes a unix timestamp (s/ms) and sees human-readable local + UTC datetimes, and the reverse
 
 ### JWT Debugger (JWT)
 

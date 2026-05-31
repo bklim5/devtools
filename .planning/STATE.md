@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-05-31T12:42:31.276Z"
+last_updated: "2026-05-31T12:49:52.182Z"
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 18
-  completed_plans: 13
-  percent: 72
+  completed_plans: 14
+  percent: 78
 ---
 
 # Project State
@@ -17,7 +17,7 @@ progress:
 ## Current Position
 
 Phase: 04 (catalogue) — EXECUTING
-Plan: 2 of 6
+Plan: 3 of 6
 
 **Phase 3 (Hero + Encoding + UX) COMPLETE — signed off 2026-05-31.** All 4 plans done; both tools (Protobuf hero + Base64/Hex/Bytes) shipped, code-reviewed, verified on the real macOS WKWebView (e2e), WCAG-AA audited, and built (`tauri build` → .app + .dmg, exit 0). PRO-01..07 + ENC-01..03 + UX-01..05 all Complete. Phase-boundary gates: 182/182 vitest (decoder 19 untouched), tsc clean, eslint 0; gsd-ui-review 19/24 with both AA blockers fixed (--tx-3 #868b95, accent #5b9bf8).
 
@@ -25,7 +25,17 @@ Plan: 2 of 6
 
 ## Active Plan
 
-**None — Phase 3 closed. Next: plan Phase 4 (catalogue: Unix Time, JWT, Hash, UUID/ULID).**
+**Phase 4 (catalogue) EXECUTING — Wave 1 (04-01 foundation) + Wave 2 `04-02` (Unix Time) ✓ DONE.**
+
+**`04-02` (Unix Time tool, TIME-01) ✓ COMPLETE** — 2 commits (`3e6783d6` UnixTimeTool + TDD, `06445f18` registry swap + e2e gate). Shipped the real two-way Unix Time converter into the registry-driven shell over Plan 01's shared `timeFormat` lib (zero date-math duplication): forward pane pastes an s/ms timestamp → instant LOCAL + UTC + ISO rows each with a visible focusable copy (UX-01/02), `classifyUnit` magnitude auto-detect + an s/ms override toggle (aria-pressed, accent = selected only); reverse ISO/datetime field derives the timestamp back into the forward field (two-way, D-06); live "now" on a 1s interval (cleanup on unmount) with copy. Empty = neutral; malformed = field-scoped `aria-invalid` + `text-bad` error, never a crash (T-04-05). Registry `index.ts` swapped `makePlaceholder` → real `UnixTimeTool` (registry.ts untouched — entry already in TOOLS from 04-01). **Real-WKWebView gate ADDED + GREEN**: `test/e2e/unix-time.e2e.ts` types `1469922850259`, asserts ISO `2016-07-30T23:54:10.259Z` renders on paste + a `Copy ISO 8601` button is displayed; `bash scripts/e2e-spike.sh` → **3 passing on webkit** (base64, protobuf, unix-time). Gate: **214/214 vitest** (decoder 19 untouched, +8 new), tsc clean, eslint 0. **TIME-01 Complete.** Two decisions: (1) empty forward field defaults the active unit to **ms** so the reverse ISO field derives full-precision ms back (s would floor away milliseconds on round-trip); (2) timing (`performance.now`) is measured in the change handler not render — the React Compiler purity lint forbids impure clock reads in the render body, so the forward derive stays render-pure (mirrors Base64's event-scoped `timed()`). No deviations (plan ran as written). SUMMARY: `.planning/phases/04-catalogue/04-02-SUMMARY.md`.
+
+**Next: Wave 2 remaining — `04-03` (JWT, also consumes `timeFormat`), `04-04` (Hash), `04-05` (UUID/ULID), then `04-06` / phase boundary (human sign-off on `tauri build` + gsd-ui-review WCAG-AA).**
+
+---
+
+Prior (Phase 4) Active-Plan history:
+
+**`04-01`** (catalogue foundation scaffold) ✓ COMPLETE — 4 commits (`be31358a`, `3e32b0c3`, `ac0a892d`, `4c8bbe27`). Relocated shared StatusBar to `src/components/`, extracted CopyButton, hand-rolled pure ULID/UUIDv7/timeFormat libs (TDD vs fixed vectors), installed js-md5@0.8.3 offline, registered all four catalogue tools as placeholders (every registry.ts edit concentrated in Wave 1). SUMMARY: `.planning/phases/04-catalogue/04-01-SUMMARY.md`.
 
 ---
 
