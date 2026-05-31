@@ -5,17 +5,17 @@
 // base64.e2e.ts / uuid-ulid.e2e.ts. Run by scripts/e2e-spike.sh (starts
 // `tauri dev --features webdriver`, waits for :4445, runs `pnpm e2e`, tears down).
 //
-// WHAT THIS CAN AND CANNOT ASSERT: the OS-GLOBAL summon chord lives OUTSIDE the
-// webview (it's an OS keyboard registration), so WebDriver — which only drives
-// the page — CANNOT fire it. Per 05-VALIDATION "Manual-Only Verifications", the
-// real "hotkey from another app raises + focuses the window" is confirmed at the
-// Plan-04 packaged-build human sign-off. This spec instead pins the WEBVIEW-
-// OBSERVABLE surface that Plan 05-03 adds:
+// SUMMON DECISION (Phase-5 G-05-1): the app no longer auto-registers a global
+// chord at startup — summon ships via the tray menu + single-instance instead,
+// and the configurable hotkey defers to a future Settings phase. The platform
+// seam (platform.nativeShortcut) and shell/summon.ts are kept for that reuse.
+// This spec pins the WEBVIEW-OBSERVABLE surface that survives that change:
 //   1. The app launches WITHOUT a blank/crashed window despite the new Rust
-//      plugins + window-state `visible:false` + the startup summon registration —
-//      navigating to the hero tool renders its input (Pitfall 6 / Assumption A5).
-//   2. The HashRouter deep-link path the summon would reuse works (set the hash,
-//      assert the targeted tool renders) — the validated `deepLink` route (T-05-08).
+//      plugins + window-state `visible:false` — navigating to the hero tool
+//      renders its input (Pitfall 6 / Assumption A5).
+//   2. The HashRouter deep-link path the future summon would reuse works (set the
+//      hash, assert the targeted tool renders) — the validated `deepLink` route
+//      (T-05-08).
 //
 // Stable selectors: #protobuf-input (ProtobufDecoder.tsx), #base64-pane-text
 // (Base64Tool.tsx) — the same ids the protobuf/base64 specs drive.
@@ -33,8 +33,8 @@ function assert(cond: boolean, message: string): asserts cond {
 describe("Summon wiring + HashRouter deep-link (real WKWebView)", () => {
   it("launches non-blank with the new plugins + summon registered, and deep-links via the hash route", async () => {
     // 1. The app reaches the hero tool and renders its input — proving startup
-    // survives the new Rust plugins, window-state `visible:false`, and the
-    // registerSummon() call chained onto initPlatform (no blank/crashed window).
+    // survives the new Rust plugins and window-state `visible:false` with no
+    // blank/crashed window (summon is no longer auto-registered, G-05-1).
     await browser.execute(() => {
       window.location.hash = "#/tools/protobuf-decoder";
     });
