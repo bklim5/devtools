@@ -124,6 +124,15 @@ Ship the **real schema-less Protobuf decoder UI** and the **Base64/Hex/Bytes too
 None of the above were scope creep — they surfaced as natural boundaries while scoping the hero + encoding tools.
 </deferred>
 
+<refinements>
+## Mid-execution refinements
+
+**Added 2026-05-31, during 03-03 real-webview review (user-directed):**
+
+- **Trimmed the redundant encoding chip from the *Base64* tool's status bar.** In the Base64/Hex/Bytes tool the user explicitly picks the alphabet via the `base64 / base64url` toggle, so echoing "base64" in the status bar was pure duplication ("doesn't seem extremely useful"). The shared `StatusBar`'s `encoding` prop is now **optional**; the Base64 tool omits it. Its status bar is now `parse-state · byte-count · (error) · timing`. The encoding chip is reserved for where encoding is *auto-detected*.
+- **Protobuf decoder (03-04): surface the AUTO-DETECTED encoding (D-01/D-02) as an ACCENT CHIP, not a plain status-bar word.** Detection is a real signal there — paste an unknown blob and the tool tells you it read it as hex/base64 — so it earns prominence. Render it as an **accent chip** near the input/override toggle as the primary "what we detected" surface. This is consistent with **D-08** ("accent = the active/selected state"): the detected encoding *is* the currently-active interpretation (the manual override toggle selects it), so accenting it follows the selection rule rather than violating it. The plain status-bar "detected encoding" slot becomes secondary or is dropped in favor of the chip. Refines **D-01**'s "status bar shows which encoding was detected." `ProtobufStatusBar.tsx` need not repeat the encoding word if the accent chip covers it.
+</refinements>
+
 ---
 
 *Phase: 03-hero-protobuf-encoding-ux-constraints*
