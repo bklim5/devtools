@@ -2,7 +2,7 @@
 // edits are concentrated here; Wave 2 (Plan 04-03) swaps `component` for the real
 // tool UI without touching registry.ts. Icons/labels/keywords are D-18 discretion.
 import { KeyRound } from "lucide-react";
-import { makePlaceholder } from "@/tools/_placeholder/ToolPlaceholder";
+import JwtTool from "./JwtTool";
 import type { ToolDefinition } from "@/lib/tools/types";
 
 export const jwtTool: ToolDefinition = {
@@ -12,6 +12,6 @@ export const jwtTool: ToolDefinition = {
   category: "crypto",
   keywords: ["jwt", "token", "jose", "decode", "bearer"],
   icon: KeyRound,
-  component: makePlaceholder("JWT"),
+  component: JwtTool,
   enabled: true,
 };
