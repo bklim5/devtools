@@ -60,9 +60,9 @@ describe("Protobuf Decoder (real WKWebView)", () => {
 
     // 2. #N is NEUTRAL — the fnum element must not be the accent colour.
     const fnumColor = await fnum.getCSSProperty("color");
-    // accent is #3b82f6 ~ rgb(59,130,246); assert the fnum is NOT that blue.
+    // accent is #5b9bf8 ~ rgb(91,155,248); assert the fnum is NOT that blue.
     assert(
-      !/59,\s*130,\s*246/.test(fnumColor.value ?? ""),
+      !/91,\s*155,\s*248/.test(fnumColor.value ?? ""),
       `#N must be neutral, not accent blue — got ${fnumColor.value}`,
     );
 

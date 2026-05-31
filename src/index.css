@@ -24,7 +24,10 @@
   --color-sidebar: #101216;
   --color-pane: #14161b;
   --color-panel: #181b21;
-  --color-accent: #3b82f6;
+  /* Brightened from the mockup's #3b82f6 so selected/active label text on the
+     15% accent-soft tint clears WCAG-AA (~3.9:1 -> ~4.9:1). accent-soft/accent-line
+     derive from this, so the whole accent system shifts together. 03-UI-REVIEW #2. */
+  --color-accent: #5b9bf8;
   --color-ok: #34d399;
   --color-bad: #f0876b;
 
