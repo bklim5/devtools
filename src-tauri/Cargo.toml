@@ -15,7 +15,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["tray-icon"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri-plugin-clipboard-manager = "2.3.2"
@@ -39,3 +39,15 @@ tauri-plugin-store = "2.4.3"
 [features]
 # Enabled only for the e2e UI gate (`--features webdriver`); off in release.
 webdriver = ["dep:tauri-plugin-webdriver"]
+
+# Native macOS-polish plugins (Phase 5, NAT-02 + SHL-05/D-11). Target-scoped via
+# the SUPPORTED `cfg(any(target_os = ...))` idiom (distinct from the unsupported
+# `cfg(debug_assertions)` selector noted above) so future Windows/Linux work
+# inherits them cleanly; macOS is the only build target now. These three make NO
+# network calls (offline-by-design holds, threat T-05-03). single-instance + tray
+# have no JS API / no capability; global-shortcut + window-state are gated by
+# capabilities/default.json.
+[target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
+tauri-plugin-single-instance = "2.4.2"
+tauri-plugin-global-shortcut = "2.3.2"
+tauri-plugin-window-state = "2.4.1"
