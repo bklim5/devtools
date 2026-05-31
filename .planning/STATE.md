@@ -3,22 +3,22 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-05-31T13:13:17.601Z"
+last_updated: "2026-05-31T15:07:03.328Z"
 progress:
   total_phases: 6
-  completed_phases: 4   # Phases 5 (Native Polish) + 6 (Distribution) remain; Phase 4 sign-off DEFERRED (verification debt, 04-HUMAN-UAT.md)
-  total_plans: 18       # planned-so-far (Phases 1-4); Phases 5-6 plans are TBD
-  completed_plans: 18
-  percent: 67           # 4 of 6 phases executed; not the milestone-complete figure
+  completed_phases: 4
+  total_plans: 22
+  completed_plans: 19
+  percent: 86
 ---
 
 # Project State
 
 ## Current Position
 
-Phase: 04 (catalogue) — EXECUTION COMPLETE, HUMAN SIGN-OFF DEFERRED
-Plan: 6 of 6 ✓ (Task 1 automated gates green; Task 2 human sign-off deferred)
-Next: Phase 05 (Native Polish)
+Phase: 05 (native-polish) — EXECUTING
+Plan: 2 of 4
+Next: Phase 05 — Wave 1 done (05-01 Rust foundation ✓). Execute 05-02 (JS platform seam: window summon + nativeShortcut, browser no-ops, seam unit tests) then 05-03 (shell wiring: register the summon chord on startup) then 05-04 (phase boundary + human sign-off).
 
 **Phase 4 (Catalogue) — execution + ALL automated gates COMPLETE 2026-05-31; HUMAN SIGN-OFF DEFERRED.** All 6 plans done; the four catalogue tools (Unix Time, JWT, Hash, UUID/ULID) shipped, completing the six-tool v1 catalogue. The 04-06 phase-boundary gate is green on every automated layer: **269/269 vitest** (decoder 19 untouched), tsc clean, eslint 0, **four real-WKWebView e2e specs passing on webkit** (incl. the load-bearing hash SHA-256 and uuid-ulid `crypto.randomUUID` secure-context checks — A1 CONFIRMED on the packaged webview), a fresh **`tauri build`** producing a runnable `.app` + `.dmg` (exit 0, no webdriver in the release binary), and a **PASSING WCAG-AA audit (24/24, no blockers)** recorded in `04-UI-REVIEW.md`. TIME-01 / JWT-01 / HASH-01 / UID-01 are Complete.
 
@@ -30,7 +30,15 @@ Next: Phase 05 (Native Polish)
 
 ## Active Plan
 
-**Phase 4 (catalogue) EXECUTING — Wave 1 (04-01 foundation) + Wave 2 `04-02` (Unix Time) + `04-03` (JWT) + `04-04` (Hash) + `04-05` (UUID/ULID) ✓ DONE. Wave 2 COMPLETE — all four catalogue tools shipped.**
+**Phase 5 (native-polish) EXECUTING — Wave 1 `05-01` (Rust native foundation, NAT-02 Rust half + SHL-05/D-11) ✓ COMPLETE.**
+
+**`05-01` (native Rust foundation) ✓ COMPLETE** — 2 commits (`da963c26` Cargo.toml plugin deps + tray-icon feature, `55cff023` lib.rs plugin registration + tray + capabilities + window config). Registered the three official Tauri 2 plugins with **single-instance FIRST** in the builder (its callback ignores untrusted `_argv`/`_cwd` per T-05-02 and summons the `main` window `unminimize → show → set_focus`), added `tauri-plugin-global-shortcut` + `tauri-plugin-window-state`, and built the macOS **tray icon + Show/Quit menu in `setup()`** (D-02 regular dock app + tray) reusing `default_window_icon()`. All three summon sites (single-instance callback, tray "Show", tray left-click) use the D-03 `unminimize → show → set_focus` order (issue #12834). Capabilities granted least-privilege (`global-shortcut:allow-register/unregister/is-registered` + `window-state:default`, no wildcard, T-05-01); `tauri.conf.json` window set `"visible": false` for flash-free geometry restore (Pitfall 6); `security.csp` byte-for-byte unchanged (offline holds, T-05-03). Plugin crates added cfg-targeted (`cfg(any(target_os = ...))` — the supported idiom) so future Windows/Linux inherit them; macOS-only build for now. **webdriver double-gate preserved verbatim** and re-verified: `cargo tree --release | grep -c webdriver` = **0** (T-01-10/11). Full `pnpm tauri build` → runnable `.app` + `.dmg` (exit 0). Gate: **269/269 vitest** (decoder 19 untouched), tsc clean. **NAT-02 Rust half delivered** (the JS/seam half + shell wiring are Plans 02/03). One deviation (Rule 2): added `.show_menu_on_left_click(false)` so the tray left-click summons the window (in tray-icon 0.23 a `.menu()` tray pops the menu on left-click by default, which would have suppressed the requested left-click-to-summon). **No automated coverage of the core behaviors** — single-instance second launch, tray click, geometry restore are OS/process-level, outside the WKWebView gate; they are batched into the Phase-5 human packaged-build sign-off (05-04/T2) alongside the deferred Phase-4 UAT. SUMMARY: `.planning/phases/05-native-polish/05-01-SUMMARY.md`.
+
+---
+
+Prior (Phase 4) Active-Plan history:
+
+**Phase 4 (catalogue) — Wave 1 (04-01 foundation) + Wave 2 `04-02` (Unix Time) + `04-03` (JWT) + `04-04` (Hash) + `04-05` (UUID/ULID) ✓ DONE. Wave 2 COMPLETE — all four catalogue tools shipped.**
 
 **`04-05` (UUID/ULID tool, UID-01) ✓ COMPLETE** — 2 commits (`527c84f5` decodeId pure module + TDD, `1da64bbd` UuidUlidTool UI + registry swap + e2e). Shipped the UUID/ULID tool consuming Plan-01's `ulid.ts`/`uuidv7.ts` verbatim (zero duplication). Pure `decodeId(input)` discriminated union `{empty|error|ok uuid|ok ulid}` (D-17): trims, shape-matches the 8-4-4-4-12 UUID layout (case-insensitive) or the 26-char Crockford ULID, delegates to `decodeUuid`/`decodeUlid`, and NEVER throws past the boundary (T-04-14 — wrong length, bad hex nibble, out-of-alphabet I/L/O/U, and a generic non-id all return an explicit `kind:"error"`); 10 TDD cases pinned to fixed vectors (v7 `017f22e2…`→version 7 + ts 1645557742000; ULID `01ARZ3…`→ts 1469922850259). `UuidUlidTool.tsx` (D-15/D-16): kind toggle (UUID v4 / UUID v7 / ULID, aria-pressed, accent=selected only) + count input; ONE id generated on open via a **lazy `useState` initializer** (NOT a mount effect — the React Compiler `set-state-in-effect` lint forbids it, same purity class as the 04-02/03 clock fixes); a default-focused **Generate** button regenerates in ≤1 keystroke; count>1 → N fresh rows each with its own visible focusable `CopyButton` + a **Copy all** (newline-joined). Decode field runs `decodeId` on every change (paste-instant) → breakdown (UUID: type/version/variant + humanized embedded ts for v7; ULID: humanized ts + randomness hex), empty neutral, malformed = single field-scoped `aria-invalid`+`text-bad` error. Generation = `crypto.randomUUID` (v4) + the Plan-01 CSPRNG libs (v7/ULID) — never a non-crypto PRNG (T-04-15, grep-clean); no `@tauri-apps` (clipboard via platform seam). Registry `index.ts` swapped `makePlaceholder("UUID / ULID")` → real `UuidUlidTool` (registry.ts untouched). **Real-WKWebView gate ADDED + GREEN**: `test/e2e/uuid-ulid.e2e.ts` at `#/tools/uuid-ulid` asserts an id is generated on open (the secure-context check for `crypto.randomUUID`/`getRandomValues` — **A1 now CONFIRMED for those specific APIs**), Copy is displayed, Generate produces a DIFFERENT id, and a pasted ULID's decoded 2016 timestamp renders; `bash scripts/e2e-spike.sh` → **6 passing on webkit** (base64, hash, jwt, protobuf, unix-time, uuid-ulid). Gate: **269/269 vitest** (decoder 19 untouched, +22 new: 10 decodeId + 12 tool), tsc clean, eslint 0. **UID-01 Complete.** No plan deviations. Out-of-scope note: first e2e run hit the pre-existing intermittent `base64.e2e.ts` cold-start flake (logged 04-03/04-04); immediate re-run was 6/6 green. SUMMARY: `.planning/phases/04-catalogue/04-05-SUMMARY.md`.
 
