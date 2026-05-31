@@ -57,7 +57,7 @@ Requirements for the initial macOS release. Each maps to exactly one roadmap pha
 
 ### Hash Generator (HASH)
 
-- [ ] **HASH-01**: User inputs text/bytes and gets MD5 + SHA-1/256/384/512 digests (Web Crypto for SHA, JS lib for MD5)
+- [x] **HASH-01**: User inputs text/bytes and gets MD5 + SHA-1/256/384/512 digests (Web Crypto for SHA, JS lib for MD5)
 
 ### UUID / ULID (UID)
 
@@ -139,7 +139,7 @@ Phase mapping finalized by the roadmapper. Every v1 requirement maps to exactly 
 | UX-05 | Phase 3 (Hero + Encoding + UX) | Complete (both tools) |
 | TIME-01 | Phase 4 (Catalogue) | Partial (04-01 timeFormat lib; tool UI in 04-02) |
 | JWT-01 | Phase 4 (Catalogue) | Complete (04-03 — decodeJwt + JwtTool shipped; display-only, D-09/D-10) |
-| HASH-01 | Phase 4 (Catalogue) | Partial (04-01 js-md5 installed; tool UI in 04-04) |
+| HASH-01 | Phase 4 (Catalogue) | Complete (04-04 — hashes.ts md5/sha + HashTool shipped; js-md5 + Web Crypto, secure-context A1 confirmed on real WKWebView) |
 | UID-01 | Phase 4 (Catalogue) | Partial (04-01 ulid/uuidv7 libs; tool UI in 04-05) |
 | NAT-01 | Phase 5 (Native Polish) | Pending |
 | NAT-02 | Phase 5 (Native Polish) | Pending |
