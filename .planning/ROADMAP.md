@@ -69,7 +69,7 @@ Plans:
   5. Plans run in parallel but every one passes the per-task gate (review → unit → ui) with the decoder's 19 tests still green and new tools adding their own TDD cases; the phase ends with a passing `gsd-ui-review` audit and human sign-off on a `tauri build`.
 **Plans**: 4 plans
 Plans:
-- [ ] 03-01-PLAN.md — Add persisted protobufTreeStyle (cards/rows) to the Preferences seam (PRO-06; D-07)
+- [x] 03-01-PLAN.md — Add persisted protobufTreeStyle (cards/rows) to the Preferences seam (PRO-06; D-07)
 - [ ] 03-02-PLAN.md — Protobuf pure logic: detectEncoding, chip derivation + smart default, decode orchestration (errors-as-strings), copy-as-JSON (PRO-01/02/03/04; D-01/02/04/06/11)
 - [ ] 03-03-PLAN.md — Base64/Hex/Bytes tool: single-Uint8Array derive, alphabet toggle, status bar, focusable copy + registry swap (ENC-01/02/03, UX-01/02/03/04/05; D-12/13/14)
 - [ ] 03-04-PLAN.md — Protobuf hero UI: resizable split, recursive cards/rows tree, LenInterpretation chips, per-node + copy-all-as-JSON, persisted toggle, neutral #N + registry swap + phase sign-off (PRO-01..07, UX-01..05; D-03/05/08/09/10)
@@ -120,7 +120,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 |-------|----------------|--------|-----------|
 | 1. Scaffold + Harness Proof | 4/4 | Complete    | 2026-05-30 |
 | 2. Shell | 2/4 | In Progress|  |
-| 3. Hero + Encoding + UX | 0/4 | Not started | - |
+| 3. Hero + Encoding + UX | 1/4 | In Progress|  |
 | 4. Catalogue | 0/TBD | Not started | - |
 | 5. Native Polish | 0/TBD | Not started | - |
 | 6. Distribution | 0/TBD | Not started | - |

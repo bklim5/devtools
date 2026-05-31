@@ -2,29 +2,33 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Ready to plan
-last_updated: "2026-05-30T21:14:03.450Z"
+status: Executing Phase 03
+last_updated: "2026-05-31T01:21:00.000Z"
 progress:
   total_phases: 6
   completed_phases: 2
-  total_plans: 8
-  completed_plans: 8
-  percent: 100
+  total_plans: 12
+  completed_plans: 9
+  percent: 75
 ---
 
 # Project State
 
 ## Current Position
 
-Phase: 3
-Plan: Not started
+Phase: 03 (hero-protobuf-encoding-ux-constraints) — EXECUTING
+Plan: 2 of 4
 **Phase 2: Shell** — all 4 plans across 3 waves complete and signed off. Phase 1 is COMPLETE and human-signed-off.
 
 wave: 1 ✓ COMPLETE (02-01 ✓ foundation; 02-02 ✓ fuzzy ranker). wave: 2 ✓ COMPLETE (02-03 ✓ prefs/recents/startup-resolution). wave: 3 ✓ COMPLETE (02-04 ✓ Sidebar + ⌘K palette + App shell — code + Phase-2 real-webview human-verify approved).
 
 ## Active Plan
 
-All Phase 2 plans ✓ COMPLETE. `02-04` (Sidebar + ⌘K CommandPalette + App.tsx shell chrome) closed — commits `3881a13` (Sidebar), `4dba1da` (CommandPalette + atomic recordSwitch fix), `3f15524` (App shell), plus post-checkpoint fix `d4e44f5`. The Phase-2 human-verify checkpoint (Task 4) is **APPROVED (2026-05-30)**: during real-WKWebView sign-off the user found two production-only startup bugs (opened to Unix Time not the protobuf hero; tool switch didn't survive restart). Both fixed in `d4e44f5` — `src/shell/useTrackActiveTool.ts` records last-used on every navigation; memoized+awaited `initPlatform` ends the packaged store split-brain; palette reloads recents on open. After the fix: **vitest 96/96** (decoder 19 green), tsc clean, eslint 0, `vite build` clean; user rebuilt + verified on the real WKWebView → approved. SHL-01/02/03/04/06 now Complete in REQUIREMENTS.md; SHL-05 stays PARTIAL (window geometry → Phase 5, D-11).
+**Phase 3 EXECUTING — Plan 1 of 4 (03-01) ✓ COMPLETE; next is 03-02.** `03-01` (protobufTreeStyle prefs persistence) closed — commit `e0f5403f`. Extended the Phase-2 prefs seam with one field `protobufTreeStyle: "cards" | "rows"` (default `"cards"`), a `coerceTreeStyle` untrusted-merge coercer wired into `mergePreferences` (only `"rows"` honored; `"banana"`/`42` → `"cards"`, threat T-03-01), and a write-on-change `setTreeStyle` setter on `usePreferences`. TDD RED (4 coercion + 1 round-trip cases) + GREEN impl landed together (lefthook blocks red suites, Phase-2 precedent). Gate: **101/101 vitest** (decoder 19 green), tsc clean, eslint 0. No `@tauri-apps` import added, `Store` seam not widened, no port-unchanged file touched. Deviation (1, Rule 3): `useRecentTools` cold-start fallback now derives from `DEFAULT_PREFERENCES` instead of a hardcoded literal so it can't drift on schema growth. **PRO-06 stays PARTIAL** — only the persistence layer exists; the tree + rows/cards toggle UI lands in 03-04. SUMMARY: `.planning/phases/03-hero-protobuf-encoding-ux-constraints/03-01-SUMMARY.md`. Real-WKWebView verification of the toggle deferred to 03-04 (this plan has no UI surface).
+
+---
+
+Prior Phase 2 context: All Phase 2 plans ✓ COMPLETE. `02-04` (Sidebar + ⌘K CommandPalette + App.tsx shell chrome) closed — commits `3881a13` (Sidebar), `4dba1da` (CommandPalette + atomic recordSwitch fix), `3f15524` (App shell), plus post-checkpoint fix `d4e44f5`. The Phase-2 human-verify checkpoint (Task 4) is **APPROVED (2026-05-30)**: during real-WKWebView sign-off the user found two production-only startup bugs (opened to Unix Time not the protobuf hero; tool switch didn't survive restart). Both fixed in `d4e44f5` — `src/shell/useTrackActiveTool.ts` records last-used on every navigation; memoized+awaited `initPlatform` ends the packaged store split-brain; palette reloads recents on open. After the fix: **vitest 96/96** (decoder 19 green), tsc clean, eslint 0, `vite build` clean; user rebuilt + verified on the real WKWebView → approved. SHL-01/02/03/04/06 now Complete in REQUIREMENTS.md; SHL-05 stays PARTIAL (window geometry → Phase 5, D-11).
 
 ## Recent Activity
 

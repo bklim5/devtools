@@ -127,7 +127,7 @@ Phase mapping finalized by the roadmapper. Every v1 requirement maps to exactly 
 | PRO-03 | Phase 3 (Hero + Encoding + UX) | Pending |
 | PRO-04 | Phase 3 (Hero + Encoding + UX) | Pending |
 | PRO-05 | Phase 3 (Hero + Encoding + UX) | Pending |
-| PRO-06 | Phase 3 (Hero + Encoding + UX) | Pending |
+| PRO-06 | Phase 3 (Hero + Encoding + UX) | Partial (persistence layer in 03-01; tree + toggle UI lands in 03-04) |
 | PRO-07 | Phase 3 (Hero + Encoding + UX) | Pending |
 | ENC-01 | Phase 3 (Hero + Encoding + UX) | Pending |
 | ENC-02 | Phase 3 (Hero + Encoding + UX) | Pending |
