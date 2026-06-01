@@ -15,6 +15,7 @@ DevTools is a fast, offline, keyboard-driven **desktop application** (macOS firs
 - **Foundation & harness (Phase 1)** — Tauri 2 + Vite + React + TS dark-window app from one repo; `src/lib/` ported unchanged (19 decoder tests green); `src/lib/platform/` seam; the full build+verify harness proven end-to-end on a walking skeleton + macOS real-WKWebView automation (`scripts/e2e-spike.sh`).
 - **Shell (Phase 2)** — registry-driven sidebar + ⌘K palette (fuzzy, recents); registry as single control plane; preferences persistence (theme/accent/last-used/recents; window geometry → Phase 5); opens-to-last-used/hero, no picker.
 - **Hero + Encoding + UX (Phase 3)** — the schema-less **Protobuf decoder** (paste→instant wire-format tree, LenInterpretation chips + per-node override, VARINT readings, resizable panes, cards/rows toggle, neutral `#N`, copy + copy-all-as-JSON) and **Base64/Hex/Bytes** (three-pane derive, base64/base64url, explicit errors). Binding UX constraints (paste-instant, visible focusable copy, status bar, WCAG-AA, layout-agnostic) validated across both tools — verified on the real WKWebView + a passing gsd-ui-review.
+- **Distribution (Phase 6, DST-01/DST-02)** — packaged macOS app + signature-verified auto-updater. `tauri.conf.json` emits the DMG + updater artifacts (`createUpdaterArtifacts`, ad-hoc hardened-runtime signing wired-but-gated for a credentials-only Developer-ID flip per D-02); the updater UX (opt-in, dismissible WCAG-AA banner, tray check) runs entirely over the `platform.updater` seam with mandatory minisign verify. Proven by a real **0.2.0 → 0.2.1 round-trip** (verified signature → relaunch) against a **split-repo** release layout — private source (`bklim5/devtools`), public artifacts (`bklim5/devtools-releases`). gsd-ui-review 23/24, WCAG-AA PASS. **Gatekeeper-clean notarisation deferred to post-Apple-enrolment (D-02).**
 
 ### Active
 
@@ -65,7 +66,7 @@ DevTools is a fast, offline, keyboard-driven **desktop application** (macOS firs
 
 ## Context
 
-- **Current state: Phase 2 (shell) complete** (2026-05-30, verified 20/20 must-haves, user-approved on the real WKWebView). Registry-driven shell shipped — compact Sidebar, ⌘K fuzzy CommandPalette (in-house ranker), App layout, and persistence (theme/accent/last-used/recents) via the real Tauri Store seam, opening straight to the last-used/hero tool. SHL-01/02/03/04/06 validated; **SHL-05 PARTIAL** (window-geometry persistence deferred to Phase 5, D-11). Next: Phase 3 — Hero (Protobuf) + Encoding + UX constraints.
+- **Current state: Phase 6 (distribution) complete — v1.0 milestone done** (2026-06-01, verified 7/7 must-haves, human-signed-off on a packaged build + a real updater round-trip). All six phases complete: foundation/harness, shell, hero+encoding+UX, the remaining tools, persistence/window-geometry, and now a distributable self-updating macOS app (signed DMG + signature-verified auto-updater, DST-01/DST-02). **Carry-forwards (not blockers):** Gatekeeper-clean notarisation pending Apple Developer enrolment (D-02); NAT-01 (G-05-1) parked; 3 minor a11y polish follow-ups from the updater UI review.
 - **Post-design, pre-implementation handoff.** Full spec in `docs/design-and-plan.md`; harness + locked decisions in `docs/harness-and-decisions.md`; original agent brief preserved in `docs/handoff-instructions.md`.
 - **Verified assets exist:** `scaffold/src/lib/` (decoder.ts ~295 lines zero-deps + 19 tests, bytes.ts, tool types/registry) — port unchanged. `design/DevTools Mockup.html` is the canonical visual system (CSS vars, IBM Plex Sans + JetBrains Mono). React components in `scaffold/` are structure-reference only — rebuild the visual layer against `design/`.
 - **macOS WKWebView automation gap:** official `tauri-driver` supports only Linux/Windows. Community W3C WebDriver plugins for macOS exist (early 2026, 0.1.x). Phase 0 spikes one; fallback is `screencapture` + `chrome-devtools-mcp` against the identical static bundle.
@@ -113,4 +114,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-31 after Phase 3 (Hero Protobuf + Encoding + UX) completion & sign-off*
+*Last updated: 2026-06-01 after Phase 6 (Distribution) completion & sign-off — v1.0 milestone complete*
