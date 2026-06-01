@@ -29,3 +29,12 @@ skills-lock.json
 # e2e UI-gate artifacts (HRN-02 spike) — generated, not source
 test/e2e/__screenshots__/
 test/e2e/__logs__/
+
+# Secrets (D-05) — minisign updater private key + password, Apple notary
+# credentials. These are LOCAL gitignored env only; never committed. The
+# minisign PUBLIC key lives in tauri.conf.json (it is public by design).
+.env
+.env.*
+.envrc
+*.key
+*.p8
