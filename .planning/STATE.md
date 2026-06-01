@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: complete
-last_updated: "2026-06-01T23:35:00.000Z"
+status: unknown
+last_updated: "2026-06-01T22:40:17.529Z"
 progress:
   total_phases: 6
   completed_phases: 6
@@ -16,8 +16,8 @@ progress:
 
 ## Current Position
 
-Phase: 06 (distribution) — ✓ COMPLETE (signed off 2026-06-01)
-Plan: 5 of 5 — ✓ DONE
+Phase: 06
+Plan: Not started
 Next: **None — v1.0 milestone effectively complete.** All 6 phases done (28/28 plans). The only open clauses are the DEFERRED **Gatekeeper-clean** install (needs Apple Developer ID cert + notarisation, a credentials-only post-enrolment flip, D-02) and the PARKED **NAT-01** configurable summon hotkey (future Settings phase, G-05-1).
 
 **Phase 6 (Distribution) ✓ COMPLETE — signed off 2026-06-01.** All 5 plans done. **`06-05` ✓ COMPLETE** — RELEASE.md runbook + a HUMAN-verified packaged build + a REAL signature-verified updater round-trip closed DST-01 + DST-02. **DST-01 "release-ready, pending cert":** `pnpm tauri build` (with the password-protected key, inline `TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.tauri/devtools.key)"` form) produced THREE artifacts — `devtools-app_0.2.0_aarch64.dmg` + `.app.tar.gz` + `.app.tar.gz.sig`; the DMG installs + the app launches (ad-hoc Gatekeeper friction expected, D-02). **DST-02 verify-before-apply PROVEN:** from the installed 0.2.0 app, "Check for Updates…" detected the published 0.2.1, VERIFIED the minisign signature, installed, and RELAUNCHED into 0.2.1 (user confirmed "round-trip works"). **Split-repo architecture (decided this session):** source `bklim5/devtools` stays PRIVATE; a dedicated PUBLIC repo `bklim5/devtools-releases` hosts the artifacts + `latest.json` (the updater downloads unauthenticated, so artifacts must be public, but source need not be); endpoint repointed (commit `b7c97a36`), `latest.json` gitignored (`0bbf1d78`). **Minisign key rotated passwordless → password-protected** before distribution (`a9cc8955`, closing the 06-03 follow-up). gsd-ui-review: 23/24, WCAG-AA PASS, zero blockers (`06-UI-REVIEW.md`, `4c036215`) — 3 MINOR non-blocking a11y follow-ups recorded (UpdateOptIn focus-mgmt/aria-modal/Escape; install button aria-disabled vs disabled; capture banner screenshot at the e2e gate). Automated gate green: 303/303 vitest (decoder 19 intact), tsc clean, eslint 0, real-WKWebView e2e 8/8, seam audit clean. Current committed version is **0.2.1** (intended — the live round-trip build). SUMMARY: `.planning/phases/06-distribution/06-05-SUMMARY.md`.
