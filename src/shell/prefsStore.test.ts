@@ -84,3 +84,36 @@ describe("protobufTreeStyle coercion", () => {
     );
   });
 });
+
+// autoUpdateCheck is the first-run opt-in (D-09), read from the same untrusted
+// on-disk blob (threat T-06-03: the user can hand-edit prefs.json). Only the
+// booleans true/false are honored; anything else — absent, junk string, number —
+// coerces to null ("never asked"), so the one-time prompt re-appears.
+describe("autoUpdateCheck coercion (D-09)", () => {
+  it("preserves true", () => {
+    expect(mergePreferences({ autoUpdateCheck: true }).autoUpdateCheck).toBe(true);
+  });
+
+  it("preserves false", () => {
+    expect(mergePreferences({ autoUpdateCheck: false }).autoUpdateCheck).toBe(false);
+  });
+
+  it("coerces a junk string to null (untrusted hand-edited prefs.json)", () => {
+    expect(mergePreferences({ autoUpdateCheck: "yes" }).autoUpdateCheck).toBeNull();
+  });
+
+  it("coerces a non-boolean number to null", () => {
+    expect(mergePreferences({ autoUpdateCheck: 1 }).autoUpdateCheck).toBeNull();
+  });
+
+  it("defaults to null (first-run) when absent", () => {
+    expect(mergePreferences({}).autoUpdateCheck).toBeNull();
+  });
+
+  it("does not regress a sibling field in the same merged blob", () => {
+    // A blob carrying both fields must coerce each independently.
+    const merged = mergePreferences({ autoUpdateCheck: true, protobufTreeStyle: "rows" });
+    expect(merged.autoUpdateCheck).toBe(true);
+    expect(merged.protobufTreeStyle).toBe("rows");
+  });
+});

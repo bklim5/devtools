@@ -32,6 +32,10 @@ export interface Preferences {
   recentToolIds: string[];
   /** Protobuf tree layout (PRO-06, D-07). Persisted; default "cards". */
   protobufTreeStyle: ProtobufTreeStyle;
+  /** First-run update-check opt-in (D-09). null = never asked (show the one-time
+   *  prompt on first launch); true = silent check at launch; false = no automatic
+   *  network call ever. A manual check is always available regardless. */
+  autoUpdateCheck: boolean | null;
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -40,6 +44,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   lastUsedId: null,
   recentToolIds: [],
   protobufTreeStyle: "cards",
+  autoUpdateCheck: null,
 };
 
 /** Single namespaced store key holding the whole prefs blob. One key keeps the

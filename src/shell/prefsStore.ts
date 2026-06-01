@@ -30,6 +30,13 @@ function coerceTreeStyle(value: unknown): ProtobufTreeStyle {
   return value === "rows" ? "rows" : "cards";
 }
 
+/** Untrusted (the user can hand-edit prefs.json): honor only the booleans
+ *  true/false; ANY other value (junk string, number, undefined) → null, which
+ *  means "never asked" so the first-run prompt re-appears (D-09, threat T-06-03). */
+function coerceAutoUpdateCheck(value: unknown): boolean | null {
+  return value === true || value === false ? value : null;
+}
+
 function coerceAccent(value: unknown): string {
   return typeof value === "string" && value.length > 0
     ? value
@@ -68,6 +75,7 @@ export function mergePreferences(stored: unknown): Preferences {
     lastUsedId: coerceLastUsedId(blob.lastUsedId),
     recentToolIds: normalizeRecents(blob.recentToolIds),
     protobufTreeStyle: coerceTreeStyle(blob.protobufTreeStyle),
+    autoUpdateCheck: coerceAutoUpdateCheck(blob.autoUpdateCheck),
   };
 }
 
