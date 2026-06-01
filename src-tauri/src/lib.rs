@@ -1,7 +1,7 @@
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager,
+    Emitter, Manager,
 };
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -56,8 +56,14 @@ pub fn run() {
                 .plugin(tauri_plugin_updater::Builder::new().build())?;
 
             let show_i = MenuItem::with_id(app, "show", "Show DevTools", true, None::<&str>)?;
+            // "Check for Updates…" (DST-02 / D-11a). The actual check() runs in JS
+            // through the platform seam (D-12); this just emits an event the JS shell
+            // listens for (Plan 04). Manual check is always available regardless of
+            // the auto-update opt-in (D-09).
+            let check_updates_i =
+                MenuItem::with_id(app, "check_updates", "Check for Updates…", true, None::<&str>)?;
             let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
+            let menu = Menu::with_items(app, &[&show_i, &check_updates_i, &quit_i])?;
 
             TrayIconBuilder::new()
                 .icon(app.default_window_icon().unwrap().clone())
@@ -70,6 +76,9 @@ pub fn run() {
                             let _ = w.show();
                             let _ = w.set_focus();
                         }
+                    }
+                    "check_updates" => {
+                        let _ = app.emit("menu://check-updates", ());
                     }
                     "quit" => app.exit(0),
                     _ => {}
