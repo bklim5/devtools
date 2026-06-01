@@ -38,6 +38,9 @@ describe("platform seam", () => {
         check: vi.fn().mockResolvedValue(null),
         downloadAndInstall: vi.fn().mockResolvedValue(undefined),
       },
+      events: {
+        onMenuCheckUpdates: vi.fn().mockResolvedValue(() => {}),
+      },
     };
     setPlatformForTest(stub);
 
@@ -131,6 +134,9 @@ describe("platform seam — native capabilities (NAT-01)", () => {
         check: vi.fn().mockResolvedValue(null),
         downloadAndInstall: vi.fn().mockResolvedValue(undefined),
       },
+      events: {
+        onMenuCheckUpdates: vi.fn().mockResolvedValue(() => {}),
+      },
     };
     setPlatformForTest(stub);
 
@@ -182,6 +188,9 @@ describe("platform seam — auto-updater (DST-02)", () => {
       updater: {
         check: checkUpdate,
         downloadAndInstall: vi.fn().mockResolvedValue(undefined),
+      },
+      events: {
+        onMenuCheckUpdates: vi.fn().mockResolvedValue(() => {}),
       },
     };
     setPlatformForTest(stub);

@@ -50,6 +50,17 @@ describe("UpdateBanner", () => {
     expect(onDismiss).toHaveBeenCalledTimes(1);
   });
 
+  it("dismisses via the keyboard (Enter / Space) on the focused ✕ button", () => {
+    const onDismiss = vi.fn();
+    const { getByRole } = render(
+      <UpdateBanner info={INFO} onInstall={() => {}} onDismiss={onDismiss} />,
+    );
+    const dismiss = getByRole("button", { name: /dismiss update notification/i });
+    fireEvent.keyDown(dismiss, { key: "Enter" });
+    fireEvent.keyDown(dismiss, { key: " " });
+    expect(onDismiss).toHaveBeenCalledTimes(2);
+  });
+
   it("gives every interactive control a visible focus ring (focus-visible:ring-accent)", () => {
     const { getByRole } = render(
       <UpdateBanner info={INFO} onInstall={() => {}} onDismiss={() => {}} />,

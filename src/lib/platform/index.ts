@@ -49,6 +49,14 @@ export interface Platform {
     check(): Promise<UpdateInfo | null>;
     downloadAndInstall(onProgress?: (pct: number) => void): Promise<void>;
   };
+  /** App-internal tray/menu events (DST-02). `onMenuCheckUpdates` subscribes the
+   *  shell to the tray's `menu://check-updates` event (emitted by the Rust side,
+   *  06-03) so the JS shell can run a MANUAL check via the updater seam — the
+   *  actual `listen` lives ONLY in tauri.ts (D-12), never in the shell. Returns an
+   *  unsubscribe fn. No-op (never fires) in the browser fallback. */
+  events: {
+    onMenuCheckUpdates(handler: () => void): Promise<() => void>;
+  };
 }
 
 /**
@@ -92,6 +100,9 @@ export const platform: Platform = {
   },
   get updater() {
     return active.updater;
+  },
+  get events() {
+    return active.events;
   },
 };
 

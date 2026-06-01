@@ -85,4 +85,12 @@ export const browserPlatform: Platform = {
     },
     async downloadAndInstall() {},
   },
+  // Tray/menu events no-op outside Tauri (DST-02): the `menu://check-updates`
+  // event never fires in the browser/jsdom, so the subscription is inert and the
+  // returned unsubscribe is a no-op. This file must NOT import @tauri-apps/*.
+  events: {
+    async onMenuCheckUpdates() {
+      return () => {};
+    },
+  },
 };

@@ -18,6 +18,16 @@ import "./index.css";
 // milestone via the tray "Show DevTools" menu + single-instance focus instead.
 // The platform seam (platform.nativeShortcut) and shell/summon.ts registration
 // path are kept intact for a future Settings phase to reuse as an explicit opt-in.
+//
+// DST-02 (Phase 6) — the post-init action that slot now carries is the updater
+// LAUNCH CHECK, but it is co-located in App.tsx's mount effect (gated on
+// `prefsLoaded` + `shouldAutoCheck(autoUpdateCheck)`) rather than here: that keeps
+// it next to the banner/opt-in state it drives and avoids a cross-module event
+// just for launch. The constraint it enforces — NO automatic network call unless
+// the user opted in (offline-by-design, T-06-11), and first paint never blocked —
+// holds because the check is non-blocking and only fires when shouldAutoCheck is
+// true (false/null make no call). This warm-up just keeps the lazy tauri import
+// in flight; the prefs hooks each await initPlatform() themselves.
 void initPlatform().catch((err) => {
   console.error("[platform] init failed:", err);
 });

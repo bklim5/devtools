@@ -83,6 +83,16 @@ export function UpdateBanner({
         type="button"
         id="update-dismiss"
         onClick={onDismiss}
+        // A native <button> already activates on Enter/Space, but we handle the
+        // keys explicitly so the keyboard-dismiss path is deterministic on the
+        // embedded WKWebView WebDriver (which does not synthesize the implicit
+        // button activation from a synthetic keypress). Harmless for real users.
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onDismiss();
+          }
+        }}
         aria-label="Dismiss update notification"
         className="flex-none cursor-pointer rounded-[6px] border border-transparent p-1 text-tx-2 outline-none transition-colors hover:text-tx focus-visible:ring-2 focus-visible:ring-accent"
       >

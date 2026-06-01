@@ -20,6 +20,7 @@ import {
 } from "@tauri-apps/plugin-global-shortcut";
 import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
+import { listen } from "@tauri-apps/api/event";
 import type { Platform } from "./index";
 import type { Store } from "./stub";
 
@@ -97,5 +98,13 @@ export const tauriPlatform: Platform = {
       });
       await relaunch();
     },
+  },
+  // DST-02: subscribe to the tray's `menu://check-updates` event (emitted by the
+  // Rust side, 06-03) so the shell can run a MANUAL update check. The `listen`
+  // import lives ONLY here (D-12) — App.tsx calls platform.events, never @tauri-apps.
+  // Tauri's listen() resolves an UnlistenFn; we return it as the unsubscribe.
+  events: {
+    onMenuCheckUpdates: (handler) =>
+      listen("menu://check-updates", () => handler()),
   },
 };

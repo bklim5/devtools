@@ -30,6 +30,14 @@ export const noopUpdater: Platform["updater"] = {
   downloadAndInstall: async () => {},
 };
 
+/** Shared no-op tray/menu events for test Platform stubs (DST-02). The
+ *  `menu://check-updates` subscription never fires under jsdom; the returned
+ *  unsubscribe is a no-op. One source of truth so every inline literal satisfies
+ *  the widened interface without re-drifting the events shape. */
+export const noopEvents: Platform["events"] = {
+  onMenuCheckUpdates: async () => () => {},
+};
+
 export function makeMemoryPlatform(store: Store = createStoreStub()): Platform {
   return {
     clipboard: { writeText: async () => {}, readText: async () => "" },
@@ -37,5 +45,6 @@ export function makeMemoryPlatform(store: Store = createStoreStub()): Platform {
     window: noopWindow,
     nativeShortcut: noopNativeShortcut,
     updater: noopUpdater,
+    events: noopEvents,
   };
 }
