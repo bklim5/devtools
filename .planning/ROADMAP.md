@@ -13,11 +13,11 @@ DevTools ships as a macOS-first Tauri 2 + Vite + React + TS desktop app whose he
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Scaffold + Harness Proof** - Walking skeleton that proves the full build+verify harness end-to-end before any product feature (completed 2026-05-30)
-- [ ] **Phase 2: Shell** - Registry-driven sidebar, ⌘K command palette, prefs persistence, opens-to-last-tool
-- [ ] **Phase 3: Hero (Protobuf) + Encoding + UX Constraints** - Schema-less Protobuf decoder and Base64/Hex/Bytes under the binding cross-cutting UX constraints — the riskiest path, proven early
+- [x] **Phase 2: Shell** - Registry-driven sidebar, ⌘K command palette, prefs persistence, opens-to-last-tool (complete; signed off 2026-05-30)
+- [x] **Phase 3: Hero (Protobuf) + Encoding + UX Constraints** - Schema-less Protobuf decoder and Base64/Hex/Bytes under the binding cross-cutting UX constraints — the riskiest path, proven early (complete; signed off 2026-05-31)
 - [x] **Phase 4: Catalogue** - Unix Time, JWT, Hash, UUID/ULID under the same workflow constraints (complete 2026-05-31; the 5 human-UAT defects closed by 04-07 and **human-verified + signed off 2026-06-01** alongside Phase 5)
 - [x] **Phase 5: Native Polish** - Tray/menu + single-instance (NAT-02) shipped & human-verified 2026-06-01; window-geometry restore (SHL-05) done. **NAT-01 global summon hotkey PARKED** (G-05-1 — chord collision + no macOS "taken?" API; summon via tray + single-instance; configurable hotkey → future Settings phase)
-- [ ] **Phase 6: Distribution** - Code signing + notarisation, DMG, auto-updater (macOS)
+- [x] **Phase 6: Distribution** - Signed (ad-hoc) DMG + updater artifacts + a real signature-verified update round-trip; auto-updater proven (macOS). Signed off 2026-06-01. Gatekeeper-clean (Developer-ID/notarisation) DEFERRED post-enrolment (D-02)
 
 ## Phase Details
 
@@ -128,7 +128,7 @@ Plans:
 - [x] 06-02-PLAN.md — Platform-seam updater accessor + autoUpdateCheck pref coercion + Wave-0 unit scaffolds (DST-02; D-09/D-12)
 - [x] 06-03-PLAN.md — Tauri config wiring: updater/process plugins + tray item + capabilities + tauri.conf updater/signing block + entitlements + minisign keygen (autonomous: false) (DST-01/DST-02; D-02/D-04/D-07/D-15)
 - [x] 06-04-PLAN.md — Updater UX: orchestration + WCAG-AA dismissible banner + first-run opt-in + manual tray-check + e2e (DST-02; D-09/D-10/D-11/D-13)
-- [ ] 06-05-PLAN.md — Phase boundary: RELEASE.md runbook + full gate + signed build + real updater round-trip human sign-off (autonomous: false) (DST-01/DST-02; D-14/D-16)
+- [x] 06-05-PLAN.md — Phase boundary: RELEASE.md runbook + full gate + signed build + real updater round-trip human sign-off (autonomous: false) (DST-01/DST-02; D-14/D-16)
 
 ## Progress
 
@@ -138,8 +138,8 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Scaffold + Harness Proof | 4/4 | Complete    | 2026-05-30 |
-| 2. Shell | 2/4 | In Progress|  |
-| 3. Hero + Encoding + UX | 1/4 | In Progress|  |
-| 4. Catalogue | 6/6 | Complete (sign-off deferred) | 2026-05-31 |
+| 2. Shell | 4/4 | Complete | 2026-05-30 |
+| 3. Hero + Encoding + UX | 4/4 | Complete | 2026-05-31 |
+| 4. Catalogue | 6/6 | Complete | 2026-05-31 (signed off 2026-06-01) |
 | 5. Native Polish | 4/4 | Complete | 2026-06-01 |
-| 6. Distribution | 0/5 | Planned | - |
+| 6. Distribution | 5/5 | Complete (Gatekeeper-clean deferred, D-02) | 2026-06-01 |

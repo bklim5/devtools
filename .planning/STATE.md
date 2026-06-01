@@ -2,23 +2,27 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: unknown
-last_updated: "2026-06-01T21:19:27.880Z"
+status: complete
+last_updated: "2026-06-01T23:35:00.000Z"
 progress:
   total_phases: 6
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 28
-  completed_plans: 27
-  percent: 96
+  completed_plans: 28
+  percent: 100
 ---
 
 # Project State
 
 ## Current Position
 
-Phase: 06 (distribution) — EXECUTING
-Plan: 5 of 5
-Next: **Phase 6 / Plan 05** — RELEASE.md + phase-boundary human sign-off on a fresh `tauri build` + a passing `gsd-ui-review` WCAG-AA audit + the real updater round-trip (download → minisign verify → relaunch, Manual-Only). RELEASE.md should also record the passwordless-key follow-up (06-03) and confirm the `bklim5/devtools` public repo + `latest.json` exist. **`06-04` (updater UX) ✓ COMPLETE** — the updater UX is shipped and seam-pure: first-run opt-in (persisted), silent launch check only when opted in, manual tray-check via `menu://check-updates`, and a re-appearing dismissible WCAG-AA banner whose Install verifies-then-relaunches. Everything routes through `src/lib/platform` (no `@tauri-apps` in App/main/update.ts).
+Phase: 06 (distribution) — ✓ COMPLETE (signed off 2026-06-01)
+Plan: 5 of 5 — ✓ DONE
+Next: **None — v1.0 milestone effectively complete.** All 6 phases done (28/28 plans). The only open clauses are the DEFERRED **Gatekeeper-clean** install (needs Apple Developer ID cert + notarisation, a credentials-only post-enrolment flip, D-02) and the PARKED **NAT-01** configurable summon hotkey (future Settings phase, G-05-1).
+
+**Phase 6 (Distribution) ✓ COMPLETE — signed off 2026-06-01.** All 5 plans done. **`06-05` ✓ COMPLETE** — RELEASE.md runbook + a HUMAN-verified packaged build + a REAL signature-verified updater round-trip closed DST-01 + DST-02. **DST-01 "release-ready, pending cert":** `pnpm tauri build` (with the password-protected key, inline `TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.tauri/devtools.key)"` form) produced THREE artifacts — `devtools-app_0.2.0_aarch64.dmg` + `.app.tar.gz` + `.app.tar.gz.sig`; the DMG installs + the app launches (ad-hoc Gatekeeper friction expected, D-02). **DST-02 verify-before-apply PROVEN:** from the installed 0.2.0 app, "Check for Updates…" detected the published 0.2.1, VERIFIED the minisign signature, installed, and RELAUNCHED into 0.2.1 (user confirmed "round-trip works"). **Split-repo architecture (decided this session):** source `bklim5/devtools` stays PRIVATE; a dedicated PUBLIC repo `bklim5/devtools-releases` hosts the artifacts + `latest.json` (the updater downloads unauthenticated, so artifacts must be public, but source need not be); endpoint repointed (commit `b7c97a36`), `latest.json` gitignored (`0bbf1d78`). **Minisign key rotated passwordless → password-protected** before distribution (`a9cc8955`, closing the 06-03 follow-up). gsd-ui-review: 23/24, WCAG-AA PASS, zero blockers (`06-UI-REVIEW.md`, `4c036215`) — 3 MINOR non-blocking a11y follow-ups recorded (UpdateOptIn focus-mgmt/aria-modal/Escape; install button aria-disabled vs disabled; capture banner screenshot at the e2e gate). Automated gate green: 303/303 vitest (decoder 19 intact), tsc clean, eslint 0, real-WKWebView e2e 8/8, seam audit clean. Current committed version is **0.2.1** (intended — the live round-trip build). SUMMARY: `.planning/phases/06-distribution/06-05-SUMMARY.md`.
+
+**CARRY-FORWARD (deferred, NOT a blocker — D-02):** Gatekeeper-clean install on a clean machine requires Apple Developer ID enrolment + notarisation, then re-verify post-enrolment (RELEASE.md § "Post-enrolment notarisation flip"). A local Apple-Silicon build serves only `darwin-aarch64` — Intel/universal builds defer to a future CI/cross-arch phase.
 
 **Phase 5 (Native Polish) ✓ COMPLETE — signed off 2026-06-01.** All 4 plans done. Human-verified on the packaged macOS app: **tray menu (Show/Quit) + single-instance** (NAT-02) PASS; **window-geometry restore** (SHL-05, via tauri-plugin-window-state) PASS; Phase-4 amendments PASS. **NAT-01 global summon hotkey PARKED (decision G-05-1):** the default `Cmd+Shift+D` collided with a macOS system shortcut and macOS gives no reliable "is this chord taken?" API, so no auto-registered chord ships this milestone — summon is delivered via the tray + single-instance. The startup auto-registration was REMOVED (commit `388f501b`: `registerSummon()` call deleted from `main.tsx`); the platform seam (`platform.nativeShortcut`) + `shell/summon.ts` are kept intact for a **future Settings phase** to reuse as an explicit, user-configurable opt-in. NAT-01 marked **Deferred** (not Complete) in REQUIREMENTS + Traceability. Gates after the change: **276/276 vitest** (decoder 19 untouched), tsc clean, eslint 0, **7/7 real-WKWebView e2e on webkit**, a fresh **`tauri build`** (.app + .dmg, exit 0), WCAG-AA 24/24 in `05-UI-REVIEW.md`. Confirmed adopted defaults: D-02 (regular dock app + tray) ✓, D-03 (unminimize→show→setFocus) ✓; D-01 (global chord) PARKED; D-04 (JS-seam handler) retained in the seam for the future Settings phase.
 
@@ -32,7 +36,9 @@ Next: **Phase 6 / Plan 05** — RELEASE.md + phase-boundary human sign-off on a 
 
 ## Active Plan
 
-**Phase 6 (distribution) EXECUTING — Wave 1 `06-01` (repo hygiene) + `06-02` (updater seam + opt-in pref) ✓ + Wave 2 `06-03` (Tauri config wiring) ✓ + Wave 3 `06-04` (updater UX) ✓ COMPLETE. Only `06-05` (RELEASE.md + sign-off) remains.**
+**Phase 6 (distribution) ✓ COMPLETE — all 5 plans done. `06-01` (repo hygiene) + `06-02` (updater seam + opt-in pref) + `06-03` (Tauri config wiring) + `06-04` (updater UX) + `06-05` (RELEASE.md + signed build + real updater round-trip human sign-off) all COMPLETE. Phase signed off 2026-06-01.**
+
+**`06-05` (RELEASE.md + phase-boundary sign-off, DST-01/DST-02) ✓ COMPLETE** — Task 1 wrote `docs/RELEASE.md` (`2ac2e001`, the manual release runbook, D-16); Task 2 re-confirmed the full automated gate green (303/303 vitest, decoder 19 intact; tsc clean; eslint 0; real-WKWebView e2e 8/8; seam audit clean); Task 3 obtained the HUMAN packaged-build sign-off + a REAL signature-verified updater round-trip. **Key session decisions:** (1) **split-repo distribution** — private source `bklim5/devtools` + public release host `bklim5/devtools-releases` (the Tauri updater downloads unauthenticated so artifacts + `latest.json` must be public, source need not be); endpoint repointed (`b7c97a36`), `latest.json` gitignored (`0bbf1d78`), RELEASE.md rewritten for the split-repo flow + inline-key signing (`d44af7c9`); (2) **minisign key rotated passwordless → password-protected** before distribution (`a9cc8955`, closing the 06-03 follow-up; pubkey re-committed). **DST-01 "release-ready, pending cert":** signed (ad-hoc) DMG + `.app.tar.gz` + `.sig` built, install + launch human-verified. **DST-02 verify-before-apply PROVEN:** 0.2.0 → 0.2.1 round-trip — detected, minisign-verified, installed, RELAUNCHED. Version bumped to 0.2.1 in lockstep for the round-trip (`c2d189bb`, intended). gsd-ui-review 23/24 WCAG-AA PASS zero blockers (`4c036215`); 3 MINOR non-blocking a11y follow-ups recorded. Gatekeeper-clean DEFERRED post-enrolment (D-02). UAT all-PASS in `06-HUMAN-UAT.md`; DST-01/DST-02 Complete in REQUIREMENTS + Traceability (`c4600643`). SUMMARY: `.planning/phases/06-distribution/06-05-SUMMARY.md`.
 
 **`06-04` (updater UX over the seam, DST-02) ✓ COMPLETE** — 3 commits (`344f90d1` orchestration state machine + autoUpdateCheck setter, `7300aded` dismissible WCAG-AA UpdateBanner, `bf38c73e` wire launch opt-in + silent check + manual tray-check + banner mount + e2e). Shipped DST-02's entire user-facing flow, all routed through `src/lib/platform` (no `@tauri-apps` in the shell). **`src/shell/update.ts`** (seam-only, grep-clean): `checkForUpdate()` returns `{update|current|error}` — error-as-value, NEVER throws past the boundary (T-06-13); `installUpdate()` is the one path that PROPAGATES so a minisign signature mismatch surfaces an error instead of silently installing (verify-before-apply, T-06-12); `shouldAutoCheck`/`needsOptInPrompt` opt-in predicates (D-09). **`usePreferences.setAutoUpdateCheck`** persists the opt-in (mirrors `setTreeStyle`). **`UpdateBanner.tsx`** (D-11c/D-13): controlled, layout-agnostic (no fixed widths, UX-05), `v{version} available` + notes, Install + Later + ✕ dismiss — every control a keyboard-reachable `<button>` with `focus-visible:ring-accent`; installing state via `aria-disabled` + label/progress (not opacity-only); re-appears on each detection (parent owns visibility — no internal "dismissed forever"). **Tray-event seam:** added `platform.events.onMenuCheckUpdates` wrapping `@tauri-apps/api/event` `listen("menu://check-updates")` in `tauri.ts` ONLY (D-12); browser no-op; shared `noopEvents` stub; widened all inline `Platform` literals (events). **`App.tsx`:** first-run opt-in prompt (renders when `autoUpdateCheck === null`), launch silent-check in a mount effect gated on `prefsLoaded` + `shouldAutoCheck` (NO network call when false/null — offline-by-design, T-06-11; microtask-dispatched so first paint never blocks and no set-state-in-effect), manual tray-check listener, banner mount, install/error/"up to date" states. **No `@tauri-apps` in App.tsx/main.tsx** (grep-clean). Gate: **303/303 vitest** (decoder 19 untouched), tsc clean, eslint 0, **8/8 real-WKWebView e2e on webkit** incl. the new `update.e2e.ts` (non-blank launch + keyboard-dismissible banner via a dev-only `__injectUpdate` hook). **Three decisions:** (1) launch auto-check lives in App.tsx (not main.tsx) — co-locates with banner state, avoids a cross-module event; (2) added `platform.events.onMenuCheckUpdates` seam accessor so `listen` stays in tauri.ts and App is seam-pure; (3) UpdateBanner ✕ gets an explicit Enter/Space `onKeyDown` (the embedded WKWebView WebDriver doesn't synthesize a button's implicit keypress→click, making the keyboard-dismiss e2e deterministic). Three deviations (all gate-clearing, anticipated by the plan): microtask-dispatch the launch check (Rule 3, set-state-in-effect lint), explicit dismiss handler (Rule 3, WebDriver), widen inline Platform literals for `events` (Rule 2, 05-02/06-02 lesson). The real download→verify→relaunch round-trip is Manual-Only (Plan 05). **DST-02 Complete.** SUMMARY: `.planning/phases/06-distribution/06-04-SUMMARY.md`.
 
@@ -144,14 +150,18 @@ Prior Phase 2 context: All Phase 2 plans ✓ COMPLETE. `02-04` (Sidebar + ⌘K C
 
 ## Blocker
 
-- **None blocking forward progress.** Phase 4 execution + all automated gates are complete; Phase 5 can be planned now.
-- **Verification debt (non-blocking):** the Phase-4 packaged-build HUMAN SIGN-OFF is DEFERRED (user AFK; will verify Phase 4 + Phase 5 manually later). Tracked in `04-HUMAN-UAT.md` (status: partial, 5 pending). NOT approved — must be confirmed by the user before it can be marked done.
+- **None.** All 6 phases COMPLETE (28/28 plans); the v1.0 milestone is effectively done.
+- **DEFERRED (NOT a blocker — D-02):** Gatekeeper-clean install on a clean machine needs Apple Developer ID enrolment + notarisation; re-verify post-enrolment (RELEASE.md § "Post-enrolment notarisation flip"). DST-01 is "release-ready, pending cert".
+- **PARKED (G-05-1):** NAT-01 configurable global summon hotkey — seam intact, defers to a future Settings phase.
 
 ## Next Step (pick up here next session)
 
-**Phase 5 — Native Polish.** Plan it with `/gsd-plan-phase 5`. Goal: macOS native integration — a global keyboard shortcut summons/focuses the app from anywhere (NAT-01), tray/menu presence + single-instance so a second launch focuses the existing window (NAT-02), all routed through `src/lib/platform/` (no direct `@tauri-apps/*` in tools). **Window-geometry persistence (SHL-05's deferred clause, D-11) lands here** alongside the native window work. Per-task gate (simplify → /codex:review → vitest+tsc → real-WKWebView e2e) + a phase-boundary human sign-off on a fresh `tauri build` + gsd-ui-review WCAG-AA.
+**v1.0 milestone effectively complete — all 6 phases signed off.** No planned work remains. Candidate next moves (none committed):
 
-> **Carry forward — Phase 4 verification debt:** the Phase-4 packaged-build human sign-off is DEFERRED (user AFK). When the user returns they intend to manually verify **Phase 4 AND Phase 5** together. Resume the Phase-4 UAT via `/gsd-verify-work 4` (or fold it into the Phase-5 sign-off) — 5 pending per-tool checks tracked in `.planning/phases/04-catalogue/04-HUMAN-UAT.md` (status: partial). Do NOT mark that sign-off approved until the user actually confirms.
+1. **Post-Apple-enrolment notarisation flip** to close DST-01's Gatekeeper-clean clause — export the `APPLE_*` notary vars + `providerShortName`, rebuild, re-verify a clean-machine install (steps already in `docs/RELEASE.md`).
+2. **Future Settings phase** — surface the parked NAT-01 user-configurable summon hotkey (reuses the intact `platform.nativeShortcut` seam + `shell/summon.ts`).
+3. **CI / cross-arch release phase** — a local Apple-Silicon build serves only `darwin-aarch64`; add an `x86_64`/universal build + automate the RELEASE.md flow (V2-02).
+4. **Open backlog (below)** — the decimal-byte-array Protobuf input mode.
 
 **OPEN BACKLOG (carried forward — user feedback at 03 sign-off, 2026-05-31):** add a **decimal-byte-array (JS `Uint8Array`) input mode** to the Protobuf decoder — paste e.g. `10, 3, 80, 81, 82` (comma/space-separated 0–255) and decode as protobuf, alongside hex/base64. New `InputEncoding` variant + parser + a third encoding-toggle segment. Capture for a Phase-3 polish increment or a Phase-4/5 scope discussion. (Not yet planned.)
 
