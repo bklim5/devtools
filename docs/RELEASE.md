@@ -75,11 +75,12 @@ The minisign keypair is **password-protected**. Signed builds require BOTH the p
 password:
 
 ```bash
-# Option A — pass the key by path (recommended):
-export TAURI_SIGNING_PRIVATE_KEY_PATH="$HOME/.tauri/devtools.key"
-
-# Option B — pass the key contents inline:
+# Option A — pass the key CONTENTS inline (recommended; version-agnostic):
 export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.tauri/devtools.key)"
+
+# Option B — pass the key by path (only on bundler versions that honor it;
+# if you see "A public key has been found, but no private key", use Option A):
+export TAURI_SIGNING_PRIVATE_KEY_PATH="$HOME/.tauri/devtools.key"
 
 # REQUIRED in both cases — the password you chose at key generation:
 export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="<the password for ~/.tauri/devtools.key>"
