@@ -19,32 +19,39 @@ later phase.
 
 ## 0. PRE-RELEASE (one-time, before the FIRST release)
 
-The updater endpoint and every `latest.json` `url` must point at the real public GitHub repo.
+The updater endpoint and every `latest.json` `url` must point at a **public** GitHub repo. To keep
+the source closed, releases use a **split-repo** layout: the **source** repo `bklim5/devtools`
+stays **private**, and a dedicated **public** repo `bklim5/devtools-releases` holds *only* the
+release artifacts + `latest.json`. The updater downloads unauthenticated, so the artifacts must be
+public — but the source does not.
 
-1. **Confirm the public GitHub repo exists.** The git remote is already:
+1. **Source repo (private)** — `git@github.com:bklim5/devtools.git` is `origin`; keep it private.
    ```bash
    git remote -v
-   # origin  git@github.com:bklim5/devtools.git
+   # origin  git@github.com:bklim5/devtools.git   (private — source)
    ```
-   Ensure `github.com/bklim5/devtools` is **public** (private repos do not serve
-   `releases/latest/download/...` to unauthenticated updater clients).
 
-2. **Confirm the updater endpoint matches the repo.** `src-tauri/tauri.conf.json` currently has:
+2. **Create the public releases repo (one-time).** Create `bklim5/devtools-releases` as **public**.
+   It needs no source — only GitHub Releases (assets + `latest.json`) live here. Private repos do
+   not serve `releases/latest/download/...` to unauthenticated updater clients, which is why this
+   one must be public.
+
+3. **Confirm the updater endpoint matches the RELEASES repo.** `src-tauri/tauri.conf.json` has:
    ```jsonc
    "plugins": {
      "updater": {
        "pubkey": "...",
        "endpoints": [
-         "https://github.com/bklim5/devtools/releases/latest/download/latest.json"
+         "https://github.com/bklim5/devtools-releases/releases/latest/download/latest.json"
        ]
      }
    }
    ```
-   This is pinned to the **real** repo `bklim5/devtools` (NOT the historical `boonkhailim/devtools`
-   placeholder). If you ever move the repo, update **both** this `endpoints` URL **and** every
-   `url` in `latest.json` (step 5) to the new `owner/repo`.
+   This is pinned to the **public releases** repo `bklim5/devtools-releases` (NOT the private source
+   repo, NOT the historical `boonkhailim/devtools` placeholder). If you ever move it, update **both**
+   this `endpoints` URL **and** every `url` in `latest.json` to the new `owner/repo`.
 
-3. **Confirm the committed pubkey matches your private key.** The `plugins.updater.pubkey` in
+4. **Confirm the committed pubkey matches your private key.** The `plugins.updater.pubkey` in
    `tauri.conf.json` is the public half of the minisign keypair at `~/.tauri/devtools.key`. If the
    keypair is ever regenerated, re-paste the new `~/.tauri/devtools.key.pub` contents into
    `pubkey` and commit — otherwise every update will fail signature verification (Pitfall 2).
@@ -138,12 +145,14 @@ pnpm tauri build             # retry clean
 ## 4. Create the GitHub Release
 
 1. Tag the release `vX.Y.Z` (matching the version from step 1).
-2. Create a GitHub Release on `bklim5/devtools` for that tag.
+2. Create a GitHub Release on the **public** `bklim5/devtools-releases` repo for that tag.
+   (You run `gh` from the private source checkout, so pass `--repo` to target the releases repo.)
 3. Upload the **DMG** and the **`.app.tar.gz`** as release assets.
 
 ```bash
-# Example with the gh CLI:
+# Example with the gh CLI (--repo targets the PUBLIC releases repo):
 gh release create vX.Y.Z \
+  --repo bklim5/devtools-releases \
   src-tauri/target/release/bundle/dmg/*.dmg \
   src-tauri/target/release/bundle/macos/*.app.tar.gz \
   --title "vX.Y.Z" --notes "What changed in this release."
@@ -163,7 +172,7 @@ Create a `latest.json` describing this release. **Schema** (static manifest list
   "platforms": {
     "darwin-aarch64": {
       "signature": "<contents of the FRESH *.app.tar.gz.sig for THIS build>",
-      "url": "https://github.com/bklim5/devtools/releases/download/vX.Y.Z/<name>.app.tar.gz"
+      "url": "https://github.com/bklim5/devtools-releases/releases/download/vX.Y.Z/<name>.app.tar.gz"
     }
   }
 }
@@ -191,10 +200,10 @@ Create a `latest.json` describing this release. **Schema** (static manifest list
 Upload `latest.json` as an asset of the same `vX.Y.Z` Release so the stable redirect resolves:
 
 ```bash
-gh release upload vX.Y.Z latest.json
+gh release upload vX.Y.Z latest.json --repo bklim5/devtools-releases
 
 # Confirm the endpoint the app polls actually resolves to THIS manifest:
-curl -L https://github.com/bklim5/devtools/releases/latest/download/latest.json
+curl -L https://github.com/bklim5/devtools-releases/releases/latest/download/latest.json
 ```
 
 `releases/latest/download/latest.json` is a stable GitHub redirect to the newest release's
