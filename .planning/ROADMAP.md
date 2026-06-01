@@ -143,3 +143,34 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 4. Catalogue | 6/6 | Complete | 2026-05-31 (signed off 2026-06-01) |
 | 5. Native Polish | 4/4 | Complete | 2026-06-01 |
 | 6. Distribution | 5/5 | Complete (Gatekeeper-clean deferred, D-02) | 2026-06-01 |
+
+## Backlog
+
+Unsequenced ideas captured for future planning. Promote with `/gsd-review-backlog` when ready.
+
+### Phase 999.1: More tools for the app (BACKLOG)
+
+**Goal:** [Captured for future planning] — expand beyond the v1 six tools (candidate tools from the deferred list, e.g. Unix Time Converter, JWT Debugger, etc.). NOTE: v1 locked "six tools only" — promoting this means deliberately reopening that constraint.
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.2: CI integration (BACKLOG)
+
+**Goal:** [Captured for future planning] — automate the build+verify harness in CI (vitest + tsc + eslint + real-WKWebView e2e, and possibly `tauri build` + release publishing to the public releases repo).
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.3: Theme settings (BACKLOG)
+
+**Goal:** [Captured for future planning] — user-facing theme/appearance settings (beyond the current theme/accent persistence), e.g. light/dark/system toggle and accent customization in a settings surface.
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
