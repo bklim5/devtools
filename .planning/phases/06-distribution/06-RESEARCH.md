@@ -493,16 +493,19 @@ connect-src 'self' ipc: http://ipc.localhost https://github.com https://objects.
 | A3 | The offline hardened-runtime entitlement set (`allow-jit`, `allow-unsigned-executable-memory`, `disable-library-validation`) is sufficient for notarisation | macOS Signing | Medium — re-verified at the post-enrolment notarisation step (which is deferred anyway, D-02); a missing entitlement surfaces only when notarisation actually runs |
 | A4 | Universal-binary updater platform-key matching is a rough edge; per-arch (build-host arch) is the v1 path | latest.json / Pitfall 7 | Low — documented gap in RELEASE.md; Intel coverage deferred to CI phase |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Does the webview CSP gate the updater's network fetch at all?**
    - Known: Tauri updater downloads happen Rust-side; `check()` is invoked from JS through the plugin.
    - Unclear: whether any part traverses the webview's `connect-src`.
    - Recommendation: add the scoped GitHub hosts to `connect-src` (harmless), then verify the real round-trip on the packaged build; if it works without them, note it but keep them for safety. (A2)
+   - **RESOLVED (A2):** Plan 03 Task 5 widens `connect-src` defensively to `https://github.com` + `https://objects.githubusercontent.com` only; Plan 05 Task 3 (phase gate) runs the blocking real round-trip that confirms the download verifies and applies — the authoritative test of whether the CSP gates the Rust-side fetch.
 
 2. **Exact `providerShortName` / notary env behavior at enrolment** — cannot be fully exercised without the Developer ID cert. Recommendation: structure config so the flip is `APPLE_*` env + `providerShortName` add only; re-verify the full notarisation at the post-enrolment step (explicitly out of this phase's blocking scope, D-02).
+   - **RESOLVED (D-02):** Deferred to post-enrolment — Plan 03 wires `hardenedRuntime` + `entitlements` + ad-hoc `signingIdentity "-"` now so the Developer-ID/`providerShortName`/notary activation is a credentials-only `APPLE_*` env flip; Plan 05 RELEASE.md documents the flip. Not a Phase-6 blocker.
 
 3. **GitHub Release asset URL stability** — owner/repo for the public repo must be decided so the `endpoints` URL + `latest.json` `url`s are concrete. Recommendation: planner pins `<owner>/<repo>` from the actual GitHub remote at plan time.
+   - **RESOLVED:** Pinned to `boonkhailim/devtools` in Plan 03 (`plugins.updater.endpoints`, derived from identifier `com.boonkhailim.devtools-app`) as a placeholder-to-confirm; Plan 05 RELEASE.md step 0 makes confirming/creating the real public repo a blocking pre-release step.
 
 ## Environment Availability
 
