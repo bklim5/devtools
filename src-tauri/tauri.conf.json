@@ -45,7 +45,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDNBMkI2QzhBRjIzNDU1RDgKUldUWVZUVHlpbXdyT3A4VDhzUktIMjZXaGhwTXRQcHV1b25DVC9MSEthVzlSdEhQcktWRkptTjQK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDk3OEY5QUVGNjZFMUI2OUEKUldTYXR1Rm03NXFQbHpGeHVCQ1hKUkV6WXlJR0RKZENIbmFCUkR5dkk2cS9VTndVSGU4eFVCZzQK",
       "endpoints": [
         "https://github.com/bklim5/devtools/releases/latest/download/latest.json"
       ]
