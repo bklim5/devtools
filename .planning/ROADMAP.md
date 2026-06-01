@@ -124,7 +124,7 @@ Plans:
   4. The release passes a final per-task gate and a phase-boundary human sign-off + `gsd-ui-review` audit on the distributed bundle.
 **Plans**: 5 plans
 Plans:
-- [ ] 06-01-PLAN.md — Repo hygiene: .gitignore secrets hardening + lockstep version bump to 0.2.0 (D-05/D-16)
+- [x] 06-01-PLAN.md — Repo hygiene: .gitignore secrets hardening + lockstep version bump to 0.2.0 (D-05/D-16)
 - [ ] 06-02-PLAN.md — Platform-seam updater accessor + autoUpdateCheck pref coercion + Wave-0 unit scaffolds (DST-02; D-09/D-12)
 - [ ] 06-03-PLAN.md — Tauri config wiring: updater/process plugins + tray item + capabilities + tauri.conf updater/signing block + entitlements + minisign keygen (autonomous: false) (DST-01/DST-02; D-02/D-04/D-07/D-15)
 - [ ] 06-04-PLAN.md — Updater UX: orchestration + WCAG-AA dismissible banner + first-run opt-in + manual tray-check + e2e (DST-02; D-09/D-10/D-11/D-13)

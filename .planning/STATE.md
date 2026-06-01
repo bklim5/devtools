@@ -2,22 +2,22 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: phase-complete
-last_updated: "2026-06-01T00:12:00.000Z"
+status: unknown
+last_updated: "2026-06-01T10:19:36.320Z"
 progress:
   total_phases: 6
   completed_phases: 5
-  total_plans: 27
-  completed_plans: 27
-  percent: 83
+  total_plans: 28
+  completed_plans: 24
+  percent: 86
 ---
 
 # Project State
 
 ## Current Position
 
-Phase: 05 (native-polish) — ✓ COMPLETE + SIGNED OFF 2026-06-01. Phase 4 deferred sign-off also CLOSED in the same session.
-Plan: 4 of 4
+Phase: 06 (distribution) — EXECUTING
+Plan: 2 of 5
 Next: **Phase 6 (Distribution)** — code signing + notarisation, DMG, auto-updater (DST-01, DST-02). `/gsd-discuss-phase 6` or `/gsd-plan-phase 6`.
 
 **Phase 5 (Native Polish) ✓ COMPLETE — signed off 2026-06-01.** All 4 plans done. Human-verified on the packaged macOS app: **tray menu (Show/Quit) + single-instance** (NAT-02) PASS; **window-geometry restore** (SHL-05, via tauri-plugin-window-state) PASS; Phase-4 amendments PASS. **NAT-01 global summon hotkey PARKED (decision G-05-1):** the default `Cmd+Shift+D` collided with a macOS system shortcut and macOS gives no reliable "is this chord taken?" API, so no auto-registered chord ships this milestone — summon is delivered via the tray + single-instance. The startup auto-registration was REMOVED (commit `388f501b`: `registerSummon()` call deleted from `main.tsx`); the platform seam (`platform.nativeShortcut`) + `shell/summon.ts` are kept intact for a **future Settings phase** to reuse as an explicit, user-configurable opt-in. NAT-01 marked **Deferred** (not Complete) in REQUIREMENTS + Traceability. Gates after the change: **276/276 vitest** (decoder 19 untouched), tsc clean, eslint 0, **7/7 real-WKWebView e2e on webkit**, a fresh **`tauri build`** (.app + .dmg, exit 0), WCAG-AA 24/24 in `05-UI-REVIEW.md`. Confirmed adopted defaults: D-02 (regular dock app + tray) ✓, D-03 (unminimize→show→setFocus) ✓; D-01 (global chord) PARKED; D-04 (JS-seam handler) retained in the seam for the future Settings phase.

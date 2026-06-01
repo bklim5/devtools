@@ -143,8 +143,8 @@ Phase mapping finalized by the roadmapper. Every v1 requirement maps to exactly 
 | UID-01 | Phase 4 (Catalogue) | Complete (04-05 — decodeId + UuidUlidTool shipped; generate v4/v7/ULID on-open+regen+batch, decode auto-detect, CSPRNG, secure-context confirmed on real WKWebView) |
 | NAT-01 | Phase 5 (Native Polish) | Deferred — global-hotkey form PARKED (G-05-1: default chord collided + no macOS "chord taken?" API); seam built, summon ships via tray + single-instance; configurable hotkey → future Settings phase |
 | NAT-02 | Phase 5 (Native Polish) | Complete (05-01 — single-instance + tray Show/Quit; human-verified 2026-06-01) |
-| DST-01 | Phase 6 (Distribution) | Pending |
-| DST-02 | Phase 6 (Distribution) | Pending |
+| DST-01 | Phase 6 (Distribution) | In Progress |
+| DST-02 | Phase 6 (Distribution) | In Progress |
 
 **Coverage:**
 - v1 requirements: 38 total
