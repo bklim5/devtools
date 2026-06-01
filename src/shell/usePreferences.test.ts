@@ -95,6 +95,35 @@ describe("usePreferences", () => {
     );
   });
 
+  it("setAutoUpdateCheck persists true and round-trips through a fresh load", async () => {
+    const first = renderHook(() => usePreferences());
+    await act(async () => {
+      first.result.current.setAutoUpdateCheck(true);
+    });
+    expect(first.result.current.preferences.autoUpdateCheck).toBe(true);
+    const stored = (await platform.store.get(PREFERENCES_STORE_KEY)) as {
+      autoUpdateCheck: boolean | null;
+    };
+    expect(stored.autoUpdateCheck).toBe(true);
+    // A fresh hook over the SAME memory store loads the opt-in back (D-09).
+    const second = renderHook(() => usePreferences());
+    await waitFor(() =>
+      expect(second.result.current.preferences.autoUpdateCheck).toBe(true),
+    );
+  });
+
+  it("setAutoUpdateCheck persists false (explicit opt-out, no re-prompt)", async () => {
+    const { result } = renderHook(() => usePreferences());
+    await act(async () => {
+      result.current.setAutoUpdateCheck(false);
+    });
+    expect(result.current.preferences.autoUpdateCheck).toBe(false);
+    const stored = (await platform.store.get(PREFERENCES_STORE_KEY)) as {
+      autoUpdateCheck: boolean | null;
+    };
+    expect(stored.autoUpdateCheck).toBe(false);
+  });
+
   it("falls back to DEFAULT_PREFERENCES for a corrupt/garbage stored blob", async () => {
     // A non-object value (e.g. a corrupt entry surfaced as a primitive).
     await store.set(PREFERENCES_STORE_KEY, "not-an-object");

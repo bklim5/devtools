@@ -27,6 +27,9 @@ export interface UsePreferences {
   setAccent: (accent: string) => void;
   setLastUsedId: (id: string | null) => void;
   setTreeStyle: (style: ProtobufTreeStyle) => void;
+  /** Persist the first-run update-check opt-in (D-09). true = silent launch check,
+   *  false = no automatic network call ever, null = ask again. */
+  setAutoUpdateCheck: (v: boolean | null) => void;
 }
 
 export function usePreferences(): UsePreferences {
@@ -77,6 +80,10 @@ export function usePreferences(): UsePreferences {
     (style: ProtobufTreeStyle) => update({ protobufTreeStyle: style }),
     [update],
   );
+  const setAutoUpdateCheck = useCallback(
+    (v: boolean | null) => update({ autoUpdateCheck: v }),
+    [update],
+  );
 
   return {
     preferences,
@@ -85,5 +92,6 @@ export function usePreferences(): UsePreferences {
     setAccent,
     setLastUsedId,
     setTreeStyle,
+    setAutoUpdateCheck,
   };
 }
