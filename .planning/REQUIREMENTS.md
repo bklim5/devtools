@@ -78,8 +78,8 @@ Requirements for the initial macOS release. Each maps to exactly one roadmap pha
 
 ### Distribution (DST)
 
-- [ ] **DST-01**: macOS build is code-signed and notarised, packaged as a DMG
-- [ ] **DST-02**: Auto-updater is wired and verifies updates
+- [x] **DST-01**: macOS build is code-signed and notarised, packaged as a DMG
+- [x] **DST-02**: Auto-updater is wired and verifies updates
 
 ## v2 Requirements
 
