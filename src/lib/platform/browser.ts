@@ -75,4 +75,14 @@ export const browserPlatform: Platform = {
       return false;
     },
   },
+  // Updater no-op outside Tauri (DST-02, D-12): check resolves null (no update,
+  // no network call ever — preserves offline-by-design in jsdom/vite preview);
+  // downloadAndInstall resolves without doing anything. This file must NOT
+  // import @tauri-apps/*.
+  updater: {
+    async check() {
+      return null;
+    },
+    async downloadAndInstall() {},
+  },
 };

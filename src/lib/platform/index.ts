@@ -13,6 +13,14 @@ import type { Store } from "./stub";
 
 export type { Store };
 
+/** Shape returned by `updater.check()` when a newer version is available (DST-02).
+ *  Mapped from the plugin's `Update` so the shell never touches @tauri-apps types. */
+export interface UpdateInfo {
+  version: string;
+  notes: string | null;
+  date: string | null;
+}
+
 export interface Platform {
   clipboard: {
     writeText(text: string): Promise<void>;
@@ -33,6 +41,13 @@ export interface Platform {
     register(accelerator: string, handler: () => void): Promise<void>;
     unregister(accelerator: string): Promise<void>;
     isRegistered(accelerator: string): Promise<boolean>;
+  };
+  /** Auto-updater (DST-02, D-12). check() resolves null when up-to-date/unavailable;
+   *  downloadAndInstall() verifies the minisign signature internally then relaunches.
+   *  No-op (check→null) in the browser fallback so jsdom/vite preview never call the network. */
+  updater: {
+    check(): Promise<UpdateInfo | null>;
+    downloadAndInstall(onProgress?: (pct: number) => void): Promise<void>;
   };
 }
 
@@ -74,6 +89,9 @@ export const platform: Platform = {
   },
   get nativeShortcut() {
     return active.nativeShortcut;
+  },
+  get updater() {
+    return active.updater;
   },
 };
 

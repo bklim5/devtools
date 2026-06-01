@@ -34,6 +34,10 @@ describe("platform seam", () => {
         unregister: vi.fn().mockResolvedValue(undefined),
         isRegistered: vi.fn().mockResolvedValue(false),
       },
+      updater: {
+        check: vi.fn().mockResolvedValue(null),
+        downloadAndInstall: vi.fn().mockResolvedValue(undefined),
+      },
     };
     setPlatformForTest(stub);
 
@@ -123,6 +127,10 @@ describe("platform seam — native capabilities (NAT-01)", () => {
         unregister: vi.fn(),
         isRegistered: vi.fn(),
       },
+      updater: {
+        check: vi.fn().mockResolvedValue(null),
+        downloadAndInstall: vi.fn().mockResolvedValue(undefined),
+      },
     };
     setPlatformForTest(stub);
 
@@ -132,5 +140,53 @@ describe("platform seam — native capabilities (NAT-01)", () => {
 
     expect(register).toHaveBeenCalledWith("CmdOrCtrl+Shift+K", handler);
     expect(show).toHaveBeenCalledTimes(1);
+  });
+});
+
+// DST-02: the seam's auto-updater capability. Outside Tauri (jsdom) it MUST be a
+// harmless no-op so tests + `vite preview` never make a network call (threat
+// T-06-05), and the `platform` accessor MUST forward it to the active impl.
+describe("platform seam — auto-updater (DST-02)", () => {
+  it("updater.check resolves null under the browser fallback (Test 9)", async () => {
+    setPlatformForTest(browserPlatform);
+    await expect(platform.updater.check()).resolves.toBeNull();
+  });
+
+  it("updater.downloadAndInstall resolves without throwing in the fallback (Test 10)", async () => {
+    setPlatformForTest(browserPlatform);
+    // No-op install never touches @tauri-apps and never relaunches under jsdom.
+    await expect(platform.updater.downloadAndInstall()).resolves.toBeUndefined();
+  });
+
+  it("accessor delegates updater.check to an injected stub (Test 11)", async () => {
+    const checkUpdate = vi.fn().mockResolvedValue({
+      version: "0.3.0",
+      notes: "new",
+      date: null,
+    });
+    const stub: Platform = {
+      clipboard: { writeText: vi.fn(), readText: vi.fn() },
+      store: { get: vi.fn(), set: vi.fn() },
+      window: {
+        show: vi.fn(),
+        setFocus: vi.fn(),
+        unminimize: vi.fn(),
+        minimize: vi.fn(),
+        isVisible: vi.fn(),
+      },
+      nativeShortcut: {
+        register: vi.fn(),
+        unregister: vi.fn(),
+        isRegistered: vi.fn(),
+      },
+      updater: {
+        check: checkUpdate,
+        downloadAndInstall: vi.fn().mockResolvedValue(undefined),
+      },
+    };
+    setPlatformForTest(stub);
+
+    await expect(platform.updater.check()).resolves.toMatchObject({ version: "0.3.0" });
+    expect(checkUpdate).toHaveBeenCalledTimes(1);
   });
 });

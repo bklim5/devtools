@@ -22,11 +22,20 @@ export const noopNativeShortcut: Platform["nativeShortcut"] = {
   isRegistered: async () => false,
 };
 
+/** Shared no-op updater for test Platform stubs (DST-02). Resolves "no update"
+ *  and a no-op install so the widened interface is satisfied everywhere without
+ *  re-drifting the updater shape in each inline literal. */
+export const noopUpdater: Platform["updater"] = {
+  check: async () => null,
+  downloadAndInstall: async () => {},
+};
+
 export function makeMemoryPlatform(store: Store = createStoreStub()): Platform {
   return {
     clipboard: { writeText: async () => {}, readText: async () => "" },
     store,
     window: noopWindow,
     nativeShortcut: noopNativeShortcut,
+    updater: noopUpdater,
   };
 }

@@ -5,9 +5,10 @@
 // jsdom/node test runs (so tests need no @tauri-apps mock).
 //
 // Capabilities reached here: clipboard (plugin-clipboard-manager), store
-// (plugin-store), window summon/focus (api/window), and OS-level global
-// shortcuts (plugin-global-shortcut, NAT-01). All of these are JS-reachable
-// native surfaces — and ALL of them live behind this single seam file.
+// (plugin-store), window summon/focus (api/window), OS-level global shortcuts
+// (plugin-global-shortcut, NAT-01), and the auto-updater (plugin-updater +
+// plugin-process, DST-02). All of these are JS-reachable native surfaces — and
+// ALL of them live behind this single seam file.
 
 import { writeText, readText } from "@tauri-apps/plugin-clipboard-manager";
 import { load } from "@tauri-apps/plugin-store";
@@ -17,6 +18,8 @@ import {
   unregister,
   isRegistered,
 } from "@tauri-apps/plugin-global-shortcut";
+import { check } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
 import type { Platform } from "./index";
 import type { Store } from "./stub";
 
@@ -69,5 +72,30 @@ export const tauriPlatform: Platform = {
       }),
     unregister: (accelerator) => unregister(accelerator),
     isRegistered: (accelerator) => isRegistered(accelerator),
+  },
+  // DST-02: check() compares latest.json.version to the app version;
+  // downloadAndInstall downloads the .app.tar.gz, VERIFIES the minisign signature
+  // against the committed pubkey (mandatory, non-disableable — this IS
+  // verify-before-apply), then relaunch()s into the new bundle (plugin-process).
+  // A signature mismatch throws inside downloadAndInstall.
+  updater: {
+    async check() {
+      const u = await check();
+      return u ? { version: u.version, notes: u.body ?? null, date: u.date ?? null } : null;
+    },
+    async downloadAndInstall(onProgress) {
+      const u = await check();
+      if (!u) return;
+      await u.downloadAndInstall((event) => {
+        // Forward DownloadProgress events to the optional progress callback as a
+        // number. Progress is best-effort/non-load-bearing for DST-02 (the verify
+        // + install is); the plugin emits Started(contentLength) then a series of
+        // Progress(chunkLength) then Finished.
+        if (event.event === "Progress" && onProgress) {
+          onProgress(event.data.chunkLength);
+        }
+      });
+      await relaunch();
+    },
   },
 };
