@@ -6,6 +6,10 @@ dist/
 dist-ssr/
 src-tauri/target/
 
+# Per-release updater manifest — generated at release time, published to the
+# public releases repo (bklim5/devtools-releases), never committed to source.
+/latest.json
+
 # Logs
 logs/
 *.log
