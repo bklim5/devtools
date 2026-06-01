@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-06-01T10:19:36.320Z"
+last_updated: "2026-06-01T10:27:25.967Z"
 progress:
   total_phases: 6
   completed_phases: 5
   total_plans: 28
-  completed_plans: 24
-  percent: 86
+  completed_plans: 25
+  percent: 89
 ---
 
 # Project State
@@ -17,8 +17,8 @@ progress:
 ## Current Position
 
 Phase: 06 (distribution) — EXECUTING
-Plan: 2 of 5
-Next: **Phase 6 (Distribution)** — code signing + notarisation, DMG, auto-updater (DST-01, DST-02). `/gsd-discuss-phase 6` or `/gsd-plan-phase 6`.
+Plan: 3 of 5
+Next: **Phase 6 / Plan 03** — Tauri config wiring (updater Rust plugins + `tauri.conf.json` updater block + minisign keypair + `bundle.macOS` signing/entitlements + CSP). Then Plan 04 (updater UX: banner, opt-in prompt, orchestration over the seam) and Plan 05 (RELEASE.md + phase-boundary build/sign-off). The seam + pref this plan (06-02) delivered are now consumable by 03/04.
 
 **Phase 5 (Native Polish) ✓ COMPLETE — signed off 2026-06-01.** All 4 plans done. Human-verified on the packaged macOS app: **tray menu (Show/Quit) + single-instance** (NAT-02) PASS; **window-geometry restore** (SHL-05, via tauri-plugin-window-state) PASS; Phase-4 amendments PASS. **NAT-01 global summon hotkey PARKED (decision G-05-1):** the default `Cmd+Shift+D` collided with a macOS system shortcut and macOS gives no reliable "is this chord taken?" API, so no auto-registered chord ships this milestone — summon is delivered via the tray + single-instance. The startup auto-registration was REMOVED (commit `388f501b`: `registerSummon()` call deleted from `main.tsx`); the platform seam (`platform.nativeShortcut`) + `shell/summon.ts` are kept intact for a **future Settings phase** to reuse as an explicit, user-configurable opt-in. NAT-01 marked **Deferred** (not Complete) in REQUIREMENTS + Traceability. Gates after the change: **276/276 vitest** (decoder 19 untouched), tsc clean, eslint 0, **7/7 real-WKWebView e2e on webkit**, a fresh **`tauri build`** (.app + .dmg, exit 0), WCAG-AA 24/24 in `05-UI-REVIEW.md`. Confirmed adopted defaults: D-02 (regular dock app + tray) ✓, D-03 (unminimize→show→setFocus) ✓; D-01 (global chord) PARKED; D-04 (JS-seam handler) retained in the seam for the future Settings phase.
 
@@ -31,6 +31,16 @@ Next: **Phase 6 (Distribution)** — code signing + notarisation, DMG, auto-upda
 **BACKLOG (user feedback at 03 sign-off, 2026-05-31):** add a **decimal-byte-array (JS `Uint8Array`) input mode** to the Protobuf decoder — paste e.g. `10, 3, 80, 81, 82` (comma/space-separated 0–255) and decode as protobuf, alongside hex/base64. New `InputEncoding` variant + parser + a third encoding-toggle segment. Capture for a Phase-3 polish increment or Phase-4 scope discussion. (Not yet planned.)
 
 ## Active Plan
+
+**Phase 6 (distribution) EXECUTING — Wave 1 `06-01` (repo hygiene) + `06-02` (updater seam + opt-in pref) ✓ COMPLETE.**
+
+**`06-02` (updater platform seam + first-run opt-in, DST-02 foundation) ✓ COMPLETE** — 3 commits (`85b6394b` install updater+process JS plugins pinned, `2f14f543` widen Platform with the updater seam, `c719bafb` autoUpdateCheck pref). Laid the entire unit-testable updater foundation behind the existing `src/lib/platform/` seam (D-12) + the persisted first-run opt-in (D-09), mirroring the verified Phase-5 05-02 seam-widening pattern exactly. Installed `@tauri-apps/plugin-updater@2.10.1` + `@tauri-apps/plugin-process@2.3.1` (exact-pinned, JS only — Rust crates land in Plan 03). **`Platform` gains `updater`** (`check(): Promise<UpdateInfo|null>` + `downloadAndInstall(onProgress?)`) with a getter accessor on `platform` (interface↔impl can't drift); the **real impl lives ONLY in `tauri.ts`** (now the sole `@tauri-apps/*` importer, grep-audited clean) — `check()` maps the plugin `Update`→`UpdateInfo`, `downloadAndInstall()` re-checks then runs `u.downloadAndInstall(...)` forwarding the `Progress` `DownloadEvent` (`chunkLength`) to `onProgress` and `relaunch()`s; the plugin's **mandatory minisign verify** is the DST-02 verify-before-apply (T-06-04). `browser.ts` is a hard no-op (`check`→null, no fetch — offline-by-design holds in jsdom/`vite preview`, T-06-05). Shared **`noopUpdater`** added to `testStore.ts` + spread through `makeMemoryPlatform`; the interface widening broke `tsc` on EVERY inline `Platform` literal (router.test + 6 tool tests), fixed DRY by adding `updater: noopUpdater` to each (the documented 05-02 lesson). **`autoUpdateCheck: boolean | null`** added to `Preferences` (default `null` = "never asked", D-09) with `coerceAutoUpdateCheck` wired into `mergePreferences` (honors only `true`/`false`; junk string/number/absent→null, T-06-03 — untrusted hand-edited prefs.json). Gate: **285/285 vitest** (decoder 19 untouched; +3 updater seam, +6 autoUpdateCheck), tsc clean, eslint 0. **DST-02 progressed (NOT complete)** — this plan only delivers the seam + pref; the config wiring (Plan 03), updater UX/banner/orchestration (Plan 04), and the real round-trip human sign-off (Plan 05) complete DST-02. No UI, no network, no `tauri.conf.json`/Rust touched. One deviation (Rule 3): all 7 inline `Platform` literals widened (anticipated by the plan's 05-02 callout), landed in the Task-2 GREEN commit (lefthook forbids a red tree + `--no-verify`). SUMMARY: `.planning/phases/06-distribution/06-02-SUMMARY.md`.
+
+**`06-01` (repo-hygiene foundation) ✓ COMPLETE** — 3 commits (`c0e3e0f2` ignore secret material, `ee26056a` lockstep version bump to 0.2.0, `0f41ab96` docs). Hardened `.gitignore` (`.env`/`.env.*`/`.envrc`/`*.key`/`*.p8` un-committable before any secret exists, D-05/T-06-01) + bumped the app version to `0.2.0` in lockstep across `package.json` + `tauri.conf.json` (D-16/T-06-02). DST-01/DST-02 NOT marked Complete (delivered by later Phase-6 plans). SUMMARY: `.planning/phases/06-distribution/06-01-SUMMARY.md`.
+
+---
+
+Prior (Phase 4) Active-Plan history:
 
 **Phase 4 gap-closure `04-07` ✓ COMPLETE (2026-05-31)** — the five Phase-4 human-UAT defects (G-04-1..G-04-5) are CLOSED in source. 3 commits (`6d651626` Hash text-only + stable layout, `713d8c5b` UUID editable count + cap 100 + cursor-pointer on tool buttons, `1d2b9bfa` cursor-pointer on shared CopyButton). **G-04-1**: Hash input is ALWAYS UTF-8 text — the hex/base64 encoding selector, `parseInput`, `EncodingToggle`, the `encoding` state, and the entire error path are deleted (`utf8ToBytes` never throws). **G-04-2**: all five Hash digest rows render from mount in fixed-height (`min-h-[2.5rem]`/`leading-5`) containers, so typing swaps only inner text — no reflow/flicker. **G-04-3**: UUID count is a raw string (`countText`) clamped on read via `clampCount` (1..100), normalized on blur — clearable/retypable without select-then-replace. **G-04-4**: hard 100-cap in three layers (`max={100}`, `clampCount`, `generateBatch` `Math.min(n, MAX_COUNT)`); no `1000` remains. **G-04-5**: `cursor-pointer` on the shared `CopyButton` base class (covers every per-row copy) + Generate/Copy-all/KindToggle/CasingToggle. Gate: **276/276 vitest** (decoder 19 untouched; net −1 = three removed Hash encoding tests replaced by one empty-state test, +2 UUID cap/clear tests), tsc clean, eslint 0, **7/7 real-WKWebView e2e on webkit** (hash + uuid-ulid specs confirm the refactors didn't regress selectors/flow). One deviation (Rule 3, env-only): orphaned vite server (:1420) + a stray packaged release `devtools-app` (single-instance lock) blocked the first two e2e attempts — killed both, re-ran clean. **Remaining: packaged-build human re-verify of Hash + UUID/ULID** — folds into the deferred Phase-4/Phase-5 human sign-off (UX-only fixes, corrected in source). SUMMARY: `.planning/phases/04-catalogue/04-07-SUMMARY.md`.
 
