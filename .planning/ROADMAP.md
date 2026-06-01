@@ -122,7 +122,13 @@ Plans:
   2. The auto-updater is wired and verifies updates (signature check) before applying them.
   3. The shipped release preserves the §1 workflow targets end-to-end: paste-to-interpretation under 2s, no-mouse tool switching, one-keystroke copy, opens-to-last-tool, and no network at runtime.
   4. The release passes a final per-task gate and a phase-boundary human sign-off + `gsd-ui-review` audit on the distributed bundle.
-**Plans**: TBD
+**Plans**: 5 plans
+Plans:
+- [ ] 06-01-PLAN.md — Repo hygiene: .gitignore secrets hardening + lockstep version bump to 0.2.0 (D-05/D-16)
+- [ ] 06-02-PLAN.md — Platform-seam updater accessor + autoUpdateCheck pref coercion + Wave-0 unit scaffolds (DST-02; D-09/D-12)
+- [ ] 06-03-PLAN.md — Tauri config wiring: updater/process plugins + tray item + capabilities + tauri.conf updater/signing block + entitlements + minisign keygen (autonomous: false) (DST-01/DST-02; D-02/D-04/D-07/D-15)
+- [ ] 06-04-PLAN.md — Updater UX: orchestration + WCAG-AA dismissible banner + first-run opt-in + manual tray-check + e2e (DST-02; D-09/D-10/D-11/D-13)
+- [ ] 06-05-PLAN.md — Phase boundary: RELEASE.md runbook + full gate + signed build + real updater round-trip human sign-off (autonomous: false) (DST-01/DST-02; D-14/D-16)
 
 ## Progress
 
@@ -136,4 +142,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 3. Hero + Encoding + UX | 1/4 | In Progress|  |
 | 4. Catalogue | 6/6 | Complete (sign-off deferred) | 2026-05-31 |
 | 5. Native Polish | 4/4 | Complete | 2026-06-01 |
-| 6. Distribution | 0/TBD | Not started | - |
+| 6. Distribution | 0/5 | Planned | - |
