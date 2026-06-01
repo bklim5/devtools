@@ -150,7 +150,20 @@ Unsequenced ideas captured for future planning. Promote with `/gsd-review-backlo
 
 ### Phase 999.1: More tools for the app (BACKLOG)
 
-**Goal:** [Captured for future planning] — expand beyond the v1 six tools (candidate tools from the deferred list, e.g. Unix Time Converter, JWT Debugger, etc.). NOTE: v1 locked "six tools only" — promoting this means deliberately reopening that constraint.
+**Goal:** [Captured for future planning] — expand beyond the v1 six tools. NOTE: v1 locked "six tools only" — promoting this means deliberately reopening that constraint. There is no code-level limit (registry is a plain array; router/sidebar/palette auto-derive), so growth is mechanical; the constraint is product focus, not architecture.
+
+**Candidate tool wishlist (user-provided, categorized):**
+
+- **Converters** — Cron Parser, Date, JSON Array → Table/CSV, JSON ↔ YAML, Number Base
+- **Text** — Escape / Unescape, List Comparer, Markdown Preview, Analyzer & Utilities, Text Comparer
+- **Encoders / Decoders** — Base64 Image, Base64 Text, Certificate, GZIP, HTML, JWT, QR Code, URL
+- **Formatters** — JSON, SQL, XML  ← **active focus (being designed now; see spec under docs/superpowers/specs/)**
+- **Generators** — Hash / Checksum, Lorem Ipsum, Password, UUID
+- **Graphic** — Color Blind Simulator, Image Converter
+- **Testers** — JSONPath, Regular Expression, XML / XSD
+
+Each candidate must still pass the product wedge: offline/no-network, paste-instant (<2s), keyboard-driven, registry-driven, WCAG-AA, and the build+verify harness.
+
 **Requirements:** TBD
 **Plans:** 0 plans
 
@@ -169,6 +182,15 @@ Plans:
 ### Phase 999.3: Theme settings (BACKLOG)
 
 **Goal:** [Captured for future planning] — user-facing theme/appearance settings (beyond the current theme/accent persistence), e.g. light/dark/system toggle and accent customization in a settings surface.
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.4: DevTools CLI (BACKLOG)
+
+**Goal:** [Captured for future planning] — let users invoke the tools from the command line, e.g. `devtools hash.sha256 xxx` to print a SHA-256 hash, `devtools base64.encode ...`, etc. Implies sharing the pure transform logic (`src/lib/`) between the GUI and a CLI entrypoint so behavior stays identical. Open questions for promotion: distribution of the CLI binary (bundled with the app vs separate), namespacing/command grammar (`tool.action`), stdin/pipe support, and how it coexists with the offline/no-network ethos (a CLI is inherently offline-friendly). The pure-logic-in-`src/lib/` separation already in place is the enabler.
 **Requirements:** TBD
 **Plans:** 0 plans
 
