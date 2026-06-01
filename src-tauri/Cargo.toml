@@ -35,6 +35,11 @@ tauri-plugin-clipboard-manager = "2.3.2"
 # = 1). A feature flag is the correct, verified idiom for a build-excluded dep.
 tauri-plugin-webdriver = { version = "0.2", optional = true }
 tauri-plugin-store = "2.4.3"
+# Relaunch backend for the updater apply flow (DST-02). The JS side calls it via
+# @tauri-apps/plugin-process behind src/lib/platform/tauri.ts to restart into the
+# freshly-installed bundle. Desktop-wide (NOT target-gated) — relaunch is needed
+# on every desktop target. Gated at runtime by `process:allow-restart`.
+tauri-plugin-process = "2.3.1"
 
 [features]
 # Enabled only for the e2e UI gate (`--features webdriver`); off in release.
@@ -51,3 +56,8 @@ webdriver = ["dep:tauri-plugin-webdriver"]
 tauri-plugin-single-instance = "2.4.2"
 tauri-plugin-global-shortcut = "2.3.2"
 tauri-plugin-window-state = "2.4.1"
+# Updater backend (DST-02): fetches latest.json, downloads the .app.tar.gz, and
+# MANDATORY-verifies its minisign signature against the committed pubkey before
+# swapping the bundle. The JS side drives it via @tauri-apps/plugin-updater behind
+# src/lib/platform/tauri.ts. Gated at runtime by `updater:default`.
+tauri-plugin-updater = "2.10.1"

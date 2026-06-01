@@ -38,11 +38,23 @@ pub fn run() {
         // below — so persistence works in the shipped app. Gated at runtime by the
         // `store:default` capability in capabilities/default.json (threat T-02-01).
         .plugin(tauri_plugin_store::Builder::new().build())
+        // Relaunch backend for the updater apply flow (DST-02). The JS side calls it
+        // via @tauri-apps/plugin-process behind src/lib/platform/tauri.ts to restart
+        // into the freshly-installed bundle. Gated by `process:allow-restart`.
+        .plugin(tauri_plugin_process::init())
         // Tray icon + menu (NAT-02, D-02 regular dock app + tray). Tauri 2 trays are
         // Rust-only (no tauri.conf.json tray config). The menu has Show + Quit; both
         // the menu "show" and a left-click summon the main window using the D-03
         // unminimize → show → set_focus order (Pitfall 1).
         .setup(|app| {
+            // Updater plugin (DST-02). Registered here (not in the builder chain) per
+            // the official Tauri 2 updater pattern. The mandatory minisign verify
+            // against the committed pubkey is the DST-02 verify-before-apply. Desktop
+            // only. JS drives check()/downloadAndInstall() through src/lib/platform/.
+            #[cfg(desktop)]
+            app.handle()
+                .plugin(tauri_plugin_updater::Builder::new().build())?;
+
             let show_i = MenuItem::with_id(app, "show", "Show DevTools", true, None::<&str>)?;
             let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
