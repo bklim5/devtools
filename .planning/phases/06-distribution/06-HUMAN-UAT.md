@@ -3,8 +3,9 @@
 **Requirements under test:** DST-01 (signed DMG + updater artifacts — "release-ready, pending cert")
 · DST-02 (auto-updater verifies before applying — real round-trip).
 
-**Status:** PENDING (awaiting human verification on the packaged build + a real updater round-trip)
+**Status:** PASS (human-verified on the packaged build + a real updater round-trip, 2026-06-01)
 **Created:** 2026-06-01
+**Signed off:** 2026-06-01
 **Runbook:** follow `docs/RELEASE.md` for the build + publish + round-trip steps.
 
 > **Automated pre-gate already GREEN before this checklist** (Plan 06-05 Task 2):
@@ -22,54 +23,67 @@
 
 The minisign key is **password-protected**: export BOTH the key and its password (RELEASE.md § 2).
 
-- [ ] **A1.** Exported `TAURI_SIGNING_PRIVATE_KEY` (or `TAURI_SIGNING_PRIVATE_KEY_PATH=~/.tauri/devtools.key`)
-      **and** `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (the chosen password).
-- [ ] **A2.** `pnpm tauri build` exits 0. (If the DMG step flakes: `hdiutil info` →
-      `hdiutil detach <node>` for stray DMGs → retry — RELEASE.md § 3 / Pitfall 5.)
-- [ ] **A3.** THREE artifacts exist under `src-tauri/target/release/bundle/`:
-      a `*.dmg`, a `*.app.tar.gz`, and a `*.app.tar.gz.sig`.
-- [ ] **A4.** Installed the DMG; the app launches. (Ad-hoc Gatekeeper friction EXPECTED — right-click →
-      Open to bypass — D-02.)
+- [x] **A1.** ✅ PASS — Signed with the password-protected key via the inline form
+      `TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.tauri/devtools.key)"` + `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`.
+- [x] **A2.** ✅ PASS — `pnpm tauri build` exited 0.
+- [x] **A3.** ✅ PASS — THREE artifacts produced: `devtools-app_0.2.0_aarch64.dmg`,
+      `devtools-app.app.tar.gz`, `devtools-app.app.tar.gz.sig`.
+- [x] **A4.** ✅ PASS — DMG installs; app launches (ad-hoc Gatekeeper friction expected per D-02).
 
 ## B. UPDATER UX — DST-02 (on the packaged app)
 
-- [ ] **B5.** First launch: the one-time opt-in prompt appears ("Enable automatic update checks?");
-      choosing it persists (relaunch → not re-asked).
-- [ ] **B6.** Tray **"Check for Updates…"** runs a manual check regardless of the toggle; with no
-      newer release it shows a quiet "up to date".
-- [ ] **B7.** The in-app banner is keyboard-reachable: Tab to Install/dismiss; dismiss with the
-      keyboard; it re-appears on a subsequent detection.
+- [x] **B5.** ✅ PASS — First-launch opt-in prompt appeared; the choice persisted across relaunch.
+- [x] **B6.** ✅ PASS — Tray "Check for Updates…" ran a manual check; quiet "up to date" with no newer release.
+- [x] **B7.** ✅ PASS — The in-app banner is keyboard-reachable and dismissible; re-appears on a subsequent detection.
 
 ## C. REAL ROUND-TRIP — DST-02 verify-before-apply (the load-bearing proof)
 
-- [ ] **C8.** Published the current build (build N) as a GitHub Release + `latest.json` per RELEASE.md.
-- [ ] **C9.** Bumped to N+1 (lockstep `tauri.conf.json` + `package.json`), built + published again.
-- [ ] **C10.** Ran build N, triggered "Check for Updates…", confirmed:
-      prompt → Install → **signature verified** → **relaunches into N+1**.
-      (A signature mismatch MUST refuse to install — that refusal is DST-02 working.)
+- [x] **C8.** ✅ PASS — Published build 0.2.0 to the PUBLIC releases repo `bklim5/devtools-releases`
+      (GitHub Release v0.2.0 with DMG + `.app.tar.gz` + `latest.json`).
+- [x] **C9.** ✅ PASS — Bumped to 0.2.1 in lockstep (`package.json` + `tauri.conf.json`, commit `c2d189bb`),
+      rebuilt, published v0.2.1 + `latest.json`.
+- [x] **C10.** ✅ PASS — From the installed 0.2.0 app, "Check for Updates…" detected 0.2.1,
+      **VERIFIED the minisign signature**, installed, and **RELAUNCHED into 0.2.1**.
+      The load-bearing DST-02 verify-before-apply proof. User confirmed "round-trip works".
 
 ## D. AUDIT — WCAG-AA
 
-- [ ] **D11.** Ran `gsd-ui-review` (WCAG-AA) on the packaged build, focused on the UpdateBanner +
-      opt-in prompt; recorded results in `06-UI-REVIEW.md`. Any AA blocker fixed.
+- [x] **D11.** ✅ PASS — `gsd-ui-review` ran: **23/24, WCAG-AA gate PASS, zero blockers**
+      (`06-UI-REVIEW.md`, commit `4c036215`). Three MINOR non-blocking a11y polish follow-ups
+      recorded (see Result § Follow-ups) — they do NOT block sign-off.
 
 ## DEFERRED (NOT a blocker — D-02)
 
-- [ ] **Gatekeeper-clean install on a clean machine** — needs Apple Developer ID cert + notarisation.
-      Re-verified post-enrolment (RELEASE.md § "Post-enrolment notarisation flip"). Recorded as
-      DEFERRED, not FAILED.
+- [~] **Gatekeeper-clean install on a clean machine** — DEFERRED (not FAILED). Needs Apple Developer ID
+      cert + notarisation. Re-verified post-enrolment (RELEASE.md § "Post-enrolment notarisation flip").
+      Ad-hoc Gatekeeper friction on first install is EXPECTED + acceptable this milestone (D-02).
 
 ---
 
 ## Result
 
-Record PASS/FAIL per item above. **On full pass:**
-1. Mark **DST-01** (release-ready, pending cert) + **DST-02** Complete in `REQUIREMENTS.md` +
-   the Traceability table.
-2. Mark **Phase 6 `[x]`** in `ROADMAP.md`.
-3. Update `STATE.md` (Phase 6 complete; Gatekeeper-clean carry-forward noted).
+All A–D items PASS; Gatekeeper-clean DEFERRED (not failed). **Done on full pass:**
+1. ✅ **DST-01** (release-ready, pending cert) + **DST-02** marked Complete in `REQUIREMENTS.md` + Traceability.
+2. ✅ **Phase 6 `[x]`** in `ROADMAP.md`.
+3. ✅ `STATE.md` updated (Phase 6 complete; Gatekeeper-clean carry-forward noted).
 
-**Overall:** ☐ PASS  ☐ FAIL  — (human to mark)
+**Overall:** ☑ PASS  ☐ FAIL  — (human-confirmed 2026-06-01: "round-trip works")
+
+### Architecture decided this session (split-repo)
+
+Source repo `bklim5/devtools` stays **PRIVATE**; a dedicated **PUBLIC** repo `bklim5/devtools-releases`
+holds release artifacts + `latest.json`. The Tauri updater downloads unauthenticated, so artifacts must
+be public — but the source need not be. The updater endpoint in `tauri.conf.json` points at
+`https://github.com/bklim5/devtools-releases/releases/latest/download/latest.json` (commit `b7c97a36`).
+`RELEASE.md` documents this split-repo flow + the inline-key signing form. `latest.json` is gitignored
+(commit `0bbf1d78`). The minisign key was rotated from passwordless → **password-protected** (commit
+`a9cc8955`, pubkey re-committed into `tauri.conf.json`).
+
+### Follow-ups (3 MINOR, non-blocking — recorded from `06-UI-REVIEW.md`)
+
+1. `UpdateOptIn` uses `role="dialog"` without focus management / `aria-modal` / Escape-to-close.
+2. The install button is `aria-disabled` (not `disabled`), so it stays focusable while installing.
+3. Capture a banner screenshot at the WKWebView e2e gate (visual-regression nicety).
 
 **Carry-forward (always, regardless of pass):** DST-01's Gatekeeper-clean clause stays DEFERRED to
 post-Apple-Developer-Program enrolment (D-02).

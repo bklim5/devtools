@@ -78,8 +78,8 @@ Requirements for the initial macOS release. Each maps to exactly one roadmap pha
 
 ### Distribution (DST)
 
-- [x] **DST-01**: macOS build is code-signed and notarised, packaged as a DMG
-- [x] **DST-02**: Auto-updater is wired and verifies updates
+- [x] **DST-01**: macOS build is code-signed and notarised, packaged as a DMG <!-- 06-05: "release-ready, pending cert" — signed (ad-hoc) DMG + updater artifacts (.app.tar.gz + .sig) built with the password-protected minisign key; human-verified install + launch 2026-06-01. Developer-ID/notarisation (Gatekeeper-clean) is a credentials-only post-enrolment flip (D-02) — carried forward, NOT a blocker. -->
+- [x] **DST-02**: Auto-updater is wired and verifies updates <!-- 06-05: proven by a REAL signature-verified round-trip — installed 0.2.0 → "Check for Updates…" detected 0.2.1 → minisign signature VERIFIED → installed → RELAUNCHED into 0.2.1 (human-confirmed 2026-06-01). Split-repo: artifacts + latest.json on the public bklim5/devtools-releases, source stays private. -->
 
 ## v2 Requirements
 
@@ -143,8 +143,8 @@ Phase mapping finalized by the roadmapper. Every v1 requirement maps to exactly 
 | UID-01 | Phase 4 (Catalogue) | Complete (04-05 — decodeId + UuidUlidTool shipped; generate v4/v7/ULID on-open+regen+batch, decode auto-detect, CSPRNG, secure-context confirmed on real WKWebView) |
 | NAT-01 | Phase 5 (Native Polish) | Deferred — global-hotkey form PARKED (G-05-1: default chord collided + no macOS "chord taken?" API); seam built, summon ships via tray + single-instance; configurable hotkey → future Settings phase |
 | NAT-02 | Phase 5 (Native Polish) | Complete (05-01 — single-instance + tray Show/Quit; human-verified 2026-06-01) |
-| DST-01 | Phase 6 (Distribution) | In Progress |
-| DST-02 | Phase 6 (Distribution) | In Progress |
+| DST-01 | Phase 6 (Distribution) | Complete — "release-ready, pending cert" (06-05): signed (ad-hoc) DMG + updater artifacts built + human-verified 2026-06-01; Gatekeeper-clean (Developer-ID/notarisation) DEFERRED post-enrolment, D-02 |
+| DST-02 | Phase 6 (Distribution) | Complete — real signature-verified updater round-trip (0.2.0→0.2.1, minisign verified + relaunched) human-confirmed 2026-06-01 (06-05) |
 
 **Coverage:**
 - v1 requirements: 38 total
