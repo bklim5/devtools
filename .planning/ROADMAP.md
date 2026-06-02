@@ -15,7 +15,7 @@ The work splits along the boundary the approved design spec prescribes (`docs/su
 Decimal phases appear between their surrounding integers in numeric order. v1.1 continues the project's phase sequence — v1.0 ended at Phase 6, so v1.1 starts at **Phase 7** (numbering does NOT reset).
 
 - [x] **Phase 7: Formatters** - Shared `FormatterView` + JSON formatter tool + XML formatter tool (zero-dep, native `JSON`/`DOMParser`) — validate/prettify/minify, plus JSON sort-keys ✓ 2026-06-02
-- [ ] **Phase 8: StatusBar Size-Readout Cleanup** - Make `StatusBar` byteCount opt-in; keep it on Base64/Protobuf/Formatters, drop it from Hash/UUID/Unix Time/JWT
+- [x] **Phase 8: StatusBar Size-Readout Cleanup** - Make `StatusBar` byteCount opt-in; keep it on Base64/Protobuf/Formatters, drop it from Hash/UUID/Unix Time/JWT ✓ 2026-06-02
 
 ## Phase Details
 
@@ -56,7 +56,7 @@ Phases execute in numeric order: 7 → 8
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 7. Formatters | 3/3 | Complete | 2026-06-02 |
-| 8. StatusBar Size-Readout Cleanup | 0/1 | Planned | - |
+| 8. StatusBar Size-Readout Cleanup | 1/1 | Complete | 2026-06-02 |
 
 ## Backlog
 
