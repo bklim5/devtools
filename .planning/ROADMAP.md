@@ -32,7 +32,7 @@ Decimal phases appear between their surrounding integers in numeric order. v1.1 
 **Plans**: 3 plans
 - [x] 07-01-shared-foundation-PLAN.md — promote ResizableSplit to shared, additive StatusBar byte-delta, shared FormatResult type
 - [x] 07-02-json-formatter-PLAN.md — pure formatJson + shared FormatterView + json-formatter tool + registry + e2e
-- [ ] 07-03-xml-formatter-PLAN.md — pure formatXml (DOMParser) + xml-formatter tool + registry + e2e
+- [x] 07-03-xml-formatter-PLAN.md — pure formatXml (DOMParser) + xml-formatter tool + registry + e2e
 **UI hint**: yes
 
 ### Phase 8: StatusBar Size-Readout Cleanup

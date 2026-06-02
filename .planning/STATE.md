@@ -2,23 +2,23 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: milestone
-status: Executing Phase 07
-last_updated: "2026-06-02T10:46:17.155Z"
+status: Phase complete — ready for verification
+last_updated: "2026-06-02T11:55:00.000Z"
 progress:
   total_phases: 6
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 2
-  percent: 67
+  completed_plans: 3
+  percent: 100
 ---
 
 # Project State
 
 ## Current Position
 
-Phase: 07 (formatters) — EXECUTING
-Plan: 3 of 3
-Next: **Execute 07-03 xml-formatter** (wave 3, final) — 07-02 landed the JSON formatter and the shared JSON/XML-agnostic `FormatterView`. Build the pure `formatXml` (DOMParser well-formedness, prettify preserving comments/CDATA/attrs/PIs, minify) returning the same `FormatResult`, the thin `XmlFormatterTool` (no sort-keys — omit `onSortKeys`), append `xmlFormatterTool` to `TOOLS` (D-12), + the real-WKWebView e2e. **Carry-forward from 07-02:** before phase sign-off, run `scripts/e2e-spike.sh` (JSON e2e not yet run on the real webview) + `/simplify` + `/codex:review` + `gsd-ui-review`, and finish FormatterView's narrow-width vertical stacking.
+Phase: 07 (formatters) — ALL 3 PLANS EXECUTED, ready for phase verification/sign-off
+Plan: 3 of 3 complete
+Next: **Close Phase 7** — all of 07-01/07-02/07-03 are executed + committed. Before sign-off: run the deferred real-WKWebView e2e for BOTH formatters (`scripts/e2e-spike.sh` → `test/e2e/{json,xml}-formatter.e2e.ts`, capturing the WKWebView screenshots) + `/simplify` + `/codex:review` + `gsd-ui-review` WCAG-AA + human sign-off on a fresh `tauri build`, and finish FormatterView's narrow-width vertical stacking (carried from 07-02). Then Phase 8 (StatusBar cleanup, depends on Phase 7).
 
 **Milestone v1.1 "Formatters" — roadmap created 2026-06-02.** Two phases:
 
@@ -41,6 +41,7 @@ Verified: gsd-plan-checker → VERIFICATION PASSED (first pass, 0 issues). All F
 
 ## Recent Activity
 
+- **2026-06-02 — 07-03 xml-formatter EXECUTED & committed (2 TDD tasks, 4 commits).** Shipped the XML formatter end-to-end: pure zero-dep `formatXml` over native `DOMParser`/`XMLSerializer` (well-formedness validation, `<parsererror>` surfaced with line — jsdom `L:C:` + WebKit `on line N` shapes; prettify 2/4/tab preserving comments/CDATA/attributes/PIs, self-close kept, mixed-content emitted inline; minify strips inter-element whitespace keeping significant text; empty→ok-empty; XXE-safe — no external entity/DTD resolution); thin `XmlFormatterTool` reusing the shared `FormatterView` WITHOUT `onSortKeys` (no sort-keys toggle, D-06), clear-on-error (D-08), FMT-08 focusable copy via the platform seam; registry-only append of `xmlFormatterTool` to `TOOLS` after `jsonFormatterTool` (D-12, JSON intact). Full repo green: 352 vitest across 44 files (incl. 19 decoder tests untouched), `tsc`/`eslint` clean, **zero new deps**. Commits `47467b9c`+`a27986c5` (formatXml) / `07dac3a4`+`6486e101` (tool+registry+e2e). SUMMARY: `07-03-SUMMARY.md`. Reqs FMT-05/06/07/08 ✓ → **all FMT-01..08 complete; Phase 7 tool set done.** **Deferred to phase boundary:** real-WKWebView e2e for BOTH formatters (`scripts/e2e-spike.sh`) + `/simplify` + `/codex:review` + `gsd-ui-review`; finish FormatterView narrow-width vertical stacking. Next: close Phase 7.
 - **2026-06-02 — 07-02 json-formatter EXECUTED & committed (3 TDD tasks, 6 commits).** Shipped the JSON formatter end-to-end: pure zero-dep `formatJson` (validate with engine-portable line:col — V8 position/snippet + JSC line:column — prettify 2/4/tab, minify-wins, recursive sort-keys with array order preserved, empty→ok-empty); the shared JSON/XML-agnostic `FormatterView` (resizable input | read-only copy-bearing output + shared toolbar with conditional sort-keys + StatusBar byte delta, no raw-HTML injection, FMT-08 focusable copy via the platform seam); thin `JsonFormatterTool` (paste-instant, clear-on-error, D-07/D-08); registry-only append (D-12); and `test/e2e/json-formatter.e2e.ts`. Full repo green: 335 vitest (incl. 19 decoder tests untouched), `tsc`/`eslint` clean, **zero new deps**. Commits `392808d1`+`ba4fc4cb` / `74dfe9cf`+`de492031` / `a3b52ed7`+`1401b35e`. SUMMARY: `07-02-SUMMARY.md`. Reqs FMT-01/02/03/04/08 ✓. **Deferred to phase boundary:** run the real-WKWebView e2e (`scripts/e2e-spike.sh`) + `/simplify` + `/codex:review` + `gsd-ui-review`; finish FormatterView narrow-width vertical stacking. Next: 07-03 xml-formatter.
 - **2026-06-02 — 07-01 shared-foundation EXECUTED & committed (3 tasks, 5 commits).** Promoted `ResizableSplit` → `src/components/` (git mv; rewired the one real importer `ProtobufDecoder.tsx` to `@/components/ResizableSplit` — Rule-3 deviation, the plan's "no importers" note was wrong, caught by the pre-commit gate). Added additive `StatusBar.outputBytes` input→output byte-delta (`1,240 → 890 bytes`, D-04; `byteCount` stays required, Phase-8 owns optionalizing it). Defined pure `src/lib/format/types.ts` (`FormatResult`/`FormatOptions`/`IndentMode`, D-09). Full repo green: 311 vitest (incl. 19 decoder tests untouched), `tsc`/`eslint` clean, zero new deps. Commits `281b77bc`/`90ec2fe2`+`d8ecdc64`/`4726fc39`+`05c9c620`. SUMMARY: `07-01-SUMMARY.md`. Reqs FMT-01/04/07 ✓. Next: 07-02 json-formatter.
 - **2026-06-02 — Phase 7 (Formatters) planned (3 plans, verified).** `/gsd-plan-phase 7` (research skipped — approved design spec sufficient; UI-SPEC skipped — CONTEXT.md D-01..06 lock the UI) produced 07-01 shared-foundation / 07-02 json-formatter / 07-03 xml-formatter in 3 sequential waves. gsd-planner → PLANNING COMPLETE; gsd-plan-checker → VERIFICATION PASSED first pass. STRIDE threat model in each plan (XXE/billion-laughs dispositioned for the DOMParser path). Next: `/gsd-execute-phase 7`.
@@ -49,11 +50,11 @@ Verified: gsd-plan-checker → VERIFICATION PASSED (first pass, 0 issues). All F
 
 ## Blocker
 
-- **None.** Phase 7 in progress — 07-01 + 07-02 executed; 07-03 (xml-formatter) is the last plan. Real-WKWebView e2e + `/simplify` + `/codex:review` + `gsd-ui-review` are deferred to the phase boundary (not blockers).
+- **None.** Phase 7 fully executed — 07-01 + 07-02 + 07-03 all committed (FMT-01..08 complete). Real-WKWebView e2e + `/simplify` + `/codex:review` + `gsd-ui-review` + `tauri build` sign-off are deferred to the phase boundary (not blockers).
 
 ## Next Step (pick up here next session)
 
-**Execute 07-03 xml-formatter** (wave 3, the final Phase-7 plan) — pure `formatXml` (DOMParser well-formedness, prettify preserving comments/CDATA/attrs/PIs, minify) reusing the shared `FormatterView` (omit `onSortKeys` → no sort-keys toggle for XML), `XmlFormatterTool`, `xmlFormatterTool` appended to `TOOLS`, + e2e. Then close the phase: run the deferred real-WKWebView e2e for BOTH formatters via `scripts/e2e-spike.sh` + `/simplify` + `/codex:review` + `gsd-ui-review` WCAG-AA + human sign-off on a fresh `tauri build`, finishing FormatterView's responsive narrow-width stacking. Then Phase 8 (StatusBar cleanup, depends on Phase 7).
+**Close Phase 7 (Formatters).** All 3 plans (07-01/02/03) executed + committed — JSON + XML formatters both ship over the shared `FormatterView`, registered registry-only; FMT-01..08 complete. Phase-boundary gates (deferred, in order): run the real-WKWebView e2e for BOTH formatters via `scripts/e2e-spike.sh` (captures `test/e2e/__screenshots__/{json,xml}-formatter-wkwebview.png` — proves the JSC line:col / parsererror paths) → `/simplify` → `/codex:review` → `gsd-ui-review` WCAG-AA → human sign-off on a fresh `tauri build`; finish FormatterView's responsive narrow-width vertical stacking. Then Phase 8 (StatusBar cleanup, depends on Phase 7).
 
 ## Harness reminder (per-task DoD, in order)
 
