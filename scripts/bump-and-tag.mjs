@@ -57,14 +57,17 @@ function logErr(message = "") {
  * a non-zero exit as data (e.g. the tag-exists rev-parse probe) instead of throw.
  */
 function run(file, args, options = {}) {
-  const { allowFailure = false, cwd } = options;
+  const { allowFailure = false, cwd, raw = false } = options;
   try {
     const out = execFileSync(file, args, {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
       cwd,
     });
-    return { ok: true, stdout: (out ?? "").trim(), status: 0 };
+    // `raw` keeps stdout byte-exact for callers that parse fixed-column output
+    // (e.g. `git status --porcelain`, whose leading status space is significant);
+    // everyone else gets the convenient trim.
+    return { ok: true, stdout: raw ? (out ?? "") : (out ?? "").trim(), status: 0 };
   } catch (err) {
     if (allowFailure) {
       return {
@@ -105,7 +108,10 @@ function readCurrentVersion() {
 
 /** The changed-path set from `git status --porcelain` (porcelain line = "XY path"). */
 function changedPaths() {
-  const { stdout: out } = run("git", ["status", "--porcelain"]);
+  // Read RAW (untrimmed): porcelain lines are "XY path" where XY is exactly two
+  // columns and the path begins at index 3. A global trim would strip the
+  // significant leading status space of the first line, mangling slice(3).
+  const { stdout: out } = run("git", ["status", "--porcelain"], { raw: true });
   return out.split("\n").filter(Boolean).map((line) => line.slice(3));
 }
 
