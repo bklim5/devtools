@@ -30,7 +30,7 @@ Decimal phases appear between their surrounding integers in numeric order. v1.1 
   4. Each tool's output pane exposes a **visible, keyboard-focusable copy control** reachable in ≤1 keystroke (no hover-only), copying through the platform clipboard seam (FMT-08).
   5. Both tools appear in the sidebar, ⌘K palette, and router solely by appending to the `TOOLS` array (single control plane, no other wiring); they are layout-agnostic (responsive Tailwind, no fixed widths); the pure formatters live in `src/lib/format/` and are independently unit-tested (TDD); and the phase ends with the decoder's 19 tests still green, a passing `gsd-ui-review` WCAG-AA audit, and human sign-off on a fresh `tauri build`.
 **Plans**: 3 plans
-- [ ] 07-01-shared-foundation-PLAN.md — promote ResizableSplit to shared, additive StatusBar byte-delta, shared FormatResult type
+- [x] 07-01-shared-foundation-PLAN.md — promote ResizableSplit to shared, additive StatusBar byte-delta, shared FormatResult type
 - [ ] 07-02-json-formatter-PLAN.md — pure formatJson + shared FormatterView + json-formatter tool + registry + e2e
 - [ ] 07-03-xml-formatter-PLAN.md — pure formatXml (DOMParser) + xml-formatter tool + registry + e2e
 **UI hint**: yes

@@ -2,23 +2,23 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: milestone
-status: Ready to execute
-last_updated: "2026-06-02T10:28:36.440Z"
+status: Executing Phase 07
+last_updated: "2026-06-02T10:37:05.401Z"
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 3
-  completed_plans: 0
-  percent: 0
+  completed_plans: 1
+  percent: 33
 ---
 
 # Project State
 
 ## Current Position
 
-Phase: 07
-Plan: Planned — 3 plans, 0/3 executed (Ready to execute)
-Next: **Execute Phase 7 (Formatters)** — run `/gsd-plan-phase 7` produced 3 verified plans (PLANNING COMPLETE + VERIFICATION PASSED on first pass). `/clear` then `/gsd-execute-phase 7`. Phase context is in `.planning/phases/07-formatters/07-CONTEXT.md`; the 3 PLAN.md files sit alongside it.
+Phase: 07 (formatters) — EXECUTING
+Plan: 2 of 3
+Next: **Execute 07-02 json-formatter** (wave 2) — the shared surfaces from 07-01 are landed (`ResizableSplit` at `@/components/`, `StatusBar.outputBytes` delta, `@/lib/format/types`). Build the pure `formatJson`, the shared `FormatterView`, `JsonFormatterTool`, registry append (D-12), + e2e against the real WKWebView.
 
 **Milestone v1.1 "Formatters" — roadmap created 2026-06-02.** Two phases:
 
@@ -32,6 +32,7 @@ Next: **Execute Phase 7 (Formatters)** — run `/gsd-plan-phase 7` produced 3 ve
 ## Active Plan
 
 **Phase 7 (Formatters) — planned, ready to execute.** 3 plans across 3 sequential waves:
+
 - **07-01 shared-foundation** (wave 1, autonomous): promote `ResizableSplit` → `src/components/` (D-02, decoder import rewired, 19 tests stay green); additive `StatusBar` `outputBytes?` byte-delta prop (D-04/05, existing `byteCount` stays required); shared `FormatResult`/`FormatOptions`/`IndentMode` type (D-09). Reqs FMT-01/04/07.
 - **07-02 json-formatter** (wave 2, depends on 01): pure `formatJson` (line:col errors, indent 2/4/tab, minify-wins, recursive sort-keys, arrays preserved); shared presentational `FormatterView`; `JsonFormatterTool`; registry append (D-12); e2e. Reqs FMT-01/02/03/04/08.
 - **07-03 xml-formatter** (wave 3, depends on 01,02): pure `formatXml` (DOMParser well-formedness, prettify preserving comments/CDATA/attrs/PIs, minify); `XmlFormatterTool` (no sort-keys); registry append; e2e. Reqs FMT-05/06/07/08.
@@ -40,6 +41,7 @@ Verified: gsd-plan-checker → VERIFICATION PASSED (first pass, 0 issues). All F
 
 ## Recent Activity
 
+- **2026-06-02 — 07-01 shared-foundation EXECUTED & committed (3 tasks, 5 commits).** Promoted `ResizableSplit` → `src/components/` (git mv; rewired the one real importer `ProtobufDecoder.tsx` to `@/components/ResizableSplit` — Rule-3 deviation, the plan's "no importers" note was wrong, caught by the pre-commit gate). Added additive `StatusBar.outputBytes` input→output byte-delta (`1,240 → 890 bytes`, D-04; `byteCount` stays required, Phase-8 owns optionalizing it). Defined pure `src/lib/format/types.ts` (`FormatResult`/`FormatOptions`/`IndentMode`, D-09). Full repo green: 311 vitest (incl. 19 decoder tests untouched), `tsc`/`eslint` clean, zero new deps. Commits `281b77bc`/`90ec2fe2`+`d8ecdc64`/`4726fc39`+`05c9c620`. SUMMARY: `07-01-SUMMARY.md`. Reqs FMT-01/04/07 ✓. Next: 07-02 json-formatter.
 - **2026-06-02 — Phase 7 (Formatters) planned (3 plans, verified).** `/gsd-plan-phase 7` (research skipped — approved design spec sufficient; UI-SPEC skipped — CONTEXT.md D-01..06 lock the UI) produced 07-01 shared-foundation / 07-02 json-formatter / 07-03 xml-formatter in 3 sequential waves. gsd-planner → PLANNING COMPLETE; gsd-plan-checker → VERIFICATION PASSED first pass. STRIDE threat model in each plan (XXE/billion-laughs dispositioned for the DOMParser path). Next: `/gsd-execute-phase 7`.
 - **2026-06-02 — Phase 7 (Formatters) context gathered.** `/gsd-discuss-phase 7` captured 4 gray-area decisions the approved design spec left open: side-by-side **resizable** `FormatterView` (reuse/promote protobuf `ResizableSplit`); **read-only** output pane (no syntax highlighting); status bar shows **input→output byte delta** (small additive `StatusBar` touch, coordinate with Phase 8); **shared top toolbar** (JSON shows sort-keys, XML doesn't). Written to `.planning/phases/07-formatters/07-CONTEXT.md` + `07-DISCUSSION-LOG.md`. Next: `/gsd-plan-phase 7`.
 - **2026-06-02 — v1.1 "Formatters" milestone roadmap created.** Phases 7 (Formatters, FMT-01..08) + 8 (StatusBar size-readout cleanup, UIX-01) written to `.planning/ROADMAP.md`; all 9 v1.1 requirements mapped (9/9 coverage) in `.planning/REQUIREMENTS.md` Traceability; STATE.md reset for v1.1. Numbering continues from v1.0 (which ended at Phase 6) — did NOT reset to 1.
