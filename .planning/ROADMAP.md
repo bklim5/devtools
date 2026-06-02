@@ -44,7 +44,8 @@ Decimal phases appear between their surrounding integers in numeric order. v1.1 
   2. The byte/size readout is **present** on Base64/Hex/Bytes, the Protobuf decoder, and both Formatters (where the minify delta, e.g. `1,240 → 890 bytes`, is meaningful).
   3. The byte/size readout is **absent** on Hash/Checksum, UUID/ULID, Unix Time, and JWT — those tools show parse/status text only.
   4. Affected tools' tests assert byte count is present where kept and absent where dropped; the decoder and its 19 tests stay untouched; and the phase ends with a passing `gsd-ui-review` WCAG-AA audit and human sign-off on a fresh `tauri build`.
-**Plans**: TBD
+**Plans**: 1 plan
+- [ ] 08-01-PLAN.md — make StatusBar byteCount opt-in (optional + size-span guard); drop the readout from Hash/UUID·ULID/Unix Time/JWT; assert present-where-kept / absent-where-dropped
 **UI hint**: yes
 
 ## Progress
@@ -55,7 +56,7 @@ Phases execute in numeric order: 7 → 8
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 7. Formatters | 3/3 | Complete | 2026-06-02 |
-| 8. StatusBar Size-Readout Cleanup | 0/TBD | Not started | - |
+| 8. StatusBar Size-Readout Cleanup | 0/1 | Planned | - |
 
 ## Backlog
 
