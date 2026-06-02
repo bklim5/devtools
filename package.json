@@ -11,6 +11,7 @@
     "tauri": "tauri",
     "test": "vitest run",
     "lint": "eslint .",
+    "release:bump": "tsx scripts/bump-and-tag.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "lefthook install",
