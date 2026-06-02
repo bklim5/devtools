@@ -110,6 +110,21 @@ describe("formatJson", () => {
       expect(typeof result.error.line).toBe("number");
       expect(result.error.line as number).toBeGreaterThan(1);
     });
+
+    it("locates the LAST occurrence when the V8 snippet repeats earlier (WR-03)", () => {
+      // V8 message: Unexpected token 'x', "...":x}" is not valid JSON
+      // The snippet ':x}' appears first INSIDE the string literal at index 7
+      // (a red herring) and again at the real failure site near the end. The
+      // first-match indexOf would point col into the string literal; the fix
+      // biases to the last occurrence, which V8 anchors at/after the failure.
+      const input = '{"k": ":x}", "a":x}';
+      const result = formatJson(input, { indent: "2", minify: false });
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      // The real failing 'x' is at offset 17 (col 18), not inside the literal (col ~9).
+      expect(result.error.col).toBe(18);
+      expect(result.error.line).toBe(1);
+    });
   });
 
   describe("empty input is ok-empty (not an error)", () => {

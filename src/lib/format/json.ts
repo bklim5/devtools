@@ -84,13 +84,16 @@ function lineColFromError(
 
   // V8 snippet form: the message quotes a context snippet (possibly elided with
   // leading "...") around the failure. Find that snippet in the input to recover
-  // an offset, then point at the offending token within it when given.
+  // an offset, then point at the offending token within it when given. V8 anchors
+  // the snippet at/after the failure site, so bias to the LAST occurrence — a
+  // first-match `indexOf` mislocates when the snippet text repeats earlier in the
+  // input (e.g. inside a prior string literal), pointing col at the wrong spot (WR-03).
   const snippetMatch = /"((?:\\.|[^"\\])*)"\s+is not valid JSON/i.exec(message);
   if (snippetMatch) {
     let snippet = snippetMatch[1];
     if (snippet.startsWith("...")) snippet = snippet.slice(3);
     if (snippet.endsWith("...")) snippet = snippet.slice(0, -3);
-    const at = snippet ? input.indexOf(snippet) : -1;
+    const at = snippet ? input.lastIndexOf(snippet) : -1;
     if (at >= 0) {
       const tokenMatch = /Unexpected token '(.+?)'/i.exec(message);
       const within = tokenMatch ? snippet.indexOf(tokenMatch[1]) : -1;
