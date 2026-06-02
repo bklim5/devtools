@@ -3,11 +3,14 @@ import {
   assertSingleSig,
   assertVersionMatches,
   buildAssetUrl,
+  buildPublishPlanView,
   extractServedVersion,
   hasAppleEnv,
   hasSigningEnv,
   parseLipoArchs,
   parsePublishArgs,
+  renderPublishPlan,
+  renderPublishRecovery,
 } from "./publishPlan";
 
 describe("parsePublishArgs", () => {
@@ -163,5 +166,66 @@ describe("assertVersionMatches", () => {
   it("throws on a mismatch, printing BOTH values", () => {
     expect(() => assertVersionMatches("0.2.1", "0.2.2")).toThrow(/0\.2\.1/);
     expect(() => assertVersionMatches("0.2.1", "0.2.2")).toThrow(/0\.2\.2/);
+  });
+});
+
+describe("buildPublishPlanView", () => {
+  it("derives every field from the single version", () => {
+    const view = buildPublishPlanView("0.2.2");
+    expect(view.version).toBe("0.2.2");
+    expect(view.tag).toBe("v0.2.2");
+    expect(view.releasesRepo).toBe("bklim5/devtools-releases");
+    expect(view.universalBundleDir).toBe(
+      "src-tauri/target/universal-apple-darwin/release/bundle/macos",
+    );
+    expect(view.sigGlob).toBe(
+      "src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app.tar.gz.sig",
+    );
+    expect(view.assetUrlExample).toBe(
+      "https://github.com/bklim5/devtools-releases/releases/download/v0.2.2/devtools-app.app.tar.gz",
+    );
+  });
+});
+
+describe("renderPublishPlan", () => {
+  it("contains the version, target repo, dual-key note, and assets-first/manifest-last intent", () => {
+    const out = renderPublishPlan(buildPublishPlanView("0.2.2"));
+    expect(out).toContain("0.2.2");
+    expect(out).toContain("bklim5/devtools-releases");
+    expect(out).toContain("darwin-aarch64");
+    expect(out).toContain("darwin-x86_64");
+    expect(out.toLowerCase()).toContain("assets first");
+    expect(out.toLowerCase()).toContain("manifest last");
+  });
+
+  it("contains the universal bundle path", () => {
+    const out = renderPublishPlan(buildPublishPlanView("0.2.2"));
+    expect(out).toContain("target/universal-apple-darwin/release/bundle/macos");
+  });
+
+  it("explicitly notes that --dry-run does NOT build", () => {
+    const out = renderPublishPlan(buildPublishPlanView("0.2.2")).toLowerCase();
+    expect(out.includes("no build") || out.includes("does not build")).toBe(
+      true,
+    );
+  });
+
+  it("is a pure string builder — identical output across calls, no throw", () => {
+    const view = buildPublishPlanView("0.2.2");
+    expect(renderPublishPlan(view)).toBe(renderPublishPlan(view));
+    expect(typeof renderPublishPlan(view)).toBe("string");
+  });
+});
+
+describe("renderPublishRecovery", () => {
+  it("returns a copy-pasteable next-steps string", () => {
+    const out = renderPublishRecovery(buildPublishPlanView("0.2.2"));
+    expect(typeof out).toBe("string");
+    expect(out.length).toBeGreaterThan(0);
+  });
+
+  it("never auto-rolls-back the remote release (revert-by-republish ethos)", () => {
+    const out = renderPublishRecovery(buildPublishPlanView("0.2.2"));
+    expect(out).not.toContain("git reset --hard");
   });
 });

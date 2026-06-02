@@ -163,3 +163,92 @@ const APPLE_VARS: readonly string[] = [
 export function hasAppleEnv(env: ProcessEnv): boolean {
   return APPLE_VARS.some((v) => !!env[v]);
 }
+
+/** The macos sub-dir of the UNIVERSAL bundle output — NOT the arm64 `target/release/...`. */
+const UNIVERSAL_BUNDLE_MACOS_DIR =
+  "src-tauri/target/universal-apple-darwin/release/bundle/macos";
+
+/** The example updater-payload basename (the real one is globbed at publish time). */
+const PAYLOAD_BASENAME = "devtools-app.app.tar.gz";
+
+/**
+ * The fully-derived view of one publish — every field flows from the single
+ * `version`, so the dry-run plan, the glob, and the URL can't drift (mirrors the
+ * Phase 10 BumpPlan shape).
+ */
+export interface PublishPlanView {
+  version: string;
+  tag: string;
+  releasesRepo: string;
+  universalBundleDir: string;
+  sigGlob: string;
+  assetUrlExample: string;
+}
+
+/**
+ * Build the publish-plan view from the single `version` (the version the build
+ * used, read from the manifests by the driver). Pure — no I/O, no clock.
+ */
+export function buildPublishPlanView(version: string): PublishPlanView {
+  return {
+    version,
+    tag: `v${version}`,
+    releasesRepo: RELEASES_REPO,
+    universalBundleDir: UNIVERSAL_BUNDLE_MACOS_DIR,
+    sigGlob: `${UNIVERSAL_BUNDLE_MACOS_DIR}/*.app.tar.gz.sig`,
+    assetUrlExample: buildAssetUrl(version, PAYLOAD_BASENAME),
+  };
+}
+
+/**
+ * Render the full `--dry-run` publish plan (REL-10) as a pure return-string. It
+ * carries the single version, the public target repo, the universal artifact
+ * paths, the dual-key it WILL emit (both `darwin-aarch64` + `darwin-x86_64` from
+ * one url+sig), the assets-first/manifest-last ordering, and the explicit note
+ * that `--dry-run` does NOT run the build. ZERO side effects — the caller prints.
+ */
+export function renderPublishPlan(view: PublishPlanView): string {
+  const lines: string[] = [
+    `Publish plan: ${view.version} (tag ${view.tag})`,
+    `Target repo: ${view.releasesRepo} (PUBLIC — never the private source)`,
+    "",
+    "Universal build output (NOT the arm64 target/release dir):",
+    `  - ${view.universalBundleDir}/*.app.tar.gz       (updater payload)`,
+    `  - ${view.sigGlob}   (fresh signature — single-match)`,
+    `  - ${view.universalBundleDir.replace("/macos", "/dmg")}/*.dmg          (first-install asset)`,
+    "",
+    "latest.json (dual-key from ONE url+sig — Phase 9 buildLatestJson):",
+    `  - darwin-aarch64 -> ${view.assetUrlExample}`,
+    `  - darwin-x86_64  -> ${view.assetUrlExample}`,
+    "",
+    "Publish ordering — assets first, manifest last:",
+    `  1. gh release create ${view.tag} --repo ${view.releasesRepo} <dmg> <app.tar.gz>`,
+    `  2. gh release upload ${view.tag} latest.json --repo ${view.releasesRepo}`,
+    `  3. curl -L .../releases/latest/download/latest.json  (verify served version == ${view.version})`,
+    "",
+    "--dry-run does NOT build (no build, no publish, no curl — zero side effects).",
+  ];
+  return lines.join("\n");
+}
+
+/**
+ * Render the copy-pasteable recovery / next-steps string for a failed publish
+ * step. Revert-by-republish ethos: NEVER an auto-rollback of the remote release
+ * (no `git reset --hard`) — guide the maintainer to fix-forward and re-run.
+ */
+export function renderPublishRecovery(view: PublishPlanView): string {
+  return [
+    `A publish step for ${view.tag} did not complete.`,
+    "",
+    "Nothing is auto-rolled-back (revert-by-republish ethos).",
+    "",
+    "Inspect what landed, then fix-forward:",
+    `  gh release view ${view.tag} --repo ${view.releasesRepo}`,
+    `  gh release list --repo ${view.releasesRepo}`,
+    "",
+    "Re-run after fixing (the script is idempotent up to the publish; it aborts",
+    `if the release already exists). To replace bad assets, delete + re-upload:`,
+    `  gh release delete-asset ${view.tag} <asset> --repo ${view.releasesRepo}`,
+    `  pnpm release:publish`,
+  ].join("\n");
+}
