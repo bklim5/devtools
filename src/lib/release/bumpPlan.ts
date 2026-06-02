@@ -156,6 +156,101 @@ export function buildBumpPlan(
 }
 
 /**
+ * The 5-path allowlist (RESEARCH §Q3): the only paths a bump may change — the
+ * 3 manifests plus the 2 lockfiles. `assertOnlyExpectedPaths` diffs the actual
+ * changed set against this; Plan 03 also stages exactly these.
+ */
+export const ALLOWED_PATHS: readonly string[] = [
+  "package.json",
+  "src-tauri/tauri.conf.json",
+  "src-tauri/Cargo.toml",
+  "pnpm-lock.yaml",
+  "src-tauri/Cargo.lock",
+];
+
+// The 3 manifests a real bump ALWAYS edits (the lockfiles may be no-ops — Q1).
+const REQUIRED_MANIFESTS: readonly string[] = [
+  "package.json",
+  "src-tauri/tauri.conf.json",
+  "src-tauri/Cargo.toml",
+];
+
+/**
+ * Assert the changed-path set is a valid bump diff (REL-11):
+ * - every changed path is in the allowlist (a stray edit must not get tagged);
+ * - all 3 manifests are present (a real bump edits all three);
+ * - fewer than 5 paths is fine — the pnpm-lock (and even Cargo.lock) no-op case
+ *   is valid (RESEARCH §Q1/§P2: pnpm-lock never records the root version).
+ *
+ * @throws naming every stray path, or every missing required manifest.
+ */
+export function assertOnlyExpectedPaths(changedPaths: string[]): void {
+  const allowed = new Set(ALLOWED_PATHS);
+  const stray = changedPaths.filter((p) => !allowed.has(p));
+  if (stray.length > 0) {
+    throw new Error(
+      `Refusing to tag: unexpected changed paths outside the bump allowlist: ${stray.join(", ")}`,
+    );
+  }
+
+  const changed = new Set(changedPaths);
+  const missing = REQUIRED_MANIFESTS.filter((m) => !changed.has(m));
+  if (missing.length > 0) {
+    throw new Error(
+      `Refusing to tag: a bump must edit all 3 manifests, but these did not change: ${missing.join(", ")}`,
+    );
+  }
+}
+
+/**
+ * Render the full `--dry-run` plan (REL-10) as a pure return-string carrying the
+ * single computed version, the three file edits, the lockfile regen, the git
+ * commands, and the push target. ZERO side effects — the caller prints it.
+ */
+export function renderDryRunPlan(plan: BumpPlan): string {
+  const lines: string[] = [
+    `Bump plan: ${plan.currentVersion} -> ${plan.nextVersion} (tag ${plan.tag})`,
+    "",
+    "Manifest edits (version set to the one computed version):",
+    ...plan.manifests.map((m) => `  - ${m.path} -> ${plan.nextVersion}`),
+    "",
+    "Lockfiles regenerated + staged (only if changed):",
+    "  - pnpm-lock.yaml (pnpm install --lockfile-only --offline; usually a no-op)",
+    "  - src-tauri/Cargo.lock (cargo update -p devtools-app --offline)",
+    "",
+    `Commit message: ${plan.commitMessage}`,
+    "",
+    "Git commands:",
+    ...plan.gitCommands.map((c) => `  ${c}`),
+    "",
+    `Push target: ${plan.pushTarget} (commit then tag)`,
+  ];
+  return lines.join("\n");
+}
+
+/**
+ * Render the literal, copy-pasteable recovery block (D-09/D-10) as a pure
+ * return-string. Printed when the push fails OR the maintainer declines the
+ * confirm — keep the local commit + tag, never auto-rollback. The retry reuses
+ * the SAME push commands the dry-run/real-run print, so they stay identical.
+ */
+export function renderRecovery(plan: BumpPlan): string {
+  return [
+    "Local commit + tag are intact (nothing was pushed / discarded).",
+    "",
+    "To retry the push later:",
+    `  git push ${plan.pushTarget} master && git push ${plan.pushTarget} ${plan.tag}`,
+    "",
+    "To undo the local tag + commit (discard this bump entirely):",
+    `  git tag -d ${plan.tag}`,
+    "  git reset --hard HEAD~1",
+    "",
+    "...or undo the commit but keep the edits staged:",
+    "  git reset --soft HEAD~1",
+  ].join("\n");
+}
+
+/**
  * The confirm-default helper (D-05, RESEARCH §Q5): true ONLY for an explicit
  * `y`/`yes` (case-insensitive, trimmed). Empty input (bare Enter) and anything
  * else default to NO — the caller also returns false for the non-TTY case

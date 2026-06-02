@@ -1,5 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { buildBumpPlan, isAffirmative, parseBumpArgs } from "./bumpPlan";
+import {
+  ALLOWED_PATHS,
+  assertOnlyExpectedPaths,
+  buildBumpPlan,
+  isAffirmative,
+  parseBumpArgs,
+  renderDryRunPlan,
+  renderRecovery,
+} from "./bumpPlan";
+
+const MANIFESTS = [
+  "package.json",
+  "src-tauri/tauri.conf.json",
+  "src-tauri/Cargo.toml",
+];
 
 // Realistic manifest fixtures (their version lines all at 0.2.1) used to prove
 // the SAME computed nextVersion lands in all three after applying the plan.
@@ -164,6 +178,100 @@ describe("buildBumpPlan", () => {
 
   it("propagates bumpSemver's throw on a malformed current version", () => {
     expect(() => buildBumpPlan("bad", "patch")).toThrow(/Invalid semver/);
+  });
+});
+
+describe("ALLOWED_PATHS", () => {
+  it("is exactly the 3 manifests + 2 lockfiles", () => {
+    expect([...ALLOWED_PATHS].sort()).toEqual(
+      [
+        "package.json",
+        "src-tauri/tauri.conf.json",
+        "src-tauri/Cargo.toml",
+        "pnpm-lock.yaml",
+        "src-tauri/Cargo.lock",
+      ].sort(),
+    );
+  });
+});
+
+describe("assertOnlyExpectedPaths", () => {
+  it("accepts all 5 allowlisted paths", () => {
+    expect(() =>
+      assertOnlyExpectedPaths([
+        ...MANIFESTS,
+        "pnpm-lock.yaml",
+        "src-tauri/Cargo.lock",
+      ]),
+    ).not.toThrow();
+  });
+
+  it("accepts the pnpm-lock no-op case (4 paths, only Cargo.lock changed)", () => {
+    // RESEARCH §Q1/§P2: pnpm-lock does not record the root version, so a bump
+    // leaves it byte-identical and it never appears in the changed set. Fewer
+    // than 5 is valid as long as the 3 manifests are present.
+    expect(() =>
+      assertOnlyExpectedPaths([...MANIFESTS, "src-tauri/Cargo.lock"]),
+    ).not.toThrow();
+  });
+
+  it("accepts the 3 manifests with neither lockfile changed", () => {
+    expect(() => assertOnlyExpectedPaths([...MANIFESTS])).not.toThrow();
+  });
+
+  it("throws naming a stray path outside the allowlist", () => {
+    expect(() =>
+      assertOnlyExpectedPaths([...MANIFESTS, "src/App.tsx"]),
+    ).toThrow(/src\/App\.tsx/);
+    expect(() =>
+      assertOnlyExpectedPaths([...MANIFESTS, "src/App.tsx"]),
+    ).toThrow(/unexpected/i);
+  });
+
+  it("throws when a required manifest is missing (a bump must edit all 3)", () => {
+    expect(() =>
+      assertOnlyExpectedPaths(["package.json", "src-tauri/Cargo.toml"]),
+    ).toThrow(/tauri\.conf\.json/);
+  });
+
+  it("throws on an empty changed set (nothing changed)", () => {
+    expect(() => assertOnlyExpectedPaths([])).toThrow();
+  });
+});
+
+describe("renderDryRunPlan", () => {
+  it("contains the version, all 3 manifest paths, lockfile regen, git cmds, push target", () => {
+    const plan = buildBumpPlan("0.2.1", "minor");
+    const out = renderDryRunPlan(plan);
+    expect(out).toContain("0.3.0");
+    for (const path of MANIFESTS) expect(out).toContain(path);
+    expect(out.toLowerCase()).toContain("lock");
+    for (const cmd of plan.gitCommands) expect(out).toContain(cmd);
+    expect(out).toContain("origin");
+  });
+
+  it("is a pure string builder — identical output across calls, no throw", () => {
+    const plan = buildBumpPlan("0.2.1", "patch");
+    expect(renderDryRunPlan(plan)).toBe(renderDryRunPlan(plan));
+    expect(typeof renderDryRunPlan(plan)).toBe("string");
+  });
+});
+
+describe("renderRecovery", () => {
+  it("contains the literal retry-push and undo commands (D-09/D-10)", () => {
+    const plan = buildBumpPlan("0.2.1", "patch"); // tag v0.2.2
+    const out = renderRecovery(plan);
+    expect(out).toContain(
+      "git push origin master && git push origin v0.2.2",
+    );
+    expect(out).toContain("git tag -d v0.2.2");
+    expect(out).toContain("git reset --hard HEAD~1");
+    expect(out).toContain("git reset --soft HEAD~1");
+  });
+
+  it("is pure — identical output across calls", () => {
+    const plan = buildBumpPlan("0.2.1", "patch");
+    expect(renderRecovery(plan)).toBe(renderRecovery(plan));
   });
 });
 
