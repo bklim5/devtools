@@ -1,11 +1,11 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.1
-milestone_name: milestone
-status: Milestone v1.1 complete
-last_updated: "2026-06-02T15:11:04.388Z"
+milestone_name: Formatters
+status: Milestone v1.1 archived — awaiting next milestone
+last_updated: "2026-06-02T16:30:00.000Z"
 progress:
-  total_phases: 6
+  total_phases: 2
   completed_phases: 2
   total_plans: 4
   completed_plans: 4
@@ -16,9 +16,11 @@ progress:
 
 ## Current Position
 
-Phase: 8 COMPLETE (signed off 2026-06-02) — last phase of milestone v1.1
-Plan: Phase 8 (08-01) complete (1/1 plan). Milestone v1.1 "Formatters" is now fully delivered (Phases 7 + 8 both complete & signed off).
-Next: **Milestone v1.1 is complete.** `/gsd-complete-milestone` to archive v1.1 and prepare the next cycle, or `/gsd-review-backlog` to promote backlog items (999.1 more-tools / SQL formatter, 999.4 DevTools CLI). Carry-forward (non-blocking polish): FormatterView narrow-width vertical stacking (UX-05) — confirmed NOT a WCAG-AA blocker by the Phase-7 UI audit; the 08-HUMAN-UAT.md items were human-approved at the Phase 8 boundary.
+**Milestone v1.1 "Formatters" SHIPPED & ARCHIVED 2026-06-02 — tagged `v1.1`.** Both phases (7 Formatters, 8 StatusBar cleanup) delivered, human-signed-off, and archived. Project is **between milestones** — no active phase.
+
+Archived: `.planning/milestones/v1.1-ROADMAP.md`, `.planning/milestones/v1.1-REQUIREMENTS.md`. ROADMAP.md reorganized into milestone groupings (v1.0 + v1.1 collapsed); REQUIREMENTS.md deleted (fresh one created by `/gsd-new-milestone`). PROJECT.md full evolution review done; RETROSPECTIVE.md created. MILESTONES.md has the v1.1 entry.
+
+Next: `/gsd-new-milestone` to start the next cycle, or `/gsd-review-backlog` to promote a backlog item (999.1 more-tools / SQL formatter, 999.2 CI, 999.3 theme settings, 999.4 DevTools CLI). Carry-forward (non-blocking polish): FormatterView narrow-width vertical stacking (UX-05) — confirmed NOT a WCAG-AA blocker.
 
 **Milestone v1.1 "Formatters" — roadmap created 2026-06-02.** Two phases:
 
@@ -57,7 +59,7 @@ Phase 7 shipped both formatter tools behind the shared `FormatterView` (FMT-01..
 
 ## Next Step (pick up here next session)
 
-**Milestone v1.1 "Formatters" is complete — Phase 8 signed off 2026-06-02.** Both v1.1 phases (7 Formatters, 8 StatusBar cleanup) are delivered and signed off; all 9 v1.1 requirements (FMT-01..08 + UIX-01) ✓. `/clear` then either `/gsd-complete-milestone` to archive v1.1 and start the next cycle, or `/gsd-review-backlog` to promote a backlog item (999.1 more-tools / SQL formatter, 999.4 DevTools CLI) into a new milestone. Non-blocking carry-forward: FormatterView narrow-width vertical stacking (UX-05) — UI audit confirmed NOT a WCAG-AA blocker, so it's polish. Note: `08-HUMAN-UAT.md` persists at `status: partial` per the GSD workflow (human-approved at the boundary; `/gsd-verify-work 8` would formally close it).
+**Milestone v1.1 "Formatters" is shipped & archived (tagged `v1.1`, 2026-06-02).** The project is between milestones. `/clear` then either `/gsd-new-milestone` to start the next cycle (questioning → research → requirements → roadmap), or `/gsd-review-backlog` to promote a backlog item (999.1 more-tools / SQL formatter, 999.2 CI, 999.3 theme settings, 999.4 DevTools CLI) into a new milestone. Non-blocking carry-forward: FormatterView narrow-width vertical stacking (UX-05) — UI audit confirmed NOT a WCAG-AA blocker, so it's polish. Note: `08-HUMAN-UAT.md` persists at `status: partial` per the GSD workflow (human-approved at the boundary; `/gsd-verify-work 8` would formally close it).
 
 ## Harness reminder (per-task DoD, in order)
 

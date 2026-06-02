@@ -1,5 +1,23 @@
 # Milestones
 
+## v1.1 Formatters (Shipped: 2026-06-02)
+
+**Phases completed:** 2 phases (7–8), 4 plans, ~11 tasks
+**Git:** 49 commits, 54 files changed (+5,153 / −187) — same-day (2026-06-02)
+**Final state:** 378 vitest / 44 files green, `tsc`/`eslint` clean, **zero new runtime deps**, decoder + its 19 tests byte-for-byte untouched.
+
+**Key accomplishments:**
+
+- **Shared formatter foundation (Phase 7-01)** — promoted `ResizableSplit` to `src/components/`, added an additive `StatusBar` input→output byte-delta prop, and defined the pure `FormatResult`/`FormatOptions`/`IndentMode` contract — the three shared surfaces both formatters depend on, landed conflict-free in wave 1.
+- **JSON formatter (Phase 7-02)** — shipped a pure zero-dep `formatJson` (validate with engine-portable line:col, prettify 2/4/tab, minify-wins, recursive sort-keys preserving array order), the shared JSON/XML-agnostic two-pane paste-instant `FormatterView` (resizable input | read-only copy-bearing output + shared toolbar + StatusBar byte delta), and a thin `JsonFormatterTool` registered registry-only, with a real-WKWebView e2e spec.
+- **XML formatter (Phase 7-03)** — shipped a pure zero-dep `formatXml` over native `DOMParser`/`XMLSerializer` (well-formedness validation surfacing `<parsererror>` with line; prettify 2/4/tab preserving comments/CDATA/attributes/PIs + the `<?xml?>` declaration; minify stripping inter-element whitespace; empty→ok-empty; XXE-safe), the thin `XmlFormatterTool` reusing the shared `FormatterView` without sort-keys, registered registry-only alongside JSON.
+- **StatusBar size-readout cleanup (Phase 8, UIX-01)** — made `StatusBar.byteCount` optional and gated the `aria-label="byte count"` size span on `typeof byteCount === "number"` (minimal additive API, no other behavior changed); kept the readout on Base64/Hex/Bytes + Protobuf + both Formatters, dropped it from Hash/UUID·ULID/Unix Time/JWT, locked by a present-where-kept / absent-where-dropped test matrix.
+- **Discipline held end-to-end** — every phase passed the full binding harness: code review (3 warnings fixed in Phase 7, clean in Phase 8), phase verification (5/5 then 4/4 must-haves), real-WKWebView e2e (10/10 specs on WebKit 605.1.15 — which caught a real `<parsererror>` regression unit tests missed), `gsd-ui-review` WCAG-AA PASS, and human sign-off on a fresh `tauri build` at each phase boundary.
+
+**Archived:** `.planning/milestones/v1.1-ROADMAP.md`, `.planning/milestones/v1.1-REQUIREMENTS.md`.
+
+---
+
 ## v1.0 Distribution (Shipped: 2026-06-02)
 
 **Phases completed:** 10 phases, 28 plans, 63 tasks

@@ -2,23 +2,23 @@
 
 ## What This Is
 
-DevTools is a fast, offline, keyboard-driven **desktop application** (macOS first; cross-platform-capable via Tauri 2) of engineering utilities for the messy bytes developers actually see at work. **Schema-less Protobuf decoding is the hero feature**, supported by a tight set of six high-frequency transforms. It is a sharp wedge, not a catalogue — it wins on speed and confidence, not breadth.
+DevTools is a fast, offline, keyboard-driven **desktop application** (macOS first; cross-platform-capable via Tauri 2) of engineering utilities for the messy bytes developers actually see at work. **Schema-less Protobuf decoding is the hero feature**, supported by a tight, curated set of high-frequency transforms (six at v1.0; the JSON + XML formatters added in v1.1). It is a sharp wedge, not a catalogue — it wins on speed and confidence, not breadth, and every new tool must clear the product wedge before it ships.
 
 ## Core Value
 
 **Paste an unknown blob → get a usable, explorable interpretation in under 2 seconds, entirely offline, without touching the mouse.** If everything else fails, the Protobuf decoder doing this flawlessly is the product.
 
-## Current Milestone: v1.1 Formatters
+## Current State
 
-**Goal:** Add JSON and XML formatter tools (zero-dependency, native `JSON`/`DOMParser`) with a jsonlint-style feature set, plus a small status-bar cleanup.
+**Shipped: v1.1 "Formatters"** (2026-06-02) — Phases 7 + 8, on top of v1.0 "Distribution" (Phases 1–6, 2026-06-01).
 
-**Target features:**
-- JSON formatter — validate (line:col), prettify (2/4/tab), minify, sort keys
-- XML formatter — validate (well-formedness), prettify (preserving comments/CDATA/attrs/PIs), minify
-- Two-pane paste-instant UI via a shared `FormatterView`; visible focusable copy
-- Status-bar size readout becomes opt-in (kept on Base64/Protobuf/Formatters; dropped on Hash/UUID/Unix Time/JWT)
+v1.1 added the first two post-v1.0 tools — a **JSON formatter** and an **XML formatter** — both zero-runtime-dependency over native `JSON` / `DOMParser` / `XMLSerializer`, behind a shared two-pane paste-instant `FormatterView`, plus an opt-in `StatusBar` size readout (UIX-01). All 9 v1.1 requirements validated. Decoder + its 19 tests stayed byte-for-byte untouched; no new runtime deps. Archives: `.planning/milestones/v1.1-ROADMAP.md`, `.planning/milestones/v1.1-REQUIREMENTS.md`.
 
-Design spec: `docs/superpowers/specs/2026-06-02-json-xml-formatters-design.md`. SQL deferred to backlog 999.1; DevTools CLI to 999.4.
+The app now ships **eight tools**: the Protobuf hero, Base64/Hex/Bytes, Unix Time, JWT, Hash, UUID/ULID, and the JSON + XML formatters.
+
+## Next Milestone Goals
+
+**TBD** — start the next cycle with `/gsd-new-milestone`, or promote a backlog item with `/gsd-review-backlog`. Live candidates: backlog 999.1 (more tools / SQL formatter — needs `sql-formatter` lib), 999.2 (CI integration), 999.3 (theme settings), 999.4 (DevTools CLI). Non-blocking carry-forward polish: FormatterView narrow-width vertical stacking (UX-05, not a WCAG-AA blocker); Gatekeeper-clean notarisation pending Apple Developer enrolment (D-02); NAT-01 configurable global summon hotkey (parked).
 
 ## Requirements
 
@@ -48,13 +48,15 @@ Design spec: `docs/superpowers/specs/2026-06-02-json-xml-formatters-design.md`. 
 - [x] Preferences persistence (theme, last-used tool, tree-style toggle) — window geometry deferred to Phase 5
 - [x] Opens to last-used or summoned tool (no "pick a tool" friction)
 
-**Six tools (hero first)**
+**Tools (hero first)**
 - [x] Protobuf Decoder (hero): schema-less wire-format tree, all viable LEN interpretations surfaced from `LenInterpretation`, resizable panes, packed-repeated UI, status bar, **cards default with rows/cards toggle** — ✓ Phase 3
 - [x] Base64 / Hex / Bytes with feature-detect polyfill (`Uint8Array.toBase64`/`fromBase64`/`toHex`/`fromHex`) — ✓ Phase 3
-- [ ] Unix Time Converter
-- [ ] JWT Debugger
-- [ ] Hash Generator (Web Crypto SHA family + small MD5 lib)
-- [ ] UUID / ULID Generator + Decoder
+- [x] Unix Time Converter — ✓ Phase 4 (v1.0)
+- [x] JWT Debugger — ✓ Phase 4 (v1.0)
+- [x] Hash Generator (Web Crypto SHA family + small MD5 lib) — ✓ Phase 4 (v1.0)
+- [x] UUID / ULID Generator + Decoder — ✓ Phase 4 (v1.0)
+- [x] JSON formatter (validate line:col / prettify 2·4·tab / minify / sort-keys; native `JSON`, zero-dep) — ✓ Phase 7 (v1.1)
+- [x] XML formatter (validate well-formedness / prettify preserving comments·CDATA·attrs·PIs / minify; native `DOMParser`, zero-dep) — ✓ Phase 7 (v1.1)
 
 **Workflow constraints (binding — apply to every tool)** — ✓ validated Phase 3 (both tools)
 - [x] Paste-transforms-instantly (no decode button for the common case)
@@ -80,7 +82,7 @@ Design spec: `docs/superpowers/specs/2026-06-02-json-xml-formatters-design.md`. 
 
 ## Context
 
-- **Current state: Milestone v1.1 "Formatters" COMPLETE** (2026-06-02 — Phases 7 + 8 both delivered & human-signed-off). All 9 v1.1 requirements ✓: FMT-01..08 (JSON + XML formatter tools behind a shared `FormatterView`, registry-only, zero new runtime deps) and UIX-01 (the `StatusBar` size readout is now opt-in — kept on Base64/Protobuf/Formatters, dropped from Hash/UUID·ULID/Unix Time/JWT). Phase 8 closed clean: code review 0 issues, verification 4/4, real-WKWebView + WCAG-AA + `tauri build` signed off; decoder + its 19 tests untouched throughout. v1.0 (Phases 1–6) shipped 2026-06-01: foundation/harness, shell, hero+encoding+UX, the catalogue tools, persistence/window-geometry, and a distributable self-updating macOS app (DST-01/DST-02). **Next: archive v1.1 (`/gsd-complete-milestone`) or promote a backlog item into a new milestone (`/gsd-review-backlog`).** **Carry-forwards (not blockers):** FormatterView narrow-width vertical stacking (UX-05, polish); Gatekeeper-clean notarisation pending Apple Developer enrolment (D-02); NAT-01 (G-05-1) parked; 3 minor a11y polish follow-ups from the updater UI review.
+- **Current state: Milestone v1.1 "Formatters" SHIPPED & ARCHIVED** (2026-06-02 — Phases 7 + 8 both delivered, human-signed-off, and archived to `.planning/milestones/v1.1-*`; tagged `v1.1`). All 9 v1.1 requirements ✓: FMT-01..08 (JSON + XML formatter tools behind a shared `FormatterView`, registry-only, zero new runtime deps) and UIX-01 (the `StatusBar` size readout is now opt-in — kept on Base64/Protobuf/Formatters, dropped from Hash/UUID·ULID/Unix Time/JWT). Phase 8 closed clean: code review 0 issues, verification 4/4, real-WKWebView + WCAG-AA + `tauri build` signed off; decoder + its 19 tests untouched throughout. v1.0 (Phases 1–6) shipped 2026-06-01: foundation/harness, shell, hero+encoding+UX, the catalogue tools, persistence/window-geometry, and a distributable self-updating macOS app (DST-01/DST-02). **Next: start the next milestone (`/gsd-new-milestone`) or promote a backlog item (`/gsd-review-backlog`).** **Carry-forwards (not blockers):** FormatterView narrow-width vertical stacking (UX-05, polish); Gatekeeper-clean notarisation pending Apple Developer enrolment (D-02); NAT-01 (G-05-1) parked; 3 minor a11y polish follow-ups from the updater UI review.
 - **Post-design, pre-implementation handoff.** Full spec in `docs/design-and-plan.md`; harness + locked decisions in `docs/harness-and-decisions.md`; original agent brief preserved in `docs/handoff-instructions.md`.
 - **Verified assets exist:** `scaffold/src/lib/` (decoder.ts ~295 lines zero-deps + 19 tests, bytes.ts, tool types/registry) — port unchanged. `design/DevTools Mockup.html` is the canonical visual system (CSS vars, IBM Plex Sans + JetBrains Mono). React components in `scaffold/` are structure-reference only — rebuild the visual layer against `design/`.
 - **macOS WKWebView automation gap:** official `tauri-driver` supports only Linux/Windows. Community W3C WebDriver plugins for macOS exist (early 2026, 0.1.x). Phase 0 spikes one; fallback is `screencapture` + `chrome-devtools-mcp` against the identical static bundle.
@@ -90,7 +92,8 @@ Design spec: `docs/superpowers/specs/2026-06-02-json-xml-formatters-design.md`. 
 
 - **Tech stack**: Tauri 2 + Vite + React + TypeScript + Tailwind; `react-router` **HashRouter only** (`BrowserRouter` forbidden — static files 404 on reload). Tool logic is pure frontend TS; Rust core is thin (clipboard, hotkey, tray, single-instance, auto-update).
 - **No network at runtime** — self-host fonts (IBM Plex Sans + JetBrains Mono, SIL OFL, vendored), no CDN, no accounts, no setup.
-- **Six tools only** — no additions from the deferred list, no matter how easy.
+- **Curated tool set, wedge-gated** — v1.0 locked "six tools only"; v1.1 deliberately reopened that to add the JSON + XML formatters (now eight tools). Growth is mechanical (registry is a plain array) but each new tool must clear the product wedge (offline, paste-instant, keyboard-driven, registry-driven, WCAG-AA, zero new runtime deps). No grab-bag additions.
+- **Zero new runtime dependencies** — every tool so far is built on native browser/Web APIs (`JSON`, `DOMParser`, Web Crypto, `Uint8Array` base64/hex); the only runtime dep is `js-md5`. Hold this line.
 - **Do not refactor `decoder.ts` or its 19 tests** without explicit approval — the test bar is the hero feature's spec.
 - **Performance**: paste-to-interpretation < 2s; the app should feel instant (OS webview, small binary).
 - **Verification (binding harness)**: every task's Definition of Done = **`/codex:review` → unit tests green (`vitest` + `tsc`) → real-webview UI verification**, in that order. Every phase ends with a **human sign-off** on a `tauri build` + `gsd-ui-review` audit. **Parallelize plans, but never let a plan advance past these gates — no skipping ahead.**
@@ -100,15 +103,19 @@ Design spec: `docs/superpowers/specs/2026-06-02-json-xml-formatters-design.md`. 
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Verify against the **built Tauri app**, not a Chrome proxy | Desktop is the product's core positioning | — Pending |
-| Per-task gate order **review → unit → ui**; human sign-off per phase | User's explicit verification discipline for a desktop app | — Pending |
-| Dedicated **walking-skeleton phase** proves the harness before any feature | De-risk the whole pipeline first; macOS webview automation is unproven | — Pending |
-| Protobuf tree **`cards` default + rows/cards toggle** (overrides handoff `tree: rows`) | User preference; build switchable format from the start | — Pending |
-| WCAG **AA across the board** | Fits keyboard-driven positioning; audited each phase | — Pending |
-| **macOS only** for now (Windows/Linux deferred) | No Windows machine; focus the v1 path | — Pending |
-| Add `src/lib/platform/` capability seam | Single mock point for tests + cheap mobile/web door | — Pending |
-| Self-host IBM Plex Sans + JetBrains Mono (SIL OFL) | "No network" constraint; licenses allow desktop redistribution | — Pending |
-| Hand-rolled decoder over `protobufjs` | The product *is* the schema-less heuristics + ambiguity UI | ✓ Good (19 tests pass) |
+| Verify against the **built Tauri app**, not a Chrome proxy | Desktop is the product's core positioning | ✓ Good — real-WKWebView e2e caught regressions unit tests missed (v1.1: `<parsererror>` newline concat) |
+| Per-task gate order **review → unit → ui**; human sign-off per phase | User's explicit verification discipline for a desktop app | ✓ Good — held through 8 phases; code review caught real bugs each milestone |
+| Dedicated **walking-skeleton phase** proves the harness before any feature | De-risk the whole pipeline first; macOS webview automation is unproven | ✓ Good — every later phase built on a de-risked pipeline |
+| Protobuf tree **`cards` default + rows/cards toggle** (overrides handoff `tree: rows`) | User preference; build switchable format from the start | ✓ Good |
+| WCAG **AA across the board** | Fits keyboard-driven positioning; audited each phase | ✓ Good — every phase passed `gsd-ui-review` WCAG-AA |
+| **macOS only** for now (Windows/Linux deferred) | No Windows machine; focus the v1 path | ✓ Good (still macOS-only at v1.1) |
+| Add `src/lib/platform/` capability seam | Single mock point for tests + cheap mobile/web door | ✓ Good — formatters' copy + every tool route through it; no `@tauri-apps` in shell |
+| Self-host IBM Plex Sans + JetBrains Mono (SIL OFL) | "No network" constraint; licenses allow desktop redistribution | ✓ Good |
+| Hand-rolled decoder over `protobufjs` | The product *is* the schema-less heuristics + ambiguity UI | ✓ Good (19 tests pass; untouched through v1.1) |
+| **Zero new runtime deps for formatters** — native `JSON`/`DOMParser`/`XMLSerializer` (v1.1) | The zero-dep ethos is part of the wedge; avoids supply-chain + bundle bloat | ✓ Good — both formatters shipped with no new deps |
+| **Shared two-pane `FormatterView`** reused by JSON + XML; pure logic in `src/lib/format/` (v1.1) | One layout, no duplication; pure logic keeps GUI thin + a future CLI reachable | ✓ Good |
+| **`StatusBar.byteCount` opt-in** via optional prop + type guard, no discriminated type (v1.1) | Minimal additive API; keep/drop decided against real callers (Phase 8 after 7) | ✓ Good |
+| **Reopen "six tools only"** to add JSON + XML formatters (v1.1) | Highest-value adjacent tools; wedge still gates additions | ✓ Good — eight tools, wedge intact |
 
 ## Evolution
 
@@ -128,4 +135,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-02 after Phase 8 (StatusBar size-readout cleanup) completion & sign-off — milestone v1.1 "Formatters" complete (Phases 7 + 8 delivered)*
+*Last updated: 2026-06-02 after v1.1 "Formatters" milestone completion (full evolution review) — Phases 7 + 8 archived, tagged v1.1*
