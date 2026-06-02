@@ -100,7 +100,7 @@ Local release-automation helper scripts for the existing Tauri 2 macOS app (CI e
 | 8. StatusBar Size-Readout Cleanup | v1.1 | 1/1 | Complete | 2026-06-02 |
 | 9. Pure release core + housekeeping | v1.2 | 2/2 | Complete   | 2026-06-02 |
 | 10. bump-and-tag driver | v1.2 | 3/3 | Complete    | 2026-06-02 |
-| 11. build-and-publish driver + universal binary + safety rails | v1.2 | 3/3 | Complete   | 2026-06-02 |
+| 11. build-and-publish driver + universal binary + safety rails | v1.2 | 3/3 | Complete    | 2026-06-02 |
 
 ## Backlog
 

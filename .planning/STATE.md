@@ -2,25 +2,25 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Release Tooling
-status: executing
-last_updated: "2026-06-02T22:51:06.000Z"
+status: completed
+last_updated: "2026-06-02T23:18:12.093Z"
 last_activity: 2026-06-02
 progress:
   total_phases: 7
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 8
-  completed_plans: 7
-  percent: 88
+  completed_plans: 8
+  percent: 100
 ---
 
 # Project State
 
 ## Current Position
 
-Phase: 11 (build-and-publish-driver-universal-binary-safety-rails) — EXECUTING
-Plan: 3 of 3
+Phase: 999.1
+Plan: Not started
 Status: Plan 11-02 COMPLETE (build-and-publish.mjs driver + pnpm release:publish, dry-run-proven) — Plan 11-03 next (human-gated real publish + updater round-trip)
-Last activity: 2026-06-02 -- Phase 11 Plan 02 complete
+Last activity: 2026-06-02
 
 **Milestone v1.2 "Release Tooling" roadmapped 2026-06-02.** Three phases (9–11), numbering continued from v1.1's Phase 8 (did NOT reset to 1). All 12 v1.2 requirements (REL-01..12) mapped 1:1 to a phase (12/12 coverage, no orphans, no duplicates). Goal: replace the manual `docs/RELEASE.md` dance with two composable local helper scripts over a unit-tested pure core. The recommended three-phase shape (HIGH-confidence convergence across all 4 researchers) was adopted unchanged:
 
