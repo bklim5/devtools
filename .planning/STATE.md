@@ -17,8 +17,8 @@ progress:
 ## Current Position
 
 Phase: 07
-Plan: Not started
-Next: **Plan Phase 7 (Formatters)** — run `/gsd-plan-phase 7`. v1.1 "Formatters" roadmap is created (Phases 7–8, continuing the v1.0 sequence — numbering did NOT reset). Phase 7 is **defined / ready to plan**.
+Plan: Not started — context gathered
+Next: **Plan Phase 7 (Formatters)** — run `/gsd-plan-phase 7`. Phase context is captured in `.planning/phases/07-formatters/07-CONTEXT.md` (4 gray-area decisions layered on the approved design spec). v1.1 "Formatters" roadmap is created (Phases 7–8, continuing the v1.0 sequence — numbering did NOT reset). Phase 7 is **discussed / ready to plan**.
 
 **Milestone v1.1 "Formatters" — roadmap created 2026-06-02.** Two phases:
 
@@ -35,6 +35,7 @@ Next: **Plan Phase 7 (Formatters)** — run `/gsd-plan-phase 7`. v1.1 "Formatter
 
 ## Recent Activity
 
+- **2026-06-02 — Phase 7 (Formatters) context gathered.** `/gsd-discuss-phase 7` captured 4 gray-area decisions the approved design spec left open: side-by-side **resizable** `FormatterView` (reuse/promote protobuf `ResizableSplit`); **read-only** output pane (no syntax highlighting); status bar shows **input→output byte delta** (small additive `StatusBar` touch, coordinate with Phase 8); **shared top toolbar** (JSON shows sort-keys, XML doesn't). Written to `.planning/phases/07-formatters/07-CONTEXT.md` + `07-DISCUSSION-LOG.md`. Next: `/gsd-plan-phase 7`.
 - **2026-06-02 — v1.1 "Formatters" milestone roadmap created.** Phases 7 (Formatters, FMT-01..08) + 8 (StatusBar size-readout cleanup, UIX-01) written to `.planning/ROADMAP.md`; all 9 v1.1 requirements mapped (9/9 coverage) in `.planning/REQUIREMENTS.md` Traceability; STATE.md reset for v1.1. Numbering continues from v1.0 (which ended at Phase 6) — did NOT reset to 1.
 
 ## Blocker
