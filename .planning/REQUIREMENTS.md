@@ -16,13 +16,13 @@ hero decoder (`src/lib/protobuf/decoder.ts`) + its 19 tests stay untouched.
 ### Formatters (FMT)
 
 - [x] **FMT-01**: User can paste JSON and see it validated instantly; on invalid input the error is shown as line:col + message
-- [ ] **FMT-02**: User can prettify JSON with a selectable indent (2 spaces / 4 spaces / tab)
-- [ ] **FMT-03**: User can minify (compress) JSON to a single line
+- [x] **FMT-02**: User can prettify JSON with a selectable indent (2 spaces / 4 spaces / tab)
+- [x] **FMT-03**: User can minify (compress) JSON to a single line
 - [x] **FMT-04**: User can sort JSON object keys recursively (array order preserved)
 - [ ] **FMT-05**: User can paste XML and see it validated for well-formedness instantly; on invalid input the parser error is surfaced
 - [ ] **FMT-06**: User can prettify XML with a selectable indent, preserving comments, CDATA, attributes, and processing instructions
 - [x] **FMT-07**: User can minify (compress) XML by stripping insignificant inter-element whitespace
-- [ ] **FMT-08**: User can copy the formatted output via a visible, keyboard-focusable control (no hover-only)
+- [x] **FMT-08**: User can copy the formatted output via a visible, keyboard-focusable control (no hover-only)
 
 ### UX Cleanup (UIX)
 
@@ -48,13 +48,13 @@ Every v1.1 requirement maps to exactly one phase. Coverage: 9/9.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | FMT-01 | Phase 7 | Complete |
-| FMT-02 | Phase 7 | Pending |
-| FMT-03 | Phase 7 | Pending |
+| FMT-02 | Phase 7 | Complete |
+| FMT-03 | Phase 7 | Complete |
 | FMT-04 | Phase 7 | Complete |
 | FMT-05 | Phase 7 | Pending |
 | FMT-06 | Phase 7 | Pending |
 | FMT-07 | Phase 7 | Complete |
-| FMT-08 | Phase 7 | Pending |
+| FMT-08 | Phase 7 | Complete |
 | UIX-01 | Phase 8 | Pending |
 
 ---
