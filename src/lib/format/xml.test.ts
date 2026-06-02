@@ -4,7 +4,7 @@
 // minify inter-element whitespace, empty -> ok-empty. jsdom supplies DOMParser +
 // XMLSerializer, mirroring the WKWebView path (the e2e proves the real engine).
 import { describe, expect, it } from "vitest";
-import { formatXml } from "./xml";
+import { formatXml, normalizeParseError } from "./xml";
 
 // UTF-8 byte length, matching the implementation's TextEncoder use.
 function byteLen(s: string): number {
@@ -138,6 +138,64 @@ describe("formatXml", () => {
         expect(typeof result.error.line).toBe("number");
         expect(result.error.line).toBeGreaterThanOrEqual(1);
       }
+    });
+
+    it("strips the jsdom 'L:C:' location prefix, surfacing only the cause", () => {
+      // jsdom emits e.g. "1:10: unexpected close tag." — the leading "line:col:"
+      // is redundant with the StatusBar's own "line N:" prefix and must be removed.
+      const result = formatXml("<a><b></a>", { indent: "2", minify: false });
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      // The 1-based line is still extracted for the tool's own prefix.
+      expect(result.error.line).toBe(1);
+      // The message no longer carries the "1:10:" location text.
+      expect(result.error.message).not.toMatch(/^\s*\d+:\d+:/);
+      expect(result.error.message).not.toContain(":10:");
+      // It still carries the human-meaningful cause.
+      expect(result.error.message.toLowerCase()).toContain("close tag");
+    });
+  });
+
+  describe("normalizeParseError: cleans BOTH WebKit and jsdom shapes (Fix-1)", () => {
+    // WebKit/WKWebView (the real e2e engine) emits a multi-line <parsererror>:
+    //   "This page contains the following errors:\n
+    //    error on line 1 at column 11: Opening and ending tag mismatch: b line 1 and a\n
+    //    Below is a rendering of the page up to the first error."
+    // normalizeParseError must strip the preamble, the trailing "Below is a
+    // rendering…" line, AND the redundant "error on line N at column C:" fragment,
+    // leaving just the cause — and still recover the line number.
+    const webkitText =
+      "This page contains the following errors:\n" +
+      "error on line 1 at column 11: Opening and ending tag mismatch: b line 1 and a\n" +
+      "Below is a rendering of the page up to the first error.";
+
+    it("WebKit shape: strips preamble + location + trailing render line", () => {
+      const { message, line } = normalizeParseError(webkitText);
+      expect(line).toBe(1);
+      expect(message).not.toContain("This page contains the following errors");
+      expect(message).not.toContain("Below is a rendering");
+      expect(message).not.toMatch(/error on line \d+ at column \d+:/);
+      expect(message).toContain("Opening and ending tag mismatch: b");
+    });
+
+    it("jsdom shape: strips the leading 'L:C:' location prefix", () => {
+      const { message, line } = normalizeParseError("1:10: unexpected close tag.");
+      expect(line).toBe(1);
+      expect(message).toBe("unexpected close tag.");
+      expect(message).not.toMatch(/^\s*\d+:\d+:/);
+    });
+
+    it("falls back to 'Invalid XML' when no cause survives the cleanup", () => {
+      const { message } = normalizeParseError(
+        "This page contains the following errors:\nBelow is a rendering of the page up to the first error.",
+      );
+      expect(message).toBe("Invalid XML");
+    });
+
+    it("returns undefined line when the engine embeds no location", () => {
+      const { message, line } = normalizeParseError("Premature end of data.");
+      expect(message).toBe("Premature end of data.");
+      expect(line).toBeUndefined();
     });
   });
 

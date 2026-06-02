@@ -119,6 +119,55 @@ function lineFromParseError(message: string): number | undefined {
 }
 
 /**
+ * Normalize a raw `<parsererror>.textContent` into a tool-quality `{ message, line }`,
+ * mirroring the clean shape the JSON path produces. The two engines we run on emit
+ * DIFFERENT text and must BOTH be cleaned:
+ *
+ * - WebKit / WKWebView (the real e2e engine) wraps the cause in browser plumbing:
+ *     "This page contains the following errors:\n
+ *      error on line N at column C: <cause>\n
+ *      Below is a rendering of the page up to the first error."
+ *   We strip the "This page contains…" preamble, the trailing "Below is a rendering…"
+ *   line, and the redundant "error on line N at column C:" location fragment (the
+ *   line is surfaced via the tool's own "line N:" prefix), leaving just <cause>.
+ *
+ * - jsdom emits a terse "L:C: <cause>" (leading "line:col:"); we drop that prefix.
+ *
+ * The 1-based `line` is recovered from whichever shape carried it (via
+ * `lineFromParseError`, run BEFORE the location text is stripped). When nothing
+ * meaningful survives the cleanup we fall back to "Invalid XML".
+ */
+export function normalizeParseError(raw: string): { message: string; line?: number } {
+  const line = lineFromParseError(raw);
+
+  const cleaned = raw
+    .split("\n")
+    // Drop WebKit's preamble and trailing render-status lines outright.
+    .filter((l) => {
+      const t = l.trim();
+      if (t === "") return false;
+      if (/^this page contains the following errors:?$/i.test(t)) return false;
+      if (/^below is a rendering of the page/i.test(t)) return false;
+      return true;
+    })
+    // Strip the leading location text from each surviving line:
+    //   WebKit: "error on line N at column C: <cause>" -> "<cause>"
+    //   jsdom:  "N:C: <cause>"                          -> "<cause>"
+    .map((l) =>
+      l
+        .trim()
+        .replace(/^error on line\s+\d+\s+at column\s+\d+:\s*/i, "")
+        .replace(/^\d+:\d+:\s*/, "")
+        .trim(),
+    )
+    .filter((l) => l !== "")
+    .join(" ")
+    .trim();
+
+  return { message: cleaned || "Invalid XML", line };
+}
+
+/**
  * Validate + format XML.
  *
  * @param input Raw user-pasted text.
@@ -133,8 +182,9 @@ export function formatXml(input: string, opts: FormatOptions): FormatResult {
   const doc = new DOMParser().parseFromString(input, "application/xml");
   const parseError = doc.querySelector("parsererror");
   if (parseError) {
-    const message = (parseError.textContent ?? "").trim() || "Invalid XML";
-    return { ok: false, error: { message, line: lineFromParseError(message) } };
+    // Normalize the raw engine text into a clean { message, line } — stripping the
+    // WebKit boilerplate / jsdom location prefix so only the cause reaches the user.
+    return { ok: false, error: normalizeParseError(parseError.textContent ?? "") };
   }
 
   const serializer = new XMLSerializer();
