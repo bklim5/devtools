@@ -37,7 +37,7 @@ Full detail: `.planning/milestones/v1.1-ROADMAP.md`
 Local release-automation helper scripts for the existing Tauri 2 macOS app (CI explicitly parked to backlog 999.2). Replaces the manual `docs/RELEASE.md` dance with two composable scripts — `bump-and-tag` and `build-and-publish` — over a unit-tested pure core in a new `src/lib/release/`. **Zero new runtime dependencies** (devDeps OK for tooling; Node builtins + `tsx` + Tauri CLI + `gh` + `rustup` cover everything); the hero decoder `src/lib/protobuf/decoder.ts` + its 19 tests stay byte-for-byte untouched. Phases 9–11 touch **no app UI** — the per-task real-WKWebView UI gate is N/A except Phase 11's **real updater round-trip**, which is the load-bearing DST-02 proof and the milestone's human sign-off.
 
 - [x] Phase 9: Pure release core + housekeeping — new `src/lib/release/` (`version.ts` semver bump + per-manifest content edits incl. `[package]`-scoped Cargo edit; `manifest.ts` `buildLatestJson` + dual-key `platformKey`), unit-tested via the existing `tsc`+`vitest` gate; one-time `Cargo.toml` 0.1.0 → current reconcile + untrack the stale `latest.json` (completed 2026-06-02)
-- [ ] Phase 10: `bump-and-tag` driver — thin `scripts/bump-and-tag.mjs` importing Phase 9; lockstep 3-file write + lockfile regen, `vX.Y.Z` tag + push to private `origin`, `--dry-run` + preflights (bump half); wire `pnpm release:bump`
+- [x] Phase 10: `bump-and-tag` driver — thin `scripts/bump-and-tag.mjs` importing Phase 9; lockstep 3-file write + lockfile regen, `vX.Y.Z` tag + push to private `origin`, `--dry-run` + preflights (bump half); wire `pnpm release:bump` (completed 2026-06-02)
 - [ ] Phase 11: `build-and-publish` driver + universal binary + safety rails — `scripts/build-and-publish.mjs`; universal `tauri build`, fresh-`.sig` dual-key `latest.json`, cross-repo `gh` publish, `APPLE_*` passthrough, `--dry-run` + build-time preflights (publish half), post-publish `curl` verify; wire `pnpm release:publish` + `release` umbrella; **real updater round-trip is the human-gate acceptance criterion**
 
 ## Phase Details
@@ -69,7 +69,7 @@ Local release-automation helper scripts for the existing Tauri 2 macOS app (CI e
 **Plans**: 3 plans (3 waves)
   - [x] 10-01-PLAN.md — Commit the deferred Cargo.lock 0.1.0→0.2.1 reconcile as standalone housekeeping (clean tree before the driver runs)
   - [x] 10-02-PLAN.md — Pure, unit-tested bump-driver decision core `src/lib/release/bumpPlan.ts` (arg parsing, single-computed-version plan, allowlist diff, dry-run/recovery text) — REL-01/10/11 automated coverage
-  - [ ] 10-03-PLAN.md — Thin I/O driver `scripts/bump-and-tag.mjs` + `pnpm release:bump` (preflights → lockstep bump → lockfiles → commit → annotated tag → y/N → push), with --dry-run + human-gated real push
+  - [x] 10-03-PLAN.md — Thin I/O driver `scripts/bump-and-tag.mjs` + `pnpm release:bump` (preflights → lockstep bump → lockfiles → commit → annotated tag → y/N → push), with --dry-run + human-gated real push
 
 ### Phase 11: `build-and-publish` driver + universal binary + safety rails
 **Goal**: A maintainer can build a signed universal (Intel + Apple Silicon) macOS binary and publish it to the public releases repo with a `latest.json` generated from this build's fresh signature, such that an older install on either architecture detects, signature-verifies, and relaunches into the new version — guarded by `--dry-run`, build-time preflights, and a post-publish endpoint check so a broken release can never silently auto-install onto every user.
@@ -96,7 +96,7 @@ Local release-automation helper scripts for the existing Tauri 2 macOS app (CI e
 | 7. Formatters | v1.1 | 3/3 | Complete | 2026-06-02 |
 | 8. StatusBar Size-Readout Cleanup | v1.1 | 1/1 | Complete | 2026-06-02 |
 | 9. Pure release core + housekeeping | v1.2 | 2/2 | Complete   | 2026-06-02 |
-| 10. bump-and-tag driver | v1.2 | 1/3 | In Progress|  |
+| 10. bump-and-tag driver | v1.2 | 3/3 | Complete    | 2026-06-02 |
 | 11. build-and-publish driver + universal binary + safety rails | v1.2 | 0/0 | Not started | - |
 
 ## Backlog
@@ -120,7 +120,7 @@ Unsequenced ideas captured for future planning. Promote with `/gsd-review-backlo
 Each candidate must still pass the product wedge: offline/no-network, paste-instant (<2s), keyboard-driven, registry-driven, WCAG-AA, and the build+verify harness.
 
 **Requirements:** TBD
-**Plans:** 1/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)

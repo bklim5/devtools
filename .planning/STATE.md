@@ -3,24 +3,24 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Release Tooling
 status: executing
-last_updated: "2026-06-02T21:24:26.936Z"
-last_activity: 2026-06-02
+last_updated: "2026-06-02T22:02:39.937Z"
+last_activity: 2026-06-02 -- Phase 10 complete (verified, live v0.2.2 pushed); Phase 11 remains
 progress:
-  total_phases: 7
+  total_phases: 3
   completed_phases: 2
-  total_plans: 5
-  completed_plans: 5
-  percent: 100
+  total_plans: 8
+  completed_plans: 8
+  percent: 67
 ---
 
 # Project State
 
 ## Current Position
 
-Phase: 10 (bump-and-tag-driver) — ALL 3 PLANS COMPLETE (pending phase-boundary human sign-off)
-Plan: 3 of 3 — COMPLETE
-Status: Plans 10-01 + 10-02 + 10-03 all complete. Live v0.2.2 release cut + pushed to origin. REL-01/03/04/10/11 satisfied.
-Last activity: 2026-06-02 -- Plan 10-03 complete (bump-and-tag.mjs driver + live v0.2.2 push)
+Phase: 11 (build-and-publish) — NEXT, not yet planned. Phase 10 COMPLETE & VERIFIED (5/5).
+Plan: Not started
+Status: Phase 10 fully delivered — plans 10-01 + 10-02 + 10-03 all complete, 10-VERIFICATION.md = passed (5/5). Live v0.2.2 release cut + pushed to origin. REL-01/03/04/10/11 satisfied. Awaiting Phase 10 boundary human sign-off, then `/gsd-plan-phase 11`.
+Last activity: 2026-06-02
 
 **Milestone v1.2 "Release Tooling" roadmapped 2026-06-02.** Three phases (9–11), numbering continued from v1.1's Phase 8 (did NOT reset to 1). All 12 v1.2 requirements (REL-01..12) mapped 1:1 to a phase (12/12 coverage, no orphans, no duplicates). Goal: replace the manual `docs/RELEASE.md` dance with two composable local helper scripts over a unit-tested pure core. The recommended three-phase shape (HIGH-confidence convergence across all 4 researchers) was adopted unchanged:
 
@@ -32,7 +32,7 @@ Last activity: 2026-06-02 -- Plan 10-03 complete (bump-and-tag.mjs driver + live
 
 App semver (`0.2.x`) stays decoupled from GSD milestone tags (`v1.x`); the pipeline keys off the **app** version. CI is PARKED — the remaining CI track stays in ROADMAP.md backlog 999.2 (cross-repo PAT + minisign secrets in Actions, CI checks on push/PR, tag-triggered CI release).
 
-Next: `/gsd-execute-phase 10`.
+Next: `/gsd-plan-phase 11` (Phase 10 done; awaiting boundary human sign-off).
 
 **Standing constraints carried into v1.2 (binding):** offline/no-network at runtime; paste-instant (<2s); keyboard-driven; registry-driven single control plane; HashRouter only; WCAG-AA across the board; layout-agnostic tool components; **zero new runtime dependencies** (devDependencies are acceptable for release tooling — but the converged research finding is that even devDeps are unnecessary; Node builtins + `tsx` + Tauri CLI + `gh` + `rustup` cover everything); **the hero decoder `src/lib/protobuf/decoder.ts` + its 19 tests stay byte-for-byte untouched**. Per-task DoD order: `/simplify` → `/codex:review` → `vitest` + `tsc` + `eslint` green → real-WKWebView UI verification **where UI is touched**. **Phases 9–11 touch NO app UI** — the per-task real-WKWebView UI gate is N/A except Phase 11's real updater round-trip, which IS the milestone's human sign-off. Each phase boundary ends with a human sign-off.
 
@@ -54,6 +54,7 @@ Phase 09 delivered the full unit-testable pure release core: `src/lib/release/ve
 
 ## Recent Activity
 
+- **2026-06-02 — Phase 10 VERIFIED & COMPLETE (5/5 must-haves).** `10-VERIFICATION.md` = passed: all 5 ROADMAP success criteria exercised behaviorally (REL-01 single-source bump, REL-03 clean tagged tree, REL-04 live push re-confirmed via `git ls-remote --tags origin v0.2.2`, REL-10 dry-run zero-diff, REL-11 preflight abort). Code review (`10-REVIEW.md`): 0 critical, 3 warning, 4 info — injection-clean (`execFileSync` argv throughout), porcelain-raw fix verified sound. **WR-01 fixed** (`0c936193`): post-tag failures now print `renderRecovery` via a `taggedPlan` sentinel + throw-routing of the clean-tree assertion (D-09/D-10); WR-02/WR-03 are non-blocking fail-safe robustness notes. Full suite vitest 463/463, tsc + eslint clean, decoder + its 19 tests untouched, zero new runtime deps. **Next: Phase 10 boundary human sign-off, then `/gsd-plan-phase 11`.**
 - **2026-06-02 — Phase 10 Plan 03 (`scripts/bump-and-tag.mjs` driver + live `v0.2.2` push) COMPLETE.** The thin Node ESM I/O driver wraps the Plan 02 pure core and is wired to `pnpm release:bump` (`tsx scripts/bump-and-tag.mjs`): read current version → all read-only preflights (clean tree, branch==master, tag absent local+remote, vitest+tsc+eslint gate) → `--dry-run` short-circuit → apply 3 manifest edits → `pnpm install --lockfile-only --offline` + `cargo update -p devtools-app --offline` (cwd src-tauri) → allowlist diff → stage-only-if-changed → commit `chore(release): vX.Y.Z` → annotated tag → clean-tree assert → print push plan → TTY-guarded y/N → push commit then tag, with `renderRecovery` printed on decline/failure (NEVER a tool-initiated `git reset`/`git tag -d`). `execFileSync` argv arrays throughout (no shell injection, T-10-04). **Live release cut:** maintainer ran `pnpm release:bump patch` and pushed `chore(release): v0.2.2` (`802707d6`) + annotated tag `v0.2.2` to private origin (`git ls-remote --tags origin v0.2.2` returns `b210ed19…`); all 3 manifests + `Cargo.lock` at `0.2.2`, tree clean. **One deviation (Rule 1 bug, fix `365d341f`):** the live run surfaced a real bug — `run()` globally trimmed stdout, stripping the significant leading space of the FIRST `git status --porcelain` line, so `changedPaths()`'s `slice(3)` mangled the first changed path (`package.json` → `ackage.json`) and the allowlist diff aborted the bump; fix added a `raw` option to `run()` so `changedPaths()` reads porcelain untrimmed. Reproduced against the dirty tree, re-verified via `--dry-run` + a full non-interactive real run (commit+tag created then undone), then the maintainer re-ran interactively and pushed for real. Tasks 1–2 were committed earlier at `a74cfc1b` (driver+wiring); the porcelain-raw fix at `365d341f`; the release commit at `802707d6`. **REL-01/REL-03/REL-04/REL-10/REL-11 ✓** — Phase 10 fully delivered (5/5 mapped requirements). Zero new deps; decoder + its 19 tests untouched. **Next: Phase 10 boundary human sign-off, then `/gsd-plan-phase 11`.**
 - **2026-06-02 — Phase 10 Plan 02 (pure `bumpPlan.ts` decision core) COMPLETE (TDD).** New `src/lib/release/bumpPlan.ts` (262 lines) + `bumpPlan.test.ts` (292 lines, 47 cases) deliver the side-effect-free brain of the bump driver, giving **REL-01/REL-10/REL-11 automated coverage**. Exports: `parseBumpArgs` (D-01/D-02 grammar — only `patch|minor|major` + `--dry-run`; throws naming an explicit-version arg, `--no-push`, `--skip-checks`, a duplicate level, or any unknown token, with the usage in every message), `buildBumpPlan` (**single computed version** — `bumpSemver` called EXACTLY ONCE, threaded into all 3 manifest `apply` closures + the `vX.Y.Z` annotated tag + the `chore(release): vX.Y.Z` commit msg + a git command list that pushes commit-before-tag per §Q6; malformed input lets the throw propagate), `assertOnlyExpectedPaths`+`ALLOWED_PATHS` (5-path allowlist diff that **tolerates the pnpm-lock no-op** — 4 or even 3 paths valid — but rejects strays + missing manifests + the empty set), `renderDryRunPlan`+`renderRecovery` (pure return-strings: dry-run plan carries the one version/edits/lockfile-regen/git-cmds/push-target; recovery is the literal copy-pasteable retry-push + `git tag -d` / `git reset --hard|--soft HEAD~1` block, D-09/D-10), and `isAffirmative` (default NO). **Provably pure** — grep audit confirms no `node:fs`/`node:child_process`/`process.argv`/`console.` and no top-level executable statements. Three atomic feat commits (`612f07ba` parse+confirm, `fe76c888` buildBumpPlan single-source, `578e4a25` allowlist+dry-run+recovery); Task 4 was a verification-only full-gate + purity audit (no commit). Full gate green: vitest **463/463** (47 files), `tsc --noEmit` clean, `eslint .` clean; **decoder 19/19 untouched**, zero new deps. Zero deviations (two doc-comment rewordings to satisfy the negative-grep purity check were in-spec). **Next: Plan 10-03 (thin `bump-and-tag.mjs` driver + `pnpm release:bump`, NOT autonomous — wave 3 ends at the human-gated live-push checkpoint).**
 - **2026-06-02 — Phase 10 Plan 01 (Cargo.lock reconcile housekeeping) COMPLETE.** Committed the Phase-9-deferred `Cargo.lock` `devtools-app` `0.1.0 → 0.2.1` reconcile as a standalone `chore(release):` housekeeping commit (`8a0b2975`) — diff-verified to be EXACTLY the single own-version line (no other package versions/checksums shifted, T-10-01) and staged via explicit path (never `git add -A`, T-10-02), so the future bump commit stays diff-pure (criterion #1 / D-11 / RESEARCH §P6). Source tree now clean of the dirty lockfile, so Plan 10-03's D-08 clean-tree preflight will not falsely abort. Full gate green on the reconciled tree: vitest **416/416** (46 files, decoder 19 + Phase 9 release-lib), `tsc --noEmit` clean, `eslint .` clean. No code changed beyond the lockfile, so `/simplify` was a no-op and Task 2 was a verification-only regression guard (no commit). **REL-03 ✓.** Two tasks, zero deviations. **Next: Plan 10-02 (TDD pure `bumpPlan.ts` decision core).**
