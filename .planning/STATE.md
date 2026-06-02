@@ -16,10 +16,10 @@ progress:
 
 ## Current Position
 
-Phase: 9 (Pure release core + housekeeping) — not started
+Phase: 9 (Pure release core + housekeeping) — context gathered, not yet planned
 Plan: —
-Status: Roadmap created; ready to plan Phase 9
-Last activity: 2026-06-02 — Milestone v1.2 "Release Tooling" roadmap created (Phases 9–11)
+Status: Context captured (09-CONTEXT.md); ready to plan Phase 9
+Last activity: 2026-06-02 — Phase 9 context gathered (4 decisions: surgical manifest edits, pure options-object buildLatestJson, minimal hand-rolled semver, idempotent latest.json verify + dogfooded Cargo reconcile)
 
 **Milestone v1.2 "Release Tooling" roadmapped 2026-06-02.** Three phases (9–11), numbering continued from v1.1's Phase 8 (did NOT reset to 1). All 12 v1.2 requirements (REL-01..12) mapped 1:1 to a phase (12/12 coverage, no orphans, no duplicates). Goal: replace the manual `docs/RELEASE.md` dance with two composable local helper scripts over a unit-tested pure core. The recommended three-phase shape (HIGH-confidence convergence across all 4 researchers) was adopted unchanged:
 
