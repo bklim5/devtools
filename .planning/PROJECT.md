@@ -8,6 +8,18 @@ DevTools is a fast, offline, keyboard-driven **desktop application** (macOS firs
 
 **Paste an unknown blob → get a usable, explorable interpretation in under 2 seconds, entirely offline, without touching the mouse.** If everything else fails, the Protobuf decoder doing this flawlessly is the product.
 
+## Current Milestone: v1.1 Formatters
+
+**Goal:** Add JSON and XML formatter tools (zero-dependency, native `JSON`/`DOMParser`) with a jsonlint-style feature set, plus a small status-bar cleanup.
+
+**Target features:**
+- JSON formatter — validate (line:col), prettify (2/4/tab), minify, sort keys
+- XML formatter — validate (well-formedness), prettify (preserving comments/CDATA/attrs/PIs), minify
+- Two-pane paste-instant UI via a shared `FormatterView`; visible focusable copy
+- Status-bar size readout becomes opt-in (kept on Base64/Protobuf/Formatters; dropped on Hash/UUID/Unix Time/JWT)
+
+Design spec: `docs/superpowers/specs/2026-06-02-json-xml-formatters-design.md`. SQL deferred to backlog 999.1; DevTools CLI to 999.4.
+
 ## Requirements
 
 ### Validated
