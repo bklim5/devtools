@@ -376,9 +376,11 @@ function main() {
   publish(view, version, { x86Present });
 }
 
-main().catch((err) => {
+try {
+  main();
+} catch (err) {
   // buildLatestJson / assertSingleSig / parseLipoArchs throws land here: fail
   // loud, never swallow.
   logErr(`\npublish failed: ${err?.message ?? err}`);
   process.exit(1);
-});
+}
