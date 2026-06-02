@@ -192,6 +192,13 @@ function regenLockfiles() {
 }
 
 /**
+ * Once the annotated tag exists, a local commit + tag are present on disk. Any
+ * later failure (incl. the top-level catch) must print recovery so the maintainer
+ * can retry the push or undo the bump (D-09/D-10) — never a bare "bump failed".
+ */
+let taggedPlan = null;
+
+/**
  * Stage exactly the changed paths that are in the allowlist, commit, and create
  * the annotated tag. Runs `assertOnlyExpectedPaths` (from the core) BEFORE the
  * commit so a stray edit can never be tagged (D-11 / T-10-10).
@@ -209,11 +216,13 @@ function commitAndTag(plan) {
   log(`Committed: ${plan.commitMessage}`);
 
   run("git", ["tag", "-a", plan.tag, "-m", plan.tag]); // annotated (D-04)
+  taggedPlan = plan; // from here on, failures must surface recovery (D-09/D-10)
   log(`Created annotated tag: ${plan.tag}`);
 
-  // Criterion #2: the tagged tree must be clean before any push.
+  // Criterion #2: the tagged tree must be clean before any push. Throw (not
+  // abort) so the top-level catch prints recovery — the commit + tag exist.
   if (changedPaths().length > 0) {
-    abort("working tree is not clean after commit — refusing to push. Inspect `git status`.");
+    throw new Error("working tree is not clean after commit — refusing to push. Inspect `git status`.");
   }
   log("Working tree clean after commit.");
 }
@@ -303,5 +312,10 @@ main().catch((err) => {
   // setXVersion / buildBumpPlan throws (malformed manifest, etc.) land here:
   // fail loud, never swallow.
   logErr(`\nbump failed: ${err?.message ?? err}`);
+  // If the tag was already created, a local commit + tag are on disk — print
+  // recovery so the maintainer can retry the push or undo (D-09/D-10).
+  if (taggedPlan) {
+    logErr(`\n${renderRecovery(taggedPlan)}`);
+  }
   process.exit(1);
 });
