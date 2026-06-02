@@ -29,6 +29,8 @@ The app now ships **eight tools**: the Protobuf hero, Base64/Hex/Bytes, Unix Tim
 
 **Scope notes:** App semver (`0.2.x`) stays decoupled from GSD milestone tags (`v1.x`); the release pipeline keys off the **app** version. CI (checks on push/PR + tag-triggered CI release, cross-repo PAT, minisign secrets in Actions) is **parked** for a follow-on milestone. Non-blocking carry-forwards: FormatterView narrow-width vertical stacking (UX-05); NAT-01 configurable global summon hotkey (parked).
 
+**Progress:** Phase 9 (pure release core + housekeeping) **complete & verified** (2026-06-02, 5/5 must-haves) — `src/lib/release/version.ts` (`bumpSemver` + three surgical `setXVersion` manifest editors) + `manifest.ts` (`buildLatestJson` + dual-key `platformKey`), fully unit-tested; `Cargo.toml` reconciled 0.1.0→0.2.1 (REL-02), stale `latest.json` untracked + gitignored (REL-08). Zero new deps, decoder untouched. Next: Phase 10 (`bump-and-tag` driver).
+
 ## Requirements
 
 ### Validated
@@ -144,4 +146,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-02 — milestone v1.2 "Release Tooling" started (local release helper scripts; CI parked). Previous: v1.1 "Formatters" completion (full evolution review) — Phases 7 + 8 archived, tagged v1.1*
+*Last updated: 2026-06-02 — Phase 9 (pure release core + housekeeping) complete & verified within milestone v1.2 "Release Tooling". Previous: v1.2 started (local release helper scripts; CI parked); v1.1 "Formatters" — Phases 7 + 8 archived, tagged v1.1*
