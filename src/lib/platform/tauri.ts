@@ -23,6 +23,10 @@ import { relaunch } from "@tauri-apps/plugin-process";
 import { listen } from "@tauri-apps/api/event";
 import type { Platform } from "./index";
 import type { Store } from "./stub";
+import {
+  initialDownloadProgress,
+  reduceDownloadProgress,
+} from "../update/downloadProgress";
 
 /**
  * Real on-disk Store impl (SHL-05, D-09), backed by @tauri-apps/plugin-store.
@@ -87,14 +91,15 @@ export const tauriPlatform: Platform = {
     async downloadAndInstall(onProgress) {
       const u = await check();
       if (!u) return;
+      // Fold the plugin's Started/Progress/Finished events into a 0-100 percent
+      // via the pure reducer. `chunkLength` is per-chunk BYTES, not a percent —
+      // forwarding it raw showed "8000%". Progress is best-effort/non-load-bearing
+      // for DST-02 (the minisign verify + install is the load-bearing part).
+      let progress = initialDownloadProgress;
       await u.downloadAndInstall((event) => {
-        // Forward DownloadProgress events to the optional progress callback as a
-        // number. Progress is best-effort/non-load-bearing for DST-02 (the verify
-        // + install is); the plugin emits Started(contentLength) then a series of
-        // Progress(chunkLength) then Finished.
-        if (event.event === "Progress" && onProgress) {
-          onProgress(event.data.chunkLength);
-        }
+        const next = reduceDownloadProgress(progress, event);
+        progress = next.state;
+        if (onProgress && next.pct !== undefined) onProgress(next.pct);
       });
       await relaunch();
     },
