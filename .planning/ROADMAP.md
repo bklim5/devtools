@@ -75,14 +75,33 @@ Each candidate must still pass the product wedge: offline/no-network, paste-inst
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
 
-### Phase 999.2: CI integration (BACKLOG)
+### Phase 999.2: Release automation + CI integration (BACKLOG)
 
-**Goal:** [Captured for future planning] — automate the build+verify harness in CI (vitest + tsc + eslint + real-WKWebView e2e, and possibly `tauri build` + release publishing to the public releases repo).
-**Requirements:** TBD
+**Goal:** [Captured for future planning] — automate the release/distribution pipeline and the build+verify harness. Replace the manual `docs/RELEASE.md` dance (bump version → `tauri build` → publish to the public releases repo → hand-assemble `latest.json`) with local helper scripts, then wire CI on top: CI checks on every push/PR, and a tag-triggered CI release later.
+
+**Pre-discussion decisions (captured 2026-06-02, before formal milestone planning):**
+
+1. **Trigger model:** a git **tag push `vX.Y.Z`** cuts the signed release + updater bump. **CI checks (vitest + tsc + eslint) run on every push/PR to main/master REGARDLESS of publishing.** (Real-WKWebView e2e in CI is a stretch goal — macOS-runner + webview-automation cost.)
+2. **Version bump = local helper script first, CI-integratable later.** Something like `pnpm release [patch|minor|major]` that bumps `package.json` + `src-tauri/tauri.conf.json` **in lockstep** (the D-16 lockstep from RELEASE.md; Cargo.toml is currently 0.1.0 and NOT part of it — decide whether to include it), commits, creates the `vX.Y.Z` tag, and pushes (push is what fires the release).
+3. **App semver (`0.2.x`) stays DECOUPLED from GSD milestone tags (`v1.1`).** Two numbering systems on purpose: GSD `vMAJOR.MINOR` tracks planning milestones; app `vX.Y.Z` is what the updater compares. The release pipeline keys off the **app** version.
+4. **Split the automation into two scripts** (both local now, both CI-callable later):
+   - **bump-and-tag** (decision #2 above).
+   - **build-and-publish** — runs `pnpm tauri build`, then **generates `latest.json` from the FRESH `*.app.tar.gz.sig`** (automating the fragile manual paste RELEASE.md §5 warns about — never reuse a stale `.sig`), creates the GitHub Release on `bklim5/devtools-releases`, and uploads DMG + `.app.tar.gz` + `latest.json`.
+
+**Context the milestone must fold in (from RELEASE.md + repo state, 2026-06-02):**
+
+- **Split-repo publish:** private source `bklim5/devtools` → public `bklim5/devtools-releases` (assets + `latest.json` only). Updater endpoint pinned to `releases/latest/download/latest.json` on the public repo. CI publishing across repos needs a **cross-repo PAT** — the default `GITHUB_TOKEN` cannot write releases to a different repo.
+- **Signing secrets:** minisign **private key (`~/.tauri/devtools.key`) + password** must move into **GitHub Actions secrets** for CI release (mandatory; DST-02 verify-before-apply). Only the public key is in the repo (`tauri.conf.json` `plugins.updater.pubkey`).
+- **arm64-only gap (Pitfall 7):** a local Apple-Silicon build serves only `darwin-aarch64`. Intel/`darwin-x86_64` or `--target universal-apple-darwin` coverage is a CI-phase improvement to consider.
+- **Apple notarisation stays DEFERRED** (ad-hoc signing) until Apple Developer enrolment (D-02) — but scripts should be **notarisation-ready** (honor `APPLE_*` env if present, per RELEASE.md "post-enrolment flip").
+- **macOS runner required** for `tauri build`; private-repo Actions minutes are billed — a reason CI *release* is deferred while CI *checks* run regardless.
+- **Stale committed `latest.json`** at repo root (currently 0.2.1) — decide whether to keep it generated-only / stop committing it.
+
+**Requirements:** TBD (define during `/gsd-new-milestone`)
 **Plans:** 0 plans
 
 Plans:
-- [ ] TBD (promote with /gsd-review-backlog when ready)
+- [ ] TBD (promote with /gsd-review-backlog or seed `/gsd-new-milestone` when ready)
 
 ### Phase 999.3: Theme settings (BACKLOG)
 
