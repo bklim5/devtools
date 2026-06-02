@@ -11,7 +11,9 @@
 //   number in that text, a 1-based `line` (D-09). XML never sorts (no sortKeys).
 // - Prettify re-emits with `opts.indent` (2/4/tab), each element node on its own
 //   indented line, PRESERVING comments, CDATA, processing instructions, and
-//   attributes (FMT-06); empty elements stay self-closing.
+//   attributes (FMT-06); empty elements stay self-closing. Document-level nodes
+//   OUTSIDE the root element (top-level comments / PIs) are preserved too, and a
+//   leading `<?xml …?>` declaration is re-emitted when the input had one (WR-01).
 // - Minify strips insignificant inter-element whitespace (FMT-07) while keeping
 //   significant text.
 //
@@ -93,6 +95,17 @@ function stripInsignificantWhitespace(node: Node): void {
 }
 
 /**
+ * The leading XML declaration, verbatim, when the input opens with one. `DOMParser`
+ * does NOT expose the declaration as a child node, so it must be recovered from the
+ * raw text and re-emitted; otherwise a declaration-prefixed document loses it on
+ * format (WR-01). Returns "" when absent.
+ */
+function xmlDeclaration(input: string): string {
+  const match = /^\s*<\?xml\s[^?]*\?>/i.exec(input);
+  return match ? match[0].trim() : "";
+}
+
+/**
  * Pull a 1-based line number out of a `<parsererror>` message when present.
  * jsdom emits "L:C: message" (leading "line:col:"); WebKit emits "...on line N...".
  * Returns undefined when neither shape is found.
@@ -125,13 +138,26 @@ export function formatXml(input: string, opts: FormatOptions): FormatResult {
   }
 
   const serializer = new XMLSerializer();
-  let output: string;
+  const declaration = xmlDeclaration(input);
+  // Serialize from the document's child nodes (top-level comments / PIs + the root
+  // element), not `documentElement` alone, so nothing outside the root is dropped
+  // (WR-01). The declaration is re-emitted separately since it is not a child node.
+  const topNodes = Array.from(doc.childNodes).filter((n) => !isWhitespaceText(n));
+
+  let body: string;
   if (opts.minify) {
     stripInsignificantWhitespace(doc);
-    output = serializer.serializeToString(doc.documentElement);
+    body = Array.from(doc.childNodes)
+      .filter((n) => !isWhitespaceText(n))
+      .map((n) => serializer.serializeToString(n))
+      .join("");
   } else {
-    output = prettyNode(doc.documentElement, 0, indentUnit(opts.indent), serializer);
+    body = topNodes
+      .map((n) => prettyNode(n, 0, indentUnit(opts.indent), serializer))
+      .join("\n");
   }
+
+  const output = declaration ? `${declaration}${opts.minify ? "" : "\n"}${body}` : body;
 
   return {
     ok: true,

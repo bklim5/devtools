@@ -61,6 +61,56 @@ describe("formatXml", () => {
     });
   });
 
+  describe("preserve document-level nodes outside the root (WR-01, FMT-06)", () => {
+    it("keeps a leading document-level comment through prettify", () => {
+      const input = "<!-- top level comment -->\n<root><a>1</a></root>";
+      const result = formatXml(input, { indent: "2", minify: false });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.output).toContain("<!-- top level comment -->");
+      // root content is still pretty-printed one-element-per-line.
+      expect(result.output).toContain("<root>\n  <a>1</a>\n</root>");
+    });
+
+    it("keeps both leading and trailing document-level comments", () => {
+      const input = "<!-- before --><root><a>1</a></root><!-- after -->";
+      const result = formatXml(input, { indent: "2", minify: false });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.output).toContain("<!-- before -->");
+      expect(result.output).toContain("<!-- after -->");
+      expect(result.output).toContain("<root>\n  <a>1</a>\n</root>");
+    });
+
+    it("keeps a processing instruction that precedes the root element", () => {
+      const input = '<?xml-stylesheet type="text/xsl" href="x.xsl"?>\n<root><a>1</a></root>';
+      const result = formatXml(input, { indent: "2", minify: false });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.output).toContain('<?xml-stylesheet type="text/xsl" href="x.xsl"?>');
+      expect(result.output).toContain("<root>\n  <a>1</a>\n</root>");
+    });
+
+    it("re-emits the XML declaration when the input had one", () => {
+      const input = '<?xml version="1.0" encoding="UTF-8"?>\n<root><a>1</a></root>';
+      const result = formatXml(input, { indent: "2", minify: false });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.output).toContain('<?xml version="1.0" encoding="UTF-8"?>');
+      expect(result.output).toContain("<root>\n  <a>1</a>\n</root>");
+    });
+
+    it("preserves document-level comments + declaration when minifying", () => {
+      const input = '<?xml version="1.0"?>\n<!-- note -->\n<root>\n  <a>1</a>\n</root>';
+      const result = formatXml(input, { indent: "2", minify: true });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.output).toContain('<?xml version="1.0"?>');
+      expect(result.output).toContain("<!-- note -->");
+      expect(result.output).toContain("<root><a>1</a></root>");
+    });
+  });
+
   describe("minify (FMT-07)", () => {
     it("strips inter-element whitespace, preserving significant text", () => {
       const result = formatXml("<a>\n  <b>1</b>\n</a>", { indent: "2", minify: true });
