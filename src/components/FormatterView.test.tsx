@@ -130,7 +130,7 @@ describe("FormatterView", () => {
 
   it("renders indent group + minify always; sort-keys only when onSortKeys provided", () => {
     const withSort = renderView({ onSortKeys: vi.fn() });
-    expect(withSort.container.querySelector('[aria-label="Indentation"]')).toBeTruthy();
+    expect(withSort.getByRole("group", { name: /indent/i })).toBeTruthy();
     expect(
       withSort.getByRole("button", { name: /minify/i }),
     ).toBeTruthy();
@@ -139,7 +139,7 @@ describe("FormatterView", () => {
     cleanup();
 
     const noSort = renderView({ onSortKeys: undefined });
-    expect(noSort.container.querySelector('[aria-label="Indentation"]')).toBeTruthy();
+    expect(noSort.getByRole("group", { name: /indent/i })).toBeTruthy();
     expect(noSort.getByRole("button", { name: /minify/i })).toBeTruthy();
     expect(noSort.queryByRole("button", { name: /sort keys/i })).toBeNull();
   });

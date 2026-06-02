@@ -173,25 +173,40 @@ export function FormatterView({
   );
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col">
+    // `h-full` (not flex-1): the shell mounts tools inside a BLOCK overflow-auto
+    // host, so flex-1 has no flex parent to grow against — we fill the host's
+    // (definite) height directly so the panes use the whole window (UX: a few
+    // key/value pairs shouldn't force a scroll). The host stays exactly filled,
+    // so it doesn't scroll; the textareas scroll internally instead.
+    <div className="flex h-full min-w-0 flex-col">
       {/* Shared top toolbar */}
-      <div className="flex flex-wrap items-center gap-3 border-b border-bd px-3 py-2">
-        <div
-          role="group"
-          aria-label="Indentation"
-          className="flex items-center gap-1 rounded-[7px] border border-bd bg-input-bg p-0.5"
-        >
-          {INDENT_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              aria-pressed={controls.indent === opt.value}
-              onClick={() => controls.onIndent(opt.value)}
-              className={toggleClasses(controls.indent === opt.value)}
-            >
-              {opt.label}
-            </button>
-          ))}
+      <div className="flex flex-none flex-wrap items-center gap-3 border-b border-bd px-3 py-2">
+        <div className="flex items-center gap-2">
+          {/* Visible label so the 2/4/tab segments are self-explanatory. "Indent"
+              (not "Spaces") because one option is a literal tab, not spaces. */}
+          <span
+            id={`${inputId}-indent-label`}
+            className="text-[11px] font-medium uppercase tracking-wide text-tx-2"
+          >
+            Indent
+          </span>
+          <div
+            role="group"
+            aria-labelledby={`${inputId}-indent-label`}
+            className="flex items-center gap-1 rounded-[7px] border border-bd bg-input-bg p-0.5"
+          >
+            {INDENT_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                aria-pressed={controls.indent === opt.value}
+                onClick={() => controls.onIndent(opt.value)}
+                className={toggleClasses(controls.indent === opt.value)}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
         <Toggle label="Minify" pressed={controls.minify} onToggle={controls.onMinify} />
         {controls.onSortKeys ? (
