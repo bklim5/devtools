@@ -43,7 +43,19 @@ hero decoder (`src/lib/protobuf/decoder.ts`) + its 19 tests stay untouched.
 
 ## Traceability
 
-Phase mapping finalized by the roadmapper. Every v1.1 requirement maps to exactly one phase.
+Every v1.1 requirement maps to exactly one phase. Coverage: 9/9.
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| FMT-01 | Phase 7 | Pending |
+| FMT-02 | Phase 7 | Pending |
+| FMT-03 | Phase 7 | Pending |
+| FMT-04 | Phase 7 | Pending |
+| FMT-05 | Phase 7 | Pending |
+| FMT-06 | Phase 7 | Pending |
+| FMT-07 | Phase 7 | Pending |
+| FMT-08 | Phase 7 | Pending |
+| UIX-01 | Phase 8 | Pending |
 
 ---
-*Last updated: 2026-06-02 — v1.1 Formatters requirements defined*
+*Last updated: 2026-06-02 — v1.1 Formatters roadmap created (Phases 7–8); traceability mapped*
