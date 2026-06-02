@@ -51,7 +51,7 @@ export function bumpSemver(
 }
 
 /**
- * Replace the captured group #2 of every match of `re` in `content` with
+ * Replace captured group #2 of the single match of `re` in `content` with
  * `newVersion`, asserting EXACTLY one match (D-01a). Pattern shape:
  * `(<prefix>)<old version>(<suffix>)` — prefix + suffix are preserved verbatim.
  *
@@ -64,8 +64,11 @@ function replaceSingleVersion(
   newVersion: string,
   label: string,
 ): string {
-  const matches = content.match(re);
-  const count = matches ? matches.length : 0;
+  // Count actual occurrences with a global clone. (A non-global `.match` would
+  // return [fullMatch, group1, group2] — a length of 3 that has nothing to do
+  // with how many lines matched.)
+  const globalRe = new RegExp(re.source, `${re.flags.replace("g", "")}g`);
+  const count = (content.match(globalRe) ?? []).length;
   if (count !== 1) {
     throw new Error(`${label}: expected exactly one version match, found ${count}`);
   }
