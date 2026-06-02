@@ -75,7 +75,10 @@ describe("JsonFormatterTool", () => {
     expect(outputEl(container).value).toBe("");
     const status = container.querySelector("footer[role=status]")! as HTMLElement;
     expect(within(status).getByLabelText("parse state").textContent).toBe("Error");
-    expect(within(status).getByLabelText("error").textContent).toMatch(/\d+:\d+/);
+    // The error span's accessible name IS the message (Fix-2); locate it via its
+    // title tooltip rather than the old literal "error" label.
+    const errEl = status.querySelector<HTMLElement>("span[title]")!;
+    expect(errEl.textContent).toMatch(/\d+:\d+/);
   });
 
   it("shows status 'empty' for empty input with no error", () => {

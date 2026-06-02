@@ -40,3 +40,23 @@ describe("StatusBar byte readout", () => {
     expect(bytes.textContent).toBe("1 byte");
   });
 });
+
+describe("StatusBar error full-text affordance (Fix-2)", () => {
+  const longError =
+    "line 1: Opening and ending tag mismatch: someVeryLongTagNameThatWillBeClippedByTruncate and anotherLongOne";
+
+  it("exposes the full error message as the accessible name (not the word 'error')", () => {
+    render(<StatusBar parseState="error" byteCount={10} error={longError} />);
+    // The full message is reachable by its accessible name, even when clipped.
+    const errEl = screen.getByLabelText(longError);
+    expect(errEl.textContent).toBe(longError);
+    // There is no control whose accessible name is the literal word "error".
+    expect(screen.queryByLabelText("error")).toBeNull();
+  });
+
+  it("sets a native title tooltip carrying the full message", () => {
+    render(<StatusBar parseState="error" byteCount={10} error={longError} />);
+    const errEl = screen.getByLabelText(longError);
+    expect(errEl.getAttribute("title")).toBe(longError);
+  });
+});

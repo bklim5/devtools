@@ -71,7 +71,10 @@ export function StatusBar({
       </div>
       <div className="flex min-w-0 items-center gap-[11px]">
         {error ? (
-          <span className="truncate text-bad" aria-label="error">
+          // Clipped with `truncate`, so the full message must stay reachable: the
+          // accessible name carries the actual error (not the literal word "error")
+          // and `title` gives a native hover/focus tooltip for the full text.
+          <span className="truncate text-bad" title={error} aria-label={error}>
             {error}
           </span>
         ) : null}

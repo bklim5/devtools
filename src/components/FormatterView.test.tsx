@@ -153,9 +153,11 @@ describe("FormatterView", () => {
     expect(within(statusFooter).getByLabelText("parse state").textContent).toBe(
       "Error",
     );
-    expect(within(statusFooter).getByLabelText("error").textContent).toContain(
-      "1:7",
-    );
+    // The error span's accessible name IS the full message (Fix-2), so it is
+    // reachable by that text rather than the literal word "error".
+    expect(
+      within(statusFooter).getByLabelText("1:7 Unexpected token").textContent,
+    ).toContain("1:7");
     expect(output(container).value).toBe("");
   });
 
