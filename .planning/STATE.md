@@ -2,23 +2,23 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: milestone
-status: Phase 8 context gathered — ready to plan Phase 8
-last_updated: "2026-06-02T00:00:00.000Z"
+status: Ready to execute
+last_updated: "2026-06-02T14:41:40.519Z"
 progress:
   total_phases: 6
   completed_phases: 1
-  total_plans: 3
+  total_plans: 4
   completed_plans: 3
-  percent: 100
+  percent: 75
 ---
 
 # Project State
 
 ## Current Position
 
-Phase: 08 (context gathered — not yet planned)
-Plan: Phase 7 COMPLETE (3/3 plans, human signed off 2026-06-02). Phase 8 context captured 2026-06-02 (08-CONTEXT.md). Not yet planned.
-Next: **Phase 8 — StatusBar size-readout cleanup (UIX-01).** `/clear` then `/gsd-plan-phase 8`. Now that the Formatters are live and consuming `StatusBar`, make `byteCount` opt-in: keep the size readout on Base64/Hex/Bytes + Protobuf + both Formatters, drop it from Hash / UUID·ULID / Unix Time / JWT (status text only). Carry-forward (non-blocking polish from Phase 7): FormatterView narrow-width vertical stacking (UX-05) — confirmed NOT a WCAG-AA blocker by the UI audit.
+Phase: 08 (PLANNED — 1 plan, ready to execute)
+Plan: Phase 7 COMPLETE (3/3 plans, human signed off 2026-06-02). Phase 8 planned 2026-06-02 (08-01-PLAN.md) — research skipped (small fully-specified refactor), UI-SPEC skipped (conditionalize/remove existing UI), plan-checker VERIFICATION PASSED (0 issues), UIX-01 covered 1/1.
+Next: **Execute Phase 8 — StatusBar size-readout cleanup (UIX-01).** `/clear` then `/gsd-execute-phase 8`. The single plan (08-01, 1 wave, 3 tasks) makes `StatusBar.byteCount` optional + gates the `aria-label="byte count"` span on `typeof byteCount === "number"`; drops the readout from Hash / UUID·ULID / Unix Time / JWT; locks the keep/drop split with present/absent tests on Base64 / Protobuf / both Formatters. Carry-forward (non-blocking polish from Phase 7): FormatterView narrow-width vertical stacking (UX-05) — confirmed NOT a WCAG-AA blocker by the UI audit.
 
 **Milestone v1.1 "Formatters" — roadmap created 2026-06-02.** Two phases:
 
@@ -31,12 +31,15 @@ Next: **Phase 8 — StatusBar size-readout cleanup (UIX-01).** `/clear` then `/g
 
 ## Active Plan
 
-**None active — Phase 7 (Formatters) COMPLETE, Phase 8 not yet planned.**
+**Phase 8 PLANNED — 1 plan (08-01), 1 wave, 3 tasks. Ready to execute.**
+
+Phase 8 plan 08-01 (committed `a29a56ba`): Task 1 (tdd) makes `byteCount?: number` and gates the size span on `typeof byteCount === "number"` (delta/single-count logic preserved inside the guard; `outputBytes` without `byteCount` renders nothing) + adds the StatusBar optional-branch tests; Task 2 removes `byteCount` from the 4 drop tools (incl. deleting Hash's now-dead `const byteCount`) and asserts the span is ABSENT; Task 3 asserts the span is PRESENT on Base64 / Protobuf / both Formatters (test files only). Plan-checker VERIFICATION PASSED (0 issues; all D-01..D-05 honored, decoder + 19 tests out of scope). Threat model: all STRIDE N/A (presentational conditional-render refactor, no new input/network/auth/secret surface).
 
 Phase 7 shipped both formatter tools behind the shared `FormatterView` (FMT-01..08), executed across 3 sequential waves (07-01 shared-foundation → 07-02 json-formatter → 07-03 xml-formatter), verified (5/5 must-haves), and signed off. All standing gates passed: code review (3 warnings fixed), real-WKWebView e2e (10/10 specs), WCAG-AA UI review (PASS, 18/24, no blockers), and human sign-off on the `tauri build`. Next milestone work is **Phase 8 (StatusBar cleanup, UIX-01)** — depends on Phase 7, now unblocked.
 
 ## Recent Activity
 
+- **2026-06-02 — Phase 8 (StatusBar size-readout cleanup) PLANNED.** `/gsd-plan-phase 8`: research skipped (small fully-specified refactor — CONTEXT.md locks D-01..D-05), UI-SPEC skipped (conditionalize/remove existing UI, authoritative design spec already cited). gsd-planner produced 1 plan (08-01, 1 wave, 3 tasks); gsd-plan-checker returned **VERIFICATION PASSED** (0 issues, all 11 dimensions PASS/SKIPPED, interfaces cross-checked against live code). UIX-01 covered 1/1. Committed `a29a56ba`. Next: `/gsd-execute-phase 8`.
 - **2026-06-02 — Phase 8 (StatusBar size-readout cleanup) context gathered.** `/gsd-discuss-phase 8` confirmed the roadmap's keep/drop split stands and captured 4 implementation decisions: **(D-01)** Hash is the borderline case (only drop-tool with a *real* count today) — **dropped** anyway for consistency, no roadmap edit; **(D-02)** drop tools keep their `ParseState` label as-is, only the size text is removed (no other `StatusBar` behavior changes, per criterion #1); **(D-03)** minimal additive API — make `byteCount` optional and gate the size span on it being a number (`outputBytes` without `byteCount` renders nothing), no discriminated-type machinery; **(D-04/D-05)** edit the 4 drop tools to stop passing `byteCount`, plus a `StatusBar` unit test for the optional branch + per-tool present/absent assertions querying the `aria-label="byte count"` span. Written to `08-CONTEXT.md` + `08-DISCUSSION-LOG.md` (commit `f0229164`). Next: `/gsd-plan-phase 8`.
 - **2026-06-02 — Phase 7 (Formatters) COMPLETE & signed off.** `/gsd-execute-phase 7` ran all 3 plans (waves 1→2→3), then the full phase-boundary gate chain: code review surfaced 3 warnings (WR-01 XML lost the `<?xml?>` declaration + doc-level comments/PIs; WR-02 timing chip measured a state setter not the format pass; WR-03 first-match `indexOf` mislocated the V8 error offset) — all fixed TDD (`8e9d7955`/`c786b2f1`/`b859b2d1`). Phase verification PASSED 5/5 must-haves (FMT-01..08). UI review PASSED WCAG-AA (18/24, no blockers); its 3 advisory findings fixed too (`73e98d10`/`86f1a2ee`/`d38c63da`). Real-WKWebView e2e: **10/10 specs green** on webkit 605.1.15 (incl. both formatters + screenshots). The live gate then caught a real regression unit tests missed — real WebKit concatenates `<parsererror>` text with no newlines, so the line-based boilerplate stripper failed; fixed to substring-strip (`c2bf60c0`), unit test now uses the real captured shape. Post-sign-off UI feedback applied + re-verified live: full-height input/output panes + visible "INDENT" label (`c40a164f`). Final: 370 vitest green, `tsc`/`eslint` clean, zero new deps, decoder + its 19 tests untouched. Artifacts: `07-VERIFICATION.md`, `07-REVIEW.md`, `07-UI-REVIEW.md`, `07-HUMAN-UAT.md` (resolved). **All FMT-01..08 ✓.** Next: **Phase 8** (StatusBar cleanup, UIX-01).
 - **2026-06-02 — 07-03 xml-formatter EXECUTED & committed (2 TDD tasks, 4 commits).** Shipped the XML formatter end-to-end: pure zero-dep `formatXml` over native `DOMParser`/`XMLSerializer` (well-formedness validation, `<parsererror>` surfaced with line — jsdom `L:C:` + WebKit `on line N` shapes; prettify 2/4/tab preserving comments/CDATA/attributes/PIs, self-close kept, mixed-content emitted inline; minify strips inter-element whitespace keeping significant text; empty→ok-empty; XXE-safe — no external entity/DTD resolution); thin `XmlFormatterTool` reusing the shared `FormatterView` WITHOUT `onSortKeys` (no sort-keys toggle, D-06), clear-on-error (D-08), FMT-08 focusable copy via the platform seam; registry-only append of `xmlFormatterTool` to `TOOLS` after `jsonFormatterTool` (D-12, JSON intact). Full repo green: 352 vitest across 44 files (incl. 19 decoder tests untouched), `tsc`/`eslint` clean, **zero new deps**. Commits `47467b9c`+`a27986c5` (formatXml) / `07dac3a4`+`6486e101` (tool+registry+e2e). SUMMARY: `07-03-SUMMARY.md`. Reqs FMT-05/06/07/08 ✓ → **all FMT-01..08 complete; Phase 7 tool set done.** **Deferred to phase boundary:** real-WKWebView e2e for BOTH formatters (`scripts/e2e-spike.sh`) + `/simplify` + `/codex:review` + `gsd-ui-review`; finish FormatterView narrow-width vertical stacking. Next: close Phase 7.
