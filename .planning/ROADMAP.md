@@ -52,7 +52,9 @@ Local release-automation helper scripts for the existing Tauri 2 macOS app (CI e
   3. `src-tauri/Cargo.toml` `[package].version` is reconciled from `0.1.0` to the current app version (matching `package.json` / `tauri.conf.json`), with dependency version pins unchanged
   4. `git ls-files latest.json` returns empty (the stale tracked root copy is untracked via `git rm --cached` if present) and `/latest.json` remains gitignored — verified against actual repo state, not assumed
   5. `tsc --noEmit` + `eslint` are clean and the decoder's 19 tests still pass byte-for-byte; zero new runtime dependencies added
-**Plans**: TBD
+**Plans**: 2 plans
+  - [ ] 09-01-PLAN.md — version.ts (hand-rolled bumpSemver + the three surgical setXVersion editors) + tests; dogfooded Cargo 0.1.0→0.2.1 reconcile (REL-02) + latest.json untrack/gitignore verify (REL-08)
+  - [ ] 09-02-PLAN.md — manifest.ts (pure buildLatestJson + dual-key platformKey: darwin-aarch64 + darwin-x86_64, same url+signature, no darwin-universal) + tests (authors REL-06 pure core, delivered Phase 11)
 
 ### Phase 10: `bump-and-tag` driver
 **Goal**: A maintainer can run a single command to bump the app semver in lockstep across all three manifests, regenerate and stage the lockfiles so the tagged commit is clean and reproducible, and create + push the `vX.Y.Z` tag to the private source remote — with a `--dry-run` that proves the plan changes nothing and preflights that abort before any irreversible git action.
@@ -90,7 +92,7 @@ Local release-automation helper scripts for the existing Tauri 2 macOS app (CI e
 | 6. Distribution | v1.0 | — | Complete | 2026-06-01 |
 | 7. Formatters | v1.1 | 3/3 | Complete | 2026-06-02 |
 | 8. StatusBar Size-Readout Cleanup | v1.1 | 1/1 | Complete | 2026-06-02 |
-| 9. Pure release core + housekeeping | v1.2 | 0/0 | Not started | - |
+| 9. Pure release core + housekeeping | v1.2 | 0/2 | Planned | - |
 | 10. bump-and-tag driver | v1.2 | 0/0 | Not started | - |
 | 11. build-and-publish driver + universal binary + safety rails | v1.2 | 0/0 | Not started | - |
 
