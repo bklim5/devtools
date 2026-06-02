@@ -1,35 +1,40 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.1
-milestone_name: Formatters
-status: Milestone v1.1 archived — awaiting next milestone
-last_updated: "2026-06-02T16:30:00.000Z"
+milestone: v1.2
+milestone_name: Release Tooling
+status: Defining requirements
+last_updated: "2026-06-02T17:00:00.000Z"
 progress:
-  total_phases: 2
-  completed_phases: 2
-  total_plans: 4
-  completed_plans: 4
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Current Position
 
-**Milestone v1.1 "Formatters" SHIPPED & ARCHIVED 2026-06-02 — tagged `v1.1`.** Both phases (7 Formatters, 8 StatusBar cleanup) delivered, human-signed-off, and archived. Project is **between milestones** — no active phase.
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-06-02 — Milestone v1.2 "Release Tooling" started
 
-Archived: `.planning/milestones/v1.1-ROADMAP.md`, `.planning/milestones/v1.1-REQUIREMENTS.md`. ROADMAP.md reorganized into milestone groupings (v1.0 + v1.1 collapsed); REQUIREMENTS.md deleted (fresh one created by `/gsd-new-milestone`). PROJECT.md full evolution review done; RETROSPECTIVE.md created. MILESTONES.md has the v1.1 entry.
+**Milestone v1.2 "Release Tooling" started 2026-06-02.** Goal: replace the manual `docs/RELEASE.md` dance with local helper scripts that bump versions in lockstep and build/publish signed, multi-arch releases reproducibly. Confirmed scope decisions:
 
-Next: `/gsd-new-milestone` to start the next cycle, or `/gsd-review-backlog` to promote a backlog item (999.1 more-tools / SQL formatter, 999.2 CI, 999.3 theme settings, 999.4 DevTools CLI). Carry-forward (non-blocking polish): FormatterView narrow-width vertical stacking (UX-05) — confirmed NOT a WCAG-AA blocker.
+- **Local scripts only** this milestone — `bump-and-tag` (`pnpm release [patch|minor|major]`, bumps `package.json` + `tauri.conf.json` + `Cargo.toml` in lockstep → commit → `vX.Y.Z` tag → push) + `build-and-publish` (`tauri build` universal → generate `latest.json` from the FRESH `.sig` → GitHub Release on `bklim5/devtools-releases` → upload DMG + `.app.tar.gz` + `latest.json`).
+- **Cargo.toml folded into the lockstep** (currently 0.1.0, out of sync) — cosmetic/hygiene; updater compares `tauri.conf.json` version, not the crate version.
+- **Universal binary** (Intel + Apple Silicon) — closes the local arm64-only gap (Pitfall 7).
+- **Stop committing `latest.json`** — generated-only; gitignore the stale root copy (0.2.1).
+- **Notarisation-ready** (honor `APPLE_*` env), Apple notarisation itself stays deferred (D-02).
+- **CI is PARKED** — checks on push/PR + tag-triggered CI release (cross-repo PAT, minisign secrets in Actions) are a follow-on milestone, not this one.
 
-**Milestone v1.1 "Formatters" — roadmap created 2026-06-02.** Two phases:
+Pre-discussion context is captured in ROADMAP.md backlog 999.2 (trigger model, two-script split, split-repo publish, signing secrets, arm64 gap). App semver (`0.2.x`) stays decoupled from GSD milestone tags (`v1.x`); the pipeline keys off the **app** version.
 
-- **Phase 7 — Formatters (FMT-01..08):** shared two-pane paste-instant `FormatterView` + a JSON formatter (validate line:col / prettify 2·4·tab / minify / sort-keys) + an XML formatter (validate well-formedness / prettify preserving comments·CDATA·attrs·PIs / minify). Both zero-runtime-dependency over native `JSON`/`DOMParser`; pure logic in `src/lib/format/`; registered by appending to the `TOOLS` array (single control plane). Visible focusable copy (no hover-only). **UI hint: yes.**
-- **Phase 8 — StatusBar size-readout cleanup (UIX-01):** make `StatusBar` `byteCount` optional/opt-in; keep the size readout on Base64/Hex/Bytes + Protobuf + the new Formatters, drop it from Hash / UUID·ULID / Unix Time / JWT (status text only). **Depends on Phase 7** (Formatters land + consume `StatusBar` first, so the keep/drop split is verified against the complete set of callers). **UI hint: yes.**
+Next: research decision → define REQUIREMENTS.md → roadmap.
 
-**Standing constraints carried into v1.1 (binding):** offline/no-network at runtime; paste-instant (<2s); keyboard-driven; registry-driven single control plane; HashRouter only; WCAG-AA across the board; layout-agnostic tool components; **zero new runtime dependencies** (native APIs only); **the hero decoder `src/lib/protobuf/decoder.ts` + its 19 tests stay byte-for-byte untouched**. Per-task DoD order: `/simplify` → `/codex:review` → `vitest` + `tsc` + `eslint` green → real-WKWebView UI verification. Each phase boundary ends with a human sign-off on a fresh `tauri build` + a passing `gsd-ui-review` WCAG-AA audit.
-
-**Design spec (authoritative for scope):** `docs/superpowers/specs/2026-06-02-json-xml-formatters-design.md` (status: approved, pre-implementation). SQL formatter stays parked in backlog 999.1; the DevTools CLI idea stays in backlog 999.4.
+**Standing constraints carried into v1.2 (binding):** offline/no-network at runtime; paste-instant (<2s); keyboard-driven; registry-driven single control plane; HashRouter only; WCAG-AA across the board; layout-agnostic tool components; **zero new runtime dependencies** (native APIs only — dev-tooling/devDependencies are acceptable for release scripts); **the hero decoder `src/lib/protobuf/decoder.ts` + its 19 tests stay byte-for-byte untouched**. Per-task DoD order: `/simplify` → `/codex:review` → `vitest` + `tsc` + `eslint` green → real-WKWebView UI verification (where UI is touched). Each phase boundary ends with a human sign-off.
 
 ## Active Plan
 

@@ -16,9 +16,18 @@ v1.1 added the first two post-v1.0 tools — a **JSON formatter** and an **XML f
 
 The app now ships **eight tools**: the Protobuf hero, Base64/Hex/Bytes, Unix Time, JWT, Hash, UUID/ULID, and the JSON + XML formatters.
 
-## Next Milestone Goals
+## Current Milestone: v1.2 Release Tooling
 
-**TBD** — start the next cycle with `/gsd-new-milestone`, or promote a backlog item with `/gsd-review-backlog`. Live candidates: backlog 999.1 (more tools / SQL formatter — needs `sql-formatter` lib), 999.2 (CI integration), 999.3 (theme settings), 999.4 (DevTools CLI). Non-blocking carry-forward polish: FormatterView narrow-width vertical stacking (UX-05, not a WCAG-AA blocker); Gatekeeper-clean notarisation pending Apple Developer enrolment (D-02); NAT-01 configurable global summon hotkey (parked).
+**Goal:** Replace the manual `docs/RELEASE.md` dance with local helper scripts that bump versions in lockstep and build/publish signed, multi-arch releases reproducibly — CI is explicitly parked for a later milestone.
+
+**Target features:**
+- **bump-and-tag** script (`pnpm release [patch|minor|major]`) — bumps `package.json` + `tauri.conf.json` + `Cargo.toml` in lockstep, commits, creates the `vX.Y.Z` tag, pushes.
+- **build-and-publish** script — runs `tauri build` (universal-apple-darwin), generates `latest.json` from the **fresh** `*.app.tar.gz.sig`, creates the GitHub Release on `bklim5/devtools-releases`, uploads DMG + `.app.tar.gz` + `latest.json`.
+- **Universal binary** (Intel + Apple Silicon), closing the local arm64-only gap (Pitfall 7).
+- **Stop committing `latest.json`** — generated-only, gitignore the stale root copy (currently pinned at 0.2.1).
+- **Notarisation-ready** — honor `APPLE_*` env if present; Apple notarisation itself stays deferred (D-02).
+
+**Scope notes:** App semver (`0.2.x`) stays decoupled from GSD milestone tags (`v1.x`); the release pipeline keys off the **app** version. CI (checks on push/PR + tag-triggered CI release, cross-repo PAT, minisign secrets in Actions) is **parked** for a follow-on milestone. Non-blocking carry-forwards: FormatterView narrow-width vertical stacking (UX-05); NAT-01 configurable global summon hotkey (parked).
 
 ## Requirements
 
@@ -135,4 +144,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-02 after v1.1 "Formatters" milestone completion (full evolution review) — Phases 7 + 8 archived, tagged v1.1*
+*Last updated: 2026-06-02 — milestone v1.2 "Release Tooling" started (local release helper scripts; CI parked). Previous: v1.1 "Formatters" completion (full evolution review) — Phases 7 + 8 archived, tagged v1.1*
