@@ -13,7 +13,7 @@ Requirements for milestone v1.2. Each maps to a roadmap phase.
 ### Version Lockstep & Tagging
 
 - [ ] **REL-01**: Maintainer runs `pnpm release [patch|minor|major]` to bump the app semver across `package.json` + `src-tauri/tauri.conf.json` + `src-tauri/Cargo.toml` (`[package].version` only) in lockstep from a single computed version
-- [ ] **REL-02**: The drifted `Cargo.toml` version (currently `0.1.0`) is reconciled to the current app version as a one-time fix, with the `[package]` version targeted precisely (dependency `version = "…"` lines untouched)
+- [x] **REL-02**: The drifted `Cargo.toml` version (currently `0.1.0`) is reconciled to the current app version as a one-time fix, with the `[package]` version targeted precisely (dependency `version = "…"` lines untouched) — ✓ Phase 9 Plan 01 (dogfooded `setCargoVersion`, 0.1.0 → 0.2.1, only line 3 changed)
 - [ ] **REL-03**: Lockfiles (`pnpm-lock.yaml`, `Cargo.lock`) are regenerated and staged so the tagged commit is clean and reproducible (no dirty tree after a bump)
 - [ ] **REL-04**: The bump creates the `vX.Y.Z` git tag and pushes the commit + tag to the private source remote (`origin`, `bklim5/devtools`)
 
@@ -22,7 +22,7 @@ Requirements for milestone v1.2. Each maps to a roadmap phase.
 - [ ] **REL-05**: The publish script produces a **universal** macOS binary covering Intel + Apple Silicon via `tauri build --target universal-apple-darwin` (closing the local arm64-only gap), resolving artifacts at the universal output path
 - [ ] **REL-06**: `latest.json` is generated from **this build's fresh** `*.app.tar.gz.sig` (single-match glob; fail loudly on 0 or >1 matches), with the universal artifact listed under **both** `darwin-aarch64` and `darwin-x86_64` keys (same URL + same signature — no invented `darwin-universal` key)
 - [ ] **REL-07**: The release is published to the public `bklim5/devtools-releases` repo (`gh release create --repo`), uploading the DMG + `.app.tar.gz` + `latest.json`
-- [ ] **REL-08**: `latest.json` is generate-only — never committed; the stale tracked/root copy is removed from version control and confirmed gitignored
+- [x] **REL-08**: `latest.json` is generate-only — never committed; the stale tracked/root copy is removed from version control and confirmed gitignored — ✓ Phase 9 Plan 01 (verify-only: `git ls-files latest.json` empty, `/latest.json` gitignored, on-disk copy left intact)
 - [ ] **REL-09**: Apple notarisation env (`APPLE_*`) is honored if present (notarisation-ready), but ad-hoc signing remains the default and notarisation itself stays deferred
 
 ### Safety & Verification
@@ -65,13 +65,13 @@ Which phases cover which requirements. Each v1 requirement maps to exactly one p
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | REL-01 | Phase 10 | Pending |
-| REL-02 | Phase 9 | Pending |
+| REL-02 | Phase 9 | Done (Plan 01) |
 | REL-03 | Phase 10 | Pending |
 | REL-04 | Phase 10 | Pending |
 | REL-05 | Phase 11 | Pending |
 | REL-06 | Phase 11 | Pending |
 | REL-07 | Phase 11 | Pending |
-| REL-08 | Phase 9 | Pending |
+| REL-08 | Phase 9 | Done (Plan 01) |
 | REL-09 | Phase 11 | Pending |
 | REL-10 | Phase 10 | Pending |
 | REL-11 | Phase 10 | Pending |

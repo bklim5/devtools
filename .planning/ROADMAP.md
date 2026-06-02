@@ -52,8 +52,8 @@ Local release-automation helper scripts for the existing Tauri 2 macOS app (CI e
   3. `src-tauri/Cargo.toml` `[package].version` is reconciled from `0.1.0` to the current app version (matching `package.json` / `tauri.conf.json`), with dependency version pins unchanged
   4. `git ls-files latest.json` returns empty (the stale tracked root copy is untracked via `git rm --cached` if present) and `/latest.json` remains gitignored — verified against actual repo state, not assumed
   5. `tsc --noEmit` + `eslint` are clean and the decoder's 19 tests still pass byte-for-byte; zero new runtime dependencies added
-**Plans**: 2 plans
-  - [ ] 09-01-PLAN.md — version.ts (hand-rolled bumpSemver + the three surgical setXVersion editors) + tests; dogfooded Cargo 0.1.0→0.2.1 reconcile (REL-02) + latest.json untrack/gitignore verify (REL-08)
+**Plans**: 2 plans (1/2 complete)
+  - [x] 09-01-PLAN.md — version.ts (hand-rolled bumpSemver + the three surgical setXVersion editors) + tests; dogfooded Cargo 0.1.0→0.2.1 reconcile (REL-02) + latest.json untrack/gitignore verify (REL-08) — ✓ complete (25 tests, 403/403 suite green, REL-02 + REL-08 done)
   - [ ] 09-02-PLAN.md — manifest.ts (pure buildLatestJson + dual-key platformKey: darwin-aarch64 + darwin-x86_64, same url+signature, no darwin-universal) + tests (authors REL-06 pure core, delivered Phase 11)
 
 ### Phase 10: `bump-and-tag` driver

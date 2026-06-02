@@ -2,24 +2,25 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Release Tooling
-status: Roadmap created
-last_updated: "2026-06-02T18:00:00.000Z"
+status: executing
+last_updated: "2026-06-02T18:58:36.000Z"
+last_activity: 2026-06-02 -- Phase 09 Plan 01 complete (pure version core + Cargo reconcile)
 progress:
-  total_phases: 3
+  total_phases: 7
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_plans: 2
+  completed_plans: 1
+  percent: 50
 ---
 
 # Project State
 
 ## Current Position
 
-Phase: 9 (Pure release core + housekeeping) — context gathered, not yet planned
-Plan: —
-Status: Context captured (09-CONTEXT.md); ready to plan Phase 9
-Last activity: 2026-06-02 — Phase 9 context gathered (4 decisions: surgical manifest edits, pure options-object buildLatestJson, minimal hand-rolled semver, idempotent latest.json verify + dogfooded Cargo reconcile)
+Phase: 09 (pure-release-core-housekeeping) — EXECUTING
+Plan: 2 of 2
+Status: Executing Phase 09 (Plan 01 complete; Plan 02 next)
+Last activity: 2026-06-02 -- Phase 09 Plan 01 complete (pure version core + Cargo reconcile)
 
 **Milestone v1.2 "Release Tooling" roadmapped 2026-06-02.** Three phases (9–11), numbering continued from v1.1's Phase 8 (did NOT reset to 1). All 12 v1.2 requirements (REL-01..12) mapped 1:1 to a phase (12/12 coverage, no orphans, no duplicates). Goal: replace the manual `docs/RELEASE.md` dance with two composable local helper scripts over a unit-tested pure core. The recommended three-phase shape (HIGH-confidence convergence across all 4 researchers) was adopted unchanged:
 
@@ -43,6 +44,7 @@ Phase 9 (Pure release core + housekeeping) is the first phase and depends on not
 
 ## Recent Activity
 
+- **2026-06-02 — Phase 09 Plan 01 (pure release version core + housekeeping) COMPLETE.** New `src/lib/release/version.ts` ships `bumpSemver` (hand-rolled MAJOR.MINOR.PATCH, throws on malformed/unknown level) + three surgical `setXVersion` string editors (`setPackageJsonVersion`/`setTauriConfVersion`/`setCargoVersion`) that rewrite ONLY the version line and throw on 0/>1 matches (T-09-01); `setCargoVersion` is provably `[package]`-scoped, leaving dependency pins untouched. 25 vitest cases incl. the load-bearing dependency-pin proof; full suite 403/403 green, tsc + eslint clean, zero new deps, decoder + its 19 tests untouched. **REL-02:** `src-tauri/Cargo.toml` `[package].version` reconciled 0.1.0 → 0.2.1 by dogfooding the real `setCargoVersion` (D-07) — only line 3 changed. **REL-08:** `latest.json` confirmed untracked + `/latest.json` gitignored (verify-only no-op, D-06), on-disk copy intact. Two auto-fixed bugs (Rule 1) in the just-written code: non-global `.match` miscounted matches; an eslint `no-useless-escape`. Commits `71cfaeff` (feat), `6939c299` (test+fix), `2b5064f3` (chore). Cargo.lock regen deliberately left to Phase 10. **Next: Plan 02 (manifest.ts — buildLatestJson + platformKey).**
 - **2026-06-02 — v1.2 "Release Tooling" milestone roadmap created (Phases 9–11).** Adopted the HIGH-confidence three-phase research shape unchanged: Phase 9 pure release core + housekeeping (`src/lib/release/` version+manifest, Cargo reconcile, untrack `latest.json`); Phase 10 `bump-and-tag` driver (lockstep bump + lockfiles + tag/push + dry-run + preflights); Phase 11 `build-and-publish` driver (universal binary + fresh-sig dual-key `latest.json` + cross-repo `gh` publish + `APPLE_*` + curl-verify, with the real updater round-trip as the human gate). All 12 requirements (REL-01..12) mapped 1:1 (12/12, no orphans/dupes) in `.planning/REQUIREMENTS.md` Traceability; ROADMAP.md appended (v1.0/v1.1 history + 999.x backlog preserved; backlog 999.2 annotated to show its local-scripts half is now v1.2 and only the CI track remains parked); STATE.md updated. Numbering continued from v1.1's Phase 8 — did NOT reset to 1. Next: `/gsd-plan-phase 9`.
 - **2026-06-02 — Phase 8 (StatusBar size-readout cleanup) COMPLETE & signed off.** Last phase of milestone v1.1 — milestone v1.1 "Formatters" fully delivered (Phases 7 + 8), archived to `.planning/milestones/v1.1-*`, tagged `v1.1`. Final: 378 vitest / 44 files green, `tsc`/`eslint` clean, zero new deps, decoder + its 19 tests byte-for-byte untouched. UIX-01 ✓.
 - **2026-06-02 — Phase 7 (Formatters) COMPLETE & signed off.** JSON + XML formatters behind the shared `FormatterView` (FMT-01..08); real-WKWebView e2e 10/10, WCAG-AA PASS, human-signed-off on `tauri build`.
