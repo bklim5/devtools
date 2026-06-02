@@ -8,7 +8,7 @@
 // to uppercase. Each digest row exposes a VISIBLE focusable copy <button> (UX-02).
 // crypto.subtle is present in the Node test env (Node 22). Clipboard goes through the seam.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, waitFor, within } from "@testing-library/react";
 import {
   resetPlatformForTest,
   setPlatformForTest,
@@ -63,6 +63,15 @@ describe("HashTool", () => {
     await waitFor(() => {
       expect(rowText(container, "SHA-256")).toMatch(new RegExp(`^${SHA256_ABC_PREFIX}`));
     });
+  });
+
+  it("does not render the StatusBar size readout (UIX-01) even with content", () => {
+    const { container } = render(<HashTool />);
+    fireEvent.change(inputFor(container), { target: { value: "abc" } });
+    const status = container.querySelector("footer[role='status']")! as HTMLElement;
+    // Size readout is dropped for Hash; the parse-state label still renders.
+    expect(within(status).queryByLabelText("byte count")).toBeNull();
+    expect(within(status).getByLabelText("parse state")).toBeTruthy();
   });
 
   it("empty input → status 'empty', no digest values, no error (rows still present, G-04-2)", () => {

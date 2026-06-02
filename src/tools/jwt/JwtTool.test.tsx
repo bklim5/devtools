@@ -8,7 +8,7 @@
 // platform seam ONLY (no @tauri-apps). Fixtures are built with the same bytes.ts
 // base64url primitive the impl consumes.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render } from "@testing-library/react";
+import { cleanup, fireEvent, render, within } from "@testing-library/react";
 import { bytesToBase64, utf8ToBytes } from "@/lib/bytes";
 import {
   resetPlatformForTest,
@@ -151,6 +151,16 @@ describe("JwtTool", () => {
       const hiddenClass = ["opacity", "0"].join("-");
       expect(btn.className).not.toContain(hiddenClass);
     }
+  });
+
+  it("does not render the StatusBar size readout (UIX-01) even with a decoded token", () => {
+    const { container } = render(<JwtTool />);
+    fireEvent.change(inputFor(container), {
+      target: { value: makeToken({ alg: "HS256" }, { sub: "x" }) },
+    });
+    const status = container.querySelector("footer[role='status']")! as HTMLElement;
+    expect(within(status).queryByLabelText("byte count")).toBeNull();
+    expect(within(status).getByLabelText("parse state")).toBeTruthy();
   });
 
   it("the Header copy writes the pretty-printed JSON through the platform seam", () => {

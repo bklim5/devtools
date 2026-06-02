@@ -182,6 +182,14 @@ describe("UuidUlidTool", () => {
     expect(container.querySelector("#uuid-ulid-breakdown")).toBeNull();
   });
 
+  it("does not render the StatusBar size readout (UIX-01) even when decoding", () => {
+    const { container } = render(<UuidUlidTool />);
+    fireEvent.change(decodeField(container), { target: { value: UUID_V7 } });
+    const status = container.querySelector("footer[role='status']")! as HTMLElement;
+    expect(within(status).queryByLabelText("byte count")).toBeNull();
+    expect(within(status).getByLabelText("parse state")).toBeTruthy();
+  });
+
   it("clicking a generated id's copy writes that id via the platform seam", () => {
     const { container } = render(<UuidUlidTool />);
     const id = genValues(container)[0];

@@ -8,7 +8,7 @@
 // field-scoped explicit error (aria-invalid + text-bad, never opacity-only, UX-04).
 // Clipboard goes through the platform seam ONLY (no @tauri-apps).
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render } from "@testing-library/react";
+import { cleanup, fireEvent, render, within } from "@testing-library/react";
 import {
   resetPlatformForTest,
   setPlatformForTest,
@@ -131,6 +131,16 @@ describe("UnixTimeTool", () => {
     });
     const now = container.querySelector("#unix-time-now")!;
     expect(now.textContent).toBeTruthy();
+  });
+
+  it("does not render the StatusBar size readout (UIX-01) even with a timestamp", () => {
+    const { container } = render(<UnixTimeTool />);
+    fireEvent.change(inputFor(container, "unix-time-input"), {
+      target: { value: "1469922850" },
+    });
+    const status = container.querySelector("footer[role='status']")! as HTMLElement;
+    expect(within(status).queryByLabelText("byte count")).toBeNull();
+    expect(within(status).getByLabelText("parse state")).toBeTruthy();
   });
 
   it("the 'now' copy writes through the platform clipboard seam", () => {

@@ -299,7 +299,7 @@ export default function UuidUlidTool() {
           {decoded.kind === "ok" ? <Breakdown decoded={decoded} /> : null}
         </section>
       </div>
-      <StatusBar parseState={parseState} byteCount={0} error={decodeError} />
+      <StatusBar parseState={parseState} error={decodeError} />
     </div>
   );
 }

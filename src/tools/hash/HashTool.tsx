@@ -141,7 +141,6 @@ export default function HashTool() {
   }, [bytes, isEmpty]);
 
   const parseState: ParseState = isEmpty ? "empty" : "ok";
-  const byteCount = bytes.length;
   // Only trust the SHA rows when they belong to the CURRENT bytes (Pitfall 3); otherwise the
   // rows are blank placeholders until the in-flight digest for these bytes resolves.
   const shaRows = shaResult && shaResult.src === bytes ? shaResult.rows : [];
@@ -198,11 +197,7 @@ export default function HashTool() {
           </div>
         </section>
       </div>
-      <StatusBar
-        parseState={parseState}
-        byteCount={byteCount}
-        timingMs={timingMs}
-      />
+      <StatusBar parseState={parseState} timingMs={timingMs} />
     </div>
   );
 }

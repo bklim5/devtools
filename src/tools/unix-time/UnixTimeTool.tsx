@@ -271,7 +271,6 @@ export default function UnixTimeTool() {
       </div>
       <StatusBar
         parseState={parseState}
-        byteCount={0}
         error={firstError}
         timingMs={timingMs}
       />

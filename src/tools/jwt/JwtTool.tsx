@@ -222,7 +222,6 @@ export default function JwtTool() {
       </div>
       <StatusBar
         parseState={parseState}
-        byteCount={0}
         error={error ? error.message : null}
         timingMs={timingMs}
       />
