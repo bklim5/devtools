@@ -362,7 +362,7 @@ const notarising = APPLE_VARS.some((v) => process.env[v]);  // boolean only
 
 **Everything else was VERIFIED by executing the command in-repo this session.** The only un-run item is the multi-minute universal `tauri build` itself (A2/A5) — its inputs (target dir convention, signing env, `createUpdaterArtifacts`) and the arm64 analog are all verified.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Does the script run `rustup target add` itself, or just abort with the command?** (§Q5)
    - Known: `x86_64-apple-darwin` is absent today; the universal build needs it.

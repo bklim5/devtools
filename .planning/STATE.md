@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Release Tooling
 status: executing
-last_updated: "2026-06-02T22:02:39.937Z"
-last_activity: 2026-06-02 -- Phase 10 complete (verified, live v0.2.2 pushed); Phase 11 remains
+last_updated: "2026-06-02T22:38:09.246Z"
+last_activity: 2026-06-02 -- Phase 11 planning complete
 progress:
-  total_phases: 3
+  total_phases: 7
   completed_phases: 2
   total_plans: 8
-  completed_plans: 8
-  percent: 67
+  completed_plans: 5
+  percent: 63
 ---
 
 # Project State
@@ -19,8 +19,8 @@ progress:
 
 Phase: 11 (build-and-publish) — NEXT, not yet planned. Phase 10 COMPLETE & VERIFIED (5/5).
 Plan: Not started
-Status: Phase 10 fully delivered — plans 10-01 + 10-02 + 10-03 all complete, 10-VERIFICATION.md = passed (5/5). Live v0.2.2 release cut + pushed to origin. REL-01/03/04/10/11 satisfied. Awaiting Phase 10 boundary human sign-off, then `/gsd-plan-phase 11`.
-Last activity: 2026-06-02
+Status: Ready to execute
+Last activity: 2026-06-02 -- Phase 11 planning complete
 
 **Milestone v1.2 "Release Tooling" roadmapped 2026-06-02.** Three phases (9–11), numbering continued from v1.1's Phase 8 (did NOT reset to 1). All 12 v1.2 requirements (REL-01..12) mapped 1:1 to a phase (12/12 coverage, no orphans, no duplicates). Goal: replace the manual `docs/RELEASE.md` dance with two composable local helper scripts over a unit-tested pure core. The recommended three-phase shape (HIGH-confidence convergence across all 4 researchers) was adopted unchanged:
 
