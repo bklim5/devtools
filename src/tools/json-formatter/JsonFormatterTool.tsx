@@ -49,6 +49,7 @@ export default function JsonFormatterTool() {
       inputId="json-input"
       outputId="json-output"
       input={input}
+      inputPlaceholder="Paste JSON to format…"
       onInputChange={setInput}
       output={output}
       controls={{

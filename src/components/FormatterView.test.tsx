@@ -43,6 +43,7 @@ afterEach(() => {
 
 interface Overrides {
   input?: string;
+  inputPlaceholder?: string;
   output?: string;
   indent?: IndentMode;
   minify?: boolean;
@@ -71,6 +72,7 @@ function renderView(o: Overrides = {}) {
       inputId="fv-input"
       outputId="fv-output"
       input={o.input ?? ""}
+      inputPlaceholder={o.inputPlaceholder}
       onInputChange={onInputChange}
       output={o.output ?? ""}
       controls={{
@@ -107,6 +109,16 @@ describe("FormatterView", () => {
     const inEl = input(container);
     fireEvent.change(inEl, { target: { value: '{"a":1}' } });
     expect(onInputChange).toHaveBeenCalledWith('{"a":1}');
+  });
+
+  it("renders the inputPlaceholder on the input textarea when provided (Fix-3)", () => {
+    const { container } = renderView({ inputPlaceholder: "Paste JSON to format…" });
+    expect(input(container).placeholder).toBe("Paste JSON to format…");
+  });
+
+  it("renders no placeholder when inputPlaceholder is omitted", () => {
+    const { container } = renderView();
+    expect(input(container).placeholder).toBe("");
   });
 
   it("renders a read-only output displaying the output prop verbatim", () => {

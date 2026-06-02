@@ -42,6 +42,12 @@ export interface FormatterViewProps {
   /** Stable id for the read-only output region (e2e selector). */
   outputId: string;
   input: string;
+  /**
+   * Optional empty-state hint shown on the input textarea while it is blank —
+   * a short paste-instant prompt (e.g. "Paste JSON to format…") surfacing the
+   * tool's promise. Omit for no placeholder.
+   */
+  inputPlaceholder?: string;
   onInputChange: (raw: string) => void;
   /** Derived output; "" when the tool clears it on error/empty (D-08). */
   output: string;
@@ -93,6 +99,7 @@ export function FormatterView({
   inputId,
   outputId,
   input,
+  inputPlaceholder,
   onInputChange,
   output,
   controls,
@@ -117,6 +124,7 @@ export function FormatterView({
         id={inputId}
         value={input}
         onChange={(e) => onInputChange(e.target.value)}
+        placeholder={inputPlaceholder}
         spellCheck={false}
         autoComplete="off"
         autoCapitalize="off"

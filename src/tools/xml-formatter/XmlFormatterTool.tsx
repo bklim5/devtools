@@ -48,6 +48,7 @@ export default function XmlFormatterTool() {
       inputId="xml-input"
       outputId="xml-output"
       input={input}
+      inputPlaceholder="Paste XML to format…"
       onInputChange={setInput}
       output={output}
       controls={{
