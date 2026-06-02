@@ -58,28 +58,31 @@ Explicitly excluded for v1.2. The entire CI track is the parked backlog item **9
 
 ## Traceability
 
-Which phases cover which requirements. Populated during roadmap creation.
+Which phases cover which requirements. Each v1 requirement maps to exactly one phase (where it is first/primarily delivered).
+
+> **Cross-phase note:** REL-10 (`--dry-run`) and REL-11 (preflights) apply to *both* scripts. Each is mapped to **Phase 10** (the bump driver, where it is first delivered); Phase 11 also delivers the build/publish-half of each (the `rustup`/signing-key/`gh`-permission/tests-green preflights and the publish dry-run), described in the Phase 11 detail but not double-mapped here. Likewise, the *pure* logic behind REL-01 (bump math) and REL-06 (manifest assembly) is authored in Phase 9 but mapped to the phase that wires it to real I/O (Phase 10 and Phase 11 respectively).
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| REL-01 | TBD | Pending |
-| REL-02 | TBD | Pending |
-| REL-03 | TBD | Pending |
-| REL-04 | TBD | Pending |
-| REL-05 | TBD | Pending |
-| REL-06 | TBD | Pending |
-| REL-07 | TBD | Pending |
-| REL-08 | TBD | Pending |
-| REL-09 | TBD | Pending |
-| REL-10 | TBD | Pending |
-| REL-11 | TBD | Pending |
-| REL-12 | TBD | Pending |
+| REL-01 | Phase 10 | Pending |
+| REL-02 | Phase 9 | Pending |
+| REL-03 | Phase 10 | Pending |
+| REL-04 | Phase 10 | Pending |
+| REL-05 | Phase 11 | Pending |
+| REL-06 | Phase 11 | Pending |
+| REL-07 | Phase 11 | Pending |
+| REL-08 | Phase 9 | Pending |
+| REL-09 | Phase 11 | Pending |
+| REL-10 | Phase 10 | Pending |
+| REL-11 | Phase 10 | Pending |
+| REL-12 | Phase 11 | Pending |
 
 **Coverage:**
 - v1 requirements: 12 total
-- Mapped to phases: 0 (roadmap pending)
-- Unmapped: 12 ⚠️ (filled by roadmapper)
+- Mapped to phases: 12 ✓ (Phase 9: REL-02, REL-08 · Phase 10: REL-01, REL-03, REL-04, REL-10, REL-11 · Phase 11: REL-05, REL-06, REL-07, REL-09, REL-12)
+- Unmapped: 0 ✓
+- Duplicated: 0 ✓ (cross-phase REL-10/REL-11 mapped once to Phase 10; REL-01/REL-06 pure logic authored in Phase 9, mapped to their delivery phase)
 
 ---
 *Requirements defined: 2026-06-02*
-*Last updated: 2026-06-02 after initial v1.2 definition*
+*Last updated: 2026-06-02 — roadmap created; traceability filled (Phases 9–11, 12/12 mapped)*
