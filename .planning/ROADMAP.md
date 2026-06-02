@@ -67,7 +67,7 @@ Local release-automation helper scripts for the existing Tauri 2 macOS app (CI e
   4. Running the script with `--dry-run` prints the full intended plan (computed version, file edits, git commands, push target) and changes zero files and performs zero git/network actions
   5. Preflights fail fast and abort non-zero before any write when the working tree is dirty, the branch is not `master`, the target tag already exists (local or remote), or `vitest`/`tsc` are not green
 **Plans**: 3 plans (3 waves)
-  - [ ] 10-01-PLAN.md — Commit the deferred Cargo.lock 0.1.0→0.2.1 reconcile as standalone housekeeping (clean tree before the driver runs)
+  - [x] 10-01-PLAN.md — Commit the deferred Cargo.lock 0.1.0→0.2.1 reconcile as standalone housekeeping (clean tree before the driver runs)
   - [ ] 10-02-PLAN.md — Pure, unit-tested bump-driver decision core `src/lib/release/bumpPlan.ts` (arg parsing, single-computed-version plan, allowlist diff, dry-run/recovery text) — REL-01/10/11 automated coverage
   - [ ] 10-03-PLAN.md — Thin I/O driver `scripts/bump-and-tag.mjs` + `pnpm release:bump` (preflights → lockstep bump → lockfiles → commit → annotated tag → y/N → push), with --dry-run + human-gated real push
 
@@ -96,7 +96,7 @@ Local release-automation helper scripts for the existing Tauri 2 macOS app (CI e
 | 7. Formatters | v1.1 | 3/3 | Complete | 2026-06-02 |
 | 8. StatusBar Size-Readout Cleanup | v1.1 | 1/1 | Complete | 2026-06-02 |
 | 9. Pure release core + housekeeping | v1.2 | 2/2 | Complete   | 2026-06-02 |
-| 10. bump-and-tag driver | v1.2 | 0/3 | Planned | - |
+| 10. bump-and-tag driver | v1.2 | 1/3 | In Progress|  |
 | 11. build-and-publish driver + universal binary + safety rails | v1.2 | 0/0 | Not started | - |
 
 ## Backlog
@@ -120,7 +120,7 @@ Unsequenced ideas captured for future planning. Promote with `/gsd-review-backlo
 Each candidate must still pass the product wedge: offline/no-network, paste-instant (<2s), keyboard-driven, registry-driven, WCAG-AA, and the build+verify harness.
 
 **Requirements:** TBD
-**Plans:** 2/2 plans complete
+**Plans:** 1/3 plans executed
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)

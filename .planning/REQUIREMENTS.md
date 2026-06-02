@@ -14,7 +14,7 @@ Requirements for milestone v1.2. Each maps to a roadmap phase.
 
 - [ ] **REL-01**: Maintainer runs `pnpm release [patch|minor|major]` to bump the app semver across `package.json` + `src-tauri/tauri.conf.json` + `src-tauri/Cargo.toml` (`[package].version` only) in lockstep from a single computed version
 - [x] **REL-02**: The drifted `Cargo.toml` version (currently `0.1.0`) is reconciled to the current app version as a one-time fix, with the `[package]` version targeted precisely (dependency `version = "…"` lines untouched) — ✓ Phase 9 Plan 01 (dogfooded `setCargoVersion`, 0.1.0 → 0.2.1, only line 3 changed)
-- [ ] **REL-03**: Lockfiles (`pnpm-lock.yaml`, `Cargo.lock`) are regenerated and staged so the tagged commit is clean and reproducible (no dirty tree after a bump)
+- [x] **REL-03**: Lockfiles (`pnpm-lock.yaml`, `Cargo.lock`) are regenerated and staged so the tagged commit is clean and reproducible (no dirty tree after a bump)
 - [ ] **REL-04**: The bump creates the `vX.Y.Z` git tag and pushes the commit + tag to the private source remote (`origin`, `bklim5/devtools`)
 
 ### Universal Build & Publish
@@ -66,7 +66,7 @@ Which phases cover which requirements. Each v1 requirement maps to exactly one p
 |-------------|-------|--------|
 | REL-01 | Phase 10 | Pending |
 | REL-02 | Phase 9 | Done (Plan 01) |
-| REL-03 | Phase 10 | Pending |
+| REL-03 | Phase 10 | Complete |
 | REL-04 | Phase 10 | Pending |
 | REL-05 | Phase 11 | Pending |
 | REL-06 | Phase 11 | Complete |

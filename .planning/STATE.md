@@ -3,24 +3,24 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Release Tooling
 status: executing
-last_updated: "2026-06-02T21:16:59.934Z"
-last_activity: 2026-06-02 -- Phase 10 planning complete
+last_updated: "2026-06-02T21:24:26.936Z"
+last_activity: 2026-06-02
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 5
-  completed_plans: 2
-  percent: 40
+  completed_plans: 3
+  percent: 60
 ---
 
 # Project State
 
 ## Current Position
 
-Phase: 10 (bump-and-tag driver) — PLANNED (3 plans, 3 waves), ready to execute
-Plan: 3 plans ready (10-01 Cargo.lock housekeeping → 10-02 pure bumpPlan core (TDD) → 10-03 thin driver + push)
-Status: Ready to execute
-Last activity: 2026-06-02 -- Phase 10 planning complete
+Phase: 10 (bump-and-tag-driver) — EXECUTING
+Plan: 2 of 3
+Status: Plan 10-01 complete; next plan 10-02
+Last activity: 2026-06-02 -- Plan 10-01 complete (Cargo.lock reconcile committed)
 
 **Milestone v1.2 "Release Tooling" roadmapped 2026-06-02.** Three phases (9–11), numbering continued from v1.1's Phase 8 (did NOT reset to 1). All 12 v1.2 requirements (REL-01..12) mapped 1:1 to a phase (12/12 coverage, no orphans, no duplicates). Goal: replace the manual `docs/RELEASE.md` dance with two composable local helper scripts over a unit-tested pure core. The recommended three-phase shape (HIGH-confidence convergence across all 4 researchers) was adopted unchanged:
 
@@ -54,6 +54,7 @@ Phase 09 delivered the full unit-testable pure release core: `src/lib/release/ve
 
 ## Recent Activity
 
+- **2026-06-02 — Phase 10 Plan 01 (Cargo.lock reconcile housekeeping) COMPLETE.** Committed the Phase-9-deferred `Cargo.lock` `devtools-app` `0.1.0 → 0.2.1` reconcile as a standalone `chore(release):` housekeeping commit (`8a0b2975`) — diff-verified to be EXACTLY the single own-version line (no other package versions/checksums shifted, T-10-01) and staged via explicit path (never `git add -A`, T-10-02), so the future bump commit stays diff-pure (criterion #1 / D-11 / RESEARCH §P6). Source tree now clean of the dirty lockfile, so Plan 10-03's D-08 clean-tree preflight will not falsely abort. Full gate green on the reconciled tree: vitest **416/416** (46 files, decoder 19 + Phase 9 release-lib), `tsc --noEmit` clean, `eslint .` clean. No code changed beyond the lockfile, so `/simplify` was a no-op and Task 2 was a verification-only regression guard (no commit). **REL-03 ✓.** Two tasks, zero deviations. **Next: Plan 10-02 (TDD pure `bumpPlan.ts` decision core).**
 - **2026-06-02 — Phase 10 PLANNED & VERIFIED (`/gsd-plan-phase 10`).** Researched first (10-RESEARCH.md, HIGH confidence — all six gray-area commands executed in-repo on the live toolchain). Planner produced 3 plans in 3 waves (10-01 Cargo.lock housekeeping → 10-02 pure `bumpPlan.ts` TDD core → 10-03 thin `bump-and-tag.mjs` driver, human-gated push); plan-checker returned **VERIFICATION PASSED on the first iteration** (0 blockers, 0 warnings) — all 5 requirements (REL-01/03/04/10/11) covered, D-01..D-11 all reflected, `<threat_model>` STRIDE register in each plan, Nyquist `nyquist_compliant: true`. Load-bearing research findings baked in: pnpm-lock no-op tolerated (stage-only-if-changed, never assert 2 lockfiles changed — would falsely fail criterion #2); `cargo update -p devtools-app --offline`; deferred Cargo.lock 0.1.0→0.2.1 committed separately in Plan 01 (NOT folded into `chore(release):`); `execFileSync` argv (no shell injection); non-TTY confirm → NO. Docs committed (RESEARCH `310626c8`, VALIDATION `cae68365`, plans `8c4518a2`). **Next: `/gsd-execute-phase 10`.**
 - **2026-06-02 — Phase 10 CONTEXT.md gathered (`/gsd-discuss-phase 10`).** Four gray areas discussed, 10 decisions locked (D-01..D-11): **CLI** level-only `patch|minor|major` + `--dry-run`, no `--no-push`/`--skip-checks` (D-01/D-02); **commit** `chore(release): vX.Y.Z` + **annotated** tag `git tag -a vX.Y.Z -m "vX.Y.Z"`, no notes in tag (D-03/D-04); **push policy** local-work-first → print plan → y/N confirm → push (D-05/D-05a); **preflights** script itself runs vitest+tsc+eslint and aborts, plus git-state checks (dirty/not-master/tag-exists local+remote), all before any irreversible action (D-06/D-07/D-08); **failure recovery** never a tool-initiated `git reset --hard` — on push-fail OR declined confirm, keep local commit+tag and print exact retry/undo commands (D-09/D-10); lockfiles regen+staged in same commit (D-11). Commit `8af48df3`. **Next: `/gsd-plan-phase 10`.**
 - **2026-06-02 — Phase 09 VERIFIED & COMPLETE (5/5 must-haves).** `09-VERIFICATION.md` = passed: vitest 416/416 (38 release-lib), `setCargoVersion` `[package]`-only proof present, `buildLatestJson` dual-key (no `darwin-universal`), Cargo reconciled 0.1.0→0.2.1 (only line 3 changed, dep pins byte-identical), `git ls-files latest.json` empty + `/latest.json` gitignored, tsc/eslint clean, decoder 19/19 untouched, zero new deps. Code review (09-REVIEW.md): 0 critical, 1 warning, 3 info — **WR-01 fixed** in `4ee8dd36` (`bumpSemver` now rejects leading zeros + out-of-safe-range components, +5 tests). REL-02 + REL-08 satisfied; REL-06 pure core authored (delivery Phase 11). Phases 9–11 touch no app UI, so no real-WKWebView gate this phase. **Next: `/gsd-plan-phase 10`.**
