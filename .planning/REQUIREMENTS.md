@@ -19,17 +19,17 @@ Requirements for milestone v1.2. Each maps to a roadmap phase.
 
 ### Universal Build & Publish
 
-- [ ] **REL-05**: The publish script produces a **universal** macOS binary covering Intel + Apple Silicon via `tauri build --target universal-apple-darwin` (closing the local arm64-only gap), resolving artifacts at the universal output path
+- [x] **REL-05**: The publish script produces a **universal** macOS binary covering Intel + Apple Silicon via `tauri build --target universal-apple-darwin` (closing the local arm64-only gap), resolving artifacts at the universal output path
 - [x] **REL-06**: `latest.json` is generated from **this build's fresh** `*.app.tar.gz.sig` (single-match glob; fail loudly on 0 or >1 matches), with the universal artifact listed under **both** `darwin-aarch64` and `darwin-x86_64` keys (same URL + same signature — no invented `darwin-universal` key)
 - [ ] **REL-07**: The release is published to the public `bklim5/devtools-releases` repo (`gh release create --repo`), uploading the DMG + `.app.tar.gz` + `latest.json`
 - [x] **REL-08**: `latest.json` is generate-only — never committed; the stale tracked/root copy is removed from version control and confirmed gitignored — ✓ Phase 9 Plan 01 (verify-only: `git ls-files latest.json` empty, `/latest.json` gitignored, on-disk copy left intact)
-- [ ] **REL-09**: Apple notarisation env (`APPLE_*`) is honored if present (notarisation-ready), but ad-hoc signing remains the default and notarisation itself stays deferred
+- [x] **REL-09**: Apple notarisation env (`APPLE_*`) is honored if present (notarisation-ready), but ad-hoc signing remains the default and notarisation itself stays deferred
 
 ### Safety & Verification
 
 - [x] **REL-10**: Both scripts support `--dry-run`, printing the full intended plan with zero side effects (no file writes, no git/network actions) — ✓ Phase 10 Plan 03 (bump-half: `pnpm release:bump <level> --dry-run` proven byte-identical `git status --porcelain` before/after; build/publish-half remains Phase 11)
 - [x] **REL-11**: Preflight checks fail fast before the slow build — clean working tree, on `master`, target tag absent (local + remote), signing key/password present, and `vitest` + `tsc` green — ✓ Phase 10 Plan 03 (bump-half: dirty-tree / non-master / existing-tag aborts each non-zero before any write; signing-key/`gh` preflights are Phase 11's build/publish-half)
-- [ ] **REL-12**: After publishing, the script verifies the live updater endpoint (`releases/latest/download/latest.json`) and asserts the served `version` matches the version just cut
+- [x] **REL-12**: After publishing, the script verifies the live updater endpoint (`releases/latest/download/latest.json`) and asserts the served `version` matches the version just cut
 
 ## v2 Requirements
 
@@ -68,14 +68,14 @@ Which phases cover which requirements. Each v1 requirement maps to exactly one p
 | REL-02 | Phase 9 | Done (Plan 01) |
 | REL-03 | Phase 10 | Complete |
 | REL-04 | Phase 10 | Complete (Plan 03) |
-| REL-05 | Phase 11 | Pending |
+| REL-05 | Phase 11 | Complete |
 | REL-06 | Phase 11 | Complete |
 | REL-07 | Phase 11 | Pending |
 | REL-08 | Phase 9 | Done (Plan 01) |
-| REL-09 | Phase 11 | Pending |
+| REL-09 | Phase 11 | Complete |
 | REL-10 | Phase 10 | Complete (Plan 03, bump-half) |
 | REL-11 | Phase 10 | Complete (Plan 03, bump-half) |
-| REL-12 | Phase 11 | Pending |
+| REL-12 | Phase 11 | Complete |
 
 **Coverage:**
 - v1 requirements: 12 total

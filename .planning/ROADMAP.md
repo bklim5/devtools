@@ -82,7 +82,7 @@ Local release-automation helper scripts for the existing Tauri 2 macOS app (CI e
   4. `APPLE_*` notarisation env is honored if present but never required (ad-hoc signing stays the default; no secret is ever echoed or passed as a CLI arg); `--dry-run` prints the full publish plan with zero side effects
   5. **Human-gate acceptance:** a real updater round-trip is proven live — an older install detects the new release, passes the mandatory minisign verify against the committed pubkey, and relaunches into the new version (the load-bearing DST-02 proof; flagged for deeper validation during planning since the universal dual-key behavior must be confirmed on real hardware, not just unit-asserted)
 **Plans**: 3 plans (3 waves)
-  - [ ] 11-01-PLAN.md — Pure, unit-tested publish-driver decision core `src/lib/release/publishPlan.ts` (arg parse, single-sig glob assert, lipo both-arch parse, asset-url build, served-version match, signing/APPLE_* presence checks, plan/recovery render-strings) — REL-05/06/09/12 automated coverage (TDD)
+  - [x] 11-01-PLAN.md — Pure, unit-tested publish-driver decision core `src/lib/release/publishPlan.ts` (arg parse, single-sig glob assert, lipo both-arch parse, asset-url build, served-version match, signing/APPLE_* presence checks, plan/recovery render-strings) — REL-05/06/09/12 automated coverage (TDD)
   - [ ] 11-02-PLAN.md — Thin I/O driver `scripts/build-and-publish.mjs` + `pnpm release:publish` (preflights → `--dry-run` short-circuit with NO build → universal `tauri build` → lipo assert → fresh-sig glob → dual-key `latest.json` → cross-repo `gh` publish assets-first/manifest-last → post-publish `curl` verify), secrets inherited-only
   - [ ] 11-03-PLAN.md — Human-gated live publish + the load-bearing DST-02 updater round-trip (older install → detect → minisign verify against the pinned pubkey → relaunch, both arches) — NOT autonomous
 
@@ -100,7 +100,7 @@ Local release-automation helper scripts for the existing Tauri 2 macOS app (CI e
 | 8. StatusBar Size-Readout Cleanup | v1.1 | 1/1 | Complete | 2026-06-02 |
 | 9. Pure release core + housekeeping | v1.2 | 2/2 | Complete   | 2026-06-02 |
 | 10. bump-and-tag driver | v1.2 | 3/3 | Complete    | 2026-06-02 |
-| 11. build-and-publish driver + universal binary + safety rails | v1.2 | 0/3 | Planned | - |
+| 11. build-and-publish driver + universal binary + safety rails | v1.2 | 1/3 | In Progress|  |
 
 ## Backlog
 
@@ -123,7 +123,7 @@ Unsequenced ideas captured for future planning. Promote with `/gsd-review-backlo
 Each candidate must still pass the product wedge: offline/no-network, paste-instant (<2s), keyboard-driven, registry-driven, WCAG-AA, and the build+verify harness.
 
 **Requirements:** TBD
-**Plans:** 3/3 plans complete
+**Plans:** 1/3 plans executed
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
