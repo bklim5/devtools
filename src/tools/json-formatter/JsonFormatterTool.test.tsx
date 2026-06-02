@@ -20,6 +20,7 @@ import {
 import JsonFormatterTool from "./JsonFormatterTool";
 import { jsonFormatterTool } from "./index";
 import { TOOLS, getToolById } from "@/lib/tools/registry";
+import * as formatJsonModule from "@/lib/format/json";
 
 let writeText: ReturnType<typeof vi.fn<(text: string) => Promise<void>>>;
 
@@ -105,6 +106,39 @@ describe("JsonFormatterTool", () => {
     fireEvent.change(inputEl(container), { target: { value: '{"a":1}' } });
     fireEvent.click(getByRole("button", { name: /copy output/i }));
     expect(writeText).toHaveBeenCalledWith(outputEl(container).value);
+  });
+
+  it("times the pure formatJson call, not the state setter (WR-02)", () => {
+    // WR-02: timing was measured around setInput (a state setter that only
+    // schedules a re-render), so it always read ~0 ms regardless of the actual
+    // format cost. The fix brackets the pure formatJson call during render.
+    //
+    // Discriminator: the format spy advances the clock by 7 ms each time it runs.
+    // A bracket that wraps the formatJson call therefore measures +7 ms; a bracket
+    // that wraps only setInput (the old handler) never moves the clock -> 0.0 ms.
+    let clock = 0;
+    const nowSpy = vi.spyOn(performance, "now").mockImplementation(() => clock);
+    // Capture the real implementation BEFORE spying — the named import is a live
+    // binding, so calling it after spyOn would recurse into the mock.
+    const original = formatJsonModule.formatJson;
+    const formatSpy = vi
+      .spyOn(formatJsonModule, "formatJson")
+      .mockImplementation((...args) => {
+        const out = original(...args);
+        clock += 7;
+        return out;
+      });
+
+    const { container } = render(<JsonFormatterTool />);
+    fireEvent.change(inputEl(container), { target: { value: '{"a":1}' } });
+
+    const status = container.querySelector("footer[role=status]")! as HTMLElement;
+    const timing = within(status).getByLabelText("timing").textContent ?? "";
+    // Non-zero, tied to the format pass — never the old 0.0 ms.
+    expect(timing).toBe("7.0 ms");
+
+    formatSpy.mockRestore();
+    nowSpy.mockRestore();
   });
 
   it("is registered in TOOLS and resolvable by id (registry-only, D-12)", () => {

@@ -22,6 +22,7 @@ import XmlFormatterTool from "./XmlFormatterTool";
 import { xmlFormatterTool } from "./index";
 import { jsonFormatterTool } from "@/tools/json-formatter";
 import { TOOLS, getToolById } from "@/lib/tools/registry";
+import * as formatXmlModule from "@/lib/format/xml";
 
 let writeText: ReturnType<typeof vi.fn<(text: string) => Promise<void>>>;
 
@@ -105,6 +106,34 @@ describe("XmlFormatterTool", () => {
     fireEvent.change(inputEl(container), { target: { value: "<a>1</a>" } });
     fireEvent.click(getByRole("button", { name: /copy output/i }));
     expect(writeText).toHaveBeenCalledWith(outputEl(container).value);
+  });
+
+  it("times the pure formatXml call, not the state setter (WR-02)", () => {
+    // WR-02: timing was measured around setInput (a state setter that only
+    // schedules a re-render), so it always read ~0 ms. The fix brackets the pure
+    // formatXml call during render. The format spy advances the clock by 7 ms each
+    // time it runs, so a bracket around it measures +7 ms; one around setInput would
+    // never move the clock (0.0 ms).
+    let clock = 0;
+    const nowSpy = vi.spyOn(performance, "now").mockImplementation(() => clock);
+    const original = formatXmlModule.formatXml;
+    const formatSpy = vi
+      .spyOn(formatXmlModule, "formatXml")
+      .mockImplementation((...args) => {
+        const out = original(...args);
+        clock += 7;
+        return out;
+      });
+
+    const { container } = render(<XmlFormatterTool />);
+    fireEvent.change(inputEl(container), { target: { value: "<a>1</a>" } });
+
+    const status = container.querySelector("footer[role=status]")! as HTMLElement;
+    const timing = within(status).getByLabelText("timing").textContent ?? "";
+    expect(timing).toBe("7.0 ms");
+
+    formatSpy.mockRestore();
+    nowSpy.mockRestore();
   });
 
   it("is registered in TOOLS alongside JSON and resolvable by id (D-12)", () => {

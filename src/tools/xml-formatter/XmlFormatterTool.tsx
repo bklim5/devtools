@@ -5,9 +5,9 @@
 // then hands the derived output + status to the shared presentational FormatterView.
 // On a parse failure the output pane CLEARS and the status bar shows the
 // parsererror message (D-08); empty/whitespace input is status "empty", not an error.
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { formatXml } from "@/lib/format/xml";
-import type { IndentMode } from "@/lib/format/types";
+import { timed, type IndentMode } from "@/lib/format/types";
 import { FormatterView } from "@/components/FormatterView";
 import type { ParseState } from "@/components/StatusBar";
 
@@ -19,11 +19,16 @@ export default function XmlFormatterTool() {
   const [input, setInput] = useState("");
   const [indent, setIndent] = useState<IndentMode>("2");
   const [minify, setMinify] = useState(false);
-  const [timingMs, setTimingMs] = useState<number | undefined>(undefined);
 
-  // Derive synchronously every render — formatXml is pure and cheap (D-07).
-  // The status-bar timing is sampled around the input edit (see onInputChange).
-  const result = formatXml(input, { indent, minify });
+  // Derive synchronously — formatXml is pure and cheap (D-07). Time the pure call
+  // HERE, where the work actually happens; the old code measured around setInput (a
+  // state setter that only schedules a re-render) so it read ~0 ms and never
+  // reflected the format pass (WR-02). useMemo keeps the timing tied to the actual
+  // (re)computation and out of React's impure-call-in-render lint.
+  const { result, timingMs } = useMemo(
+    () => timed(() => formatXml(input, { indent, minify })),
+    [input, indent, minify],
+  );
 
   const isEmpty = input.trim() === "";
   // On a parse failure the output pane CLEARS (D-08) and the status bar shows the
@@ -38,18 +43,12 @@ export default function XmlFormatterTool() {
       : result.error.message;
   const parseState: ParseState = result.ok ? (isEmpty ? "empty" : "ok") : "error";
 
-  function onInputChange(raw: string) {
-    const t0 = performance.now();
-    setInput(raw);
-    setTimingMs(performance.now() - t0);
-  }
-
   return (
     <FormatterView
       inputId="xml-input"
       outputId="xml-output"
       input={input}
-      onInputChange={onInputChange}
+      onInputChange={setInput}
       output={output}
       controls={{
         indent,

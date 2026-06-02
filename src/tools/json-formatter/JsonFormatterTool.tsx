@@ -5,9 +5,9 @@
 // derived output + status to the shared presentational FormatterView. On a parse
 // failure the output pane CLEARS and the status bar shows the line:col + message
 // (D-08); empty/whitespace input is status "empty", not an error.
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { formatJson } from "@/lib/format/json";
-import type { IndentMode } from "@/lib/format/types";
+import { timed, type IndentMode } from "@/lib/format/types";
 import { FormatterView } from "@/components/FormatterView";
 import type { ParseState } from "@/components/StatusBar";
 
@@ -20,11 +20,16 @@ export default function JsonFormatterTool() {
   const [indent, setIndent] = useState<IndentMode>("2");
   const [minify, setMinify] = useState(false);
   const [sortKeys, setSortKeys] = useState(false);
-  const [timingMs, setTimingMs] = useState<number | undefined>(undefined);
 
-  // Derive synchronously every render — formatJson is pure and cheap (D-07).
-  // The status-bar timing is sampled around the input edit (see onInputChange).
-  const result = formatJson(input, { indent, minify, sortKeys });
+  // Derive synchronously — formatJson is pure and cheap (D-07). Time the pure call
+  // HERE, where the work actually happens; the old code measured around setInput (a
+  // state setter that only schedules a re-render) so it read ~0 ms and never
+  // reflected the format pass (WR-02). useMemo keeps the timing tied to the actual
+  // (re)computation and out of React's impure-call-in-render lint.
+  const { result, timingMs } = useMemo(
+    () => timed(() => formatJson(input, { indent, minify, sortKeys })),
+    [input, indent, minify, sortKeys],
+  );
 
   const isEmpty = input.trim() === "";
   // On a parse failure the output pane CLEARS (D-08) and the status bar shows the
@@ -39,18 +44,12 @@ export default function JsonFormatterTool() {
       : result.error.message;
   const parseState: ParseState = result.ok ? (isEmpty ? "empty" : "ok") : "error";
 
-  function onInputChange(raw: string) {
-    const t0 = performance.now();
-    setInput(raw);
-    setTimingMs(performance.now() - t0);
-  }
-
   return (
     <FormatterView
       inputId="json-input"
       outputId="json-output"
       input={input}
-      onInputChange={onInputChange}
+      onInputChange={setInput}
       output={output}
       controls={{
         indent,

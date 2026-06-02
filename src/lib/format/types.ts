@@ -24,3 +24,15 @@ export interface FormatOptions {
 export type FormatResult =
   | { ok: true; output: string; inputBytes: number; outputBytes: number }
   | { ok: false; error: { message: string; line?: number; col?: number } };
+
+/**
+ * Run a pure format thunk and report how long IT took (WR-02). Lives here, in a
+ * pure module, so `performance.now` is timed where the work actually runs instead
+ * of around a React state setter — and out of component render, which React's
+ * impure-call-in-render lint forbids. Mirrors the protobuf decoder's `timingMs`.
+ */
+export function timed<T>(fn: () => T): { result: T; timingMs: number } {
+  const t0 = performance.now();
+  const result = fn();
+  return { result, timingMs: performance.now() - t0 };
+}

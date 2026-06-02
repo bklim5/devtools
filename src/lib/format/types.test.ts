@@ -3,7 +3,8 @@
 // minify, JSON-only sort-keys). These are compile-time guarantees; the runtime test
 // constructs each variant and narrows on `result.ok` to lock the shape before
 // json.ts / xml.ts are written.
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { timed } from "./types";
 import type { FormatOptions, FormatResult, IndentMode } from "./types";
 
 describe("FormatResult contract", () => {
@@ -56,5 +57,21 @@ describe("FormatResult contract", () => {
     expect(json.sortKeys).toBe(true);
     expect(xml.sortKeys).toBeUndefined();
     expect(xml.minify).toBe(true);
+  });
+});
+
+describe("timed (WR-02)", () => {
+  it("returns the thunk's result and the elapsed time of THAT call", () => {
+    // Advance the clock only across the wrapped call: 11 ms before, 18 ms after.
+    const nowSpy = vi
+      .spyOn(performance, "now")
+      .mockReturnValueOnce(11)
+      .mockReturnValueOnce(18);
+
+    const { result, timingMs } = timed(() => "payload");
+
+    expect(result).toBe("payload");
+    expect(timingMs).toBe(7); // 18 - 11, the wrapped call's cost — not 0
+    nowSpy.mockRestore();
   });
 });
