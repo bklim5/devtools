@@ -17,10 +17,22 @@ export interface StatusBarProps {
    * redundant chip.
    */
   encoding?: string;
+  /**
+   * Output size in bytes (optional). When provided, the byte readout becomes an
+   * input->output delta (e.g. `1,240 → 890 bytes`) so formatters can show the
+   * minify/prettify size change (D-04). Omitted by single-count callers
+   * (Base64/Hex/Bytes, Protobuf), which stay byte-identical.
+   */
+  outputBytes?: number;
   /** Active error text, if any — named here AND inline on the field (D-13). */
   error?: string | null;
   /** Last operation timing in ms (optional; omitted when not measured). */
   timingMs?: number;
+}
+
+/** Thousands-separated count, used ONLY in the delta branch (D-04). */
+function formatN(n: number): string {
+  return n.toLocaleString("en-US");
 }
 
 const STATE_LABEL: Record<ParseState, string> = {
@@ -32,6 +44,7 @@ const STATE_LABEL: Record<ParseState, string> = {
 export function StatusBar({
   parseState,
   byteCount,
+  outputBytes,
   encoding,
   error,
   timingMs,
@@ -50,7 +63,9 @@ export function StatusBar({
           {STATE_LABEL[parseState]}
         </span>
         <span aria-label="byte count">
-          {byteCount} {byteCount === 1 ? "byte" : "bytes"}
+          {typeof outputBytes === "number"
+            ? `${formatN(byteCount)} → ${formatN(outputBytes)} bytes`
+            : `${byteCount} ${byteCount === 1 ? "byte" : "bytes"}`}
         </span>
         {encoding ? <span aria-label="encoding">{encoding}</span> : null}
       </div>
