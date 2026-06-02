@@ -12,10 +12,10 @@ Requirements for milestone v1.2. Each maps to a roadmap phase.
 
 ### Version Lockstep & Tagging
 
-- [ ] **REL-01**: Maintainer runs `pnpm release [patch|minor|major]` to bump the app semver across `package.json` + `src-tauri/tauri.conf.json` + `src-tauri/Cargo.toml` (`[package].version` only) in lockstep from a single computed version
+- [x] **REL-01**: Maintainer runs `pnpm release [patch|minor|major]` to bump the app semver across `package.json` + `src-tauri/tauri.conf.json` + `src-tauri/Cargo.toml` (`[package].version` only) in lockstep from a single computed version — ✓ Phase 10 Plan 03 (`scripts/bump-and-tag.mjs` + `pnpm release:bump`; live-verified by the real v0.2.2 bump, one computed version in all 3 manifests)
 - [x] **REL-02**: The drifted `Cargo.toml` version (currently `0.1.0`) is reconciled to the current app version as a one-time fix, with the `[package]` version targeted precisely (dependency `version = "…"` lines untouched) — ✓ Phase 9 Plan 01 (dogfooded `setCargoVersion`, 0.1.0 → 0.2.1, only line 3 changed)
 - [x] **REL-03**: Lockfiles (`pnpm-lock.yaml`, `Cargo.lock`) are regenerated and staged so the tagged commit is clean and reproducible (no dirty tree after a bump)
-- [ ] **REL-04**: The bump creates the `vX.Y.Z` git tag and pushes the commit + tag to the private source remote (`origin`, `bklim5/devtools`)
+- [x] **REL-04**: The bump creates the `vX.Y.Z` git tag and pushes the commit + tag to the private source remote (`origin`, `bklim5/devtools`) — ✓ Phase 10 Plan 03 (live: annotated tag `v0.2.2` + `chore(release): v0.2.2` pushed to origin, confirmed via `git ls-remote --tags origin v0.2.2`)
 
 ### Universal Build & Publish
 
@@ -27,8 +27,8 @@ Requirements for milestone v1.2. Each maps to a roadmap phase.
 
 ### Safety & Verification
 
-- [ ] **REL-10**: Both scripts support `--dry-run`, printing the full intended plan with zero side effects (no file writes, no git/network actions)
-- [ ] **REL-11**: Preflight checks fail fast before the slow build — clean working tree, on `master`, target tag absent (local + remote), signing key/password present, and `vitest` + `tsc` green
+- [x] **REL-10**: Both scripts support `--dry-run`, printing the full intended plan with zero side effects (no file writes, no git/network actions) — ✓ Phase 10 Plan 03 (bump-half: `pnpm release:bump <level> --dry-run` proven byte-identical `git status --porcelain` before/after; build/publish-half remains Phase 11)
+- [x] **REL-11**: Preflight checks fail fast before the slow build — clean working tree, on `master`, target tag absent (local + remote), signing key/password present, and `vitest` + `tsc` green — ✓ Phase 10 Plan 03 (bump-half: dirty-tree / non-master / existing-tag aborts each non-zero before any write; signing-key/`gh` preflights are Phase 11's build/publish-half)
 - [ ] **REL-12**: After publishing, the script verifies the live updater endpoint (`releases/latest/download/latest.json`) and asserts the served `version` matches the version just cut
 
 ## v2 Requirements
@@ -64,17 +64,17 @@ Which phases cover which requirements. Each v1 requirement maps to exactly one p
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| REL-01 | Phase 10 | Pending |
+| REL-01 | Phase 10 | Complete (Plan 03) |
 | REL-02 | Phase 9 | Done (Plan 01) |
 | REL-03 | Phase 10 | Complete |
-| REL-04 | Phase 10 | Pending |
+| REL-04 | Phase 10 | Complete (Plan 03) |
 | REL-05 | Phase 11 | Pending |
 | REL-06 | Phase 11 | Complete |
 | REL-07 | Phase 11 | Pending |
 | REL-08 | Phase 9 | Done (Plan 01) |
 | REL-09 | Phase 11 | Pending |
-| REL-10 | Phase 10 | Pending |
-| REL-11 | Phase 10 | Pending |
+| REL-10 | Phase 10 | Complete (Plan 03, bump-half) |
+| REL-11 | Phase 10 | Complete (Plan 03, bump-half) |
 | REL-12 | Phase 11 | Pending |
 
 **Coverage:**
@@ -85,4 +85,4 @@ Which phases cover which requirements. Each v1 requirement maps to exactly one p
 
 ---
 *Requirements defined: 2026-06-02*
-*Last updated: 2026-06-02 — roadmap created; traceability filled (Phases 9–11, 12/12 mapped)*
+*Last updated: 2026-06-02 — Phase 10 complete: REL-01, REL-04, REL-10, REL-11 marked Complete (Plan 03 live v0.2.2 release); REL-03 already Complete. Phase 10 fully delivered (5/5 mapped reqs).*

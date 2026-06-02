@@ -7,20 +7,20 @@ last_updated: "2026-06-02T21:24:26.936Z"
 last_activity: 2026-06-02
 progress:
   total_phases: 7
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 5
-  completed_plans: 4
-  percent: 80
+  completed_plans: 5
+  percent: 100
 ---
 
 # Project State
 
 ## Current Position
 
-Phase: 10 (bump-and-tag-driver) — EXECUTING
-Plan: 3 of 3
-Status: Plans 10-01 + 10-02 complete; next plan 10-03 (human-gated push)
-Last activity: 2026-06-02 -- Plan 10-02 complete (pure bumpPlan.ts decision core, TDD)
+Phase: 10 (bump-and-tag-driver) — ALL 3 PLANS COMPLETE (pending phase-boundary human sign-off)
+Plan: 3 of 3 — COMPLETE
+Status: Plans 10-01 + 10-02 + 10-03 all complete. Live v0.2.2 release cut + pushed to origin. REL-01/03/04/10/11 satisfied.
+Last activity: 2026-06-02 -- Plan 10-03 complete (bump-and-tag.mjs driver + live v0.2.2 push)
 
 **Milestone v1.2 "Release Tooling" roadmapped 2026-06-02.** Three phases (9–11), numbering continued from v1.1's Phase 8 (did NOT reset to 1). All 12 v1.2 requirements (REL-01..12) mapped 1:1 to a phase (12/12 coverage, no orphans, no duplicates). Goal: replace the manual `docs/RELEASE.md` dance with two composable local helper scripts over a unit-tested pure core. The recommended three-phase shape (HIGH-confidence convergence across all 4 researchers) was adopted unchanged:
 
@@ -42,7 +42,7 @@ Next: `/gsd-execute-phase 10`.
 
 - **10-01 (wave 1, autonomous)** — commit the deferred `Cargo.lock` 0.1.0→0.2.1 reconcile as standalone housekeeping (the working-tree `M src-tauri/Cargo.lock`) so the bump tree starts clean (REL-03). 2 tasks.
 - **10-02 (wave 2, autonomous, TDD)** — pure `src/lib/release/bumpPlan.ts`: arg grammar (D-01/02), single-computed-version plan threaded to 3 manifests + tag + commit msg (REL-01), allowlist diff tolerating the pnpm-lock no-op, dry-run/recovery text builders (REL-01/10/11). 4 tasks. Creates `bumpPlan.test.ts` (Wave 0 harness).
-- **10-03 (wave 3, NOT autonomous — human-gated push)** — thin `scripts/bump-and-tag.mjs` wiring the core to git/pnpm/cargo I/O + `pnpm release:bump`: preflights → bump → lockfile regen (`pnpm install --lockfile-only`, `cargo update -p devtools-app --offline`) → commit → annotated tag → y/N confirm → push (REL-01/03/04/10/11). 3 tasks incl. the live-push checkpoint.
+- **10-03 (wave 3, NOT autonomous — human-gated push) — ✓ COMPLETE** — thin `scripts/bump-and-tag.mjs` wiring the core to git/pnpm/cargo I/O + `pnpm release:bump`: preflights → bump → lockfile regen (`pnpm install --lockfile-only`, `cargo update -p devtools-app --offline`) → commit → annotated tag → y/N confirm → push (REL-01/03/04/10/11). 3 tasks incl. the live-push checkpoint. Live `v0.2.2` pushed to origin; one Rule-1 porcelain-trim bug fixed mid-run (`365d341f`).
 
 Research (10-RESEARCH.md, HIGH confidence) verified every gray-area command in-repo. Key facts baked into the plans: pnpm-lock does NOT record the root version (stage-only-if-changed, never assert "2 lockfiles changed"); `cargo update -p devtools-app --offline` not `generate-lockfile`; tsx loads the `.ts` core from `.mjs` with no build step; `execFileSync` argv arrays (no shell injection); non-TTY confirm defaults to NO. Each plan carries a `<threat_model>` STRIDE register (security gate ON). Nyquist VALIDATION.md = `nyquist_compliant: true`. The real push (REL-04) is the single documented manual-only verification.
 
@@ -54,6 +54,7 @@ Phase 09 delivered the full unit-testable pure release core: `src/lib/release/ve
 
 ## Recent Activity
 
+- **2026-06-02 — Phase 10 Plan 03 (`scripts/bump-and-tag.mjs` driver + live `v0.2.2` push) COMPLETE.** The thin Node ESM I/O driver wraps the Plan 02 pure core and is wired to `pnpm release:bump` (`tsx scripts/bump-and-tag.mjs`): read current version → all read-only preflights (clean tree, branch==master, tag absent local+remote, vitest+tsc+eslint gate) → `--dry-run` short-circuit → apply 3 manifest edits → `pnpm install --lockfile-only --offline` + `cargo update -p devtools-app --offline` (cwd src-tauri) → allowlist diff → stage-only-if-changed → commit `chore(release): vX.Y.Z` → annotated tag → clean-tree assert → print push plan → TTY-guarded y/N → push commit then tag, with `renderRecovery` printed on decline/failure (NEVER a tool-initiated `git reset`/`git tag -d`). `execFileSync` argv arrays throughout (no shell injection, T-10-04). **Live release cut:** maintainer ran `pnpm release:bump patch` and pushed `chore(release): v0.2.2` (`802707d6`) + annotated tag `v0.2.2` to private origin (`git ls-remote --tags origin v0.2.2` returns `b210ed19…`); all 3 manifests + `Cargo.lock` at `0.2.2`, tree clean. **One deviation (Rule 1 bug, fix `365d341f`):** the live run surfaced a real bug — `run()` globally trimmed stdout, stripping the significant leading space of the FIRST `git status --porcelain` line, so `changedPaths()`'s `slice(3)` mangled the first changed path (`package.json` → `ackage.json`) and the allowlist diff aborted the bump; fix added a `raw` option to `run()` so `changedPaths()` reads porcelain untrimmed. Reproduced against the dirty tree, re-verified via `--dry-run` + a full non-interactive real run (commit+tag created then undone), then the maintainer re-ran interactively and pushed for real. Tasks 1–2 were committed earlier at `a74cfc1b` (driver+wiring); the porcelain-raw fix at `365d341f`; the release commit at `802707d6`. **REL-01/REL-03/REL-04/REL-10/REL-11 ✓** — Phase 10 fully delivered (5/5 mapped requirements). Zero new deps; decoder + its 19 tests untouched. **Next: Phase 10 boundary human sign-off, then `/gsd-plan-phase 11`.**
 - **2026-06-02 — Phase 10 Plan 02 (pure `bumpPlan.ts` decision core) COMPLETE (TDD).** New `src/lib/release/bumpPlan.ts` (262 lines) + `bumpPlan.test.ts` (292 lines, 47 cases) deliver the side-effect-free brain of the bump driver, giving **REL-01/REL-10/REL-11 automated coverage**. Exports: `parseBumpArgs` (D-01/D-02 grammar — only `patch|minor|major` + `--dry-run`; throws naming an explicit-version arg, `--no-push`, `--skip-checks`, a duplicate level, or any unknown token, with the usage in every message), `buildBumpPlan` (**single computed version** — `bumpSemver` called EXACTLY ONCE, threaded into all 3 manifest `apply` closures + the `vX.Y.Z` annotated tag + the `chore(release): vX.Y.Z` commit msg + a git command list that pushes commit-before-tag per §Q6; malformed input lets the throw propagate), `assertOnlyExpectedPaths`+`ALLOWED_PATHS` (5-path allowlist diff that **tolerates the pnpm-lock no-op** — 4 or even 3 paths valid — but rejects strays + missing manifests + the empty set), `renderDryRunPlan`+`renderRecovery` (pure return-strings: dry-run plan carries the one version/edits/lockfile-regen/git-cmds/push-target; recovery is the literal copy-pasteable retry-push + `git tag -d` / `git reset --hard|--soft HEAD~1` block, D-09/D-10), and `isAffirmative` (default NO). **Provably pure** — grep audit confirms no `node:fs`/`node:child_process`/`process.argv`/`console.` and no top-level executable statements. Three atomic feat commits (`612f07ba` parse+confirm, `fe76c888` buildBumpPlan single-source, `578e4a25` allowlist+dry-run+recovery); Task 4 was a verification-only full-gate + purity audit (no commit). Full gate green: vitest **463/463** (47 files), `tsc --noEmit` clean, `eslint .` clean; **decoder 19/19 untouched**, zero new deps. Zero deviations (two doc-comment rewordings to satisfy the negative-grep purity check were in-spec). **Next: Plan 10-03 (thin `bump-and-tag.mjs` driver + `pnpm release:bump`, NOT autonomous — wave 3 ends at the human-gated live-push checkpoint).**
 - **2026-06-02 — Phase 10 Plan 01 (Cargo.lock reconcile housekeeping) COMPLETE.** Committed the Phase-9-deferred `Cargo.lock` `devtools-app` `0.1.0 → 0.2.1` reconcile as a standalone `chore(release):` housekeeping commit (`8a0b2975`) — diff-verified to be EXACTLY the single own-version line (no other package versions/checksums shifted, T-10-01) and staged via explicit path (never `git add -A`, T-10-02), so the future bump commit stays diff-pure (criterion #1 / D-11 / RESEARCH §P6). Source tree now clean of the dirty lockfile, so Plan 10-03's D-08 clean-tree preflight will not falsely abort. Full gate green on the reconciled tree: vitest **416/416** (46 files, decoder 19 + Phase 9 release-lib), `tsc --noEmit` clean, `eslint .` clean. No code changed beyond the lockfile, so `/simplify` was a no-op and Task 2 was a verification-only regression guard (no commit). **REL-03 ✓.** Two tasks, zero deviations. **Next: Plan 10-02 (TDD pure `bumpPlan.ts` decision core).**
 - **2026-06-02 — Phase 10 PLANNED & VERIFIED (`/gsd-plan-phase 10`).** Researched first (10-RESEARCH.md, HIGH confidence — all six gray-area commands executed in-repo on the live toolchain). Planner produced 3 plans in 3 waves (10-01 Cargo.lock housekeeping → 10-02 pure `bumpPlan.ts` TDD core → 10-03 thin `bump-and-tag.mjs` driver, human-gated push); plan-checker returned **VERIFICATION PASSED on the first iteration** (0 blockers, 0 warnings) — all 5 requirements (REL-01/03/04/10/11) covered, D-01..D-11 all reflected, `<threat_model>` STRIDE register in each plan, Nyquist `nyquist_compliant: true`. Load-bearing research findings baked in: pnpm-lock no-op tolerated (stage-only-if-changed, never assert 2 lockfiles changed — would falsely fail criterion #2); `cargo update -p devtools-app --offline`; deferred Cargo.lock 0.1.0→0.2.1 committed separately in Plan 01 (NOT folded into `chore(release):`); `execFileSync` argv (no shell injection); non-TTY confirm → NO. Docs committed (RESEARCH `310626c8`, VALIDATION `cae68365`, plans `8c4518a2`). **Next: `/gsd-execute-phase 10`.**
@@ -67,11 +68,11 @@ Phase 09 delivered the full unit-testable pure release core: `src/lib/release/ve
 
 ## Blocker
 
-- **None.** Phase 10 planned (3 plans) and plan-checker verified (0 blockers/0 warnings). Ready to execute.
+- **None.** Phase 10 fully executed (3/3 plans) and the live `v0.2.2` release is on origin. Pending only the Phase 10 boundary human sign-off before Phase 11.
 
 ## Next Step (pick up here next session)
 
-**Execute Plan 10-03 (`scripts/bump-and-tag.mjs` thin driver + `pnpm release:bump`).** Plans 10-01 (Cargo.lock reconcile) and 10-02 (pure `bumpPlan.ts` core) are complete. 10-03 is **NOT autonomous** — wave 3 ends at the human-gated live-push checkpoint (REL-04, the milestone's single documented manual-only verification). The driver imports the now-fully-tested `bumpPlan.ts` via `tsx` and wires only the git/pnpm/cargo/fs I/O around it (read manifests → apply edits → `pnpm install --lockfile-only --offline` + `cargo update -p devtools-app --offline` → allowlist diff → commit → annotated tag → y/N confirm → push commit-then-tag). Phase 11 (`build-and-publish`) remains the FLAGGED phase — its universal-binary dual-arch updater behavior must be proven by a real round-trip on real hardware (the milestone's load-bearing human gate).
+**Phase 10 boundary human sign-off, then `/gsd-plan-phase 11`.** All three Phase 10 plans are complete: 10-01 (Cargo.lock reconcile), 10-02 (pure `bumpPlan.ts` core), 10-03 (`scripts/bump-and-tag.mjs` driver + the live `v0.2.2` bump-commit-tag-push to origin). REL-01/03/04/10/11 satisfied; `pnpm release:bump` is the real maintainer command. Phase 11 (`build-and-publish`) remains the FLAGGED phase — its universal-binary dual-arch updater behavior must be proven by a real updater round-trip on real hardware (the milestone's load-bearing human gate); it depends on Phase 9's `manifest.ts` + this phase's tag.
 
 ## Harness reminder (per-task DoD, in order)
 
