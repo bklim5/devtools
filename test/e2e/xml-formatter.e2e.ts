@@ -49,10 +49,18 @@ describe("XML formatter tool (real WKWebView)", () => {
       `expected output cleared on invalid XML, got "${await output.getValue()}"`,
     );
     const status = await $("footer[role=status]");
-    const errEl = await status.$('[aria-label="error"]');
+    const errEl = await status.$('[data-status="error"]');
     assert(
       await errEl.isExisting(),
       "expected the status bar to surface a parse error for invalid XML",
+    );
+    // Fix 1 (07-UI-REVIEW): the cleaned message must NOT leak WebKit's DOMParser
+    // boilerplate ("This page contains the following errors:" / rendering note).
+    // This proves the normalization on the real JavaScriptCore engine, not jsdom.
+    const errText = await errEl.getText();
+    assert(
+      !/this page contains the following errors|below is a rendering/i.test(errText),
+      `XML error leaked DOMParser boilerplate: "${errText}"`,
     );
 
     // 3. Copy affordance is a visible, focusable <button> — never hover-only (FMT-08).

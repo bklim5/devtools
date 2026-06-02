@@ -123,13 +123,13 @@ function lineFromParseError(message: string): number | undefined {
  * mirroring the clean shape the JSON path produces. The two engines we run on emit
  * DIFFERENT text and must BOTH be cleaned:
  *
- * - WebKit / WKWebView (the real e2e engine) wraps the cause in browser plumbing:
- *     "This page contains the following errors:\n
- *      error on line N at column C: <cause>\n
- *      Below is a rendering of the page up to the first error."
- *   We strip the "This page contains…" preamble, the trailing "Below is a rendering…"
- *   line, and the redundant "error on line N at column C:" location fragment (the
- *   line is surfaced via the tool's own "line N:" prefix), leaving just <cause>.
+ * - WebKit / WKWebView (the real e2e engine) wraps the cause in browser plumbing.
+ *   Crucially, the real `<parsererror>.textContent` is CONCATENATED with no line
+ *   breaks between the parts, e.g.:
+ *     "This page contains the following errors:error on line N at column C: <cause>"
+ *   (a trailing "Below is a rendering of the page up to the first error." may also
+ *   appear). So the plumbing must be stripped as SUBSTRINGS regardless of layout —
+ *   a line-based filter misses it because the preamble is glued to the cause.
  *
  * - jsdom emits a terse "L:C: <cause>" (leading "line:col:"); we drop that prefix.
  *
@@ -141,27 +141,18 @@ export function normalizeParseError(raw: string): { message: string; line?: numb
   const line = lineFromParseError(raw);
 
   const cleaned = raw
-    .split("\n")
-    // Drop WebKit's preamble and trailing render-status lines outright.
-    .filter((l) => {
-      const t = l.trim();
-      if (t === "") return false;
-      if (/^this page contains the following errors:?$/i.test(t)) return false;
-      if (/^below is a rendering of the page/i.test(t)) return false;
-      return true;
-    })
-    // Strip the leading location text from each surviving line:
-    //   WebKit: "error on line N at column C: <cause>" -> "<cause>"
-    //   jsdom:  "N:C: <cause>"                          -> "<cause>"
-    .map((l) =>
-      l
-        .trim()
-        .replace(/^error on line\s+\d+\s+at column\s+\d+:\s*/i, "")
-        .replace(/^\d+:\d+:\s*/, "")
-        .trim(),
-    )
-    .filter((l) => l !== "")
-    .join(" ")
+    // Normalize whitespace/newlines first so layout (one-line vs multi-line) is moot.
+    .replace(/\s+/g, " ")
+    // Drop WebKit's wrapper phrases wherever they appear (substring, not whole-line).
+    .replace(/This page contains the following errors:?/gi, " ")
+    .replace(/Below is a rendering of the page up to the first error\.?/gi, " ")
+    // Strip the redundant location fragment (the line is surfaced via the tool's
+    // own "line N:" prefix): WebKit "error on line N at column C:" anywhere…
+    .replace(/error on line\s+\d+\s+at column\s+\d+:\s*/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    // …and jsdom's leading "N:C:" prefix.
+    .replace(/^\d+:\d+:\s*/, "")
     .trim();
 
   return { message: cleaned || "Invalid XML", line };

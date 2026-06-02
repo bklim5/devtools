@@ -74,7 +74,13 @@ export function StatusBar({
           // Clipped with `truncate`, so the full message must stay reachable: the
           // accessible name carries the actual error (not the literal word "error")
           // and `title` gives a native hover/focus tooltip for the full text.
-          <span className="truncate text-bad" title={error} aria-label={error}>
+          // `data-status="error"` is a stable, message-independent hook for tests.
+          <span
+            className="truncate text-bad"
+            title={error}
+            aria-label={error}
+            data-status="error"
+          >
             {error}
           </span>
         ) : null}

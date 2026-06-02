@@ -157,16 +157,17 @@ describe("formatXml", () => {
   });
 
   describe("normalizeParseError: cleans BOTH WebKit and jsdom shapes (Fix-1)", () => {
-    // WebKit/WKWebView (the real e2e engine) emits a multi-line <parsererror>:
-    //   "This page contains the following errors:\n
-    //    error on line 1 at column 11: Opening and ending tag mismatch: b line 1 and a\n
-    //    Below is a rendering of the page up to the first error."
-    // normalizeParseError must strip the preamble, the trailing "Below is a
-    // rendering…" line, AND the redundant "error on line N at column C:" fragment,
-    // leaving just the cause — and still recover the line number.
+    // WebKit/WKWebView (the real e2e engine) emits a <parsererror> whose
+    // `.textContent` is CONCATENATED with NO line breaks between the parts — this
+    // is the exact string captured from the live WKWebView e2e run:
+    //   "This page contains the following errors:error on line 1 at column 11: Opening and ending tag mismatch: b line 1 and a"
+    // (a trailing "Below is a rendering…" sentence may also be glued on). A
+    // line-based filter misses the preamble because it is glued to the cause, so
+    // normalizeParseError must strip the plumbing as SUBSTRINGS regardless of
+    // layout, leaving just the cause — and still recover the line number.
     const webkitText =
-      "This page contains the following errors:\n" +
-      "error on line 1 at column 11: Opening and ending tag mismatch: b line 1 and a\n" +
+      "This page contains the following errors:" +
+      "error on line 1 at column 11: Opening and ending tag mismatch: b line 1 and a" +
       "Below is a rendering of the page up to the first error.";
 
     it("WebKit shape: strips preamble + location + trailing render line", () => {

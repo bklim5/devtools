@@ -49,7 +49,7 @@ describe("JSON formatter tool (real WKWebView)", () => {
       `expected output cleared on invalid JSON, got "${await output.getValue()}"`,
     );
     const status = await $("footer[role=status]");
-    const errEl = await status.$('[aria-label="error"]');
+    const errEl = await status.$('[data-status="error"]');
     assert(
       await errEl.isExisting(),
       "expected the status bar to surface a parse error for invalid JSON",
