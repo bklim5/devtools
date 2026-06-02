@@ -38,6 +38,18 @@ describe("bumpSemver", () => {
         expect(() => bumpSemver(bad, "patch")).toThrow(/Invalid semver/);
       },
     );
+
+    // WR-01: leading zeros are not valid semver and would be silently
+    // normalized away (e.g. "01.2.3" -> "1.2.4"). Reject them loudly.
+    it.each(["01.2.3", "1.02.3", "1.2.03", "00.0.0"])("rejects leading zero %j", (bad) => {
+      expect(() => bumpSemver(bad, "patch")).toThrow(/Invalid semver/);
+    });
+
+    // WR-01: a component beyond Number.MAX_SAFE_INTEGER would round-trip
+    // through Number() into a corrupt string (e.g. "1e+21.0.0"). Fail loud.
+    it("rejects an out-of-safe-range component", () => {
+      expect(() => bumpSemver("999999999999999999999.0.0", "major")).toThrow(/Invalid semver/);
+    });
   });
 
   it("throws on an unknown bump level", () => {

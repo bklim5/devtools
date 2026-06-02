@@ -16,8 +16,11 @@
 //   so a malformed / unexpected manifest fails loudly instead of silently
 //   editing the wrong line or no-op'ing.
 
-/** A strict `MAJOR.MINOR.PATCH` semver — no prerelease / build metadata (D-02a, YAGNI). */
-const SEMVER_RE = /^(\d+)\.(\d+)\.(\d+)$/;
+// A strict `MAJOR.MINOR.PATCH` semver — no prerelease / build metadata (D-02a,
+// YAGNI). Each component is `0` or a leading-zero-free digit run, so
+// non-canonical forms like `01.2.3` are rejected instead of silently normalized
+// (WR-01). Magnitude is still bounded separately via Number.isSafeInteger.
+const SEMVER_RE = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 
 /**
  * Compute the next version from a single computed source of truth (D-02).
@@ -37,6 +40,11 @@ export function bumpSemver(
   const major = Number(match[1]);
   const minor = Number(match[2]);
   const patch = Number(match[3]);
+  // A component larger than 2^53-1 would round-trip through Number() into a
+  // corrupt string (e.g. "1e+21.0.0"), defeating the fail-loud intent (WR-01).
+  if (![major, minor, patch].every(Number.isSafeInteger)) {
+    throw new Error(`Invalid semver: ${JSON.stringify(version)} (component out of safe integer range)`);
+  }
 
   switch (level) {
     case "major":
