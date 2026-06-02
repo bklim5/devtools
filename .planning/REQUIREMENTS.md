@@ -26,7 +26,7 @@ hero decoder (`src/lib/protobuf/decoder.ts`) + its 19 tests stay untouched.
 
 ### UX Cleanup (UIX)
 
-- [ ] **UIX-01**: The status-bar size readout appears only where input/output size is meaningful (Base64/Hex/Bytes, Protobuf decoder, and the Formatters); it is removed from Hash, UUID/ULID, Unix Time, and JWT (status text only)
+- [x] **UIX-01**: The status-bar size readout appears only where input/output size is meaningful (Base64/Hex/Bytes, Protobuf decoder, and the Formatters); it is removed from Hash, UUID/ULID, Unix Time, and JWT (status text only)
 
 ## Future Requirements (deferred)
 
@@ -55,7 +55,7 @@ Every v1.1 requirement maps to exactly one phase. Coverage: 9/9.
 | FMT-06 | Phase 7 | Complete |
 | FMT-07 | Phase 7 | Complete |
 | FMT-08 | Phase 7 | Complete |
-| UIX-01 | Phase 8 | Pending |
+| UIX-01 | Phase 8 | Complete |
 
 ---
 *Last updated: 2026-06-02 — v1.1 Formatters roadmap created (Phases 7–8); traceability mapped*

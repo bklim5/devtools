@@ -45,7 +45,7 @@ Decimal phases appear between their surrounding integers in numeric order. v1.1 
   3. The byte/size readout is **absent** on Hash/Checksum, UUID/ULID, Unix Time, and JWT — those tools show parse/status text only.
   4. Affected tools' tests assert byte count is present where kept and absent where dropped; the decoder and its 19 tests stay untouched; and the phase ends with a passing `gsd-ui-review` WCAG-AA audit and human sign-off on a fresh `tauri build`.
 **Plans**: 1 plan
-- [ ] 08-01-PLAN.md — make StatusBar byteCount opt-in (optional + size-span guard); drop the readout from Hash/UUID·ULID/Unix Time/JWT; assert present-where-kept / absent-where-dropped
+- [x] 08-01-PLAN.md — make StatusBar byteCount opt-in (optional + size-span guard); drop the readout from Hash/UUID·ULID/Unix Time/JWT; assert present-where-kept / absent-where-dropped
 **UI hint**: yes
 
 ## Progress

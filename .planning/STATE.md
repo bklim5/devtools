@@ -2,23 +2,23 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: milestone
-status: Ready to execute
-last_updated: "2026-06-02T14:41:40.519Z"
+status: Phase complete — ready for verification
+last_updated: "2026-06-02T14:55:06.876Z"
 progress:
   total_phases: 6
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 4
-  completed_plans: 3
-  percent: 75
+  completed_plans: 4
+  percent: 100
 ---
 
 # Project State
 
 ## Current Position
 
-Phase: 08 (PLANNED — 1 plan, ready to execute)
-Plan: Phase 7 COMPLETE (3/3 plans, human signed off 2026-06-02). Phase 8 planned 2026-06-02 (08-01-PLAN.md) — research skipped (small fully-specified refactor), UI-SPEC skipped (conditionalize/remove existing UI), plan-checker VERIFICATION PASSED (0 issues), UIX-01 covered 1/1.
-Next: **Execute Phase 8 — StatusBar size-readout cleanup (UIX-01).** `/clear` then `/gsd-execute-phase 8`. The single plan (08-01, 1 wave, 3 tasks) makes `StatusBar.byteCount` optional + gates the `aria-label="byte count"` span on `typeof byteCount === "number"`; drops the readout from Hash / UUID·ULID / Unix Time / JWT; locks the keep/drop split with present/absent tests on Base64 / Protobuf / both Formatters. Carry-forward (non-blocking polish from Phase 7): FormatterView narrow-width vertical stacking (UX-05) — confirmed NOT a WCAG-AA blocker by the UI audit.
+Phase: 08 (statusbar-size-readout-cleanup) — EXECUTED, ready for phase-boundary verification
+Plan: 1 of 1 COMPLETE
+Next: **Run the Phase 8 boundary gates.** All unit gates are green (378 vitest / 44 files, `tsc` exit 0, `eslint src` exit 0; decoder + its 19 tests byte-for-byte untouched). Still owed before sign-off: `/codex:review` (`--wait --scope working-tree`) and the **real-WKWebView UI verification** via `scripts/e2e-spike.sh` against `tauri dev` — confirm Hash/UUID·ULID/Unix Time/JWT show NO size text and Base64/Protobuf/both Formatters STILL show the size readout — then the `gsd-ui-review` WCAG-AA audit + human sign-off on a fresh `tauri build`. Carry-forward (non-blocking polish from Phase 7): FormatterView narrow-width vertical stacking (UX-05) — confirmed NOT a WCAG-AA blocker by the UI audit.
 
 **Milestone v1.1 "Formatters" — roadmap created 2026-06-02.** Two phases:
 
@@ -31,14 +31,15 @@ Next: **Execute Phase 8 — StatusBar size-readout cleanup (UIX-01).** `/clear` 
 
 ## Active Plan
 
-**Phase 8 PLANNED — 1 plan (08-01), 1 wave, 3 tasks. Ready to execute.**
+**Phase 8 EXECUTED — 1 plan (08-01), 3 tasks, 3 commits. Unit gates green; ready for phase-boundary verification.**
 
-Phase 8 plan 08-01 (committed `a29a56ba`): Task 1 (tdd) makes `byteCount?: number` and gates the size span on `typeof byteCount === "number"` (delta/single-count logic preserved inside the guard; `outputBytes` without `byteCount` renders nothing) + adds the StatusBar optional-branch tests; Task 2 removes `byteCount` from the 4 drop tools (incl. deleting Hash's now-dead `const byteCount`) and asserts the span is ABSENT; Task 3 asserts the span is PRESENT on Base64 / Protobuf / both Formatters (test files only). Plan-checker VERIFICATION PASSED (0 issues; all D-01..D-05 honored, decoder + 19 tests out of scope). Threat model: all STRIDE N/A (presentational conditional-render refactor, no new input/network/auth/secret surface).
+Phase 8 plan 08-01 executed (commits `c57edb55` → `0c831e7f` → `4b61ddf0`; SUMMARY `08-01-SUMMARY.md`): Task 1 (tdd) made `byteCount?: number` and gated the size span on `typeof byteCount === "number"` (delta/single-count logic preserved inside the guard; `outputBytes` without `byteCount` renders nothing) + added the StatusBar optional-branch tests; Task 2 removed `byteCount` from the 4 drop tools (incl. deleting Hash's now-dead `const byteCount`) and asserts the span is ABSENT (parse-state label still present); Task 3 asserts the span is PRESENT on Base64 / Protobuf / both Formatters (test files only — no keep-tool component touched). Executed exactly as planned (zero deviations; all D-01..D-05 honored). Full repo green: 378 vitest / 44 files, `tsc`/`eslint` clean, **zero new deps**, decoder + its 19 tests byte-for-byte untouched (blob `08ef2387…`). UIX-01 ✓. Deferred to the phase boundary: `/codex:review` + real-WKWebView UI verification + `gsd-ui-review` WCAG-AA + human sign-off on `tauri build`.
 
 Phase 7 shipped both formatter tools behind the shared `FormatterView` (FMT-01..08), executed across 3 sequential waves (07-01 shared-foundation → 07-02 json-formatter → 07-03 xml-formatter), verified (5/5 must-haves), and signed off. All standing gates passed: code review (3 warnings fixed), real-WKWebView e2e (10/10 specs), WCAG-AA UI review (PASS, 18/24, no blockers), and human sign-off on the `tauri build`. Next milestone work is **Phase 8 (StatusBar cleanup, UIX-01)** — depends on Phase 7, now unblocked.
 
 ## Recent Activity
 
+- **2026-06-02 — Phase 8 (StatusBar size-readout cleanup) EXECUTED & committed (3 tasks, 3 commits).** `/gsd-execute-phase 8` ran plan 08-01 end-to-end. Task 1 (TDD): `StatusBar.byteCount?` optional + the `aria-label="byte count"` span gated on `typeof byteCount === "number"` (single-count/delta/error/timing byte-identical for keep callers); RED→GREEN with 4 new optional-branch tests (`c57edb55`). Task 2: removed the `byteCount` prop from Hash/UUID·ULID/Unix Time/JWT `<StatusBar>` JSX + deleted Hash's now-dead `const byteCount`; each drop-tool test now asserts the span is ABSENT (parse-state label still present) on a content-bearing render (`0c831e7f`). Task 3: Protobuf + JSON + XML tests assert the span PRESENT after valid input (Base64's existing assertion kept); test files only, no keep-tool component modified (`4b61ddf0`). Executed exactly as planned (zero deviations; D-01..D-05 honored). Full repo green: **378 vitest / 44 files**, `tsc`/`eslint` clean, **zero new deps**; decoder `src/lib/protobuf/decoder.ts` + its **19 tests byte-for-byte untouched** (blob `08ef2387…`). SUMMARY: `08-01-SUMMARY.md`. **UIX-01 ✓.** **Deferred to the phase boundary:** `/codex:review` + real-WKWebView UI verification (`scripts/e2e-spike.sh`) + `gsd-ui-review` WCAG-AA + human sign-off on a fresh `tauri build`. Next: run the Phase 8 boundary gates.
 - **2026-06-02 — Phase 8 (StatusBar size-readout cleanup) PLANNED.** `/gsd-plan-phase 8`: research skipped (small fully-specified refactor — CONTEXT.md locks D-01..D-05), UI-SPEC skipped (conditionalize/remove existing UI, authoritative design spec already cited). gsd-planner produced 1 plan (08-01, 1 wave, 3 tasks); gsd-plan-checker returned **VERIFICATION PASSED** (0 issues, all 11 dimensions PASS/SKIPPED, interfaces cross-checked against live code). UIX-01 covered 1/1. Committed `a29a56ba`. Next: `/gsd-execute-phase 8`.
 - **2026-06-02 — Phase 8 (StatusBar size-readout cleanup) context gathered.** `/gsd-discuss-phase 8` confirmed the roadmap's keep/drop split stands and captured 4 implementation decisions: **(D-01)** Hash is the borderline case (only drop-tool with a *real* count today) — **dropped** anyway for consistency, no roadmap edit; **(D-02)** drop tools keep their `ParseState` label as-is, only the size text is removed (no other `StatusBar` behavior changes, per criterion #1); **(D-03)** minimal additive API — make `byteCount` optional and gate the size span on it being a number (`outputBytes` without `byteCount` renders nothing), no discriminated-type machinery; **(D-04/D-05)** edit the 4 drop tools to stop passing `byteCount`, plus a `StatusBar` unit test for the optional branch + per-tool present/absent assertions querying the `aria-label="byte count"` span. Written to `08-CONTEXT.md` + `08-DISCUSSION-LOG.md` (commit `f0229164`). Next: `/gsd-plan-phase 8`.
 - **2026-06-02 — Phase 7 (Formatters) COMPLETE & signed off.** `/gsd-execute-phase 7` ran all 3 plans (waves 1→2→3), then the full phase-boundary gate chain: code review surfaced 3 warnings (WR-01 XML lost the `<?xml?>` declaration + doc-level comments/PIs; WR-02 timing chip measured a state setter not the format pass; WR-03 first-match `indexOf` mislocated the V8 error offset) — all fixed TDD (`8e9d7955`/`c786b2f1`/`b859b2d1`). Phase verification PASSED 5/5 must-haves (FMT-01..08). UI review PASSED WCAG-AA (18/24, no blockers); its 3 advisory findings fixed too (`73e98d10`/`86f1a2ee`/`d38c63da`). Real-WKWebView e2e: **10/10 specs green** on webkit 605.1.15 (incl. both formatters + screenshots). The live gate then caught a real regression unit tests missed — real WebKit concatenates `<parsererror>` text with no newlines, so the line-based boilerplate stripper failed; fixed to substring-strip (`c2bf60c0`), unit test now uses the real captured shape. Post-sign-off UI feedback applied + re-verified live: full-height input/output panes + visible "INDENT" label (`c40a164f`). Final: 370 vitest green, `tsc`/`eslint` clean, zero new deps, decoder + its 19 tests untouched. Artifacts: `07-VERIFICATION.md`, `07-REVIEW.md`, `07-UI-REVIEW.md`, `07-HUMAN-UAT.md` (resolved). **All FMT-01..08 ✓.** Next: **Phase 8** (StatusBar cleanup, UIX-01).
@@ -55,7 +56,7 @@ Phase 7 shipped both formatter tools behind the shared `FormatterView` (FMT-01..
 
 ## Next Step (pick up here next session)
 
-**Phase 8 — StatusBar size-readout cleanup (UIX-01).** Context gathered 2026-06-02 (`08-CONTEXT.md`). `/clear` then `/gsd-plan-phase 8`. Decisions locked: keep/drop split unchanged (keep Base64/Hex/Bytes + Protobuf + both Formatters; drop Hash / UUID·ULID / Unix Time / JWT — Hash confirmed dropped despite its real count); minimal additive API (`byteCount?` optional, gate the size span on it); drop tools keep their `ParseState` label as-is; StatusBar unit test for the optional branch + per-tool present/absent assertions via the `aria-label="byte count"` span. Non-blocking carry-forward: FormatterView narrow-width vertical stacking (UX-05) — UI audit confirmed it's NOT a WCAG-AA blocker, so it's polish, not a Phase 8 prerequisite.
+**Close Phase 8 — run the phase-boundary gates.** Plan 08-01 is executed and committed (`c57edb55`/`0c831e7f`/`4b61ddf0`; SUMMARY `08-01-SUMMARY.md`); UIX-01 ✓; all unit gates green (378 vitest / 44 files, `tsc`/`eslint` clean, decoder + 19 tests untouched). Owed before sign-off: `/codex:review` (`--wait --scope working-tree`); the **real-WKWebView UI verification** via `scripts/e2e-spike.sh` against `tauri dev` — confirm Hash/UUID·ULID/Unix Time/JWT show NO size text and Base64/Protobuf/both Formatters STILL show the size readout (single count or `in → out` delta); the `gsd-ui-review` WCAG-AA audit; and human sign-off on a fresh `tauri build`. Non-blocking carry-forward: FormatterView narrow-width vertical stacking (UX-05) — UI audit confirmed it's NOT a WCAG-AA blocker, so it's polish, not a Phase 8 prerequisite.
 
 ## Harness reminder (per-task DoD, in order)
 
