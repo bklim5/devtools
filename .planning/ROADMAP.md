@@ -68,7 +68,7 @@ Local release-automation helper scripts for the existing Tauri 2 macOS app (CI e
   5. Preflights fail fast and abort non-zero before any write when the working tree is dirty, the branch is not `master`, the target tag already exists (local or remote), or `vitest`/`tsc` are not green
 **Plans**: 3 plans (3 waves)
   - [x] 10-01-PLAN.md — Commit the deferred Cargo.lock 0.1.0→0.2.1 reconcile as standalone housekeeping (clean tree before the driver runs)
-  - [ ] 10-02-PLAN.md — Pure, unit-tested bump-driver decision core `src/lib/release/bumpPlan.ts` (arg parsing, single-computed-version plan, allowlist diff, dry-run/recovery text) — REL-01/10/11 automated coverage
+  - [x] 10-02-PLAN.md — Pure, unit-tested bump-driver decision core `src/lib/release/bumpPlan.ts` (arg parsing, single-computed-version plan, allowlist diff, dry-run/recovery text) — REL-01/10/11 automated coverage
   - [ ] 10-03-PLAN.md — Thin I/O driver `scripts/bump-and-tag.mjs` + `pnpm release:bump` (preflights → lockstep bump → lockfiles → commit → annotated tag → y/N → push), with --dry-run + human-gated real push
 
 ### Phase 11: `build-and-publish` driver + universal binary + safety rails
