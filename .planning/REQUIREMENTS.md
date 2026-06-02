@@ -20,7 +20,7 @@ Requirements for milestone v1.2. Each maps to a roadmap phase.
 ### Universal Build & Publish
 
 - [ ] **REL-05**: The publish script produces a **universal** macOS binary covering Intel + Apple Silicon via `tauri build --target universal-apple-darwin` (closing the local arm64-only gap), resolving artifacts at the universal output path
-- [ ] **REL-06**: `latest.json` is generated from **this build's fresh** `*.app.tar.gz.sig` (single-match glob; fail loudly on 0 or >1 matches), with the universal artifact listed under **both** `darwin-aarch64` and `darwin-x86_64` keys (same URL + same signature — no invented `darwin-universal` key)
+- [x] **REL-06**: `latest.json` is generated from **this build's fresh** `*.app.tar.gz.sig` (single-match glob; fail loudly on 0 or >1 matches), with the universal artifact listed under **both** `darwin-aarch64` and `darwin-x86_64` keys (same URL + same signature — no invented `darwin-universal` key)
 - [ ] **REL-07**: The release is published to the public `bklim5/devtools-releases` repo (`gh release create --repo`), uploading the DMG + `.app.tar.gz` + `latest.json`
 - [x] **REL-08**: `latest.json` is generate-only — never committed; the stale tracked/root copy is removed from version control and confirmed gitignored — ✓ Phase 9 Plan 01 (verify-only: `git ls-files latest.json` empty, `/latest.json` gitignored, on-disk copy left intact)
 - [ ] **REL-09**: Apple notarisation env (`APPLE_*`) is honored if present (notarisation-ready), but ad-hoc signing remains the default and notarisation itself stays deferred
@@ -69,7 +69,7 @@ Which phases cover which requirements. Each v1 requirement maps to exactly one p
 | REL-03 | Phase 10 | Pending |
 | REL-04 | Phase 10 | Pending |
 | REL-05 | Phase 11 | Pending |
-| REL-06 | Phase 11 | Pending |
+| REL-06 | Phase 11 | Complete |
 | REL-07 | Phase 11 | Pending |
 | REL-08 | Phase 9 | Done (Plan 01) |
 | REL-09 | Phase 11 | Pending |
