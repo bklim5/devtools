@@ -4,7 +4,7 @@ milestone: v1.2
 milestone_name: Release Tooling
 status: executing
 last_updated: "2026-06-02T18:12:39.956Z"
-last_activity: 2026-06-02 -- Phase 9 verified & complete (5/5)
+last_activity: 2026-06-02 -- Phase 10 context gathered (ready to plan)
 progress:
   total_phases: 7
   completed_phases: 1
@@ -17,10 +17,10 @@ progress:
 
 ## Current Position
 
-Phase: 10 (bump-and-tag driver) — not yet planned
+Phase: 10 (bump-and-tag driver) — context gathered, not yet planned
 Plan: Not started
-Status: Phase 09 verified & complete (5/5 must-haves) — ready to plan Phase 10
-Last activity: 2026-06-02 -- Phase 9 verified & complete
+Status: Phase 10 CONTEXT.md captured (10 decisions, D-01..D-11) — ready to plan Phase 10
+Last activity: 2026-06-02 -- Phase 10 context gathered
 
 **Milestone v1.2 "Release Tooling" roadmapped 2026-06-02.** Three phases (9–11), numbering continued from v1.1's Phase 8 (did NOT reset to 1). All 12 v1.2 requirements (REL-01..12) mapped 1:1 to a phase (12/12 coverage, no orphans, no duplicates). Goal: replace the manual `docs/RELEASE.md` dance with two composable local helper scripts over a unit-tested pure core. The recommended three-phase shape (HIGH-confidence convergence across all 4 researchers) was adopted unchanged:
 
@@ -44,6 +44,7 @@ Phase 09 delivered the full unit-testable pure release core: `src/lib/release/ve
 
 ## Recent Activity
 
+- **2026-06-02 — Phase 10 CONTEXT.md gathered (`/gsd-discuss-phase 10`).** Four gray areas discussed, 10 decisions locked (D-01..D-11): **CLI** level-only `patch|minor|major` + `--dry-run`, no `--no-push`/`--skip-checks` (D-01/D-02); **commit** `chore(release): vX.Y.Z` + **annotated** tag `git tag -a vX.Y.Z -m "vX.Y.Z"`, no notes in tag (D-03/D-04); **push policy** local-work-first → print plan → y/N confirm → push (D-05/D-05a); **preflights** script itself runs vitest+tsc+eslint and aborts, plus git-state checks (dirty/not-master/tag-exists local+remote), all before any irreversible action (D-06/D-07/D-08); **failure recovery** never a tool-initiated `git reset --hard` — on push-fail OR declined confirm, keep local commit+tag and print exact retry/undo commands (D-09/D-10); lockfiles regen+staged in same commit (D-11). Commit `8af48df3`. **Next: `/gsd-plan-phase 10`.**
 - **2026-06-02 — Phase 09 VERIFIED & COMPLETE (5/5 must-haves).** `09-VERIFICATION.md` = passed: vitest 416/416 (38 release-lib), `setCargoVersion` `[package]`-only proof present, `buildLatestJson` dual-key (no `darwin-universal`), Cargo reconciled 0.1.0→0.2.1 (only line 3 changed, dep pins byte-identical), `git ls-files latest.json` empty + `/latest.json` gitignored, tsc/eslint clean, decoder 19/19 untouched, zero new deps. Code review (09-REVIEW.md): 0 critical, 1 warning, 3 info — **WR-01 fixed** in `4ee8dd36` (`bumpSemver` now rejects leading zeros + out-of-safe-range components, +5 tests). REL-02 + REL-08 satisfied; REL-06 pure core authored (delivery Phase 11). Phases 9–11 touch no app UI, so no real-WKWebView gate this phase. **Next: `/gsd-plan-phase 10`.**
 - **2026-06-02 — Phase 09 Plan 02 (pure latest.json manifest assembly) COMPLETE → Phase 09 done.** New `src/lib/release/manifest.ts` ships a PURE `buildLatestJson({version,pubDate,url,signature,notes?})` plus a dual-key `platformKey`: both `darwin-aarch64` and `darwin-x86_64` are built from ONE `{url,signature}` (deep-equal by construction, so a swapped/divergent signature is structurally impossible — T-09-06), no combined single-key variant is emitted (T-09-07), `notes` defaults to `""` (D-04a), and `pub_date` is the snake_case key sourced ONLY from the injected arg (D-03 — no clock/fs). Single options-object input (D-04) blocks positional url/signature swap at the call site. 8 vitest cases; full suite 411/411 green, tsc + eslint clean, zero new deps, decoder + its 19 tests untouched. **REL-06 pure-core authored** (delivery/wiring to real I/O remains Phase 11). Commits `d45ddaf6` (feat), `5e07c50d` (test). In-spec adjustment only: reworded the module doc to avoid the literal strings the plan's negative-grep acceptance checks forbid. **Next: Phase 09 verification + human sign-off, then `/gsd-plan-phase 10`.**
 - **2026-06-02 — Phase 09 Plan 01 (pure release version core + housekeeping) COMPLETE.** New `src/lib/release/version.ts` ships `bumpSemver` (hand-rolled MAJOR.MINOR.PATCH, throws on malformed/unknown level) + three surgical `setXVersion` string editors (`setPackageJsonVersion`/`setTauriConfVersion`/`setCargoVersion`) that rewrite ONLY the version line and throw on 0/>1 matches (T-09-01); `setCargoVersion` is provably `[package]`-scoped, leaving dependency pins untouched. 25 vitest cases incl. the load-bearing dependency-pin proof; full suite 403/403 green, tsc + eslint clean, zero new deps, decoder + its 19 tests untouched. **REL-02:** `src-tauri/Cargo.toml` `[package].version` reconciled 0.1.0 → 0.2.1 by dogfooding the real `setCargoVersion` (D-07) — only line 3 changed. **REL-08:** `latest.json` confirmed untracked + `/latest.json` gitignored (verify-only no-op, D-06), on-disk copy intact. Two auto-fixed bugs (Rule 1) in the just-written code: non-global `.match` miscounted matches; an eslint `no-useless-escape`. Commits `71cfaeff` (feat), `6939c299` (test+fix), `2b5064f3` (chore). Cargo.lock regen deliberately left to Phase 10. **Next: Plan 02 (manifest.ts — buildLatestJson + platformKey).**
