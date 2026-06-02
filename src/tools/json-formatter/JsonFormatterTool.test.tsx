@@ -63,10 +63,10 @@ describe("JsonFormatterTool", () => {
     const out = outputEl(container).value;
     expect(out).toContain("\n");
     expect(out).toContain('  "b": 1');
-    const status = container.querySelector("footer[role=status]")!;
-    expect(within(status as HTMLElement).getByLabelText("parse state").textContent).toBe(
-      "OK",
-    );
+    const status = container.querySelector("footer[role=status]")! as HTMLElement;
+    expect(within(status).getByLabelText("parse state").textContent).toBe("OK");
+    // Size readout is KEPT for the formatters (UIX-01) — byte count present.
+    expect(within(status).getByLabelText("byte count")).toBeTruthy();
   });
 
   it("clears output and shows a line:col error on invalid JSON", () => {

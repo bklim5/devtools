@@ -61,6 +61,9 @@ describe("ProtobufDecoder", () => {
     );
     expect(fnums.some((t) => t?.includes("#1"))).toBe(true);
     expect(container.textContent).toContain("150");
+    // Size readout is KEPT for the protobuf decoder (UIX-01) — byte count present.
+    const status = container.querySelector("footer[role='status']")! as HTMLElement;
+    expect(within(status).getByLabelText("byte count")).toBeTruthy();
   });
 
   it("renders a group byte ('1c') as an error and does NOT throw (PRO-02)", () => {

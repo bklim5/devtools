@@ -65,6 +65,8 @@ describe("XmlFormatterTool", () => {
     expect(out).toBe("<a>\n  <b>1</b>\n</a>");
     const status = container.querySelector("footer[role=status]")! as HTMLElement;
     expect(within(status).getByLabelText("parse state").textContent).toBe("OK");
+    // Size readout is KEPT for the formatters (UIX-01) — byte count present.
+    expect(within(status).getByLabelText("byte count")).toBeTruthy();
   });
 
   it("clears output and shows the parsererror on invalid XML", () => {
