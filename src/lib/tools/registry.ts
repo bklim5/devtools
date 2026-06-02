@@ -5,6 +5,7 @@ import { protobufDecoderTool } from "@/tools/protobuf-decoder";
 import { jwtTool } from "@/tools/jwt";
 import { hashTool } from "@/tools/hash";
 import { uuidUlidTool } from "@/tools/uuid-ulid";
+import { jsonFormatterTool } from "@/tools/json-formatter";
 
 // The single source of truth for which tools exist. The sidebar, search, and
 // router are all generated from this array — adding a tool means importing it
@@ -22,6 +23,7 @@ export const TOOLS: ToolDefinition[] = [
   jwtTool,
   hashTool,
   uuidUlidTool,
+  jsonFormatterTool,
 ];
 
 export const ENABLED_TOOLS: ToolDefinition[] = TOOLS.filter((t) => t.enabled !== false);
