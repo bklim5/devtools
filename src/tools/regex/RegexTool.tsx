@@ -177,23 +177,35 @@ export default function RegexTool() {
 
     debounceRef.current = setTimeout(() => {
       const id = ++reqIdRef.current;
-      const worker = workerRef.current ?? (workerRef.current = makeWorker());
 
-      worker.onmessage = (e: MessageEvent<{ id: number } & RegexResult>) => {
-        if (e.data.id !== reqIdRef.current) return; // drop stale replies
-        if (timerRef.current) clearTimeout(timerRef.current);
-        const { id: replyId, ...rest } = e.data;
-        void replyId;
-        setResult(rest as RegexResult);
-      };
-
+      // Arm the watchdog FIRST, before touching the Worker — so even a worker
+      // CONSTRUCTION failure (e.g. the chunk 404s under tauri.localhost, A1) still
+      // surfaces the timeout state instead of silently never resolving. The timer
+      // is the single source of "this run did not finish in time".
       timerRef.current = setTimeout(() => {
-        worker.terminate(); // the ONLY kill for a synchronous catastrophic regex
-        workerRef.current = makeWorker(); // eager respawn so the next run is warm
+        workerRef.current?.terminate(); // the ONLY kill for a sync catastrophic regex
+        workerRef.current = null; // drop the wedged worker; lazily respawn next run
         if (id === reqIdRef.current) setResult({ timedOut: true }); // D-15
       }, TIMEOUT_MS);
 
-      worker.postMessage({ ...req, id });
+      try {
+        const worker =
+          workerRef.current ?? (workerRef.current = makeWorker());
+
+        worker.onmessage = (e: MessageEvent<{ id: number } & RegexResult>) => {
+          if (e.data.id !== reqIdRef.current) return; // drop stale replies
+          if (timerRef.current) clearTimeout(timerRef.current);
+          const { id: replyId, ...rest } = e.data;
+          void replyId;
+          setResult(rest as RegexResult);
+        };
+
+        worker.postMessage({ ...req, id });
+      } catch {
+        // Worker construction/post failed synchronously — let the already-armed
+        // watchdog render the timeout state (the worker chunk is unreachable).
+        workerRef.current = null;
+      }
     }, DEBOUNCE_MS);
 
     return () => {

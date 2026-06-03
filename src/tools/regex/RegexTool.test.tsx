@@ -18,7 +18,7 @@
 //     raw-inner-HTML React escape hatch appears in NO non-test source file under
 //     src/tools/regex/ (the URL-tool T-13-04 invariant, upgraded to a real assertion).
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, within } from "@testing-library/react";
 import {
   resetPlatformForTest,
   setPlatformForTest,
@@ -112,6 +112,44 @@ describe("RegexTool", () => {
     expect(container.querySelector("b")).toBeNull();
     // The angle-bracket text renders escaped (the literal "<b>" appears as text).
     expect(container.textContent).toContain("<b>");
+  });
+
+  it("renders the 'Pattern timed out' state when the worker never replies (RGX-06/D-15)", async () => {
+    // The stubbed Worker NEVER calls onmessage — modeling a wedged catastrophic
+    // match. The view's terminate-on-timeout watchdog must fire and render the
+    // timeout state. (On the real WKWebView, JavaScriptCore defuses textbook ReDoS
+    // patterns so this path can't be driven by a naturally-catastrophic regex —
+    // hence it's proven here at the unit layer with fake timers.) A terminate() spy
+    // also confirms the wedged worker is hard-killed (the only real kill).
+    const terminate = vi.fn();
+    vi.stubGlobal(
+      "Worker",
+      class {
+        onmessage: ((e: unknown) => void) | null = null;
+        postMessage() {}
+        terminate = terminate;
+      },
+    );
+    vi.useFakeTimers();
+    try {
+      const { container } = render(<RegexTool />);
+      // Non-empty pattern + text => the effect debounces (80ms) then posts + arms
+      // the 1000ms watchdog. The stub never replies, so the watchdog wins.
+      fireEvent.change(textInput(container), { target: { value: "aaaa" } });
+      fireEvent.change(patternInput(container), { target: { value: "(a*)*$" } });
+
+      // Advance past the debounce + the watchdog window (inside act so the
+      // watchdog's setResult flushes a re-render).
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(80 + 1000 + 10);
+      });
+
+      const alert = container.querySelector('[role="alert"]');
+      expect(alert?.textContent ?? "").toContain("Pattern timed out");
+      expect(terminate).toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
