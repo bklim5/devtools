@@ -44,6 +44,21 @@ const DEBOUNCE_MS = 80;
 const FLAGS = ["g", "i", "m", "s", "u"] as const;
 type Flag = (typeof FLAGS)[number];
 
+/**
+ * The EXACT box metrics shared by the overlay backdrop <div> and the editable
+ * <textarea> (D-01/D-02). They MUST be byte-for-byte identical — font, size,
+ * line-height, letter-spacing, padding, border width, and wrapping — or the
+ * highlight backdrop drifts out from under the caret/characters (the human-review
+ * round-1 desync bug). `tracking-normal` pins letter-spacing on BOTH (a textarea
+ * and a div can otherwise inherit different defaults), `border` (1px) matches the
+ * textarea's visible border so text starts at the same x, and `whitespace-pre-wrap
+ * break-words` makes the backdrop wrap exactly like the textarea. NO `resize` on the
+ * textarea (a user-resized textarea would desync from the inset-0 backdrop), so the
+ * editor uses a fixed, generous min-height instead.
+ */
+const EDITOR_BOX =
+  "whitespace-pre-wrap break-words rounded-lg border p-3 font-mono text-[13px] leading-[1.5] tracking-normal";
+
 const FLAG_LABEL: Record<Flag, string> = {
   g: "Toggle global flag (g)",
   i: "Toggle case-insensitive flag (i)",
@@ -142,6 +157,7 @@ export default function RegexTool() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const backdropRef = useRef<HTMLDivElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const flagString = useMemo(
     () => FLAGS.filter((f) => flags.has(f)).join(""),
@@ -239,13 +255,34 @@ export default function RegexTool() {
     )));
   }
 
-  // Mirror the textarea's scroll onto the backdrop so highlights track (D-02).
-  function syncScroll(e: React.UIEvent<HTMLTextAreaElement>) {
-    const el = backdropRef.current;
-    if (!el) return;
-    el.scrollTop = e.currentTarget.scrollTop;
-    el.scrollLeft = e.currentTarget.scrollLeft;
+  // Mirror the textarea's scroll position onto the backdrop so the highlight
+  // <mark>s stay EXACTLY under the matched characters/caret (D-02 — the load-bearing
+  // overlay alignment). BOTH axes are synced (vertical scroll + any horizontal
+  // scroll from long unbroken tokens). Pulled out of the JSX handler so it's unit-
+  // testable: pass the live scrollTop/scrollLeft and the backdrop element.
+  function applyScrollSync(
+    source: { scrollTop: number; scrollLeft: number },
+    backdrop: HTMLElement | null,
+  ): void {
+    if (!backdrop) return;
+    backdrop.scrollTop = source.scrollTop;
+    backdrop.scrollLeft = source.scrollLeft;
   }
+
+  function handleScroll(e: React.UIEvent<HTMLTextAreaElement>): void {
+    applyScrollSync(e.currentTarget, backdropRef.current);
+  }
+
+  // Re-sync after EVERY render that can change the backdrop's content/height: the
+  // highlight segments (matches), the text, or the box. When the <mark> segments
+  // re-render the backdrop's scroll can reset, drifting it off the textarea — re-apply
+  // the textarea's current scroll so they never separate (the human-review desync fix).
+  useEffect(() => {
+    applyScrollSync(
+      textareaRef.current ?? { scrollTop: 0, scrollLeft: 0 },
+      backdropRef.current,
+    );
+  });
 
   // When the input is empty the neutral state wins regardless of any stale worker
   // reply still in `result` (D-13). Otherwise render whatever the worker/watchdog set.
@@ -256,24 +293,6 @@ export default function RegexTool() {
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-auto p-4">
-        {/* LIBRARY CHIPS (RGX-05 / D-09/10/11) — neutral, accent only on focus. */}
-        <div
-          role="group"
-          aria-label="Insert a common pattern"
-          className="flex flex-wrap items-center gap-2"
-        >
-          {COMMON_PATTERNS.map((p) => (
-            <button
-              key={p.label}
-              type="button"
-              onClick={() => insertPattern(p.source, p.flags)}
-              className="rounded-[7px] border border-bd bg-input-bg px-2.5 py-1 text-[11.5px] font-medium text-tx-2 outline-none transition-colors hover:border-bd-2 hover:text-tx focus-visible:ring-2 focus-visible:ring-accent"
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-
         {/* PATTERN FIELD + FLAG TOGGLES (RGX-01/03 / D-06/07). */}
         <section className="flex min-w-0 flex-col gap-2">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -322,6 +341,30 @@ export default function RegexTool() {
             aria-invalid={isError ? true : undefined}
             className="w-full rounded-lg border border-bd bg-input-bg p-3 font-mono text-[13px] text-tx outline-none transition-colors focus-visible:border-accent-line focus-visible:ring-2 focus-visible:ring-accent"
           />
+          {/* COMMON-PATTERN CHIPS (RGX-05 / D-09/10/11) — directly UNDER the pattern
+              input (human-review round 1) with a muted "Common patterns" caption so
+              their purpose is clear. Neutral buttons, accent only on focus. Clicking
+              overwrites the pattern + flags, no confirm. */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] text-tx-3">Common patterns</span>
+            <div
+              role="group"
+              aria-label="Insert a common pattern"
+              className="flex flex-wrap items-center gap-2"
+            >
+              {COMMON_PATTERNS.map((p) => (
+                <button
+                  key={p.label}
+                  type="button"
+                  onClick={() => insertPattern(p.source, p.flags)}
+                  title={`Insert the ${p.label} pattern`}
+                  className="rounded-[7px] border border-bd bg-input-bg px-2.5 py-1 text-[11.5px] font-medium text-tx-2 outline-none transition-colors hover:border-bd-2 hover:text-tx focus-visible:ring-2 focus-visible:ring-accent"
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </section>
 
         {/* SAMPLE-TEXT OVERLAY EDITOR (RGX-01/07 / D-01/02/03) — transparent textarea
@@ -333,25 +376,30 @@ export default function RegexTool() {
           >
             Sample text
           </label>
-          <div className="relative min-w-0">
+          {/* The backdrop and textarea share EDITOR_BOX (identical metrics) so the
+              highlight tracks the caret. Both scroll internally (overflow-auto on the
+              textarea, overflow-hidden on the backdrop) and are scroll-synced; resize
+              is OFF so a user-resized textarea can't desync the inset-0 backdrop. */}
+          <div className="relative min-h-[220px] min-w-0">
             <div
               ref={backdropRef}
               aria-hidden="true"
-              className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words rounded-lg border border-transparent p-3 font-mono text-[13px] leading-[1.5] text-tx"
+              className={`pointer-events-none absolute inset-0 overflow-hidden border-transparent text-tx ${EDITOR_BOX}`}
             >
               <Highlighted text={text} matches={matches} />
             </div>
             <textarea
+              ref={textareaRef}
               id="regex-text"
               value={text}
               onChange={(e) => setText(e.target.value)}
-              onScroll={syncScroll}
+              onScroll={handleScroll}
               spellCheck={false}
               autoComplete="off"
               autoCapitalize="off"
               autoCorrect="off"
               placeholder="Paste sample text to match against…"
-              className="relative min-h-[140px] w-full resize-y whitespace-pre-wrap break-words rounded-lg border border-bd bg-transparent p-3 font-mono text-[13px] leading-[1.5] text-transparent caret-tx outline-none transition-colors focus-visible:border-accent-line focus-visible:ring-2 focus-visible:ring-accent"
+              className={`absolute inset-0 h-full w-full resize-none overflow-auto border-bd bg-transparent text-transparent caret-tx outline-none transition-colors focus-visible:border-accent-line focus-visible:ring-2 focus-visible:ring-accent ${EDITOR_BOX}`}
             />
           </div>
         </section>
@@ -453,7 +501,11 @@ export default function RegexTool() {
           )}
         </section>
 
-        {/* REPLACE + PREVIEW (RGX-04 / D-04/05) — preview hidden when replace empty. */}
+        {/* REPLACE + RESULT (RGX-04 / D-04/05) — the Result pane (the replaced output)
+            is hidden until the replace field is non-empty. The label + helper caption
+            make the Pattern → Matches → Replace → Result flow explicit (human-review
+            round 1: users couldn't tell the Replace field replaced the matches, nor
+            where the output was). */}
         <section className="flex min-w-0 flex-col gap-2">
           <label
             htmlFor="regex-replace"
@@ -461,10 +513,15 @@ export default function RegexTool() {
           >
             Replace
           </label>
+          <p id="regex-replace-help" className="text-[12px] text-tx-3">
+            Replacement applied to each match. Use $1, $&lt;name&gt; and $&amp; to
+            reference captured groups.
+          </p>
           <input
             id="regex-replace"
             value={replace}
             onChange={(e) => setReplace(e.target.value)}
+            aria-describedby="regex-replace-help"
             spellCheck={false}
             autoComplete="off"
             autoCapitalize="off"
@@ -473,15 +530,18 @@ export default function RegexTool() {
             className="w-full rounded-lg border border-bd bg-input-bg p-3 font-mono text-[13px] text-tx outline-none transition-colors focus-visible:border-accent-line focus-visible:ring-2 focus-visible:ring-accent"
           />
           {replace !== "" && (
-            <div className="flex min-w-0 flex-col gap-1.5">
+            <div className="mt-1 flex min-w-0 flex-col gap-1.5">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-[12px] font-semibold uppercase tracking-wide text-tx-2">
-                  Preview
+                  Result
                 </span>
                 {"replaced" in view && view.replaced !== undefined ? (
-                  <CopyButton value={view.replaced} label="Copy preview" />
+                  <CopyButton value={view.replaced} label="Copy result" />
                 ) : null}
               </div>
+              <p className="text-[11px] text-tx-3">
+                The sample text with every match replaced.
+              </p>
               <div
                 id="regex-preview"
                 className="min-h-[44px] w-full whitespace-pre-wrap break-words rounded-lg border border-bd bg-input-bg p-3 font-mono text-[13px] text-tx"
@@ -492,9 +552,6 @@ export default function RegexTool() {
                   <span className="text-tx-3">—</span>
                 )}
               </div>
-              <p className="text-[12px] text-tx-3">
-                Supports $1, $&lt;name&gt; and $&amp;.
-              </p>
             </div>
           )}
         </section>

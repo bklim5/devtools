@@ -114,6 +114,58 @@ describe("RegexTool", () => {
     expect(container.textContent).toContain("<b>");
   });
 
+  it("scrolling the sample-text textarea mirrors BOTH axes onto the highlight backdrop (D-02 — human-review desync fix)", () => {
+    const { container } = render(<RegexTool />);
+    const textarea = textInput(container);
+    // The aria-hidden backdrop is the scroll-synced overlay sibling.
+    const backdrop = container.querySelector<HTMLElement>(
+      '[aria-hidden="true"]',
+    );
+    if (!backdrop) throw new Error("highlight backdrop not found");
+
+    // Simulate the user scrolling a long input: jsdom doesn't lay out, so set the
+    // scroll offsets directly and fire the scroll event the component listens on.
+    textarea.scrollTop = 137;
+    textarea.scrollLeft = 42;
+    fireEvent.scroll(textarea);
+
+    // The backdrop must track the textarea on BOTH axes or the <mark>s drift off the
+    // characters/caret (the load-bearing D-02 overlay alignment the human rejected).
+    expect(backdrop.scrollTop).toBe(137);
+    expect(backdrop.scrollLeft).toBe(42);
+  });
+
+  it("places the Email/URL/IPv4 chips next to a 'Common patterns' caption (human-review placement)", () => {
+    const { container } = render(<RegexTool />);
+    // The muted caption labels the chip row for sighted users.
+    expect(container.textContent).toContain("Common patterns");
+    // The group still carries its stable accessible name + exactly the 3 chips.
+    const group = within(container).getByRole("group", {
+      name: "Insert a common pattern",
+    });
+    expect(within(group).getAllByRole("button")).toHaveLength(3);
+  });
+
+  it("shows a labeled, visible Result pane (not a bare input) once Replace is non-empty (RGX-04 — human-review clarity)", () => {
+    const { container } = render(<RegexTool />);
+    // The Replace field carries a helper caption clarifying it replaces matches.
+    const replace = container.querySelector<HTMLInputElement>("#regex-replace");
+    if (!replace) throw new Error("replace input #regex-replace not found");
+    expect(replace.getAttribute("aria-describedby")).toBe("regex-replace-help");
+    expect(container.querySelector("#regex-replace-help")?.textContent ?? "")
+      .toContain("applied to each match");
+
+    // No Result pane until the user types a replacement (D-05 — hidden when empty).
+    expect(container.querySelector("#regex-preview")).toBeNull();
+    expect(container.textContent).not.toContain("Result");
+
+    fireEvent.change(replace, { target: { value: "$1" } });
+
+    // Now a clearly LABELED Result pane appears (a labeled div, not an unlabeled input).
+    expect(container.textContent).toContain("Result");
+    expect(container.querySelector("#regex-preview")).not.toBeNull();
+  });
+
   it("renders the 'Pattern timed out' state when the worker never replies (RGX-06/D-15)", async () => {
     // The stubbed Worker NEVER calls onmessage — modeling a wedged catastrophic
     // match. The view's terminate-on-timeout watchdog must fire and render the
