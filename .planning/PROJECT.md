@@ -16,7 +16,19 @@ v1.2 replaced the manual `docs/RELEASE.md` dance with two composable local helpe
 
 The app still ships **eight tools** (no new user-facing tools in v1.2 — it was release infrastructure): the Protobuf hero, Base64/Hex/Bytes, Unix Time, JWT, Hash, UUID/ULID, and the JSON + XML formatters.
 
-**No active milestone.** Next: run `/gsd-new-milestone` to scope the next cycle — the parked CI track (backlog 999.2) and the deferred tool/theme/CLI ideas (999.1/999.3/999.4) are the leading candidates.
+**Active: v1.3 "More Tools"** (started 2026-06-03) — promoting backlog 999.1: three new tools (Cron, URL, Regex) plus a Protobuf decimal-byte-array input mode. Eight tools today → eleven after this. See the Current Milestone section below.
+
+## Current Milestone: v1.3 More Tools
+
+**Goal:** Add three new high-frequency tools (Cron, URL, Regex) and extend the Protobuf hero with a decimal-byte-array input mode — each clearing the product wedge with zero new runtime deps.
+
+**Target features:**
+- **Cron tool** — paste an expression → human-readable description + next N run times; supports standard 5-field, 6-field (seconds), and `@daily`/`@hourly`-style macros. Next-runs shown in local time (mirroring the Unix Time tool). Hand-rolled next-run computation (no `cron-parser` lib).
+- **URL tool** — full parser: component + full-string encode/decode both ways, query-string → key→value table, and split into scheme/host/port/path/query/fragment (native `URL`).
+- **Regex tester** — highlighted matches, capture-group breakdown, flag toggles (g/i/m/s/u), live replace/substitution preview (`$1` refs), and a small common-pattern library (email, URL, IPv4) to insert (native `RegExp`).
+- **Protobuf decimal-byte-array input** — accept `10, 3, 80, 81, 82` (comma/space separated), auto-detected alongside hex/base64. A new pre-decode parse layer — `decoder.ts` + its 19 tests stay byte-for-byte untouched.
+
+**Key context:** Reopens "six tools only" again (v1.1 precedent). Wedge still gates each new tool: offline/no-network, paste-instant (<2s), keyboard-driven, registry-driven (single control plane), WCAG-AA, **zero new runtime dependencies**. Cron is the only non-trivial bit (hand-rolled next-run, consistent with the hand-rolled-decoder ethos). Phase numbering continues from v1.2's Phase 11 (starts at Phase 12).
 
 ## Shipped Milestone: v1.2 Release Tooling (Phases 9–11, 2026-06-03)
 
@@ -148,4 +160,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-03 — Milestone v1.2 "Release Tooling" COMPLETE (Phases 9–11, all verified). Phase 11 (`build-and-publish` driver + universal binary) complete & verified; `pnpm release:publish` live-proven (real v0.2.2 published to bklim5/devtools-releases + DST-02 updater round-trip confirmed on Apple Silicon). All 12 REL requirements complete; CI track parked in backlog 999.2. Previous: Phase 10 `bump-and-tag` complete; Phase 9 pure release core complete; v1.1 "Formatters" archived, tagged v1.1*
+*Last updated: 2026-06-03 — Milestone v1.3 "More Tools" STARTED (promotes backlog 999.1: Cron + URL + Regex tools + Protobuf decimal-byte-array input; eight tools → eleven; phases continue from 11 → start at 12; requirements next). Previous: Milestone v1.2 "Release Tooling" COMPLETE (Phases 9–11, all verified). Phase 11 (`build-and-publish` driver + universal binary) complete & verified; `pnpm release:publish` live-proven (real v0.2.2 published to bklim5/devtools-releases + DST-02 updater round-trip confirmed on Apple Silicon). All 12 REL requirements complete; CI track parked in backlog 999.2. Previous: Phase 10 `bump-and-tag` complete; Phase 9 pure release core complete; v1.1 "Formatters" archived, tagged v1.1*

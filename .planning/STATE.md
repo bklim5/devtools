@@ -1,26 +1,26 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.2
-milestone_name: Release Tooling
-status: shipped
-last_updated: "2026-06-03T07:54:01.176Z"
+milestone: v1.3
+milestone_name: More Tools
+status: defining_requirements
+last_updated: "2026-06-03T00:00:00.000Z"
 last_activity: 2026-06-03
 progress:
-  total_phases: 7
-  completed_phases: 3
-  total_plans: 8
-  completed_plans: 8
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Current Position
 
-Phase: — (no active milestone)
-Plan: Not started
-Status: ✅ Milestone v1.2 "Release Tooling" SHIPPED & ARCHIVED (2026-06-03) — Phases 9–11, all verified; audit passed (12/12 req, integration clean); Phase 11 threat-secured 16/16. Archived to `.planning/milestones/v1.2-*`; ROADMAP collapsed; REQUIREMENTS.md cleared for the next milestone; PROJECT.md + RETROSPECTIVE.md evolved. Tag `v1.2` created. Live-proven: v0.2.2 published to bklim5/devtools-releases + DST-02 updater round-trip on real hardware (arm64; Intel by-construction). Next: `/gsd-new-milestone` (or `/gsd-review-backlog` — CI track 999.2 is the leading candidate).
-Last activity: 2026-06-03
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-06-03 — Milestone v1.3 "More Tools" started (promotes backlog 999.1: Cron + URL + Regex tools + Protobuf decimal-byte-array input). Eight tools → eleven. Phase numbering continues from v1.2's Phase 11 (starts at Phase 12). Next: define REQUIREMENTS.md, then roadmap.
 
 **Milestone v1.2 "Release Tooling" roadmapped 2026-06-02.** Three phases (9–11), numbering continued from v1.1's Phase 8 (did NOT reset to 1). All 12 v1.2 requirements (REL-01..12) mapped 1:1 to a phase (12/12 coverage, no orphans, no duplicates). Goal: replace the manual `docs/RELEASE.md` dance with two composable local helper scripts over a unit-tested pure core. The recommended three-phase shape (HIGH-confidence convergence across all 4 researchers) was adopted unchanged:
 
