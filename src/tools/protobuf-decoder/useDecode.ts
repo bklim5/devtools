@@ -11,7 +11,7 @@
 //
 // This module ships the pure `decodeInput` function only; the React state/hook
 // wrapper that consumes it lives in plan 03-04.
-import { base64ToBytes, hexToBytes } from "@/lib/bytes";
+import { base64ToBytes, decimalToBytes, hexToBytes } from "@/lib/bytes";
 import { decodeMessage, type DecodedField } from "@/lib/protobuf/decoder";
 import { detectEncoding, type InputEncoding } from "./detectEncoding";
 
@@ -35,7 +35,12 @@ export function decodeInput(raw: string, override?: InputEncoding): DecodeResult
 
   const t0 = performance.now();
   try {
-    const bytes = encoding === "hex" ? hexToBytes(raw) : base64ToBytes(raw);
+    const bytes =
+      encoding === "hex"
+        ? hexToBytes(raw)
+        : encoding === "decimal"
+          ? decimalToBytes(raw)
+          : base64ToBytes(raw);
     const fields = decodeMessage(bytes);
     return {
       encoding,
