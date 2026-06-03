@@ -1,4 +1,5 @@
-// Shared accent-on-active segmented toggle (D-16) — promoted out of FormatterView.
+// Shared accent-on-active segmented toggle (D-16) — its styling mirrors
+// FormatterView's inline toggle, which is not yet migrated onto this component.
 // One <button aria-pressed> per option inside a labeled role="group". Accent =
 // selected only: the active segment carries the accent classes, inactive ones stay
 // neutral. Keyboard-operable, type="button", focus-visible ring (WCAG-AA, D-03).
@@ -17,7 +18,7 @@ export interface SegmentedControlProps<T extends string> {
   ariaLabel: string;
 }
 
-/** Accent-on-active / neutral-inactive segment styling (lifted verbatim from FormatterView). */
+/** Accent-on-active / neutral-inactive segment styling (mirrors FormatterView's inline toggle). */
 function toggleClasses(active: boolean): string {
   return [
     "rounded-[5px] px-2 py-0.5 text-[11px] font-medium outline-none transition-colors",

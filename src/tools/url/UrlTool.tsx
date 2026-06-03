@@ -1,7 +1,7 @@
 // The URL tool (URL-01..05, D-01..D-15; the 9th registry-driven tool). One view,
 // two modes behind a top-level SegmentedControl mode switch (Parse default, no
 // persistence — D-01/02/03):
-//   • PARSE — paste an absolute URL → 8 labeled, individually-copyable readout rows
+//   • PARSE — paste an absolute URL → up to 9 labeled, individually-copyable readout rows
 //     (D-07/08/09) + a decoded query key→value table built from scratch (no table
 //     primitive exists; D-10/11/12). A relative/scheme-less URL is ONE inline
 //     role="alert" error, no rows/table (D-13); empty input is neutral (D-15).

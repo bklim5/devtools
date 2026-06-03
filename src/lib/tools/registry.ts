@@ -13,11 +13,10 @@ import { urlTool } from "@/tools/url";
 // router are all generated from this array — adding a tool means importing it
 // and dropping it in here, nothing else.
 //
-// The throwaway Phase-1 walking-skeleton was removed (D-05) now that the
-// build+verify harness is proven. The three real tools below are registered
-// enabled:false ID-reserving stubs (they render null until Phase 3 builds their
-// UI), so ENABLED_TOOLS is currently EMPTY — router.tsx guards that case and
-// falls back to the bare App shell until Phase 2/3 enable real tools.
+// The throwaway Phase-1 walking-skeleton was removed (D-05) once the
+// build+verify harness was proven. Every tool below ships enabled; ENABLED_TOOLS
+// filters out any `enabled: false` entry. router.tsx still guards the empty case
+// and falls back to the bare App shell when no tools are enabled.
 export const TOOLS: ToolDefinition[] = [
   unixTimeTool,
   base64Tool,
