@@ -33,11 +33,11 @@ decisions:
   - "JavaScriptCore (WKWebView) DEFUSES textbook ReDoS — the catastrophic-pattern e2e from the plan cannot be driven on this engine; the watchdog timeout is proven at the unit layer instead, and the e2e asserts the deterministic worker round-trip"
   - "dangerouslySetInnerHTML absence-grep implemented via Vite import.meta.glob ?raw (not node:fs readdirSync) because the repo ships no @types/node and src/ is typechecked under the browser tsconfig"
 metrics:
-  duration: "~24 min (autonomous) + ~1 review-closure round (4 commits, e2e re-proven)"
-  completed: "2026-06-03 (autonomous tasks + human-review round-1 gap closure; Task 3 re-verify pending)"
-  tasks: "2 of 3 autonomous done; human-review round-1 (4 issues) CLOSED; Task 3 (human-verify) PENDING re-review"
+  duration: "~24 min (autonomous) + 2 review-closure rounds (round-1: 4 commits; round-2: 1 commit, root-caused + e2e fails-before/passes-after)"
+  completed: "2026-06-03 (autonomous tasks + human-review rounds 1 & 2 gap closure; Task 3 re-verify pending)"
+  tasks: "2 of 3 autonomous done; human-review round-1 (4 issues) + round-2 (overlay drift root cause) CLOSED; Task 3 (human-verify) PENDING re-review"
   files: 5
-  commits: 8
+  commits: 9
 ---
 
 # Phase 14 Plan 03: Regex Tester View + Registry + e2e Summary
@@ -127,6 +127,97 @@ human-verify is requested below.
 - **Real-WKWebView gate `bash scripts/e2e-spike.sh` → exit 0, 12/12 spec files pass** (the regex spec now includes the scroll-alignment assertion).
 - `git diff --quiet src/lib/protobuf/decoder.ts` → **decoder + its 19 tests still byte-for-byte untouched**; `dangerouslySetInnerHTML` count 0, `@tauri-apps` not imported, worker-URL relative literal + `terminate()` + id-gate all preserved (no regression to the watchdog hardening).
 - **Two e2e iterations were needed** and are recorded honestly in history: (a) the overflow-hidden `scrollTop`-clamp bug the gate caught (→ translate technique, `831d6de6`), and (b) a bare `[aria-hidden]` e2e selector matching a non-regex shell node (→ scoped off `#regex-text`, `6ec44dc0`).
+
+## Gap closure (human review round 2 — overlay alignment root cause)
+
+The human reviewed the BUILT app again and rejected it: the `<mark>` highlight backdrop
+was MISALIGNED from the textarea glyphs — near the top the highlights sat on their words,
+but lower in the sample the highlight drifted ~1 line BELOW the real text, and the drift
+ACCUMULATED downward. Round-1's translate() scroll-sync fixed scroll-OFFSET propagation but
+NOT this accumulating drift, and round-1's e2e "alignment" assertion PASSED while the bug
+was visibly present (it measured scroll propagation, not glyph-level alignment).
+
+This round followed the systematic-debugging discipline: **NO FIX WITHOUT A MEASURED ROOT
+CAUSE.** Throwaway instrumentation (a temporary `test/e2e/regex-measure.e2e.ts`, since
+deleted) dumped the computed-style + layout metrics of BOTH the textarea and the highlight
+backdrop on the REAL WKWebView, with a sample long enough to wrap several lines AND overflow
+vertically.
+
+### Root cause (MEASURED, not guessed)
+
+Every font metric was already identical between the two layers (fontFamily, fontSize,
+lineHeight 19.5px, letterSpacing normal, padding 12px, borderWidth 1px, boxSizing
+border-box, whiteSpace pre-wrap, overflowWrap break-word, wordBreak normal, tabSize 4).
+The ONE divergence was **text-box width**:
+
+| Metric | textarea | backdrop content | |
+|---|---|---|---|
+| offsetWidth | 1198 | 1196 | |
+| **clientWidth** (text box) | **1182** | **1194** | **−12px** |
+| scrollbar width (offset − client − border) | **~14px** | 0 | the thief |
+
+The dev machine has macOS **"Show scroll bars: Always"**, so the textarea grew a ~14px
+vertical scrollbar that consumed layout width. The textarea text box (1182) was therefore
+NARROWER than the scrollbar-less backdrop (1194), so the two layers **wrapped long lines at
+different columns**. Every wrap difference pushed the `<mark>` one line lower than the
+matched glyph — and it accumulated downward, exactly the reported signature. (This is the
+classic "highlight-within-textarea / react-simple-code-editor" failure mode: the two layers
+must have pixel-identical text layout INCLUDING the same content-box width.)
+
+### Minimal fix
+
+1. **Zero-width textarea scrollbar (deterministic on every machine):** a new
+   `.no-scrollbar` utility in `src/index.css` (`scrollbar-width: none` +
+   `::-webkit-scrollbar { width: 0; height: 0 }`) applied to the `#regex-text` textarea, so
+   its scrollbar takes ZERO layout width regardless of the OS "Always show scrollbars"
+   setting. The content still scrolls via wheel/keys and the existing translate() scroll-sync
+   still drives the backdrop — this only removes the scrollbar's layout-width theft.
+2. **Drop a redundant backdrop border:** the outer aria-hidden clip box carried its own 1px
+   `border-transparent` AND the inner content carried EDITOR_BOX's `border`, so the backdrop
+   had a double border vs the textarea's single one — a residual 2px text-box offset/narrowing.
+   Removed the outer border so the single EDITOR_BOX border is the only border on either layer.
+
+### Re-measured after the fix (invariant now holds)
+
+`textarea.clientWidth === backdrop.clientWidth` (**1196 === 1196**, was 1182 vs 1194),
+`scrollHeight` delta **0** (784 === 784), and the backdrop content box now starts at the
+exact same x as the textarea (rect.left 284 === 284, was offset 1px). The `<mark>` sits on
+its glyph's line.
+
+### New invariant e2e assertion (replaces the weak one)
+
+`test/e2e/regex.e2e.ts` step 2b now forces a wrapped + vertically-overflowing sample and
+asserts on the real WKWebView: **equal `clientWidth`**, **`|scrollHeight delta| <= 1`**, AND
+a known `<mark>`'s rect lands on its line (integer multiple of line-height, within ~2px)
+after scrolling to the bottom. Proven **fails-before / passes-after**:
+- **Before the fix** (`.no-scrollbar` removed): FAILS — `widthEqual:false`,
+  `taClientWidth:1196` vs `contentClientWidth:1210`; WDIO exit **1**.
+- **After the fix:** PASSES; WDIO exit **0**.
+
+The throwaway instrumentation spec was deleted.
+
+### Round-2 verification
+
+- `pnpm vitest run src/tools/regex` → **8/8 GREEN**; full suite **581/581**; `pnpm tsc
+  --noEmit` clean; `pnpm eslint` clean. Committed GREEN through the binding lefthook hook
+  (tsc + full vitest + eslint), **NO `--no-verify`**. Commit **`d8456241`**.
+- **Real-WKWebView gate `bash scripts/e2e-spike.sh` → exit 0, 12/12 spec files pass** (the
+  regex spec now carries the glyph-level invariant).
+- `git diff --quiet src/lib/protobuf/decoder.ts` → **decoder + its 19 tests still
+  byte-for-byte untouched**. `dangerouslySetInnerHTML` count **0**, `@tauri-apps` not
+  imported, worker-URL relative literal + `terminate()` + id-gate all preserved — no
+  regression to the watchdog hardening or any existing regex behavior (groups neutral,
+  named groups, flags g/i/m/s/u, replace all-vs-first, chips, invalid-pattern inline error,
+  Web Worker + watchdog timeout + watchdog-armed-before-construction).
+
+| File | Change | Commit |
+|---|---|---|
+| `src/index.css` | new `.no-scrollbar` utility (zero-width scrollbar, both standard + WebKit) | `d8456241` |
+| `src/tools/regex/RegexTool.tsx` | apply `no-scrollbar` to the textarea; drop the redundant outer backdrop border | `d8456241` |
+| `test/e2e/regex.e2e.ts` | replace the weak scroll-propagation assertion with the glyph-level alignment invariant (equal clientWidth + scrollHeight + on-grid `<mark>`) | `d8456241` |
+
+A fresh phase-boundary human-verify is requested below (the walkthrough now emphasizes
+reading DEEP into a long wrapped sample to confirm the drift is gone).
 
 ## Open Checkpoint (Task 3 — blocking, autonomous: false)
 
