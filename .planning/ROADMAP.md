@@ -72,7 +72,7 @@ The four features are fully independent (no inter-feature dependencies); phase o
 **UI hint**: yes
 
 Plans:
-- [ ] 12-01-PLAN.md — decimal parse layer (decimalToBytes + comma-first detectEncoding + useDecode wiring; TDD, decoder untouched)
+- [x] 12-01-PLAN.md — decimal parse layer (decimalToBytes + comma-first detectEncoding + useDecode wiring; TDD, decoder untouched)
 - [ ] 12-02-PLAN.md — decimal UI mode (3rd toggle segment + example chip + placeholder; real-WKWebView gate)
 
 ### Phase 13: URL tool
@@ -143,7 +143,7 @@ Phases execute in numeric order. v1.3 phases (12–15) are independent and may b
 | 9. Pure release core + housekeeping | v1.2 | 2/2 | Complete   | 2026-06-02 |
 | 10. bump-and-tag driver | v1.2 | 3/3 | Complete    | 2026-06-02 |
 | 11. build-and-publish driver + universal binary + safety rails | v1.2 | 3/3 | Complete    | 2026-06-03 |
-| 12. Protobuf decimal input | v1.3 | 0/TBD | Not started | - |
+| 12. Protobuf decimal input | v1.3 | 1/2 | In Progress|  |
 | 13. URL tool | v1.3 | 0/TBD | Not started | - |
 | 14. Regex tester | v1.3 | 0/TBD | Not started | - |
 | 15. Cron tool | v1.3 | 0/TBD | Not started | - |

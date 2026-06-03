@@ -11,8 +11,8 @@ Three new tools (Cron, URL, Regex) plus a decimal-byte-array input mode for the 
 
 ### Protobuf decimal-byte-array input (extends the hero)
 
-- [ ] **PRO-08**: User can paste a comma/space-separated decimal byte array (e.g. `10, 3, 80, 81, 82`) and the Protobuf decoder decodes it as a third input mode, auto-detected alongside hex/base64 (rule: a comma anywhere ⇒ decimal list; all tokens integers 0–255), with a visible, overridable detected-mode indicator.
-- [ ] **PRO-09**: Invalid decimal input (token >255, negative, non-integer, or unparseable) surfaces a clear inline error without crashing the tool; `decoder.ts` and its 19 tests remain byte-for-byte unmodified (a new pre-decode `decimalToBytes` parser in `src/lib/bytes.ts`, not a decoder change).
+- [x] **PRO-08**: User can paste a comma/space-separated decimal byte array (e.g. `10, 3, 80, 81, 82`) and the Protobuf decoder decodes it as a third input mode, auto-detected alongside hex/base64 (rule: a comma anywhere ⇒ decimal list; all tokens integers 0–255), with a visible, overridable detected-mode indicator.
+- [x] **PRO-09**: Invalid decimal input (token >255, negative, non-integer, or unparseable) surfaces a clear inline error without crashing the tool; `decoder.ts` and its 19 tests remain byte-for-byte unmodified (a new pre-decode `decimalToBytes` parser in `src/lib/bytes.ts`, not a decoder change).
 
 ### Cron tool
 
@@ -75,8 +75,8 @@ Every v1 requirement maps to exactly one phase. Phase numbering continues from v
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PRO-08 | Phase 12 | Pending |
-| PRO-09 | Phase 12 | Pending |
+| PRO-08 | Phase 12 | Complete |
+| PRO-09 | Phase 12 | Complete |
 | URL-01 | Phase 13 | Pending |
 | URL-02 | Phase 13 | Pending |
 | URL-03 | Phase 13 | Pending |

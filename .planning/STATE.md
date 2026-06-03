@@ -3,24 +3,24 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: More Tools
 status: executing
-last_updated: "2026-06-03T10:55:05.931Z"
-last_activity: 2026-06-03 -- Phase 12 planning complete
+last_updated: "2026-06-03T11:29:33.376Z"
+last_activity: 2026-06-03
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 2
-  completed_plans: 0
-  percent: 0
+  completed_plans: 1
+  percent: 50
 ---
 
 # Project State
 
 ## Current Position
 
-Phase: 12 (Protobuf decimal input) — planned, ready to execute (2 plans, 2 waves)
-Plan: —
-Status: Ready to execute
-Last activity: 2026-06-03 -- Phase 12 planning complete
+Phase: 12 (protobuf-decimal-input) — EXECUTING
+Plan: 2 of 2
+Status: Plan 12-01 complete (parse layer ✓); Wave 2 (12-02 UI mode) next
+Last activity: 2026-06-03 -- Plan 12-01 (decimal parse layer) complete
 
 **Milestone v1.3 "More Tools" roadmapped 2026-06-03.** Goal: add three new high-frequency tools (Cron, URL, Regex) + a Protobuf decimal-byte-array input mode — each clearing the product wedge with zero new runtime deps. Eight tools → eleven. The research (SUMMARY.md, HIGH confidence) established that the four features are FULLY INDEPENDENT (no inter-feature dependencies) and that every feature ships zero new runtime AND zero new devDependencies over native Web/JS APIs. Phase order is therefore purely RISK-DRIVEN — smallest/safest first, the two deep features last so verification budget concentrates on them:
 
@@ -40,6 +40,7 @@ Next: `/gsd-plan-phase 12` (or any of 12–15 — they're independent and parall
 ## Active Plan
 
 **Phase 12 — Protobuf decimal input — PLANNED, ready to execute.** 2 plans in 2 waves (verified by gsd-plan-checker, VERIFICATION PASSED first iteration; PRO-08/PRO-09 fully covered):
+
 - **Wave 1 — `12-01-decimal-parse-layer-PLAN.md`** (autonomous): TDD the pure string→bytes layer — new `decimalToBytes` in `src/lib/bytes.ts` (D-04/05/06/07), comma-first `detectEncoding` (D-01/02/03), three-way `useDecode` wiring.
 - **Wave 2 — `12-02-decimal-ui-mode-PLAN.md`** (depends_on 12-01; ends in a human-verify checkpoint): 3rd toggle segment (D-08), generic-`value` EXAMPLES + decimal chip `10, 3, 80, 81, 82` (D-10), placeholder (D-09); extend e2e + phase-boundary sign-off.
 
@@ -47,6 +48,7 @@ Research skipped (CONTEXT.md exhaustive); no UI-SPEC (reuses Phase 3 toggle/chip
 
 ## Recent Activity
 
+- **2026-06-03 — Plan 12-01 (decimal parse layer) COMPLETE.** TDD'd the entire string→bytes decimal path with `decoder.ts` + its 19 tests byte-for-byte untouched (`git diff --quiet` ✓). Three atomic commits: `78cbb143` (`decimalToBytes` in `src/lib/bytes.ts` — strict comma/space surface D-04/05/06, named-token errors D-07, ReDoS-safe per-token `/^\d+$/`; 12 new tests), `ee8ea11e` (comma-first `detectEncoding` branch + widened `InputEncoding` union to include `"decimal"`, D-01/02/03; classifier stays pure; 4 new tests incl. the `1, 2, 999`→decimal anchor), `2f44b130` (three-way `useDecode` switch routing decimal through `decimalToBytes`, inheriting the existing try/catch error-as-value). Full suite green (519 tests), tsc clean. Key impl decision: split-on-commas-first (segments must be non-empty per D-05) then spaces-within-segment, so `", "` is one valid separator while `,,`/trailing-comma are errors. PRO-08/PRO-09 marked Complete. Next: Wave 2 `12-02` (UI mode — toggle segment D-08, placeholder D-09, example chip D-10, e2e + phase-boundary sign-off).
 - **2026-06-03 — Milestone v1.3 "More Tools" ROADMAPPED (Phases 12–15).** Adopted the HIGH-confidence risk-ordered phase shape from the research SUMMARY essentially unchanged, one phase per feature: Phase 12 Protobuf decimal input (de-risk untouched-decoder first) → Phase 13 URL (thin native-API view, extracts shared `Toggle`) → Phase 14 Regex (highest UI novelty + ReDoS → Web Worker + timeout) → Phase 15 Cron (hand-rolled DST-correct next-run; the `L`/`nL` slice isolated as its own final plan). All 25 requirements (PRO-08/09, URL-01..05, RGX-01..07, CRON-01..11) mapped 1:1 (25/25, no orphans/dupes) in `.planning/REQUIREMENTS.md` Traceability; ROADMAP.md appended (v1.0/v1.1/v1.2 history + the full 999.x backlog preserved; backlog 999.1 annotated PROMOTED with the delivered tools ✓-marked and the remaining wishlist still parked). Numbering continued from v1.2's Phase 11 — did NOT reset to 1. Phases 14 + 15 flagged for `/gsd-research-phase` at plan time; Phases 12 + 13 are standard patterns. Next: `/gsd-plan-phase 12`.
 - **2026-06-03 — Milestone v1.2 "Release Tooling" SHIPPED & ARCHIVED.** Audit passed: 12/12 REL requirements, 3/3 phases verified, integration clean, proven live (v0.2.2 + DST-02 updater round-trip on real hardware). Archived to `.planning/milestones/v1.2-*`; tag `v1.2` (local-only). CI track parked to backlog 999.2.
 
