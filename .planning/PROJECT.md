@@ -128,6 +128,7 @@ The app still ships **eight tools** (no new user-facing tools in v1.2 — it was
 | **Split-repo publish** to public `bklim5/devtools-releases` (never private `origin`) (v1.2) | The updater polls the public repo; unauthenticated clients must fetch | ✓ Good — REL-07, confirmed live |
 | **CI deliberately parked** to backlog 999.2; ship local helper scripts first (v1.2) | Local reproducible release is the immediate need; CI adds cross-repo PAT + secrets complexity | — Pending — revisit as a follow-on milestone |
 | **Notarisation stays deferred** (ad-hoc default; `APPLE_*` honored if present) (v1.2, carries D-02) | No Apple Developer enrolment yet; keep it a credentials-only flip | — Pending — credentials-only activation when enrolled |
+| **Release-only remote: GSD milestone tags (`v1.x`) stay LOCAL; only app-release tags (`v0.2.x`) push to origin** (v1.2) | Two tag series on one remote read as confusing; the app-release series is the only one that maps to a shipped binary the updater serves | ✓ Good — 2026-06-03 deleted `v1.0`/`v1.1` from origin (kept local); origin now shows only `v0.2.x` |
 
 ## Evolution
 
