@@ -107,8 +107,8 @@ Plans:
 **UI hint**: yes
 
 Plans:
-- [ ] 14-01-PLAN.md — TDD Wave 0: RED test stubs (regex.test.ts, RegexTool.test.tsx, regex.e2e.ts) encoding RGX-01..07 + the dangerouslySetInnerHTML absence-grep + the catastrophic-pattern timeout
-- [ ] 14-02-PLAN.md — Wave 1: pure error-as-value core src/lib/regex/regex.ts (build/enumerate/replace/runRegex + COMMON_PATTERNS, g-forced enumeration) + the thin Web Worker transport worker.ts
+- [x] 14-01-PLAN.md — TDD Wave 0 (MERGED into 02/03 per user Rule-4): RED-only commits can't pass the lefthook tsc+vitest hook, so each test file ships GREEN with its impl. `regex.test.ts` landed in 14-02; `RegexTool.test.tsx` + `regex.e2e.ts` land in 14-03.
+- [x] 14-02-PLAN.md — Wave 1 COMPLETE: pure error-as-value core src/lib/regex/regex.ts (build/enumerate/replace/runRegex + COMMON_PATTERNS, g-forced enumeration) + the thin Web Worker transport worker.ts. `regex.test.ts` 23/23 GREEN, decoder + CSP untouched. Commits cd604c07, 0b64d34d.
 - [ ] 14-03-PLAN.md — Wave 2: RegexTool view (terminate-on-timeout watchdog, overlay-on-textarea escaped highlight, capture-group breakdown, replace preview, flag toggles, 3-chip library) + registry append + real-WKWebView e2e/tauri-build/gsd-ui-review phase-boundary sign-off
 
 ### Phase 15: Cron tool
@@ -148,7 +148,7 @@ Phases execute in numeric order. v1.3 phases (12–15) are independent and may b
 | 11. build-and-publish driver + universal binary + safety rails | v1.2 | 3/3 | Complete    | 2026-06-03 |
 | 12. Protobuf decimal input | v1.3 | 2/2 | Complete    | 2026-06-03 |
 | 13. URL tool | v1.3 | 2/2 | Complete    | 2026-06-03 |
-| 14. Regex tester | v1.3 | 0/3 | Planned | - |
+| 14. Regex tester | v1.3 | 2/3 | In progress (14-01 merged into 02/03; 14-02 core+worker done) | - |
 | 15. Cron tool | v1.3 | 0/TBD | Not started | - |
 
 ## Backlog
