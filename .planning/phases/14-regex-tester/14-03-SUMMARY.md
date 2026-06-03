@@ -33,11 +33,11 @@ decisions:
   - "JavaScriptCore (WKWebView) DEFUSES textbook ReDoS — the catastrophic-pattern e2e from the plan cannot be driven on this engine; the watchdog timeout is proven at the unit layer instead, and the e2e asserts the deterministic worker round-trip"
   - "dangerouslySetInnerHTML absence-grep implemented via Vite import.meta.glob ?raw (not node:fs readdirSync) because the repo ships no @types/node and src/ is typechecked under the browser tsconfig"
 metrics:
-  duration: "~24 min (autonomous portion; Task 3 human-verify pending)"
-  completed: "2026-06-03 (autonomous tasks)"
-  tasks: "2 of 3 autonomous done; Task 3 (human-verify) PENDING"
+  duration: "~24 min (autonomous) + ~1 review-closure round (4 commits, e2e re-proven)"
+  completed: "2026-06-03 (autonomous tasks + human-review round-1 gap closure; Task 3 re-verify pending)"
+  tasks: "2 of 3 autonomous done; human-review round-1 (4 issues) CLOSED; Task 3 (human-verify) PENDING re-review"
   files: 5
-  commits: 4
+  commits: 8
 ---
 
 # Phase 14 Plan 03: Regex Tester View + Registry + e2e Summary
@@ -105,6 +105,28 @@ None.
 ## Known Stubs
 
 None. All data is wired (matches/groups/replace/timeout all render from real worker results or the watchdog).
+
+## Gap closure (human review round 1)
+
+The human reviewed the built app at `#/tools/regex` and REJECTED it with 4 concrete UI/UX
+issues. All four are now fixed, each committed GREEN through the binding lefthook hook
+(tsc + full vitest + eslint; NO `--no-verify`), and re-proven on the real WKWebView
+(`bash scripts/e2e-spike.sh` → **exit 0, 12/12 spec files pass**). A fresh phase-boundary
+human-verify is requested below.
+
+| # | Issue (as reported) | Fix | Commit(s) |
+|---|---------------------|-----|-----------|
+| 1 | **CRITICAL** — highlight overlay desyncs from the textarea when scrolling (the load-bearing D-02 caret/scroll alignment, broken under scroll) | Backdrop + textarea now share a single `EDITOR_BOX` constant (identical font, size, line-height, **letter-spacing** (`tracking-normal`), padding, border, box-sizing, `whitespace-pre-wrap break-words` wrapping) and are both `absolute inset-0` in a `min-h-[220px]` relative container → identical geometry. Scroll-sync now **translates** the backdrop's inner content by the negative `scrollTop`/`scrollLeft` on the textarea's `scroll` event (an `overflow-hidden` box clamps a non-zero `scrollTop` to 0 — that was the actual desync bug the e2e gate exposed) and re-applies after every backdrop re-render. `resize` is OFF so a user-resized textarea can't desync the inset-0 backdrop. **New unit test** (both-axes translate on `scroll`) + **new e2e assertion** (60-line input, scroll, backdrop content tracks the textarea scrollTop on the real WKWebView). | `67e2f278`, `831d6de6`, `b0f307fe`, `6ec44dc0` |
+| 2 | Email/URL/IPv4 chips were at the top of the tool; unclear what they are | Moved the chips to **directly under the Pattern input** with a muted **"Common patterns"** caption + per-chip `title` tooltip. Group keeps its stable accessible name "Insert a common pattern". | `67e2f278` |
+| 3 | Sample Text textarea too small (it's the primary input) | Editor container min-height **140px → 220px**. | `67e2f278` |
+| 4 | Replace field confusing; replaced output unlabeled | Replace input now has an `aria-describedby` helper caption — **"Replacement applied to each match. Use $1, $&lt;name&gt; and $&"** — and the output is a clearly **LABELED, visible "Result" pane** (renamed from "Preview", with a "The sample text with every match replaced." sub-caption), making the **Pattern → Matches → Replace → Result** flow obvious. | `67e2f278` |
+
+**Round-1 verification:**
+- `pnpm vitest run src/tools/regex` → **8/8 GREEN** (the original 5 + scroll-sync handler, chip placement, labeled Result).
+- Full suite **581/581**, `pnpm tsc --noEmit` clean, `pnpm eslint` clean.
+- **Real-WKWebView gate `bash scripts/e2e-spike.sh` → exit 0, 12/12 spec files pass** (the regex spec now includes the scroll-alignment assertion).
+- `git diff --quiet src/lib/protobuf/decoder.ts` → **decoder + its 19 tests still byte-for-byte untouched**; `dangerouslySetInnerHTML` count 0, `@tauri-apps` not imported, worker-URL relative literal + `terminate()` + id-gate all preserved (no regression to the watchdog hardening).
+- **Two e2e iterations were needed** and are recorded honestly in history: (a) the overflow-hidden `scrollTop`-clamp bug the gate caught (→ translate technique, `831d6de6`), and (b) a bare `[aria-hidden]` e2e selector matching a non-regex shell node (→ scoped off `#regex-text`, `6ec44dc0`).
 
 ## Open Checkpoint (Task 3 — blocking, autonomous: false)
 
