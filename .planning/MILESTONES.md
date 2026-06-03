@@ -1,5 +1,23 @@
 # Milestones
 
+## v1.2 Release Tooling (Shipped: 2026-06-03)
+
+**Phases completed:** 3 phases (9–11), 8 plans, 24 tasks
+**Delivered:** `pnpm release:bump` + `pnpm release:publish` over a unit-tested pure release core — lockstep multi-manifest bump/tag/push and a universal-binary, dual-key, signature-verified cross-repo publish. Proven live (v0.2.2 + DST-02 updater round-trip). All 12 REL requirements; zero new runtime deps; decoder's 19 tests untouched. CI parked (999.2).
+
+**Key accomplishments:**
+
+- Hand-rolled `bumpSemver` plus three surgical `setXVersion` string editors in a new `src/lib/release/version.ts` (zero deps, 25 vitest cases incl. the `[package]`-scoped Cargo dependency-pin proof), then dogfooded `setCargoVersion` to reconcile `Cargo.toml` 0.1.0 -> 0.2.1.
+- A PURE `buildLatestJson({version,pubDate,url,signature,notes?})` plus a dual-key `platformKey` in a new `src/lib/release/manifest.ts` (zero deps): both `darwin-aarch64` and `darwin-x86_64` are built from ONE `{url,signature}` so they can never diverge, no combined single-key variant is emitted, `notes` defaults to `""`, and `pub_date` is sourced only from the injected arg — covered by 8 vitest cases.
+- Committed the Phase-9-deferred `Cargo.lock` `devtools-app` `0.1.0 -> 0.2.1` reconcile as a standalone `chore(release):` housekeeping commit, leaving the source tree clean so the upcoming bump driver's clean-tree preflight starts from a known-good state.
+- Side-effect-free `bumpPlan.ts` decision core — D-01/D-02 CLI grammar, a single-computed-version plan threaded into 3 manifests + tag + commit message, a pnpm-lock-no-op-tolerant allowlist diff, and pure dry-run/recovery text — all TDD-covered (47 new cases), giving REL-01/REL-10/REL-11 automated verification.
+- `scripts/bump-and-tag.mjs` wires the pure bumpPlan core to real git/pnpm/cargo I/O behind `pnpm release:bump`, and cut the live v0.2.2 release — lockstep 3-manifest bump, regenerated lockfiles, annotated `v0.2.2` tag, and commit+tag pushed to the private origin after a y/N confirm.
+- Side-effect-free `publishPlan.ts` — `--dry-run` arg parse, single-fresh-`.sig` assertion (fail on 0/>1), strict both-arch `lipo` parse, public-repo asset URL, served-version match, boolean-only signing/Apple env checks, and dry-run plan/recovery render strings — fully TDD'd (33 cases), mirroring the Phase 10 `bumpPlan.ts` split.
+- Thin `scripts/build-and-publish.mjs` over the pure `publishPlan.ts` core + Phase 9 `buildLatestJson` — read-only preflights -> `--dry-run` short-circuit (NO build, zero side effects) -> rustup add -> universal `tauri build` -> `lipo` both-arch assert -> fresh-`.sig` single-match glob -> `latest.json` -> cross-repo `gh` publish (assets first, manifest last) -> `curl` served-version verify -> manual round-trip gate, wired to `pnpm release:publish`.
+- v0.2.2 was built as a universal binary, published to `bklim5/devtools-releases`, and an older install auto-updated to it through the mandatory minisign verify — DST-02 proven live on real hardware.
+
+---
+
 ## v1.1 Formatters (Shipped: 2026-06-02)
 
 **Phases completed:** 2 phases (7–8), 4 plans, ~11 tasks

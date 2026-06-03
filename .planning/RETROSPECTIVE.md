@@ -41,6 +41,44 @@
 
 ---
 
+## Milestone: v1.2 — Release Tooling
+
+**Shipped:** 2026-06-03
+**Phases:** 3 (9–11) | **Plans:** 8 | **Commits:** 56
+
+### What Was Built
+- A unit-tested **pure release core** in `src/lib/release/`: `version.ts` (`bumpSemver` + three surgical `setXVersion` manifest editors), `manifest.ts` (dual-key `buildLatestJson`), `bumpPlan.ts` and `publishPlan.ts` (every decision/assertion/URL/string for the two drivers).
+- **`pnpm release:bump`** (`scripts/bump-and-tag.mjs`) — lockstep 3-manifest semver bump + lockfile regen + annotated `vX.Y.Z` tag + push to private origin, `--dry-run` + fail-fast preflights.
+- **`pnpm release:publish`** (`scripts/build-and-publish.mjs`) — universal (Intel + Apple Silicon) `tauri build` → `lipo` both-arch assert → fresh-`.sig` single-match glob → dual-key `latest.json` → cross-repo `gh` publish (assets-first/manifest-last) → post-publish `curl` served-version verify.
+- A live, signature-verified release: **v0.2.2** published to `bklim5/devtools-releases` and an older install auto-updated through the mandatory minisign verify (DST-02) on real hardware.
+
+### What Worked
+- **The pure-core / thin-`.mjs`-shell split paid off precisely as designed** — all decision logic was TDD'd (33 + 47 cases), and *both* bugs found in the live run were in the deliberately-untested I/O shell, never in the covered core. The split told us exactly where to trust the tests and where not to.
+- **Dry-run-with-zero-side-effects, short-circuited BEFORE the slow/irreversible `tauri build`**, let the full preflight chain be proven against the real live `gh`/repo state without risk.
+- **The live human-gate (real publish + updater round-trip) is irreplaceable** — it caught both shell bugs and proved minisign-verify-then-relaunch end-to-end, which unit tests structurally cannot.
+- **Mirroring Phase 10's `bumpPlan` ↔ `bump-and-tag.mjs` structure into Phase 11** made the second driver fast and low-risk to author.
+
+### What Was Inefficient
+- **Both live-run bugs lived in the thin `.mjs` shell** (the part with no unit coverage by design): `main()` was made sync but the call site still `.catch()`'d it (false exit-1 after a *successful* publish), and the updater seam forwarded raw per-chunk `chunkLength` bytes as a percent (the "8000%" display). The fix in both cases was to push the logic into the pure tested core (or a `try/catch`) — i.e. the shell should have been even thinner from the start.
+- **The 8000% progress bug was pre-existing (Phase 6 updater UI)** and only surfaced under a *real* download — yet another "only the real run reveals it" case that a smoke-level integration test of the driver could have caught earlier.
+
+### Patterns Established
+- **Pure decision core + thin `.mjs` I/O shell**, applied to both release scripts — decisions/strings/asserts are zero-I/O and unit-tested; the driver only does fs/subprocess/network.
+- **Dry-run short-circuit before the irreversible step; all preflights before any write** — cheap insurance against a broken release auto-installing onto every user.
+- **Standing release-security pattern:** secrets inherited via `{ env: process.env }` only, boolean-only env presence checks, `execFileSync` argv arrays (no shell strings), single public-repo constant — verified threat-secure 16/16.
+- **Extract even small UI math into a pure tested reducer** (`downloadProgress.ts`) rather than computing inline in the `@tauri-apps` seam.
+
+### Key Lessons
+1. **The thin I/O shell is exactly where bugs hide** — its logic is uncovered by design. Either keep it truly logic-free (push every computation into the pure core) or give it a smoke test. Both v1.2 live bugs lived there.
+2. **A live human-gate is mandatory for irreversible / integration-bound flows** (publish + auto-update). No amount of unit coverage substitutes for the real minisign-verify-then-relaunch round-trip.
+3. **Dry-run-zero-side-effects + assets-before-manifest ordering** are the two cheapest guards against the milestone's worst case — keep them as non-negotiable structure in any publish pipeline.
+
+### Cost Observations
+- Model mix: GSD `quality` profile — primarily Opus for planning/execution/review.
+- Notable: the entire automatable surface was green (vitest 503/503) *before* the live run; the only real work in the live session was catching and TDD-fixing the two shell bugs, then the audit/security/archive close-out.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -49,6 +87,7 @@
 |-----------|--------|-------|------------|
 | v1.0 Distribution | 6 (1–6) | 28 | Established the full build+verify harness (review → unit → ui + phase sign-off) on a walking skeleton before any feature |
 | v1.1 Formatters | 2 (7–8) | 4 | Shared-foundation-first wave; cleanup phase deliberately sequenced after its real callers landed |
+| v1.2 Release Tooling | 3 (9–11) | 8 | Pure decision core + thin `.mjs` shell per script; dry-run-first; a live human-gate (real publish + updater round-trip) as the load-bearing acceptance |
 
 ### Cumulative Quality
 
@@ -56,11 +95,13 @@
 |-----------|-------------|--------------------|------------------|
 | v1.0 Distribution | 269 vitest | — | `js-md5` (only one), `lucide-react`, `@tauri-apps/plugin-store` |
 | v1.1 Formatters | 378 vitest / 44 files | JSON + XML formatters (native APIs) | **0** |
+| v1.2 Release Tooling | 503 vitest / 49 files | release core + drivers (Node builtins + `tsx`/Tauri CLI/`gh`/`rustup` — all devDeps) | **0** |
 
-Constant across both: the hero decoder (`src/lib/protobuf/decoder.ts`) + its **19 tests** stayed byte-for-byte untouched.
+Constant across all three: the hero decoder (`src/lib/protobuf/decoder.ts`) + its **19 tests** stayed byte-for-byte untouched.
 
 ### Top Lessons (Verified Across Milestones)
 
-1. **The real-WKWebView gate catches what unit tests can't** — v1.0 (production-only startup bugs, secure-context crypto) and v1.1 (`<parsererror>` newline concat) both surfaced regressions only on the real engine. Never treat Chromium/jsdom as the desktop truth.
-2. **Code review reliably finds real bugs each milestone** — keep it as a hard per-task gate, not a formality.
-3. **Zero-runtime-dependency is sustainable** — two milestones in, the only runtime dep is `js-md5`; native browser APIs covered formatting entirely.
+1. **The real run catches what unit tests can't** — v1.0 (production-only startup bugs, secure-context crypto), v1.1 (`<parsererror>` newline concat), and v1.2 (false exit-1 + 8000% progress, both in the untested `.mjs` shell, surfaced only by the live publish/download) all surfaced regressions only on the real engine/real execution. Never treat Chromium/jsdom — or a green unit suite over a thin I/O shell — as the desktop truth.
+2. **Code review reliably finds real bugs each milestone** — keep it as a hard per-task gate, not a formality. (v1.2: 0 critical, but the live human-gate found the two that mattered.)
+3. **Zero-runtime-dependency is sustainable** — three milestones in, the only runtime dep is still `js-md5`; native browser APIs + Node builtins + dev-only CLIs covered formatting *and* the entire release pipeline.
+4. **Push logic out of I/O shells into pure tested cores** — v1.2's two live bugs both lived in the deliberately-uncovered driver shell; the thinner the shell, the fewer places a bug can hide where tests don't look.
