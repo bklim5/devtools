@@ -73,6 +73,38 @@ describe("Regex tester (real WKWebView)", () => {
     const yearCopy = await $('button[aria-label="Copy group year"]');
     await yearCopy.waitForExist({ timeout: 5_000 });
 
+    // 2b. OVERLAY SCROLL ALIGNMENT (D-02 — the human-review round-1 desync fix):
+    //     fill the textarea with enough lines to scroll, scroll it, and assert the
+    //     aria-hidden highlight backdrop tracks the SAME scrollTop on the REAL
+    //     WKWebView (where the box layout actually happens, unlike jsdom). If the
+    //     backdrop drifted, the <mark>s would no longer sit over the matched chars.
+    const longText = Array.from({ length: 60 }, (_, i) => `line ${i} word`).join(
+      "\n",
+    );
+    await textInput.click();
+    await textInput.setValue(longText);
+    await patternInput.setValue("word");
+    const aligned = await browser.execute(() => {
+      const ta = document.querySelector<HTMLTextAreaElement>("#regex-text");
+      const backdrop = document.querySelector<HTMLElement>(
+        '[aria-hidden="true"]',
+      );
+      if (!ta || !backdrop) return { ok: false, reason: "missing nodes" };
+      ta.scrollTop = 200;
+      ta.dispatchEvent(new Event("scroll", { bubbles: true }));
+      // Allow the synced layout to settle (the sync is synchronous in the handler).
+      return {
+        ok: ta.scrollTop > 0 && backdrop.scrollTop === ta.scrollTop,
+        taTop: ta.scrollTop,
+        backdropTop: backdrop.scrollTop,
+      };
+    });
+    if (!aligned.ok) {
+      throw new Error(
+        `overlay backdrop drifted from the textarea on scroll: ${JSON.stringify(aligned)}`,
+      );
+    }
+
     // 3. STILL RESPONSIVE under rapid pattern swaps — the window never freezes
     //    because matching is off-thread + id-gated. Swap several patterns quickly;
     //    the final one's match count must render promptly.
