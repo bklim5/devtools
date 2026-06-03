@@ -71,21 +71,41 @@ Three new tools (Cron, URL, Regex) plus a decimal-byte-array input mode for the 
 
 ## Traceability
 
-Populated during roadmap creation (each requirement maps to exactly one phase).
+Every v1 requirement maps to exactly one phase. Phase numbering continues from v1.2's Phase 11. The four features are independent — phases ordered by risk (see ROADMAP.md), not by dependency.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PRO-08 | TBD | Pending |
-| PRO-09 | TBD | Pending |
-| CRON-01..11 | TBD | Pending |
-| URL-01..05 | TBD | Pending |
-| RGX-01..07 | TBD | Pending |
+| PRO-08 | Phase 12 | Pending |
+| PRO-09 | Phase 12 | Pending |
+| URL-01 | Phase 13 | Pending |
+| URL-02 | Phase 13 | Pending |
+| URL-03 | Phase 13 | Pending |
+| URL-04 | Phase 13 | Pending |
+| URL-05 | Phase 13 | Pending |
+| RGX-01 | Phase 14 | Pending |
+| RGX-02 | Phase 14 | Pending |
+| RGX-03 | Phase 14 | Pending |
+| RGX-04 | Phase 14 | Pending |
+| RGX-05 | Phase 14 | Pending |
+| RGX-06 | Phase 14 | Pending |
+| RGX-07 | Phase 14 | Pending |
+| CRON-01 | Phase 15 | Pending |
+| CRON-02 | Phase 15 | Pending |
+| CRON-03 | Phase 15 | Pending |
+| CRON-04 | Phase 15 | Pending |
+| CRON-05 | Phase 15 | Pending |
+| CRON-06 | Phase 15 | Pending |
+| CRON-07 | Phase 15 | Pending |
+| CRON-08 | Phase 15 | Pending |
+| CRON-09 | Phase 15 | Pending |
+| CRON-10 | Phase 15 | Pending |
+| CRON-11 | Phase 15 | Pending |
 
 **Coverage:**
 - v1 requirements: 25 total (PRO 2 · CRON 11 · URL 5 · RGX 7)
-- Mapped to phases: 0 (roadmap pending)
-- Unmapped: 25 ⚠️ (filled by roadmapper)
+- Mapped to phases: 25/25 ✓ (no orphans, no duplicates)
+- Phase 12: 2 (PRO-08/09) · Phase 13: 5 (URL-01..05) · Phase 14: 7 (RGX-01..07) · Phase 15: 11 (CRON-01..11)
 
 ---
 *Requirements defined: 2026-06-03*
-*Last updated: 2026-06-03 after milestone v1.3 definition*
+*Last updated: 2026-06-03 — traceability filled by roadmapper (25/25 mapped across Phases 12–15)*
