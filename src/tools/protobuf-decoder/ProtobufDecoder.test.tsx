@@ -124,6 +124,52 @@ describe("ProtobufDecoder", () => {
     expect(container.querySelector("[data-fnum]")).toBeTruthy();
   });
 
+  it("auto-detects a decimal byte array and lights the decimal segment (D-01/D-08, PRO-08)", () => {
+    const { container } = render(<ProtobufDecoder />);
+    // Canonical decimal array — same wire bytes as {1:150}.
+    fireEvent.change(input(container), { target: { value: "10, 3, 80, 81, 82" } });
+    const decimalBtn = within(container).getByRole("button", { name: /^decimal$/i });
+    expect(decimalBtn.getAttribute("aria-pressed")).toBe("true");
+    expect(decimalBtn.className).toContain("text-accent"); // accent = active (D-08)
+    // It decodes: field #1 renders with the uint64=150 reading, no error state.
+    expect(container.querySelector("[data-fnum]")).toBeTruthy();
+    expect(container.textContent).toContain("150");
+    const status = container.querySelector("footer[role='status']")!;
+    expect(within(status as HTMLElement).getByLabelText("parse state").textContent).toBe(
+      "OK",
+    );
+  });
+
+  it("surfaces a named decimal range error, not a base64 error, on an out-of-range token (PRO-09)", () => {
+    const { container } = render(<ProtobufDecoder />);
+    expect(() =>
+      fireEvent.change(input(container), { target: { value: "1, 2, 999" } }),
+    ).not.toThrow();
+    const status = container.querySelector("footer[role='status']")!;
+    expect(within(status as HTMLElement).getByLabelText("parse state").textContent).toBe(
+      "Error",
+    );
+    // Scope the assertion to the inline error message itself — "base64" is always
+    // present as a toggle segment label, so check the alert is the DECIMAL error.
+    const alert = container.querySelector("[role='alert']")!;
+    const alertText = alert.textContent?.toLowerCase() ?? "";
+    expect(alertText).toContain("999"); // the offending token is named
+    expect(alertText).toContain("out of range");
+    expect(alertText).toContain("decimal byte"); // a decimal error, never a base64 fallback
+    expect(alertText).not.toContain("base64");
+  });
+
+  it("clicking the decimal example chip fills + decodes the canonical array (D-10)", () => {
+    const { container } = render(<ProtobufDecoder />);
+    const decimalChip = within(container).getByRole("button", { name: /^decimal bytes$/i });
+    fireEvent.click(decimalChip);
+    expect(input(container).value).toBe("10, 3, 80, 81, 82");
+    expect(container.querySelector("[data-fnum]")).toBeTruthy();
+    expect(within(container).getByRole("button", { name: /^decimal$/i }).getAttribute("aria-pressed")).toBe(
+      "true",
+    );
+  });
+
   it("the rows/cards toggle calls setTreeStyle and re-renders the tree style (D-07)", () => {
     const { container } = render(<ProtobufDecoder />);
     fireEvent.change(input(container), { target: { value: "089601" } });
