@@ -103,11 +103,13 @@ Plans:
   4. User can insert a pattern from a small common-pattern library (email, URL, IPv4).
   5. A catastrophic-backtracking pattern does not freeze the window — matching runs in a Web Worker with a timeout watchdog; on timeout the user sees a clear "pattern timed out" message and the UI stays responsive.
   6. An invalid regex surfaces a clear inline error without throwing; highlighting renders escaped text safely (span overlay, never `dangerouslySetInnerHTML`).
-**Plans**: TBD
+**Plans**: 3 plans
 **UI hint**: yes
 
 Plans:
-- [ ] TBD (planned via `/gsd-plan-phase 14`)
+- [ ] 14-01-PLAN.md — TDD Wave 0: RED test stubs (regex.test.ts, RegexTool.test.tsx, regex.e2e.ts) encoding RGX-01..07 + the dangerouslySetInnerHTML absence-grep + the catastrophic-pattern timeout
+- [ ] 14-02-PLAN.md — Wave 1: pure error-as-value core src/lib/regex/regex.ts (build/enumerate/replace/runRegex + COMMON_PATTERNS, g-forced enumeration) + the thin Web Worker transport worker.ts
+- [ ] 14-03-PLAN.md — Wave 2: RegexTool view (terminate-on-timeout watchdog, overlay-on-textarea escaped highlight, capture-group breakdown, replace preview, flag toggles, 3-chip library) + registry append + real-WKWebView e2e/tauri-build/gsd-ui-review phase-boundary sign-off
 
 ### Phase 15: Cron tool
 **Goal**: A new Cron tool parses an expression into a 24-hour human-readable description and computes the next 5 run times in local time (with an IANA timezone label) over a hand-rolled, DST-correct, bounded next-run iterator — supporting 5/6-field, macros, full field syntax, DOM/DOW OR-union semantics, and last-day / last-weekday (`L`/`nL`/`L-n`) as an isolated high-risk slice.
@@ -146,7 +148,7 @@ Phases execute in numeric order. v1.3 phases (12–15) are independent and may b
 | 11. build-and-publish driver + universal binary + safety rails | v1.2 | 3/3 | Complete    | 2026-06-03 |
 | 12. Protobuf decimal input | v1.3 | 2/2 | Complete    | 2026-06-03 |
 | 13. URL tool | v1.3 | 2/2 | Complete    | 2026-06-03 |
-| 14. Regex tester | v1.3 | 0/TBD | Not started | - |
+| 14. Regex tester | v1.3 | 0/3 | Planned | - |
 | 15. Cron tool | v1.3 | 0/TBD | Not started | - |
 
 ## Backlog
