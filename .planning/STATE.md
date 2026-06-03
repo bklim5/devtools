@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: More Tools
-status: roadmapped
-last_updated: "2026-06-03T00:00:00.000Z"
-last_activity: 2026-06-03
+status: executing
+last_updated: "2026-06-03T10:55:05.931Z"
+last_activity: 2026-06-03 -- Phase 12 planning complete
 progress:
   total_phases: 4
   completed_phases: 0
-  total_plans: 0
+  total_plans: 2
   completed_plans: 0
   percent: 0
 ---
@@ -17,10 +17,10 @@ progress:
 
 ## Current Position
 
-Phase: 12 (Protobuf decimal input) — context gathered, ready to plan
+Phase: 12 (Protobuf decimal input) — planned, ready to execute (2 plans, 2 waves)
 Plan: —
-Status: Context gathered — ready to run `/gsd-plan-phase 12`
-Last activity: 2026-06-03 — Phase 12 context discussed & captured (`.planning/phases/12-protobuf-decimal-input/12-CONTEXT.md`). 4 gray areas resolved: detection rule (comma ⇒ decimal then validate), strict comma/space-only input shape (no brackets/newlines), offending-token-named errors, and the 3-segment toggle + placeholder + decimal example chip. Milestone v1.3 "More Tools" roadmapped 2026-06-03. Four phases (12–15), numbering continued from v1.2's Phase 11 (did NOT reset to 1). All 25 v1.3 requirements mapped 1:1 to a phase (25/25 coverage, no orphans, no duplicates).
+Status: Ready to execute
+Last activity: 2026-06-03 -- Phase 12 planning complete
 
 **Milestone v1.3 "More Tools" roadmapped 2026-06-03.** Goal: add three new high-frequency tools (Cron, URL, Regex) + a Protobuf decimal-byte-array input mode — each clearing the product wedge with zero new runtime deps. Eight tools → eleven. The research (SUMMARY.md, HIGH confidence) established that the four features are FULLY INDEPENDENT (no inter-feature dependencies) and that every feature ships zero new runtime AND zero new devDependencies over native Web/JS APIs. Phase order is therefore purely RISK-DRIVEN — smallest/safest first, the two deep features last so verification budget concentrates on them:
 
@@ -39,7 +39,11 @@ Next: `/gsd-plan-phase 12` (or any of 12–15 — they're independent and parall
 
 ## Active Plan
 
-**None yet — milestone roadmapped, no phase planned.** Next: `/gsd-plan-phase 12` to plan the first (smallest, de-risking) phase. Phases 12–15 are independent and may be planned/executed in any order or in parallel.
+**Phase 12 — Protobuf decimal input — PLANNED, ready to execute.** 2 plans in 2 waves (verified by gsd-plan-checker, VERIFICATION PASSED first iteration; PRO-08/PRO-09 fully covered):
+- **Wave 1 — `12-01-decimal-parse-layer-PLAN.md`** (autonomous): TDD the pure string→bytes layer — new `decimalToBytes` in `src/lib/bytes.ts` (D-04/05/06/07), comma-first `detectEncoding` (D-01/02/03), three-way `useDecode` wiring.
+- **Wave 2 — `12-02-decimal-ui-mode-PLAN.md`** (depends_on 12-01; ends in a human-verify checkpoint): 3rd toggle segment (D-08), generic-`value` EXAMPLES + decimal chip `10, 3, 80, 81, 82` (D-10), placeholder (D-09); extend e2e + phase-boundary sign-off.
+
+Research skipped (CONTEXT.md exhaustive); no UI-SPEC (reuses Phase 3 toggle/chip patterns). Next: `/gsd-execute-phase 12`. Phases 13–15 remain independent and may be planned in any order.
 
 ## Recent Activity
 
@@ -52,7 +56,7 @@ Next: `/gsd-plan-phase 12` (or any of 12–15 — they're independent and parall
 
 ## Next Step (pick up here next session)
 
-**Run `/gsd-plan-phase 12`** to plan Phase 12 (Protobuf decimal input) — the smallest, de-risking phase (PRO-08/09: `decimalToBytes` in `src/lib/bytes.ts`, third auto-detected input mode, decoder byte-untouched). **Context is captured** at `.planning/phases/12-protobuf-decimal-input/12-CONTEXT.md` — the planner should read it for the locked decisions (comma ⇒ decimal then validate; strict comma/space input; named-token errors; 3-segment toggle). Phases 12–15 are independent; any can be planned first, but 12 first proves the untouched-decoder promise and answers the auto-detection-precedence design question before anything else. Phases 14 (Regex) and 15 (Cron) should each run `/gsd-research-phase` before planning.
+**Run `/gsd-execute-phase 12`** (`/clear` first for a fresh context window). Phase 12 (Protobuf decimal input) is planned and checker-verified — 2 plans, 2 waves. Wave 1 (`12-01`) builds the pure parse layer TDD-first; Wave 2 (`12-02`) surfaces the decimal mode in the UI and ends with a human-verify checkpoint (real-WKWebView gate via `scripts/e2e-spike.sh protobuf-decoder` + `tauri build` / `gsd-ui-review` at the phase boundary). The immovable bar: `decoder.ts` + its 19 tests stay byte-for-byte untouched (both plans assert `git diff --quiet`). Phases 13–15 are independent; 14 (Regex) and 15 (Cron) should each run `/gsd-research-phase` before planning.
 
 ## Harness reminder (per-task DoD, in order)
 
