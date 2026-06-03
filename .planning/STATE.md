@@ -3,24 +3,24 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: More Tools
 status: executing
-last_updated: "2026-06-03T13:00:00.000Z"
-last_activity: 2026-06-03
+last_updated: "2026-06-03T15:40:00.000Z"
+last_activity: 2026-06-03 -- Plan 13-01 (URL logic + SegmentedControl) complete
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 2
+  total_plans: 4
   completed_plans: 2
-  percent: 100
+  percent: 50
 ---
 
 # Project State
 
 ## Current Position
 
-Phase: 13 (url-tool) — CONTEXT GATHERED ✓ (ready for planning); Phase 12 COMPLETE ✓
-Plan: 0 of TBD (planned via `/gsd-plan-phase 13`)
-Status: Phase 13 discuss-phase complete — 13-CONTEXT.md written (16 decisions across layout/encode-decode/parsed-readout/query-table/error-handling). Phase 12 signed off (gsd-ui-review 24/24 WCAG-AA PASS + tauri build approved).
-Last activity: 2026-06-03 -- Phase 13 (URL tool) context gathered; ready to plan
+Phase: 13 (url-tool) — EXECUTING
+Plan: 2 of 2 (13-01 complete; 13-02 next)
+Status: Executing Phase 13
+Last activity: 2026-06-03 -- Plan 13-01 (URL logic + SegmentedControl) complete
 
 **Milestone v1.3 "More Tools" roadmapped 2026-06-03.** Goal: add three new high-frequency tools (Cron, URL, Regex) + a Protobuf decimal-byte-array input mode — each clearing the product wedge with zero new runtime deps. Eight tools → eleven. The research (SUMMARY.md, HIGH confidence) established that the four features are FULLY INDEPENDENT (no inter-feature dependencies) and that every feature ships zero new runtime AND zero new devDependencies over native Web/JS APIs. Phase order is therefore purely RISK-DRIVEN — smallest/safest first, the two deep features last so verification budget concentrates on them:
 
@@ -49,6 +49,7 @@ Next: any of Phases 13 (URL) / 14 (Regex) / 15 (Cron) — independent, recommend
 
 ## Recent Activity
 
+- **2026-06-03 — Plan 13-01 (URL logic foundation + shared SegmentedControl) COMPLETE.** TDD'd the pure URL core with `decoder.ts` + its 19 tests byte-for-byte untouched (`git diff --quiet` ✓). Three atomic commits: `42e9b3bc` (`src/lib/url.ts` — `encodeComponent`/`decodeComponent`/`encodeFull`/`decodeFull` over native `encodeURI(Component)`, error-as-value `StrResult`; `%zz` + lone-surrogate → `{error}` not throw D-14; empty → neutral `{value:""}` D-15; 11 tests), `ea573e03` (`parseUrl` — 8 mapped fields D-08, `queryRows` via direct `URLSearchParams` iteration D-10/11/12, relative-URL `{error}` D-13, empty `{empty:true}` D-15; full CONTEXT anchor URL asserting 8 fields + 4 query rows), `809ae7f1` (`src/components/SegmentedControl.tsx` — shared generic accent-on-active `aria-pressed` `role=group` toggle D-16, `toggleClasses` lifted verbatim from FormatterView; 4 component tests). Full suite green (541 tests), tsc + eslint clean. Discretionary call (D-16): FormatterView left unmigrated to avoid risking the Formatter gates (its `Toggle` is a single bordered button + its indent group uses `aria-labelledby`, not the shared `aria-label` shape) — shipped the new shared component only, as the plan permits. No UI gate this plan (pure logic + component-test-covered control); the real-WKWebView gate lands in 13-02. **URL-01..05 stay Pending** — they're user-facing capabilities the 13-02 view delivers; 13-01 is the interface-contract wave 13-02 imports directly (`parseUrl` + 4 helpers + `SegmentedControl`). Next: `13-02` (URL tool view — Parse readout + query table, Encode/Decode panes + registry entry + e2e + phase sign-off).
 - **2026-06-03 — Phase 13 (URL tool) CONTEXT GATHERED.** `/gsd-discuss-phase 13` complete — `13-CONTEXT.md` + `13-DISCUSSION-LOG.md` written, committed `945a2a7e`. Discussed all 4 selected gray areas + error handling, 16 decisions (D-01..D-16): **layout** = top-level mode switch tabs `[Parse] [Encode/Decode]`, Parse default, no persistence (D-01/02/03); **encode/decode** = both directions shown live (Base64-style, no direction switch) + `component | full` scope toggle (the extracted shared `Toggle`, D-16) + one-line mode-aware helper caption (D-04/05/06); **parsed readout** = labeled rows each copyable, the six required parts + origin/userinfo when present, absent parts as muted `—` (D-07/08/09); **query table** = one row per occurrence in URL order, decoded keys+values, empty as `—`, per-value copy, greenfield (no table primitive) (D-10/11/12); **errors** = relative/scheme-less URL → clear inline error (no auto-base, no toggle — decided against), bad percent-sequence caught inline, empty input = neutral state (D-13/14/15). Standard pattern — research skippable. Next: `/gsd-plan-phase 13`.
 - **2026-06-03 — Plan 12-02 (decimal UI mode) COMPLETE — Phase 12 SIGNED OFF.** Surfaced the decimal mode in the Protobuf hero UI with `decoder.ts` + its 19 tests byte-for-byte untouched (`git diff --quiet` ✓). Commits: `6ccbf365` (feat — `"decimal"` added to `OVERRIDES` plugging into the active-segment-is-readout toggle D-08; `EXAMPLES` `hex`→generic `value` + decimal chip `10, 3, 80, 81, 82` D-10; placeholder + empty-state hint mention decimal D-09), `50274e4e` (e2e — real-WKWebView decimal decode + the `1, 2, 999` named-error anchor: role=alert names 999, not base64, no crash), `cd16e61a` (component test added at the `/codex:review` gate — aria-pressed/accent-on-active + named decimal `role="alert"`). Full suite green (522 tests), tsc clean. **Phase-boundary sign-off APPROVED:** `gsd-ui-review` 24/24 WCAG-AA PASS (`12-UI-REVIEW.md`, `8554a625`) + human-approved `tauri build` walkthrough (decimal decode, clearable override, `1,2,999` non-crashing named error, example chip, space-only D-03 behavior). PRO-08/PRO-09 delivered end-to-end. **Phase 12 COMPLETE** (both plans, both gates). Next: Phase 13/14/15 (independent).
 - **2026-06-03 — Plan 12-01 (decimal parse layer) COMPLETE.** TDD'd the entire string→bytes decimal path with `decoder.ts` + its 19 tests byte-for-byte untouched (`git diff --quiet` ✓). Three atomic commits: `78cbb143` (`decimalToBytes` in `src/lib/bytes.ts` — strict comma/space surface D-04/05/06, named-token errors D-07, ReDoS-safe per-token `/^\d+$/`; 12 new tests), `ee8ea11e` (comma-first `detectEncoding` branch + widened `InputEncoding` union to include `"decimal"`, D-01/02/03; classifier stays pure; 4 new tests incl. the `1, 2, 999`→decimal anchor), `2f44b130` (three-way `useDecode` switch routing decimal through `decimalToBytes`, inheriting the existing try/catch error-as-value). Full suite green (519 tests), tsc clean. Key impl decision: split-on-commas-first (segments must be non-empty per D-05) then spaces-within-segment, so `", "` is one valid separator while `,,`/trailing-comma are errors. PRO-08/PRO-09 marked Complete. Next: Wave 2 `12-02` (UI mode — toggle segment D-08, placeholder D-09, example chip D-10, e2e + phase-boundary sign-off).
@@ -61,7 +62,7 @@ Next: any of Phases 13 (URL) / 14 (Regex) / 15 (Cron) — independent, recommend
 
 ## Next Step (pick up here next session)
 
-**Phase 13 (URL tool) context is gathered** — `13-CONTEXT.md` ready for planning. `/clear` then run **`/gsd-plan-phase 13`** (standard pattern, research skippable). After Phase 13, the remaining v1.3 features are Phases 14 (Regex), 15 (Cron) — independent, recommended risk order 14 → 15. Phases 14 (Regex — Web-Worker/ReDoS) and 15 (Cron — DST wall-clock + `L`/`nL`) should each run `/gsd-research-phase` before planning. The immovable bar carries forward: `decoder.ts` + its 19 tests stay byte-for-byte untouched; offline/paste-instant/keyboard/HashRouter/WCAG-AA/zero-new-runtime-deps; the real-WKWebView UI gate applies to every v1.3 phase.
+**Phase 13 Plan 13-01 (URL logic + SegmentedControl) is complete** — pure `src/lib/url.ts` (parse + 4 encode/decode helpers, all error-as-value) and the shared `SegmentedControl` (D-16) are committed and green (541/541, decoder untouched). Next: execute **`13-02`** (URL tool view — Parse readout + query table, live Encode/Decode panes consuming the 13-01 exports, registry entry, real-WKWebView e2e, phase boundary sign-off). URL-01..05 flip to validated when 13-02 ships the UI. After Phase 13, the remaining v1.3 features are Phases 14 (Regex), 15 (Cron) — independent, recommended risk order 14 → 15. Phases 14 (Regex — Web-Worker/ReDoS) and 15 (Cron — DST wall-clock + `L`/`nL`) should each run `/gsd-research-phase` before planning. The immovable bar carries forward: `decoder.ts` + its 19 tests stay byte-for-byte untouched; offline/paste-instant/keyboard/HashRouter/WCAG-AA/zero-new-runtime-deps; the real-WKWebView UI gate applies to every v1.3 phase.
 
 ## Harness reminder (per-task DoD, in order)
 

@@ -89,7 +89,7 @@ Plans:
 **UI hint**: yes
 
 Plans:
-- [ ] 13-01-PLAN.md — pure url.ts parse/encode/decode helpers (TDD) + extracted shared SegmentedControl (D-16)
+- [x] 13-01-PLAN.md — pure url.ts parse/encode/decode helpers (TDD) + extracted shared SegmentedControl (D-16) ✓ (commits 42e9b3bc, ea573e03, 809ae7f1; 541/541 tests, decoder untouched)
 - [ ] 13-02-PLAN.md — URL tool view (Parse readout + query table, Encode/Decode panes) + registry entry + real-WKWebView e2e + phase sign-off
 
 ### Phase 14: Regex tester
