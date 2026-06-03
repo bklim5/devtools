@@ -145,4 +145,80 @@ describe("Protobuf Decoder (real WKWebView)", () => {
     await browser.saveScreenshot(SCREENSHOT_PATH);
     console.log(`[protobuf] saved real-WKWebView screenshot to ${SCREENSHOT_PATH}`);
   });
+
+  // Phase 12 (12-02): the decimal byte-array input mode (PRO-08/PRO-09). A comma
+  // anywhere auto-detects decimal; the decimal toggle segment is the accented
+  // readout; an out-of-range token surfaces a clear inline error that names the
+  // offending value (NOT a base64 error) without crashing.
+  it("auto-detects decimal input, shows a named range error, and loads the decimal example", async () => {
+    // Navigate to the hero tool via HashRouter (deterministic).
+    await browser.execute(() => {
+      window.location.hash = "#/tools/protobuf-decoder";
+    });
+
+    const input = await $("#protobuf-input");
+    await input.waitForExist({ timeout: 15_000 });
+    await demoPause(1200);
+
+    // 1. Paste the canonical decimal array -> auto-detect routes to decimal, the
+    //    `decimal` toggle segment becomes the active accented readout (PRO-08), and
+    //    the bytes decode (a field renders, no error alert).
+    await input.click();
+    await input.setValue("10, 3, 80, 81, 82");
+    await demoPause(1800);
+    const decimalToggle = await $("button=decimal");
+    await decimalToggle.waitForExist({ timeout: 5_000 });
+    assert(
+      (await decimalToggle.getAttribute("aria-pressed")) === "true",
+      "expected the decimal encoding segment to be the active/accented readout for a comma-separated array",
+    );
+    const decFnum = await $("[data-fnum]");
+    await decFnum.waitForExist({ timeout: 5_000 });
+    assert(
+      await decFnum.isExisting(),
+      "expected the decimal bytes to decode into at least one field",
+    );
+    const noAlert = await $("[role='alert']");
+    assert(
+      !(await noAlert.isExisting()),
+      "a valid decimal array must NOT produce an error alert",
+    );
+
+    // 2. Paste the error anchor `1, 2, 999` -> a role=alert inline error that NAMES
+    //    the offending token 999 and is a decimal range error, NOT a base64 error
+    //    (PRO-09). The tool must stay responsive (no crash, input still editable).
+    await input.setValue("1, 2, 999");
+    await demoPause(1800);
+    const rangeAlert = await $("[role='alert']");
+    await rangeAlert.waitForExist({ timeout: 5_000 });
+    const alertText = (await rangeAlert.getText()).toLowerCase();
+    assert(
+      alertText.includes("999"),
+      `expected the inline error to name the offending token 999, got "${alertText}"`,
+    );
+    assert(
+      !alertText.includes("base64"),
+      `expected a DECIMAL range error, not a base64 error, got "${alertText}"`,
+    );
+    // The input is still present + editable (no crash / white-screen) — T-12-05.
+    assert(
+      await input.isDisplayed(),
+      "input vanished — the tool white-screened on an out-of-range decimal token",
+    );
+    await input.setValue("");
+    assert(
+      (await input.getValue()) === "",
+      "input is not editable after the decimal range error — the tool is unresponsive",
+    );
+
+    // 3. The decimal example chip loads the canonical array into the textarea (D-10).
+    const decimalChip = await $("button=decimal bytes");
+    await decimalChip.waitForExist({ timeout: 5_000 });
+    await decimalChip.click();
+    await demoPause(1200);
+    assert(
+      (await input.getValue()) === "10, 3, 80, 81, 82",
+      `expected the decimal example chip to fill the textarea with the canonical array, got "${await input.getValue()}"`,
+    );
+  });
 });
