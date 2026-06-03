@@ -7,6 +7,7 @@ import { hashTool } from "@/tools/hash";
 import { uuidUlidTool } from "@/tools/uuid-ulid";
 import { jsonFormatterTool } from "@/tools/json-formatter";
 import { xmlFormatterTool } from "@/tools/xml-formatter";
+import { urlTool } from "@/tools/url";
 
 // The single source of truth for which tools exist. The sidebar, search, and
 // router are all generated from this array — adding a tool means importing it
@@ -26,6 +27,7 @@ export const TOOLS: ToolDefinition[] = [
   uuidUlidTool,
   jsonFormatterTool,
   xmlFormatterTool,
+  urlTool,
 ];
 
 export const ENABLED_TOOLS: ToolDefinition[] = TOOLS.filter((t) => t.enabled !== false);
