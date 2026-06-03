@@ -17,10 +17,10 @@ progress:
 
 ## Current Position
 
-Phase: 12 (Protobuf decimal input) — not started
+Phase: 12 (Protobuf decimal input) — context gathered, ready to plan
 Plan: —
-Status: Roadmapped — ready to plan Phase 12
-Last activity: 2026-06-03 — Milestone v1.3 "More Tools" roadmapped. Four phases (12–15), numbering continued from v1.2's Phase 11 (did NOT reset to 1). All 25 v1.3 requirements mapped 1:1 to a phase (25/25 coverage, no orphans, no duplicates).
+Status: Context gathered — ready to run `/gsd-plan-phase 12`
+Last activity: 2026-06-03 — Phase 12 context discussed & captured (`.planning/phases/12-protobuf-decimal-input/12-CONTEXT.md`). 4 gray areas resolved: detection rule (comma ⇒ decimal then validate), strict comma/space-only input shape (no brackets/newlines), offending-token-named errors, and the 3-segment toggle + placeholder + decimal example chip. Milestone v1.3 "More Tools" roadmapped 2026-06-03. Four phases (12–15), numbering continued from v1.2's Phase 11 (did NOT reset to 1). All 25 v1.3 requirements mapped 1:1 to a phase (25/25 coverage, no orphans, no duplicates).
 
 **Milestone v1.3 "More Tools" roadmapped 2026-06-03.** Goal: add three new high-frequency tools (Cron, URL, Regex) + a Protobuf decimal-byte-array input mode — each clearing the product wedge with zero new runtime deps. Eight tools → eleven. The research (SUMMARY.md, HIGH confidence) established that the four features are FULLY INDEPENDENT (no inter-feature dependencies) and that every feature ships zero new runtime AND zero new devDependencies over native Web/JS APIs. Phase order is therefore purely RISK-DRIVEN — smallest/safest first, the two deep features last so verification budget concentrates on them:
 
@@ -52,7 +52,7 @@ Next: `/gsd-plan-phase 12` (or any of 12–15 — they're independent and parall
 
 ## Next Step (pick up here next session)
 
-**Run `/gsd-plan-phase 12`** to plan Phase 12 (Protobuf decimal input) — the smallest, de-risking phase (PRO-08/09: `decimalToBytes` in `src/lib/bytes.ts`, third auto-detected input mode, decoder byte-untouched). Phases 12–15 are independent; any can be planned first, but 12 first proves the untouched-decoder promise and answers the auto-detection-precedence design question before anything else. Phases 14 (Regex) and 15 (Cron) should each run `/gsd-research-phase` before planning.
+**Run `/gsd-plan-phase 12`** to plan Phase 12 (Protobuf decimal input) — the smallest, de-risking phase (PRO-08/09: `decimalToBytes` in `src/lib/bytes.ts`, third auto-detected input mode, decoder byte-untouched). **Context is captured** at `.planning/phases/12-protobuf-decimal-input/12-CONTEXT.md` — the planner should read it for the locked decisions (comma ⇒ decimal then validate; strict comma/space input; named-token errors; 3-segment toggle). Phases 12–15 are independent; any can be planned first, but 12 first proves the untouched-decoder promise and answers the auto-detection-precedence design question before anything else. Phases 14 (Regex) and 15 (Cron) should each run `/gsd-research-phase` before planning.
 
 ## Harness reminder (per-task DoD, in order)
 
