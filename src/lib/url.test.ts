@@ -2,7 +2,13 @@
 // error-as-value (D-14): a thrown URIError becomes { error } — never a throw to
 // the caller. Empty input is a neutral { value: "" }, never an error (D-15).
 import { describe, expect, it } from "vitest";
-import { encodeComponent, decodeComponent, encodeFull, decodeFull } from "./url";
+import {
+  encodeComponent,
+  decodeComponent,
+  encodeFull,
+  decodeFull,
+  parseUrl,
+} from "./url";
 
 describe("encodeComponent", () => {
   it("escapes reserved chars including / ? : @ & = #", () => {
@@ -64,5 +70,50 @@ describe("decodeFull", () => {
 
   it("returns a neutral empty value for empty input (D-15)", () => {
     expect(decodeFull("")).toEqual({ value: "" });
+  });
+});
+
+describe("parseUrl", () => {
+  // The CONTEXT verification anchor exercising every part (D-08, D-10/11/12).
+  const ANCHOR =
+    "https://user:pass@api.example.com:8080/v1/users?tag=a&tag=b&q=hello%20world&empty=#section";
+
+  it("maps all 8 fields from an absolute URL", () => {
+    const result = parseUrl(ANCHOR);
+    if (!("url" in result)) throw new Error("expected a parsed url");
+    const u = result.url;
+    expect(u.scheme).toBe("https"); // trailing ":" trimmed for display (D-08)
+    expect(u.host).toBe("api.example.com");
+    expect(u.port).toBe("8080");
+    expect(u.path).toBe("/v1/users");
+    expect(u.query).toBe("?tag=a&tag=b&q=hello%20world&empty=");
+    expect(u.fragment).toBe("#section");
+    expect(u.origin).toBe("https://api.example.com:8080");
+    expect(u.username).toBe("user");
+    expect(u.password).toBe("pass");
+  });
+
+  it("yields one decoded queryRow per occurrence in URL order (D-10/11)", () => {
+    const result = parseUrl(ANCHOR);
+    if (!("url" in result)) throw new Error("expected a parsed url");
+    expect(result.url.queryRows).toEqual([
+      { key: "tag", value: "a" },
+      { key: "tag", value: "b" },
+      { key: "q", value: "hello world" }, // decoded by URLSearchParams (D-11)
+      { key: "empty", value: "" }, // empty value preserved (D-12)
+    ]);
+    expect(result.url.queryRows).toHaveLength(4);
+  });
+
+  it("returns an ERROR value for a relative / scheme-less URL (D-13)", () => {
+    const result = parseUrl("/foo?x=1");
+    expect(result).toHaveProperty("error");
+    expect("url" in result).toBe(false);
+    expect("empty" in result).toBe(false);
+  });
+
+  it("returns a neutral empty result for empty input, distinct from error (D-15)", () => {
+    expect(parseUrl("")).toEqual({ empty: true });
+    expect(parseUrl("   ")).toEqual({ empty: true });
   });
 });
