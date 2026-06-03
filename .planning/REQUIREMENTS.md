@@ -30,11 +30,11 @@ Three new tools (Cron, URL, Regex) plus a decimal-byte-array input mode for the 
 
 ### URL tool
 
-- [ ] **URL-01**: User can encode and decode a string at the component level (`encodeURIComponent`/`decodeURIComponent`), both directions, paste-instant.
-- [ ] **URL-02**: User can encode and decode at the full-string level (`encodeURI`/`decodeURI`), distinct from component encoding, with the difference made clear in the UI.
-- [ ] **URL-03**: User can paste a URL and see it split into scheme / host / port / path / query / fragment via native `URL`.
-- [ ] **URL-04**: User sees the query string broken into a key→value table, including repeated keys (`getAll`) and empty values, with each value decoded.
-- [ ] **URL-05**: A malformed/relative URL or a bad percent-sequence surfaces a clear inline error without throwing (error-as-value).
+- [x] **URL-01**: User can encode and decode a string at the component level (`encodeURIComponent`/`decodeURIComponent`), both directions, paste-instant.
+- [x] **URL-02**: User can encode and decode at the full-string level (`encodeURI`/`decodeURI`), distinct from component encoding, with the difference made clear in the UI.
+- [x] **URL-03**: User can paste a URL and see it split into scheme / host / port / path / query / fragment via native `URL`.
+- [x] **URL-04**: User sees the query string broken into a key→value table, including repeated keys (`getAll`) and empty values, with each value decoded.
+- [x] **URL-05**: A malformed/relative URL or a bad percent-sequence surfaces a clear inline error without throwing (error-as-value).
 
 ### Regex tester
 
@@ -77,11 +77,11 @@ Every v1 requirement maps to exactly one phase. Phase numbering continues from v
 |-------------|-------|--------|
 | PRO-08 | Phase 12 | Complete |
 | PRO-09 | Phase 12 | Complete |
-| URL-01 | Phase 13 | Pending |
-| URL-02 | Phase 13 | Pending |
-| URL-03 | Phase 13 | Pending |
-| URL-04 | Phase 13 | Pending |
-| URL-05 | Phase 13 | Pending |
+| URL-01 | Phase 13 | Complete |
+| URL-02 | Phase 13 | Complete |
+| URL-03 | Phase 13 | Complete |
+| URL-04 | Phase 13 | Complete |
+| URL-05 | Phase 13 | Complete |
 | RGX-01 | Phase 14 | Pending |
 | RGX-02 | Phase 14 | Pending |
 | RGX-03 | Phase 14 | Pending |

@@ -1,8 +1,8 @@
 ---
 phase: 13-url-tool
 verified: 2026-06-03T16:22:00Z
-status: human_needed
-score: 5/5 success criteria verified programmatically
+status: passed
+score: 5/5 success criteria verified programmatically; human phase-boundary sign-off granted 2026-06-03 (gsd-ui-review 24/24 WCAG-AA PASS + user approval)
 overrides_applied: 0
 re_verification:
   previous_status: none

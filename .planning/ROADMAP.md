@@ -53,7 +53,7 @@ All 12 REL requirements complete. Full detail: `.planning/milestones/v1.2-ROADMA
 The four features are fully independent (no inter-feature dependencies); phase order is purely risk-driven (research SUMMARY, HIGH confidence): smallest/safest first (Protobuf decimal de-risks the untouched-decoder promise), then the thin native-API URL view, then the two deep features (Regex UI + ReDoS structural risk; Cron hand-rolled next-run + DST + the isolated `L`/`nL` slice) last so verification budget concentrates on them. Every phase inherits the binding wedge: offline/no-network, paste-instant (<2s), keyboard-driven, registry-driven single control plane, HashRouter only, WCAG-AA, layout-agnostic components, **zero new runtime dependencies**, and **`src/lib/protobuf/decoder.ts` + its 19 tests stay byte-for-byte untouched**.
 
 - [x] **Phase 12: Protobuf decimal input** — accept a comma/space-separated decimal byte array as a third auto-detected Protobuf input mode (`decimalToBytes` in `src/lib/bytes.ts`; decoder untouched) — completed 2026-06-03
-- [ ] **Phase 13: URL tool** — parse a URL into components + query key→value table, component-vs-full encode/decode both ways (native `URL`/`URLSearchParams`/`encodeURI(Component)`)
+- [x] **Phase 13: URL tool** — parse a URL into components + query key→value table, component-vs-full encode/decode both ways (native `URL`/`URLSearchParams`/`encodeURI(Component)`) (completed 2026-06-03)
 - [ ] **Phase 14: Regex tester** — live highlighted matches, capture-group breakdown, flag toggles, `$1`/`$<name>`/`$&` replace preview, 3-pattern library, ReDoS-safe via a Web Worker + timeout
 - [ ] **Phase 15: Cron tool** — paste an expression → 24h human-readable description + next 5 runs in local time with IANA TZ label; 5/6-field, macros, full field syntax, DOM/DOW OR, DST-correct, and the isolated `L`/`nL` slice
 
@@ -145,7 +145,7 @@ Phases execute in numeric order. v1.3 phases (12–15) are independent and may b
 | 10. bump-and-tag driver | v1.2 | 3/3 | Complete    | 2026-06-02 |
 | 11. build-and-publish driver + universal binary + safety rails | v1.2 | 3/3 | Complete    | 2026-06-03 |
 | 12. Protobuf decimal input | v1.3 | 2/2 | Complete    | 2026-06-03 |
-| 13. URL tool | v1.3 | 0/TBD | Not started | - |
+| 13. URL tool | v1.3 | 2/2 | Complete    | 2026-06-03 |
 | 14. Regex tester | v1.3 | 0/TBD | Not started | - |
 | 15. Cron tool | v1.3 | 0/TBD | Not started | - |
 
@@ -172,7 +172,7 @@ Unsequenced ideas captured for future planning. Promote with `/gsd-review-backlo
 Each candidate must still pass the product wedge: offline/no-network, paste-instant (<2s), keyboard-driven, registry-driven, WCAG-AA, and the build+verify harness.
 
 **Requirements:** TBD (remaining wishlist; Cron/URL/Regex requirements now in `.planning/REQUIREMENTS.md` for v1.3)
-**Plans:** 3/3 plans complete
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] TBD (promote remaining wishlist with /gsd-review-backlog when ready)
