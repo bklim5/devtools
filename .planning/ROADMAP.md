@@ -90,7 +90,7 @@ Plans:
 
 Plans:
 - [x] 13-01-PLAN.md — pure url.ts parse/encode/decode helpers (TDD) + extracted shared SegmentedControl (D-16) ✓ (commits 42e9b3bc, ea573e03, 809ae7f1; 541/541 tests, decoder untouched)
-- [ ] 13-02-PLAN.md — URL tool view (Parse readout + query table, Encode/Decode panes) + registry entry + real-WKWebView e2e + phase sign-off
+- [~] 13-02-PLAN.md — URL tool view (Parse readout + query table, Encode/Decode panes) + registry entry + real-WKWebView e2e — autonomous tasks DONE (commits 5996e71a feat, a2b27936 e2e; 550/550 vitest + tsc clean; real-WKWebView gate 11/11 green; decoder untouched). **Awaiting Task 3 phase-boundary human sign-off** (`pnpm tauri build` walkthrough + `gsd-ui-review` WCAG-AA).
 
 ### Phase 14: Regex tester
 **Goal**: A new Regex tester runs a user-supplied pattern against sample text with live highlighted matches, capture-group breakdown, flag toggles, and a replace preview — and a catastrophic-backtracking pattern can never freeze the window because matching runs in a Web Worker with a timeout watchdog.
