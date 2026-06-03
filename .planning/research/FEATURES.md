@@ -1,170 +1,341 @@
 # Feature Research
 
-**Domain:** Local release-automation helper scripts for a single-maintainer Tauri 2 desktop app (macOS-first), automating the existing `docs/RELEASE.md` runbook. Dev-tooling, not a runtime feature.
-**Researched:** 2026-06-02
+**Domain:** Developer utility tools — Cron explainer, URL parser, Regex tester, + Protobuf decimal-byte-array input (DevTools v1.3 "More Tools")
+**Researched:** 2026-06-03
 **Confidence:** HIGH
 
-> **Scope guard (do not relitigate):** This milestone (v1.2 "Release Tooling") ships TWO local scripts — `bump-and-tag` (`pnpm release [patch|minor|major]`) and `build-and-publish`. CI is explicitly parked. Lockstep bump covers `package.json` + `src-tauri/tauri.conf.json` + `Cargo.toml`. Universal macOS binary, `latest.json` from a FRESH `.sig`, split-repo publish (`bklim5/devtools` → `bklim5/devtools-releases`), notarisation-ready (`APPLE_*`) but notarisation deferred. Zero new RUNTIME deps (devDeps OK). The research below SUPPORTS that scope and draws the line against scope creep — it does not propose alternatives to the confirmed shape.
+> Scope note for the requirements author: the USER has already chosen the **fullest scope** for each tool (per the milestone brief). So this research does NOT relitigate scope — it makes the table-stakes vs differentiator vs anti-feature split testable, enumerates cron field syntax exhaustively, notes complexity, and flags where "fullest scope" still risks creeping past the wedge (called out inline as ⚠ SCOPE-CREEP). Every tool inherits the binding workflow constraints (paste-instant <2s, visible focusable copy, status bar, WCAG-AA, registry-driven, **zero new runtime deps**) — these are NOT re-listed per tool.
 
-> **Baseline = `docs/RELEASE.md`.** Every "table stakes" item below is the script form of a manual step already documented and proven in that runbook (a working `0.2.0 → 0.2.1` round-trip). The scripts automate a *known-good* process; they are not designing one from scratch. Each feature notes which RELEASE.md section it replaces.
+---
+
+## Existing-component dependencies (read first)
+
+Which existing UI scaffolding each new tool can lean on. Confirmed from `PROJECT.md`:
+
+| Component | What it is | How the new tools use it |
+|---|---|---|
+| **Tool registry** (`src/lib/`, plain array) | Single control plane — sidebar, ⌘K palette, router all derive from it. Adding a tool = one registry entry + one component. | **All three** new tools. Mechanical. The decimal-byte mode is NOT a new registry entry (it's inside the existing Protobuf tool). |
+| **`StatusBar`** | Shared status bar; `byteCount` is an **optional** prop (Phase 8 / UIX-01) rendered only when a number is passed; otherwise parse-state label + error + timing. | All three reuse it, but **drop `byteCount`** for Cron/URL/Regex (like Hash/JWT/UnixTime/UUID did — none are byte-oriented). Pass parse-state + error + timing. URL *could* show input length but it's not byte-meaningful — recommend omit. |
+| **`FormatterView`** | Shared **two-pane** paste-instant layout (input→output) used by JSON + XML formatters; pure logic in `src/lib/format/`. | ⚠ **Partial fit only.** All three new tools want **richer output than one text pane** (Cron: description + run list; URL: param table; Regex: highlighted matches + group table + replace pane). Treat `FormatterView` as a *pattern to mirror* (paste-instant, pure logic in `src/lib/<tool>/`, copy via the platform seam), not a literal component to force-fit. URL's encode/decode sub-panes are the closest literal reuse. |
+| **Platform seam** (`src/lib/platform/`) | Clipboard/store/shortcuts; tools never import `@tauri-apps/*`. | All copy affordances route here. |
+| **Unix Time tool** | Existing local-time rendering convention. | **Cron** "next runs" MUST mirror its local-time formatting (milestone-explicit). |
+| **Protobuf decoder + 19 tests** | `decoder.ts`, byte-for-byte frozen. | **Decimal-byte input** is a *pre-decode parse layer* producing the `Uint8Array` the decoder already accepts — **do not touch `decoder.ts` or its tests.** |
+
+**Pure-logic placement (mirror the v1.1 ethos):** `src/lib/cron/`, `src/lib/url/`, `src/lib/regex/`, and a decimal parser alongside the existing byte-input detection. GUI thin; logic unit-tested (TDD).
+
+---
 
 ## Feature Landscape
 
-### Table Stakes (Users Expect These)
+### TOOL 1 — CRON (explainer + next runs)
 
-The maintainer expects a release script to do, automatically and reliably, what the runbook does by hand. Missing any of these means the script is not trustworthy enough to replace the manual dance.
+Reference: **crontab.guru** (description + a list of next runs). Note crontab.guru *deliberately omits* seconds and `L`/`W`/`#`; the chosen scope is intentionally **broader** (6-field seconds + macros + `L`).
 
-| Feature | Why Expected | Complexity | Notes / RELEASE.md dependency |
-|---------|--------------|------------|-------------------------------|
-| **Semver bump modes `patch` / `minor` / `major`** | The single ergonomic that makes `pnpm release minor` worth typing over editing files. Standard for every release tool (`npm version`, `standard-version`, `tauri-action` patterns). | LOW | Replaces RELEASE.md §1. Compute next version from the *current* `package.json` version (the app semver `0.2.x`, NOT the GSD `v1.x` tag — decision #3). |
-| **Lockstep version write across all three manifests** | RELEASE.md §1 + the updater contract demand `package.json` and `tauri.conf.json` match; the milestone explicitly extends this to `Cargo.toml`. A drift here silently breaks update detection. | LOW–MEDIUM | Replaces the manual edit + `grep` sanity-check in §1. `Cargo.toml` is currently `0.1.0` and out of sync — the script must bring it into lockstep (resolves the open question in backlog 999.2 #2). Regenerate `Cargo.lock` so the lockfile reflects the bump. |
-| **Surface the resolved version before acting** | The maintainer needs to see `0.2.1 → 0.2.2` and that all three files will move together, before a commit/tag/push is made. Prevents a wrong-mode mistake becoming a pushed tag. | LOW | Echo `old → new` + the three target files. This is the natural place for the dry-run affordance (see differentiators). |
-| **Preflight: clean working tree** | Releasing with uncommitted changes produces an unreproducible build and a tag that doesn't match `HEAD`. Universal release-script convention. | LOW | Implicit in RELEASE.md (you build from a known checkout). `git status --porcelain` empty-check; abort otherwise. |
-| **Preflight: on the expected branch** | A tag cut from a feature branch publishes the wrong tree. | LOW | Repo default is `master`. Check current branch == `master` (or an `--allow-branch` escape hatch); abort otherwise. |
-| **Preflight: tag does not already exist** | `vX.Y.Z` collision either errors mid-flight or silently re-tags. RELEASE.md §4 assumes a fresh tag. | LOW | `git rev-parse -q --verify "refs/tags/vX.Y.Z"` and check the remote too (`git ls-remote --tags`), since the public release may exist even if the local tag doesn't. |
-| **Preflight: signing key + password present** | RELEASE.md §2 — without `TAURI_SIGNING_PRIVATE_KEY` (+ `_PASSWORD`) the build produces no `.sig`, which is a *late*, expensive failure after a full `tauri build`. Fail fast at second 0. | LOW | Check the env vars (and/or `~/.tauri/devtools.key` exists) in `build-and-publish` before building. Do NOT read or print the key. |
-| **Preflight: tests + typecheck green** | The binding harness already mandates `vitest` + `tsc` green; a release must not ship red. The decoder's 19 tests are the immovable bar. | LOW | Run `vitest run` + `tsc --noEmit` (and the existing lint) as a release gate. Reuses existing scripts — no new tooling. This is the *only* automatable slice of the harness; real-WKWebView UI verification stays a human gate (see anti-features). |
-| **`tauri build --target universal-apple-darwin`** | Closes the Pitfall 7 / arm64-only gap that RELEASE.md §"Per-arch caveat" documents as a known hole. Confirmed milestone scope. | MEDIUM | Universal binary emits one `.app.tar.gz` covering both arches; resolves the `darwin-aarch64`-only limitation. Note: universal-binary updater platform-key matching is a known Tauri rough edge — verify the resulting `latest.json` `platforms` key(s) against a real round-trip. Build time roughly doubles vs single-arch. |
-| **Generate `latest.json` from the FRESH `.sig`** | The single most error-prone manual step (RELEASE.md §5 warns in bold: NEVER reuse a stale `.sig`). Automating this is a core reason the milestone exists. | MEDIUM | Read the `*.app.tar.gz.sig` produced by *this* build, inline its contents as `signature`, set `version`/`pub_date`/`url`. The `signature` field is the file *contents*, not a path (verified against Tauri updater docs). Compute the `releases/download/vX.Y.Z/...` URL pointing at the `.app.tar.gz`, never the DMG (Pitfall 1). |
-| **Publish to the split releases repo + upload all three assets** | RELEASE.md §4/§6 — `gh release create --repo bklim5/devtools-releases` with DMG + `.app.tar.gz` + `latest.json`. The updater endpoint resolves `releases/latest/download/latest.json` only on the public repo. | LOW–MEDIUM | `gh` run from the private checkout with `--repo` targeting the public repo. Requires the local `gh` auth to have write access to `bklim5/devtools-releases` (a local-PAT concern, NOT the cross-repo *Actions* PAT — that's parked CI). |
-| **Confirm the publish succeeded** | A release isn't done when `gh` exits 0; it's done when the endpoint the app polls returns *this* version pointing at *this* `.sig`. RELEASE.md §6 ends with a `curl -L` of the live endpoint. | LOW–MEDIUM | After upload, `curl -L .../releases/latest/download/latest.json` and assert `version` == the just-released version. This is the cheap, high-value success check; full round-trip install stays a human gate. |
-| **Stop committing `latest.json`; generate-only** | A stale root `latest.json` (pinned at `0.2.1`) is a footgun — the live manifest must come from the build, never a committed copy. Confirmed scope. | LOW | Gitignore the root copy, remove it from tracking. The script writes `latest.json` to a build/dist path, uploads it, and never commits it. |
+#### Table Stakes
 
-### Differentiators (Competitive Advantage)
+| Feature | Why Expected | Complexity | Notes |
+|---|---|---|---|
+| Parse **standard 5-field** (min hour dom month dow) | The universal cron format | MEDIUM | Fixed field order; each field has a defined range (table below). |
+| **Human-readable description** ("At 02:00, every day") | The signature crontab.guru behavior; the point of the tool | MEDIUM–HIGH | See "what a good description covers" below — hardest correctness surface. |
+| **Next N run times in LOCAL time** | Milestone-explicit; mirror Unix Time tool | MEDIUM–HIGH | Hand-rolled iterator (no `cron-parser` — zero-dep). N = **5** default. |
+| **`*` (all)** | Foundational | LOW | — |
+| **Ranges `a-b`** (`1-5`) | Foundational | LOW | Inclusive both ends. |
+| **Lists `a,b,c`** (`1,15,30`) | Foundational | LOW | May mix with ranges/steps (`1-5,10`). |
+| **Steps `*/n`, `a-b/n`, `a/n`** (`*/15`, `0-30/10`) | Foundational | LOW–MED | `*/n` = every n from field min; `a/n` = open-ended start (Vixie). |
+| **DOW `0-7`, both 0 and 7 = Sunday** | POSIX convention; constant source of user error | LOW | *Verified.* Must accept `7` as Sunday. |
+| **Per-field validation + clear errors** | Paste-instant tools must explain bad input | MEDIUM | "Minute field: 60 is out of range (0–59)." Point at the field, not a generic "invalid". |
 
-Worth building because they make a *single-maintainer local* script safe and pleasant. These are the affordances that distinguish a script you trust from one you babysit — but each must stay cheap.
+#### Differentiators (all explicitly in chosen scope)
 
 | Feature | Value Proposition | Complexity | Notes |
-|---------|-------------------|------------|-------|
-| **`--dry-run` flag** | Print every action (resolved version, files to edit, tag, build target, release URL) without writing/committing/pushing/publishing. The highest-leverage safety net for a solo maintainer with no reviewer. | LOW–MEDIUM | Should cover both scripts. For `bump-and-tag`, trivial. For `build-and-publish`, dry-run can still *build* (read-only locally) but skip the `gh release create`/upload — or skip the build too and just print the plan. Pick the cheaper one; printing the plan is enough. |
-| **Notarisation-ready `APPLE_*` passthrough** | RELEASE.md "post-enrolment flip" — if `APPLE_*` env is present, `tauri build` notarises automatically; if absent, ad-hoc. Build the conditional now so the future flip is credentials-only. Confirmed scope. | LOW | Do NOT *require* `APPLE_*`; just don't strip/override it. Optionally detect presence and log "notarising" vs "ad-hoc" so the maintainer knows which path ran. No structural code — the hardened runtime + entitlements are already committed. |
-| **Fail-fast ordering (cheap checks first)** | Run all preflights (tree/branch/tag/key/tests) *before* the multi-minute universal build. Turns a 10-minute late failure into a 5-second early one. | LOW | Pure ordering discipline. Tests/tsc are the slowest preflight — run them after the instant git/env checks but still before `tauri build`. |
-| **DMG-mount flake auto-recovery** | RELEASE.md §3 + MEMORY (`tauri-dmg-bundle-flake`): the DMG step fails when other DMGs are mounted. A solo maintainer hits this repeatedly. | MEDIUM | Optional: detect the `hdiutil` failure, `hdiutil detach` strays, retry once. Lower priority than correctness features; a clear error message pointing at the runbook fix is an acceptable minimum. |
-| **Clear post-run summary / next-steps** | After publish, print the release URL + the explicit reminder that the human round-trip verification (RELEASE.md §7) is still required this milestone. Keeps the human gate honest. | LOW | Closes the loop between the automated part and the still-manual DST-02 proof. |
-| **Conventional-commit changelog stub** | Auto-collect commit subjects since the last tag into the release `notes` / `latest.json.notes`. Saves hand-writing notes. | MEDIUM | **Borderline — lean toward a thin version or defer.** A *full* changelog generator (`standard-version`/`changesets`) is over-engineering for a solo app and risks a new devDep. A 5-line "git log since last tag → notes body, edit before publish" is acceptable; anything heavier is scope creep. See anti-features. |
+|---|---|---|---|
+| **6-field (seconds-first)** `sec min hour dom month dow` | Quartz/Spring/many schedulers; crontab.guru can't | MEDIUM | **Auto-detect by token count** (6 tokens → seconds prepended). No mode picker. |
+| **Macros** `@yearly`/`@annually`, `@monthly`, `@weekly`, `@daily`/`@midnight`, `@hourly` | Common shorthand pasted from crontabs | LOW | Alias table → expand to 5-field, then describe + compute. |
+| **`@reboot`** | Vixie/cronie shorthand | LOW | **Special-case:** NO next-run time. Describe "At system startup"; show "runs at boot — no scheduled time" instead of a run list. Must not crash the iterator. |
+| **Day names `MON-SUN` / month names `JAN-DEC`** (case-insensitive) | Very common in real crontabs (Vixie) | LOW–MED | Map to numbers before evaluating; allow in ranges (`MON-FRI`). |
+| **`?` (no-specific-value)** | Quartz dom/dow; appears in pasted Quartz expressions | LOW | Treat as `*` for evaluation; accept silently so Quartz expressions don't error. |
+| **`L` (last day) / `nL` (last weekday)** | "Run on the last day / last Friday" is a real need | MED–HIGH | `L` in dom = last day of month (month-length + leap aware); `5L` in dow = last Friday. Hardest iterator math. ⚠ SCOPE-CREEP risk — see note. |
 
-### Anti-Features (Commonly Requested, Often Problematic)
+#### Cron field reference (enumerate ALL of this for testable reqs)
 
-These are the gravity wells. Most are CI concerns that are **explicitly parked** (backlog 999.2) — pulling any of them into this local-script milestone is scope creep by definition.
+| Field | Position (5-field) | Range | Special chars |
+|---|---|---|---|
+| Second | 6-field only, 1st | 0–59 | `* , - /` |
+| Minute | 1 | 0–59 | `* , - /` |
+| Hour | 2 | 0–23 | `* , - /` |
+| Day-of-month | 3 | 1–31 | `* , - / ? L` (`W` = anti-feature) |
+| Month | 4 | 1–12 / `JAN-DEC` | `* , - /` |
+| Day-of-week | 5 | 0–7 (0 & 7 = Sun) / `SUN-SAT` | `* , - / ? L nL` (`#` = anti-feature) |
+
+**The DOM/DOW OR-combination quirk (verified — must be specified):** when **both** day-of-month and day-of-week are restricted (neither is `*`/`?`), Vixie cron runs on days matching **either** field (OR/union), not both (AND). Counter-intuitive and a classic bug. Decision: the run iterator **MUST implement OR semantics**, and the description SHOULD make it explicit ("on day-of-month 1, **and on** every Monday" — not "Mondays that fall on the 1st"). This is a correctness requirement, not polish.
+
+#### What a "good description" covers (testable checklist)
+
+- States **time** ("At 02:00") and **cadence** ("every day", "every 15 minutes", "every hour").
+- Names **specific days/months** in words ("on Monday and Friday", "in January").
+- Verbalizes **ranges** ("Monday through Friday"), **lists** ("on the 1st and 15th"), **steps** ("every 2 hours").
+- Correctly phrases the **DOM/DOW OR** case (above).
+- Uses 24h or 12h consistently — recommend **24h** to match the developer audience / Unix Time tool (flag as a UX decision).
+- **Degrades gracefully:** if a sub-expression is too complex to phrase naturally, fall back to a literal field readout rather than emit a wrong sentence.
+
+#### Cron anti-features
 
 | Feature | Why Requested | Why Problematic | Alternative |
-|---------|---------------|-----------------|-------------|
-| **GitHub Actions / CI release workflow** | "Automate it fully." | Explicitly parked (999.2). Needs a macOS runner (billed minutes on a private repo), a **cross-repo PAT**, and minisign secrets in Actions — all deferred. Building it here is the textbook scope creep this research must flag. | Local scripts only this milestone; design them to be CI-callable later (thin, env-driven, no interactive prompts in the publish path) but do NOT wire any workflow. |
-| **CI checks on push/PR (vitest+tsc+eslint in Actions)** | "Gate every push." | Parked (999.2 #1). It's a CI concern, separate from the local release path. | Keep the harness a local + human gate. The release script *runs* the same checks locally; that's the milestone's slice. |
-| **Real-WKWebView e2e inside the release script / CI** | "Verify the build automatically." | macOS-runner + webview-automation cost; the project deliberately keeps real-WKWebView verification a **human phase-boundary gate**. Automating it is a parked stretch goal. | Script runs `vitest`+`tsc` only; print a reminder that the human UI verification + round-trip (RELEASE.md §7) is still required. |
-| **Cross-arch matrix / per-arch separate publishes** | "Serve Intel and Apple Silicon separately." | The confirmed answer is a single **universal** binary — simpler, one asset, one `latest.json` entry. A per-arch matrix is a CI-shaped solution to a problem the universal build already closes. | `--target universal-apple-darwin`, one `.app.tar.gz`. |
-| **Windows / Linux build + publish** | "Cross-platform releases." | Out of scope project-wide (macOS-only for now). No runners, no signing story. | macOS-only; Tauri keeps the door open for later, untouched. |
-| **Heavy changelog/versioning frameworks** (`changesets`, full `standard-version`, semantic-release) | "Industry-standard release management." | Over-engineering for a one-person app with two numbering systems. Adds devDeps, config, and a conventional-commit contract the project hasn't adopted. Semantic-release also wants to *infer* the bump from commits — conflicts with the explicit `patch/minor/major` arg. | Explicit bump arg + (optional) thin `git log since last tag` notes stub. |
-| **Auto-publish / no confirmation in the default path** | "One command, zero friction." | A solo maintainer has no reviewer; an accidental `major` push to a public release repo is hard to walk back. Pushing the tag is what fires the (future) release — irreversible-ish. | `--dry-run` first-class; a confirmation/echo before push+publish; an explicit flag to skip confirmation, not the default. |
-| **Rollback / un-publish automation** | "Undo a bad release." | A published GitHub release + a consumed `latest.json` can't be cleanly "un-shipped" once a client has updated; building rollback tooling invites trusting it. The honest primitive is forward-only (cut a new patch). | Document manual recovery (delete the release/tag, publish a higher patch). Don't build automated rollback. The `--dry-run` + preflights are the real "rollback" — they prevent the bad release. |
-| **Secret/keychain management, key rotation tooling** | "Manage signing keys in the script." | RELEASE.md §"Secrets reminder" — keys are local gitignored env only; the script must *read* them, never store/print/rotate them. Adding key management is both scope creep and a security footgun. | Script consumes `TAURI_SIGNING_*` / `APPLE_*` from env; presence-check only; never echo. |
-| **GSD `v1.x` milestone tag coupling** | "Tag the release with the milestone." | App semver (`0.2.x`) is deliberately DECOUPLED from GSD milestone tags (decision #3). The updater compares the *app* version. Coupling them breaks update detection. | The release pipeline keys off the **app** version (`package.json`) only; `vX.Y.Z` tag derives from app semver, not GSD `v1.x`. |
-| **`prerelease` / beta channel bump mode** | "Ship betas." | No beta channel exists; the updater has one stable endpoint. Adding `prerelease` mode implies channel routing in `latest.json` that doesn't exist. | Stick to `patch/minor/major`. Revisit only if a beta channel is ever a real requirement. |
+|---|---|---|---|
+| **`W` (nearest weekday)** | Quartz completeness | Rare in real Unix crontabs; weekday-proximity + month-boundary math is a disproportionate test burden | Parse-tolerate, describe as "(W modifier — not interpreted)", don't compute. Recommend EXCLUDE from compute. |
+| **`#` (nth weekday, `6#3`)** | Quartz "3rd Friday" | Same niche/complexity as W | Same handling. Recommend EXCLUDE from compute. |
+| **Year field / 7-field (Quartz/AWS)** | "Full Quartz" | Adds a 6-vs-7 field-count ambiguity + longer horizon math | Out of scope; crontab.guru omits it too. |
+| **Cron *generator* UI** (build via dropdowns) | "Help me write one" | A generator is a different product; dilutes the paste-instant explainer wedge | Explainer only — paste in, read out. |
+| **Timezone selector** | "What time in UTC?" | Multi-TZ math + UI; tool already mirrors Unix Time's single local-time convention | Local time only; optionally show the IANA TZ label for clarity. |
+
+> ⚠ **Cron scope honesty:** `L`/`nL` is the single biggest complexity/test item in the whole milestone — month-length + leap-year + weekday math in a hand-rolled iterator. It's in scope, but the requirements author should give it its **own requirement(s)** with explicit test cases (last day of Feb leap vs non-leap; last Friday in a month with 4 vs 5 Fridays) and treat it as the deepest-research / highest-risk slice. `W`/`#` should be **dropped from computation** (parse-tolerant only).
+
+---
+
+### TOOL 2 — URL (full parser + encoder/decoder)
+
+Reference: native `URL` + `URLSearchParams` (zero-dep, standard WebView APIs). The whole tool is a presentation layer over these — **lowest complexity of the three new tools.**
+
+#### Table Stakes
+
+| Feature | Why Expected | Complexity | Notes |
+|---|---|---|---|
+| **Split into components** scheme/host/port/path/query/fragment | The core "parse a URL" job | LOW | `URL`: `protocol, hostname, port, pathname, search, hash` (+ `username/password/origin` available). Surface the milestone-named parts. |
+| **Query string → key→value table** | Reading messy query strings is the #1 use | LOW–MED | `URLSearchParams` iterates pairs; **preserves order & duplicates.** |
+| **Full-string decode** | Paste an encoded blob → read it | LOW | See component-vs-full below. |
+| **Full-string encode** | Build/share a URL | LOW | `encodeURI` — preserves reserved structure. |
+| **Component encode/decode** | Encode/decode a single value, not the whole URL | LOW | `encodeURIComponent` / `decodeURIComponent` — escapes `&=?/:#`. The key distinction (below). |
+| **Both directions, both modes** | "encode/decode both ways" is milestone-explicit | LOW | 2 transforms × 2 scopes = 4 operations. |
+| **Validation / error on unparseable input** | Paste-instant must explain failure | LOW | `new URL()` throws → "Not a valid URL (no scheme?)". Offer to treat schemeless input as a bare query-string / component. |
+
+#### Component vs full encode — the distinction to surface (testable)
+
+| | Encode | Decode |
+|---|---|---|
+| **Full-string** (whole URL) | `encodeURI` — leaves reserved chars `:/?#[]@!$&'()*+,;=` intact so the URL stays valid | `decodeURIComponent` over the whole string (or per-component) |
+| **Component** (one value/segment) | `encodeURIComponent` — escapes reserved chars too, so a value containing `&`/`=` doesn't break the query | `decodeURIComponent` |
+
+Concrete test case: value `a&b=c`. Component-encoded → `a%26b%3Dc`. Full-encoded (as URL) → `a&b=c` (unchanged, because `&`/`=` are structural). Showing both side-by-side is the differentiator.
+
+#### Differentiators
+
+| Feature | Value Proposition | Complexity | Notes |
+|---|---|---|---|
+| **Per-row decoded value in the param table** | See `%20`→space inline | LOW | `URLSearchParams` auto-decodes on read; show decoded by default. |
+| **Show empty values & valueless keys distinctly** | `?a=&b&c=1` is ambiguous; good tools disambiguate | LOW | `a` (empty) vs `b` (no `=`). Both become `""` via `URLSearchParams`; distinguish in a raw view. Flag the nuance. |
+| **Copy individual component / individual param** | Pull one value out fast (no-hover-only-copy rule) | LOW | Per-row + per-component copy via the platform seam. |
+| **Live update both panes as you type** | Paste-instant ethos | LOW | Re-parse on input. |
+
+#### URL anti-features
+
+| Feature | Why Requested | Why Problematic | Alternative |
+|---|---|---|---|
+| **Editable param table that rebuilds the URL** | "Tweak and recompose" | Round-trip rebuild (ordering, re-encoding, `+` vs `%20`) is fiddly; turns a reader into an editor | Read-only table; recompose is a separate later concern. |
+| **URL shortening / expanding** | Convenience | Requires **network** — violates the offline constraint | Hard no. |
+| **IDN / punycode converter** | Internationalized domains | `URL.hostname` already punycodes; extra UI is niche | Surface what `URL.hostname` gives; don't build a converter. |
+| **`+` vs `%20` parsing toggle** | Form-encoding pedantry | `URLSearchParams` decodes `+`→space (form semantics); a toggle confuses | Document behavior in a tooltip, not a toggle. (Minor — flag only.) |
+
+> URL is the fastest tool to build — almost entirely a view over native `URL`/`URLSearchParams`. Good candidate to ship first to bank a win.
+
+---
+
+### TOOL 3 — REGEX (tester)
+
+Reference: **regex101**, scaled down. Native `RegExp` (zero-dep, ECMAScript flavor). regex101 is huge; the chosen scope is a focused subset — keep it that way.
+
+#### Table Stakes
+
+| Feature | Why Expected | Complexity | Notes |
+|---|---|---|---|
+| **Pattern + test-string inputs, live matching** | The core tester loop | LOW | Recompile every keystroke; paste-instant. |
+| **Highlight all matches in the test string** | The signature regex-tester behavior | MEDIUM | `matchAll` (needs `g`) gives matches + `.index`; render highlights from index+length. See edge cases. |
+| **Flag toggles `g i m s u`** | Milestone-explicit; flags change everything | LOW | Toggles → rebuild `RegExp(pattern, flags)`. |
+| **Capture-group breakdown per match** | "What did group 1 grab?" | MEDIUM | Each `matchAll` result is `[full, g1, g2, …]`; show per-match, per-group. |
+| **Invalid-pattern error** | Paste-instant must explain bad regex | LOW | `new RegExp()` throws `SyntaxError` → surface message. |
+| **Match count + positions** | Status-bar-worthy ("3 matches") | LOW | From `matchAll` length + `.index`. |
+
+#### Differentiators (all explicitly in scope)
+
+| Feature | Value Proposition | Complexity | Notes |
+|---|---|---|---|
+| **Named capture groups** `(?<name>…)` | Modern, far more readable | LOW–MED | *Verified:* `match.groups` holds named captures. Show name alongside number. Cheap once numbered groups work. |
+| **Live replace/substitution preview** with `$1` refs | regex101's killer feature | MEDIUM | `str.replace(re, tmpl)`. Supports `$1…$n`, `$<name>`, `$&` (whole match), `` $` ``/`$'` (before/after), `$$` (literal `$`). Needs `g` to replace all. *Verified.* |
+| **Common-pattern library to insert** (email, URL, IPv4) | Speeds the 80% case; teaching aid | LOW | Tiny static `{label, pattern, flags}` array inserted into the pattern field. Keep minimal. |
+
+#### Flag interaction notes (testable)
+
+| Flag | Effect | Interaction to test |
+|---|---|---|
+| `g` | All matches, not just first | **Required** for `matchAll` to find all and `replace` to replace all. Without `g`: highlight/replace only the first. Make this explicit, not surprising. |
+| `i` | Case-insensitive | Independent. |
+| `m` | `^`/`$` per-line | Combine with multi-line test strings. |
+| `s` | `.` matches newline (dotAll) | Independent. |
+| `u` | Unicode mode | Enables `\u{…}`; **stricter** escapes — toggling `u` can turn a valid pattern into a `SyntaxError`. Test that surfacing. |
+
+> A newer `v` (unicodeSets) flag exists in modern engines but is **not** in the chosen `g/i/m/s/u` set — exclude to hold scope. Likewise exclude `d` (indices) and `y` (sticky).
+
+#### Minimal pattern library (recommendation)
+
+`email`, `URL`, `IPv4` are milestone-named — **ship exactly those three first.** More (IPv6, UUID, hex color, ISO date) is trivial to add later but each "official" pattern invites bikeshedding/correctness complaints (email regex is famously contentious). Label them as "starting points," not authoritative.
+
+#### Regex match-rendering edge cases (must specify)
+
+- **Zero-width matches** (`a*`, lookaheads): `matchAll` can return empty-string matches; advance by 1 to avoid infinite loops; render as a caret/marker, not a span.
+- **Overlapping highlights:** regex matches are non-overlapping (left-to-right scan), so whole-match highlighting is clean segmentation — but groups nest *within* a match. Recommend: highlight the whole match, **list** groups in a table (matches the "breakdown" framing; simpler than nested highlights).
+- **`lastIndex` statefulness:** a `g`-flagged regex reused via `.exec()`/`.test()` carries `lastIndex` between calls → wrong results. *Verified.* Use **`matchAll`** (clones internally, no `lastIndex` mutation). Specify `matchAll`, not an `.exec()` loop.
+
+#### Regex anti-features
+
+| Feature | Why Requested | Why Problematic | Alternative |
+|---|---|---|---|
+| **Regex *explainer*** (tokenize + explain in English) | regex101 has it | A whole sub-product; not the messy-bytes wedge | Out of scope. Match/group/replace is the wedge. |
+| **Multiple flavors** (PCRE/Python/.NET) | "My pattern is PCRE" | Needs non-native engines = **new runtime deps** | JS `RegExp` only; state the flavor in UI so users aren't surprised. |
+| **Cheat-sheet reference panel** | regex101 has a token ref | Static content bloat; not paste-instant value | Skip or a tiny footnote. Low priority. |
+| **Save/share permalinks** | regex101 permalinks | Needs storage/network | No. (Could persist last pattern via the existing prefs store — minor, optional.) |
+| **Match-history / step-debugger** | Power feature | Heavy; far past the wedge | No. |
+
+> Regex is **medium complexity**, concentrated in match-highlight rendering + the zero-width/`lastIndex` edge cases. The matching/replace logic is thin (native `RegExp`); the work is presentation (highlight overlay, per-match group table, live replace pane).
+
+---
+
+### FEATURE 4 — PROTOBUF decimal-byte-array input (hero extension, NOT a new tool)
+
+A **pre-decode input-parsing layer** feeding the existing frozen `decoder.ts`, alongside the current hex/base64 auto-detection. The decoder + its 19 tests are **untouched**.
+
+#### Table Stakes
+
+| Feature | Why Expected | Complexity | Notes |
+|---|---|---|---|
+| **Parse comma/space-separated decimals** `10, 3, 80, 81, 82` → `Uint8Array` | The whole feature (user-requested at Phase-3 sign-off) | LOW | Split on commas and/or whitespace; tolerate mixed (`10,3 80, 81`). |
+| **Tolerate flexible separators & whitespace** | Real paste is messy (newlines, double spaces, trailing comma) | LOW | Split on `/[\s,]+/`, drop empties, trim. |
+| **Byte-range validation (0–255)** | A value >255 isn't a byte | LOW | Per-token: integer 0–255. Reject `256`, `-1`, `3.5`, `0x10`. |
+| **Clear per-token error** | Which token is bad? | LOW | "Byte 6 (`300`) is out of range (0–255)." Point at the offending value. |
+| **Auto-detect alongside hex/base64** | Milestone-explicit: no mode picker | MEDIUM | The detection-disambiguation problem (below) is the only non-trivial part. |
+
+#### The auto-detection problem (the one thing to get right — testable)
+
+Decimal-list input overlaps with other input formats:
+
+- **Comma anywhere ⇒ decimal list** — commas are a near-unique signal (hex/base64 don't use them). Cleanest rule.
+- Whitespace-only-separated digits are ambiguous with hex pairs; bias toward existing hex/base64 detection but provide a **manual override** to force decimal (consistent with the decoder's per-node override ethos).
+- A multi-digit token >`ff`-as-hex-but-valid-decimal (e.g. `200`) also signals decimal.
+- Recommendation: comma present ⇒ decimal; else fall through existing hex/base64 detection; always allow explicit override.
+
+#### Decimal-input anti-features
+
+| Feature | Why Requested | Why Problematic | Alternative |
+|---|---|---|---|
+| **Accept `0x10` hex tokens in decimal mode** | "Be helpful" | Reintroduces the ambiguity decimal mode removes | Decimal mode = base-10 only; hex has its existing path. |
+| **Accept >255 as multi-byte ints** | "Parse `300` as two bytes" | Endianness ambiguity, silent surprise | Hard error with a clear message. It's a byte array. |
+| **Signed bytes (-128..127)** | Some languages print signed | Doubles validation surface, ambiguous with 0–255 | Out of scope; 0–255 only. Flag if requested later. |
+
+---
 
 ## Feature Dependencies
 
 ```
-bump-and-tag (pnpm release [patch|minor|major])
-    ├──requires──> read current app version (package.json)
-    ├──requires──> lockstep write (package.json + tauri.conf.json + Cargo.toml + Cargo.lock)
-    ├──requires──> preflight: clean tree + on master + tag absent
-    └──produces──> commit + vX.Y.Z tag + push   ──(push fires)──>  build-and-publish (manual this milestone; tag-triggered later=PARKED)
+Tool registry entry ──required by──> [Cron, URL, Regex] (sidebar/palette/router derive from it)
+Platform seam (clipboard) ──required by──> copy affordances in all tools
 
-build-and-publish
-    ├──requires──> preflight: signing key/password present (fail fast)
-    ├──requires──> preflight: vitest + tsc green
-    ├──requires──> tauri build --target universal-apple-darwin  ──produces──> DMG + .app.tar.gz + FRESH .sig
-    ├──requires──> generate latest.json  <──reads── FRESH .sig (NEVER stale)
-    ├──requires──> gh release create --repo bklim5/devtools-releases  (DMG + .app.tar.gz + latest.json)
-    └──confirms──> curl live endpoint, assert version matches
+CRON:
+  field parser ──required by──> description generator
+  field parser ──required by──> next-run iterator
+  next-run iterator ──reuses──> Unix Time tool's local-time formatting
+  macros + day/month names ──expand-to──> 5-field ──> (field parser)
+  L / nL ──deepens──> next-run iterator (highest-risk math; isolate)
 
---dry-run ──enhances──> both scripts (print plan, no writes/push/publish)
-APPLE_* env ──enhances──> tauri build (notarise if present; ad-hoc if absent)
-universal binary ──resolves──> Pitfall 7 (arm64-only gap)
-generate-only latest.json ──conflicts──> committed root latest.json (gitignore + untrack the stale copy)
+URL:
+  native URL parse ──required by──> component split + param table
+  native URLSearchParams ──required by──> param table (repeated keys, decode)
+  encode/decode ──independent of──> parse (pure string transforms)
 
-CI workflow / cross-repo PAT / Actions secrets / push-PR checks  ──PARKED (999.2, NOT this milestone)
+REGEX:
+  RegExp compile ──required by──> matches, groups, replace preview
+  matchAll ──required by──> all-matches + group breakdown (avoids lastIndex footgun)
+  g flag ──required by──> replace-all + all-match highlight
+  pattern library ──enhances──> pattern input (independent, trivial)
+
+PROTOBUF DECIMAL:
+  decimal parser ──feeds──> EXISTING frozen decoder.ts (do not modify)
+  auto-detect heuristic ──gates──> which parser runs (decimal vs hex vs base64)
 ```
 
 ### Dependency Notes
 
-- **bump-and-tag precedes build-and-publish:** the tag/version must exist before a build can be labeled and a release cut. They are two scripts (decision #4) precisely so the version bump can be reviewed (and the push that "fires" the release is a deliberate, separable step).
-- **Lockstep write requires the `Cargo.toml` decision resolved:** `Cargo.toml` is currently `0.1.0` and out of lockstep; the milestone confirms it joins the lockstep. The script must reconcile it on first run (one-time `0.1.0 → current` jump or a documented baseline).
-- **latest.json generation requires the FRESH `.sig`:** this is the dependency the whole milestone is built to make unbreakable — the script reads the `.sig` from *this* build's output dir, never a committed/previous one.
-- **Publish-confirm enhances but doesn't replace the human round-trip:** the `curl` endpoint check proves the manifest is live and correct; RELEASE.md §7's install-and-update proof stays a human gate (DST-02).
-- **CI items conflict with this milestone by scope, not by code:** the scripts should be *shaped* to be CI-callable (no interactive-only paths in publish, env-driven secrets), but no workflow is built.
+- **Cron description and next-runs share one field parser** — build it once; both consumers read its normalized output. Don't parse twice.
+- **Cron `L`/`nL` only affects the iterator**, not the parser much — isolate it so the rest of cron can ship even if `L` math is hard.
+- **Regex `matchAll` is load-bearing** — it sidesteps the `lastIndex` statefulness bug; specify it rather than `.exec()` loops.
+- **Decimal parser is strictly upstream of the decoder** — zero coupling into `decoder.ts`; it just produces the `Uint8Array` the decoder already accepts.
 
 ## MVP Definition
 
-### Launch With (v1.2)
+### Launch With (v1.3)
 
-The minimum that lets the maintainer retire the manual runbook with confidence.
+The milestone scope IS the launch scope (user chose fullest). Ruthless ordering within it:
 
-- [ ] **`pnpm release [patch|minor|major]`** — resolve next app version, lockstep-write the three manifests + regenerate `Cargo.lock`, echo `old → new`, commit, tag `vX.Y.Z`, push. *(table stakes core)*
-- [ ] **Preflights in bump-and-tag** — clean tree, on `master`, tag absent (local + remote). *(fail fast, cheap)*
-- [ ] **`build-and-publish`** — preflight (key present, vitest+tsc green) → `tauri build --target universal-apple-darwin` → generate `latest.json` from the FRESH `.sig` → `gh release create --repo bklim5/devtools-releases` with DMG + `.app.tar.gz` + `latest.json`. *(table stakes core)*
-- [ ] **Publish confirmation** — `curl` the live `latest.json` endpoint, assert version matches. *(cheap, high-value success check)*
-- [ ] **`--dry-run` on both scripts** — print the plan, no side effects. *(the solo-maintainer safety net)*
-- [ ] **Stop committing `latest.json`** — gitignore + untrack the stale root copy; generate-only. *(footgun removal)*
-- [ ] **`APPLE_*` passthrough (notarisation-ready, not required)** — don't override; ad-hoc when absent. *(confirmed scope, near-zero cost)*
+- [ ] **URL tool** (full) — lowest complexity, pure view over native APIs; ship first.
+- [ ] **Protobuf decimal input** — small, high-value hero extension; get the auto-detect heuristic right.
+- [ ] **Regex tester** — medium; native `RegExp` + `matchAll`; work is in match-highlight presentation.
+- [ ] **Cron core** (5+6-field, macros, names, ranges/steps/lists, `?`, DOM/DOW-OR, next-5, description) — the heavy one.
+- [ ] **Cron `L`/`nL`** — own slice; highest-risk, deepest test cases.
 
-### Add After Validation (later, only if pain shows)
+### Add After Validation (if demand confirmed)
 
-- [ ] **DMG-mount flake auto-recovery** — add the `hdiutil detach`+retry loop *if* the flake keeps biting; until then a clear error pointing at the runbook fix suffices.
-- [ ] **Thin changelog stub** — `git log since last tag → notes` *if* hand-writing notes becomes annoying. Keep it dumb; no framework.
+- [ ] Regex pattern library beyond the 3 named (IPv6, UUID, hex color, ISO date).
+- [ ] URL per-row raw-vs-decoded toggle; valueless-key disambiguation polish.
+- [ ] Cron: persist last expression; show resolved IANA TZ label.
 
-### Future Consideration (PARKED — separate CI milestone, 999.2)
+### Future / Out of Scope (hold the wedge)
 
-- [ ] **CI checks on push/PR** (vitest+tsc+eslint in Actions) — parked.
-- [ ] **Tag-triggered CI release** (macOS runner, cross-repo PAT, minisign secrets in Actions) — parked.
-- [ ] **Real-WKWebView e2e in CI** — parked stretch goal.
+- [ ] Regex explainer, multi-flavor engines, permalinks.
+- [ ] Cron `W`/`#`/year-field, cron generator UI, timezone selector.
+- [ ] URL editable-recompose, shortener, IDN converter.
+- [ ] Decimal: hex tokens, >255 multi-byte, signed bytes.
 
 ## Feature Prioritization Matrix
 
 | Feature | User Value | Implementation Cost | Priority |
-|---------|------------|---------------------|----------|
-| Semver bump modes (patch/minor/major) | HIGH | LOW | P1 |
-| Lockstep write (3 manifests + Cargo.lock) | HIGH | LOW–MEDIUM | P1 |
-| Preflights (tree/branch/tag/key/tests) | HIGH | LOW | P1 |
-| Universal binary build | HIGH | MEDIUM | P1 |
-| latest.json from FRESH .sig | HIGH | MEDIUM | P1 |
-| Split-repo publish + asset upload | HIGH | LOW–MEDIUM | P1 |
-| Publish confirmation (curl endpoint) | HIGH | LOW | P1 |
-| Stop committing latest.json | MEDIUM | LOW | P1 |
-| `--dry-run` | HIGH | LOW–MEDIUM | P1 |
-| `APPLE_*` passthrough | MEDIUM | LOW | P1 (cheap, confirmed scope) |
-| Post-run summary + human-gate reminder | MEDIUM | LOW | P2 |
-| DMG-mount flake auto-recovery | MEDIUM | MEDIUM | P2 |
-| Changelog stub (thin) | LOW–MEDIUM | MEDIUM | P3 |
-| CI of any kind | (deferred) | HIGH | PARKED |
+|---|---|---|---|
+| URL component split + param table | HIGH | LOW | P1 |
+| URL component-vs-full encode/decode | HIGH | LOW | P1 |
+| Protobuf decimal parse + auto-detect | HIGH | LOW–MED | P1 |
+| Regex matches + groups + flags | HIGH | MED | P1 |
+| Regex live replace preview | HIGH | MED | P1 |
+| Regex named groups | MED | LOW | P1 |
+| Regex pattern library (3 patterns) | MED | LOW | P1 |
+| Cron 5-field parse + description | HIGH | MED–HIGH | P1 |
+| Cron next-5 runs (local time) | HIGH | MED–HIGH | P1 |
+| Cron 6-field + macros + day/month names | HIGH | LOW–MED | P1 |
+| Cron DOM/DOW OR semantics | HIGH (correctness) | MED | P1 |
+| Cron `L`/`nL` last-day/last-weekday | MED | HIGH | P2 (own slice) |
+| Cron `W` / `#` (parse-tolerant, no compute) | LOW | LOW | P3 |
 
-**Priority key:** P1 = must have for v1.2; P2 = add when convenient; P3 = nice to have; PARKED = explicitly out of this milestone (999.2 CI).
+**Priority key:** P1 = must have this milestone · P2 = in scope, isolate as a risky slice · P3 = tolerate-don't-interpret.
 
 ## Competitor Feature Analysis
 
-How comparable local release scripts in the Tauri/Electron-class, single-maintainer space handle each capability, and the chosen approach here.
-
-| Feature | `npm version` / `standard-version` | `tauri-action` (CI) | Our Approach (local) |
-|---------|-----------------------------------|---------------------|----------------------|
-| Bump mode | explicit arg (`npm version`) or inferred from commits (`standard-version`) | n/a (CI consumes a tag) | **explicit `patch/minor/major` arg** — no inference |
-| Multi-manifest lockstep | single `package.json` only | bumps package.json/tauri.conf.json/Cargo.toml + Cargo.lock | **all three + Cargo.lock**, matching the CI tool's behavior, run locally |
-| latest.json + signature | n/a | auto-generates `latest.json`; `signature` = `.sig` *contents* | **same: contents inlined, from the FRESH build's .sig** |
-| Publish | n/a | drafts GitHub release, uploads assets | **`gh release create --repo` to the public split repo** |
-| Preflight | git-clean check (npm version refuses dirty tree) | CI runner is clean by construction | **explicit tree/branch/tag/key/tests gate**, fail-fast before build |
-| Dry-run | `--dry-run` (npm version) | n/a | **first-class `--dry-run` on both scripts** |
-| Notarisation | n/a | `APPLE_*` secrets in Actions | **`APPLE_*` passthrough from local env; deferred but ready** |
-| Cross-arch | n/a | matrix of runners | **single universal binary** (simpler than a matrix locally) |
+| Feature | crontab.guru | regex101 | Our Approach |
+|---|---|---|---|
+| Cron seconds (6-field) | ✗ omits | — | ✓ auto-detect by field count |
+| Cron macros / `@reboot` | partial | — | ✓ full alias table; `@reboot` = no run list |
+| Cron `L`/`W`/`#` | ✗ | — | `L`/`nL` ✓ compute; `W`/`#` tolerate-only |
+| Cron next-runs list | ✓ a few | — | ✓ next **5**, local time (Unix Time convention) |
+| Regex named groups | — | ✓ | ✓ via `match.groups` |
+| Regex replace preview | — | ✓ | ✓ `$1`/`$<name>`/`$&` |
+| Regex explainer | — | ✓ | ✗ anti-feature (scope) |
+| Regex multi-flavor | — | ✓ | ✗ ECMAScript only (zero-dep) |
+| URL param table w/ repeated keys | various | — | ✓ `URLSearchParams`, duplicates preserved |
+| Offline / no network | ✗ web | ✗ web | ✓ **the differentiator** — all four 100% offline native-API |
 
 ## Sources
 
-- DevTools `docs/RELEASE.md` — the manual runbook being automated (the authoritative feature baseline; proven `0.2.0 → 0.2.1` round-trip). **HIGH confidence.**
-- DevTools `.planning/PROJECT.md` + `.planning/ROADMAP.md` backlog 999.2 — confirmed milestone scope and pre-discussion decisions. **HIGH confidence.**
-- DevTools `MEMORY` — `tauri-dmg-bundle-flake`, `verify-gate-builds-real-app`, `tauri-store-async-init-race`. **HIGH confidence (repo-specific learned facts).**
-- [Tauri Updater plugin docs](https://v2.tauri.app/plugin/updater/) — `latest.json` schema; `signature` is the `.sig` file *contents* (verifies RELEASE.md §5). **HIGH confidence.**
-- [tauri-action (GitHub Actions) docs/behavior](https://dev.to/tomtomdu73/ship-your-tauri-v2-app-like-a-pro-github-actions-and-release-automation-part-22-2ef7) — standard bump-all-manifests + generate-latest.json + draft-release pattern this milestone mirrors locally. **MEDIUM confidence (community/blog, consistent with official docs).**
-- [Tauri v2 auto-updater walkthrough](https://thatgurjot.com/til/tauri-auto-updater/) and [Ratul's Tauri v2 updater notes](https://ratulmaharaj.com/posts/tauri-automatic-updates/) — corroborate latest.json/signature handling. **MEDIUM confidence.**
-- [prerelease-checks (npm)](https://www.npmjs.com/package/prerelease-checks) — common release preflight set (clean tree, tests, tag absence); informs the table-stakes preflight list. **MEDIUM confidence.**
+- crontab.guru — examples, tips, crontab.5 manpage (field syntax, macros, what it deliberately omits): https://crontab.guru/ , https://crontab.guru/tips.html , https://crontab.guru/crontab.5.html — HIGH
+- Healthchecks.io cron cheatsheet (field ranges, special chars, macro-support matrix): https://healthchecks.io/docs/cron/ — HIGH
+- Cron DOM/DOW OR-combination + 0/7 Sunday (Debian bug thread, inngest issue): https://groups.google.com/g/linux.debian.bugs.dist/c/LM4Rqrf9oQM , https://github.com/inngest/inngest/issues/2631 — HIGH (multiple independent sources agree)
+- MDN — `RegExp`, `String.prototype.matchAll`, `String.prototype.replace`, Groups/backreferences (named groups, `$1`/`$<name>`/`$&`, `lastIndex` statefulness, flag effects): https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/RegExp , https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/matchAll , https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/replace — HIGH
+- MDN — `URL` / `URLSearchParams` (component access, repeated-key iteration, decode-on-read) [standard WebView APIs, training-verified] — HIGH
+- DevTools `.planning/PROJECT.md` (registry, StatusBar opt-in byteCount, FormatterView, platform seam, Unix Time local-time convention, zero-dep constraint, frozen decoder) — HIGH
 
 ---
-*Feature research for: local release-automation helper scripts (Tauri 2, macOS, single-maintainer)*
-*Researched: 2026-06-02*
+*Feature research for: DevTools v1.3 "More Tools" — Cron, URL, Regex tools + Protobuf decimal-byte input*
+*Researched: 2026-06-03*

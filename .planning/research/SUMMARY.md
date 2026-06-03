@@ -1,153 +1,164 @@
 # Project Research Summary
 
-**Project:** DevTools — milestone v1.2 "Release Tooling"
-**Domain:** Local release-automation helper scripts for an existing Tauri 2 macOS desktop app (dev-tooling, not a runtime feature)
-**Researched:** 2026-06-02
+**Project:** DevTools — milestone v1.3 "More Tools"
+**Domain:** Offline, paste-instant developer utilities in a Tauri 2 + Vite + React + TS desktop app (macOS WKWebView)
+**Researched:** 2026-06-03
 **Confidence:** HIGH
 
 ## Executive Summary
 
-This milestone automates an *already-proven* manual release runbook (`docs/RELEASE.md`, which shipped a real `0.2.0 → 0.2.1` signed auto-update round-trip) into two local helper scripts: `bump-and-tag` (`pnpm release [patch|minor|major]`) and `build-and-publish`. CI is explicitly parked. All four researchers converged hard on one headline: **this needs ZERO new dependencies — not even devDeps.** Node 22 built-ins (`node:fs`/`child_process`/`util.parseArgs`), the already-present `tsx`, the installed Tauri CLI 2.11.2, `gh` 2.93.0 (authed as `bklim5`, `repo` scope), and `rustup`/`cargo` cover the entire surface. The only prerequisite *action* is `rustup target add x86_64-apple-darwin` (an SDK target, not a package) so the universal-binary build can `lipo` both arches.
+v1.3 adds three new tools (Cron explainer, URL parser/encoder, Regex tester) plus a Protobuf decimal-byte-array input mode to the existing Protobuf decoder. The single most important cross-cutting finding, confirmed independently by all four research streams, is that **every feature ships with ZERO new runtime dependencies and ZERO new devDependencies.** Each maps cleanly onto a native Web/JS API already present in the WKWebView baseline: `URL`/`URLSearchParams`/`encodeURIComponent` for URL; `RegExp`/`matchAll`/`replace` for Regex; `Date` + `Intl.DateTimeFormat` for cron local-time display; and a hand-rolled `Uint8Array` parser for decimal bytes. This is the same playbook the app already shipped for the v1.1 formatters and the Unix Time tool. **`Temporal` is explicitly ruled out** — it would simplify cron DST math but it is not in the macOS WKWebView baseline (mid-2026) and a polyfill would be a forbidden new dependency.
 
-The recommended architecture follows this project's existing **functional-core / imperative-shell** ethos (the same seam that governs `decoder.ts` and `src/lib/format/`): pure, deterministic logic — semver bump math, per-manifest content edits, `latest.json` assembly — lives in a new `src/lib/release/`, where the existing `tsc include:["src"]` + `vitest` gate covers it for free with no new wiring. The side-effecting orchestration — spawning `tauri build`, reading the fresh `.sig` off disk, `gh release create`, `git tag/push` — lives in thin `scripts/*.mjs` drivers that `import` the pure functions. This keeps the only logic that can *silently corrupt a release* (wrong version, wrong platform key, mis-scoped Cargo edit, stale signature) under unit test, and keeps the I/O out of the test net.
+Architecturally the work is low-friction. The app is a mature, registry-driven three-layer pattern (pure logic in `src/lib/<domain>/` → thin React tool in `src/tools/<tool>/` → one additive registry append). Registering a tool is two additive edits with no router/sidebar wiring. The four features are independent pure-logic islands and can be built in parallel. The one important architecture nuance: **`FormatterView` is NOT reusable** here — it is hard-shaped to the formatting domain (indent/minify/sort). The new tools need bespoke layouts built on the genuinely generic primitives (`ResizableSplit`, `StatusBar`, `CopyButton`, `useCopyFeedback`, the platform seam). Two deliberate extractions are recommended: promote `FormatterView`'s private `Toggle`/`toggleClasses` to a shared component (reused by all three new tools), and add `decimalToBytes` to `src/lib/bytes.ts` alongside the existing `hexToBytes`/`base64ToBytes` family.
 
-The risks are concentrated and well-understood because they are documented pitfalls from the manual runbook — but a script is more dangerous than a human because it does the wrong thing *silently* and then auto-installs onto every user. The load-bearing mitigations: (1) the universal artifact must be listed under **BOTH** `darwin-aarch64` and `darwin-x86_64` keys (there is no `darwin-universal` key — inventing one silently breaks updates for everyone); (2) `latest.json` must embed THIS build's fresh `.sig` via a single-match glob that fails on 0 or >1 matches (never a stale/cached signature); (3) the universal build output path moves to `target/universal-apple-darwin/release/bundle/...`, so a stale arm64-only artifact at the old path must not be picked up; (4) a `--dry-run` first-class flag plus a clean separation of "build" from "publish" backstops the irreversible blast radius of a bad release. One latent bug surfaces here: `Cargo.toml` has drifted to `0.1.0` (the manual runbook only bumped the two JSON files) and must be re-synced as a one-time fix before the first lockstep bump.
+Risk is highly concentrated. **URL and Protobuf-decimal are low-risk** (thin views over native APIs). **Regex is medium-risk**, dominated by one structural danger: a user-supplied pattern AND text run synchronously on the single JS thread, so a ReDoS pattern freezes the entire window — the recommended mitigation is a Web Worker + timeout watchdog (native, zero-dep). **Cron is the only high-complexity feature**, carrying four correctness traps: DOM/DOW OR-union semantics, 0/7=Sunday + 1-based-month numbering, DST-correct wall-clock next-run (NOT millisecond-delta iteration), and a hard iteration bound so impossible expressions (Feb-30) cannot hang the window. Within cron, `L`/`nL` (last-day / last-weekday) is the deepest slice and should be isolated as its own high-risk requirement.
 
 ## Key Findings
 
 ### Recommended Stack
 
-**Zero new libraries, not even devDeps** — this is the deliberate, unanimous recommendation (see `STACK.md`). Everything required is already installed or in the repo. Tempting additions (`semver`, `@iarna/toml`, `release-it`, `tauri-version`, `@octokit/rest`) are each explicitly rejected: the bump is ~10 lines of integer math, the Cargo edit is a single anchored regex on the `[package]` `version` line, and `gh` already handles cross-repo publish without a PAT for local runs. Heavy release frameworks would still need a custom hook to touch `Cargo.toml`/`tauri.conf.json` — you write the hard part anyway.
+No stack change. All four features are pure TypeScript over native APIs already in the WKWebView, unit-tested with the existing `vitest` + `tsc --noEmit` + `eslint` harness and verified on the real webview via the existing e2e gate. The sole third-party logic dependency (`js-md5`) is untouched; none of the new features add to `dependencies` or `devDependencies`. See `STACK.md`.
 
-**Core technologies:**
-- **Node 22 built-ins** (`node:fs`/`child_process`/`util.parseArgs`) — script runtime; file edits + JSON are line-level, subprocess calls run tauri/gh/git. No dependency.
-- **tsx 4.22.3 (already a devDep)** — lets the `.mjs`/`.ts` drivers `import` the pure `src/lib/release/` functions directly, sharing one source of truth with vitest. Plain `.mjs` under `node` also works with zero transpile.
-- **Tauri CLI 2.11.2** — `tauri build --target universal-apple-darwin` (officially supported); `createUpdaterArtifacts: true` already emits the `.app.tar.gz` + `.sig`.
-- **`gh` 2.93.0 (authed, `repo` scope)** — `gh release create --repo bklim5/devtools-releases` writes the Release cross-repo from the private checkout. `repo` scope authorizes cross-repo release writes for a repo you own.
-- **rustup / cargo** — universal build needs BOTH `aarch64-apple-darwin` (present) and `x86_64-apple-darwin` (**MISSING — `rustup target add` required**, a hard blocker otherwise).
+**Core technologies (all already present):**
+- Native `URL` / `URLSearchParams` / `encodeURIComponent` — URL parse + component-vs-full encode/decode — zero dep, fully covers scope.
+- Native `RegExp` / `matchAll` / `replace` — the regex engine the tool exists to expose — `matchAll` sidesteps the `lastIndex` footgun; flags `g/i/m/s/u` all in baseline.
+- Native `Date` + `Intl.DateTimeFormat` — cron field-matching + local-time next-run display — mirrors the shipped Unix Time tool (`src/lib/timeFormat.ts`).
+- Hand-rolled cron parser/iterator + `Uint8Array` decimal parser — consistent with the hand-rolled-decoder ethos; avoids `cron-parser`/`croner`/`Temporal`.
 
 ### Expected Features
 
-The maintainer expects the script to do *automatically and reliably* what the runbook does by hand — every table-stakes item is the script form of a proven manual step (see `FEATURES.md`).
+The milestone scope IS the launch scope (the user chose fullest scope per tool). See `FEATURES.md`.
 
 **Must have (table stakes):**
-- **Semver `patch`/`minor`/`major` bump** computed from `package.json` (the app version, NOT the GSD `v1.x` tag).
-- **Lockstep write across all three manifests** (`package.json` + `tauri.conf.json` + `Cargo.toml [package].version`) + regenerate `pnpm-lock.yaml`/`Cargo.lock`; reconcile the Cargo `0.1.0` drift on first run.
-- **Preflights** — clean tree, on `master`, tag absent (local + remote), signing key/password present (fail fast before a multi-minute build), `vitest`+`tsc` green.
-- **`tauri build --target universal-apple-darwin`** — closes the arm64-only gap; one fat `.app.tar.gz` covering both arches.
-- **Generate `latest.json` from the FRESH `.sig`** — read THIS build's `.sig` *contents* (not a path), inline as `signature` under both macOS keys.
-- **Split-repo publish** — `gh release create --repo bklim5/devtools-releases` uploads DMG + `.app.tar.gz` + `latest.json`.
-- **Publish confirmation** — `curl -L` the live endpoint, assert served `version` matches.
-- **Stop committing `latest.json`** — generate-only (note: already gitignored + already untracked, so this is largely a verify, not a task — see Gaps).
-- **`APPLE_*` passthrough** — notarisation-ready; honor if present, never require (ad-hoc `signingIdentity: "-"` stays default, D-02).
+- Cron: 5-field parse, human-readable description, next-N runs in local time, `*`/ranges/lists/steps, 0/7=Sunday, per-field validation.
+- URL: scheme/host/port/path/query/fragment split, query → key→value table (repeated keys preserved), component-vs-full encode/decode both ways, error-on-unparseable.
+- Regex: live pattern + test-string matching, highlight all matches, flag toggles `g/i/m/s/u`, capture-group breakdown, invalid-pattern error, match count.
+- Protobuf decimal: parse comma/space-separated decimals → `Uint8Array`, byte-range (0–255) validation, per-token errors, auto-detect alongside hex/base64.
 
-**Should have (competitive / solo-maintainer safety):**
-- **`--dry-run` on both scripts** — the highest-leverage safety net for a solo maintainer with no reviewer; print the full plan, no side effects.
-- **Fail-fast ordering** — cheap git/env checks before the slow tests, both before `tauri build`.
-- **Post-run summary + human-gate reminder** — closes the loop to the still-manual DST-02 round-trip proof.
+**Should have (differentiators, all in chosen scope):**
+- Cron: 6-field (seconds) auto-detected by token count, macros (`@daily`/`@hourly`/`@reboot`), day/month names, `?`, DOM/DOW OR semantics.
+- URL: per-row decoded values, per-component / per-param copy, live update.
+- Regex: named capture groups, live `$1`/`$<name>`/`$&` replace preview, minimal pattern library (email/URL/IPv4 only).
 
-**Defer (only if pain shows):**
-- **DMG-mount flake auto-recovery** (`hdiutil detach` + retry) — a clear error pointing at the runbook fix suffices until the flake keeps biting (MEMORY: `tauri-dmg-bundle-flake`).
-- **Thin changelog stub** (`git log since last tag → notes`) — keep dumb; no framework.
-
-**Parked (separate CI milestone, 999.2 — flag any pull-in as scope creep):** GitHub Actions release workflow, CI checks on push/PR, cross-repo PAT, minisign secrets in Actions, real-WKWebView e2e in CI, per-arch matrix publishes, Windows/Linux, rollback/un-publish automation, key-rotation tooling.
+**Defer (post-v1.3 / hold the wedge):**
+- Cron `W`/`#` (parse-tolerate, do NOT compute), year-field/7-field, generator UI, timezone selector.
+- URL editable-recompose, shortener, IDN converter.
+- Regex explainer, multi-flavor engines, permalinks; pattern library beyond the three named.
+- Decimal: hex tokens, >255 multi-byte, signed bytes.
 
 ### Architecture Approach
 
-Split along the project's existing pure-logic-in-`src/lib/` seam (see `ARCHITECTURE.md`). Pure, deterministic transforms go in a new `src/lib/release/` (auto-covered by the existing `tsc`+`vitest` gate, zero new config); impure orchestration goes in thin `scripts/*.mjs` drivers that `import` the pure functions — one source of truth shared by drivers and tests. Release tooling lives entirely outside the Vite entry graph → zero runtime deps, zero bundle bytes. The `lefthook.yml` pre-commit gate needs no edits; it automatically picks up the new `src/lib/release/*.test.ts`.
+All four slot into the existing registry-driven three-layer pattern with no changes to registry mechanics, the platform seam, or `decoder.ts`. Pure logic lives in new `src/lib/{cron,url,regex}/` folders (TDD); tools are thin React components; each tool is one additive `index.ts` + one `TOOLS` array append (Protobuf needs NO registry change — same tool). The four features share nothing and are parallelizable. See `ARCHITECTURE.md`.
 
 **Major components:**
-1. **`src/lib/release/version.ts`** (pure) — `bumpSemver(v, kind)` + `setPkg/Tauri/CargoVersion(text, v)` returning new file contents; the Cargo edit targets ONLY the `[package]` `version` line.
-2. **`src/lib/release/manifest.ts`** (pure) — `buildLatestJson({version, signature, url, notes, pubDate, platforms})` + `platformKey(target)`; constructs the dual-key universal manifest.
-3. **`scripts/bump-and-tag.mjs`** (impure) — read 3 files, call pure fns, write back, `git add/commit/tag/push --follow-tags` to private `origin`.
-4. **`scripts/build-and-publish.mjs`** (impure) — spawn universal `tauri build`, glob the fresh `.sig`, call `buildLatestJson`, `gh release create/upload --repo`, `curl`-verify the endpoint.
-5. **`package.json` scripts** — composable `release:bump` / `release:publish` / `release` umbrella, so the publish half is re-runnable after a DMG flake without re-bumping/re-tagging.
+1. `src/lib/cron/` (`parse.ts` / `describe.ts` / `nextRuns.ts`) — hand-rolled; reuses `timeFormat.ts` for local-time display. The only non-trivial logic; most test surface.
+2. `src/lib/url/` + `src/lib/regex/` — thin native-API wrappers; error-as-value, never throw to UI.
+3. Protobuf decimal seam — tool-local: widen `detectEncoding.ts` union to add `"decimal"`, add `decimalToBytes` (recommended in `src/lib/bytes.ts`), one line in `useDecode.ts`, one new segment in `ProtobufDecoder.tsx`'s encoding toggle. `decoder.ts` + its 19 tests stay byte-for-byte untouched.
+4. Shared primitives — reuse `ResizableSplit`/`StatusBar`/`CopyButton`/`useCopyFeedback`/platform seam everywhere; extract `Toggle`/`toggleClasses` out of `FormatterView` into a shared component. Do NOT reuse `FormatterView` itself.
 
 ### Critical Pitfalls
 
-(Top 5 of 10 from `PITFALLS.md`; auto-update blast-radius pitfalls ordered first because a broken release auto-installs onto every user.)
+Top 5 (full list of 12 in `PITFALLS.md`). Two of these freeze the entire window in a single-threaded webview — ordered first.
 
-1. **Universal artifact has no `darwin-universal` key (silent no-update for an arch)** — the updater matches `platforms.<os-arch>` against the *client's* OS-ARCH; a single invented `darwin-universal` key matches no machine. **Avoid:** emit BOTH `darwin-aarch64` + `darwin-x86_64`, same `url`, same `signature`, from the one fresh `.sig`.
-2. **Stale / wrong signature in `latest.json` (updater rejects every download)** — the mandatory minisign verify (DST-02) fails for all users if the `.sig` doesn't match the uploaded payload. **Avoid:** clean the bundle dir before build; glob the single fresh `.sig` post-build (fail on 0 or >1); read its *contents* into the JSON; verify against the *committed* `pubkey` (not the local pubkey file — also catches Pitfall 8 keypair mismatch).
-3. **Irreversible broken publish — blast radius** — `releases/latest/download/latest.json` is a stable redirect; the moment a broken release is newest, every polling app picks it up, unrecallable. **Avoid:** `--dry-run` first-class; separate "build" from "publish"; upload assets *then* `latest.json` (manifest promotes last); post-publish `curl` smoke check; idempotent re-runs (`--clobber`, never silent double-create).
-4. **Universal output path moves** — artifacts move to `target/universal-apple-darwin/release/bundle/...`; an old hardcoded path can silently sign/publish a stale arm64-only artifact. **Avoid:** one `BUNDLE` variable keyed off the target; assert each artifact exists at the universal path; `lipo -archs` shows `x86_64 arm64`; clean before build.
-5. **Version lockstep drift (incl. the latent `Cargo.toml` = 0.1.0 bug)** — the updater compares `latest.json.version` to the running app's `tauri.conf.json` version; any drift means installs never detect the release. **Avoid:** one bump fn writes all three from a single computed version; one-time `0.1.0 → current` Cargo reconciliation; derive the tag from the written version; regenerate + commit lockfiles so the tag points at a clean, reproducible tree.
+1. **Cron next-run loop hangs on impossible/sparse expressions** (`0 0 30 2 *` = Feb-30) — use a hard iteration bound + field-jump (not minute-jump) algorithm; return "no upcoming run" on the bound.
+2. **Regex ReDoS freezes the window** (user owns pattern AND text) — run matching in a Web Worker with a ~250–500ms timeout watchdog; surface "pattern too slow." Do not heuristically "detect ReDoS." This is structural and hard to bolt on late.
+3. **Cron DOM/DOW AND-instead-of-OR** — when both day fields are restricted they UNION (`30 4 1,15 * 5` fires 1st + 15th + every Friday). Named, four-quadrant-tested `dayMatches`; description must reflect the OR.
+4. **Cron DST + numbering** — match on local wall-clock components, re-read constructed-time components to defend against the silent spring-forward roll (NOT `+ms`-delta); months 1–12 vs JS 0–11; DOW 0/7=Sunday; `@reboot` has no next run.
+5. **Regex `lastIndex` / zero-width loops + highlight XSS** — use `matchAll` (not `.exec()` loops); render highlights as React text nodes, never `dangerouslySetInnerHTML`. Wrap `new RegExp`/`new URL`/`decodeURIComponent` in try/catch (error-as-value).
 
 ## Implications for Roadmap
 
-All four researchers independently converged on the **same three-phase shape**, ordered by dependency (pure core first so drivers can import + be trusted; lockstep before publish because a tag must exist before a release):
+Phase numbering continues from v1.2's Phase 11. Order by **risk and shared-helper extraction**, not by hard dependency (there are none between features). Ship the easy wins first to bank momentum; concentrate verification budget on the two deep features (Regex UI, Cron logic) last.
 
-### Phase A: Pure release core + housekeeping
-**Rationale:** Zero I/O, fully unit-testable, de-risks the only logic that can silently corrupt a release; auto-covered by the existing lefthook gate with no new wiring. No drivers depend on anything yet.
-**Delivers:** `src/lib/release/version.ts` + `version.test.ts` (semver bump; `setPkg/Tauri/CargoVersion`; the `[package]`-scoping test proving dep versions are untouched), `src/lib/release/manifest.ts` + `manifest.test.ts` (`buildLatestJson` shape, sig passthrough, dual-key `platformKey`). One-time housekeeping: re-sync `Cargo.toml` `0.1.0 → 0.2.1`; verify/`git rm --cached latest.json` (already untracked — confirm, don't assume).
-**Addresses:** lockstep write + semver bump (table stakes); the Cargo drift reconciliation.
-**Avoids:** Pitfall 5 (lockstep drift), the untestable-scripts architecture anti-pattern, the "edit every `version =`" anti-pattern.
-**Gate:** standard `tsc` + `vitest` + `/codex:review` (no new wiring).
+### Phase 12: Protobuf decimal input
+**Rationale:** Smallest change; de-risks the hardest constraint ("don't touch `decoder.ts`") first; forces the auto-detection precedence question to be answered early.
+**Delivers:** Decimal-byte-array input mode auto-detected alongside hex/base64; `decimalToBytes` in `src/lib/bytes.ts`.
+**Addresses:** Protobuf decimal table stakes (parse, 0–255 validation, per-token errors, auto-detect).
+**Avoids:** Pitfall 11 (`decoder.ts` + 19 tests byte-for-byte untouched — verify via `git diff`); Pitfall 12 (detection precedence: "comma anywhere ⇒ decimal list, all tokens ≤255," with manual override; out-of-range tokens error, never wrap).
 
-### Phase B: `bump-and-tag` driver + `pnpm release:bump`
-**Rationale:** Smallest, lowest-risk side effects (local file edits + git); produces the tag Phase C's publish needs. Testable via `--dry-run` on a throwaway branch.
-**Delivers:** `scripts/bump-and-tag.mjs` importing Phase A; preflights (clean tree, on `master`, tag absent local + remote); lockfile regeneration (`pnpm install --lockfile-only` + `cargo generate-lockfile`) staged in the bump commit; `git tag vX.Y.Z` + `git push --follow-tags` to private `origin`; `--dry-run`; wire `release:bump`.
-**Uses:** Node `node:fs`/`child_process` (`execFileSync` with arg arrays, no shell injection), the pure Phase A fns.
-**Avoids:** Pitfall 4 (stale lockfiles / dirty tree at tag time).
-**Gate:** review → unit (Phase A green) → manual `--dry-run`.
+### Phase 13: URL tool
+**Rationale:** Lowest-novelty pure logic; almost entirely a view over native `URL`/`URLSearchParams`; establishes the bespoke "parsed-components readout + key→value table" layout the other tools echo.
+**Delivers:** Component split, query key→value table (repeated keys preserved), component-vs-full encode/decode both ways, per-component/per-row copy.
+**Uses:** Native `URL`/`URLSearchParams`/`encodeURI(Component)`; shared `StatusBar`/`CopyButton`/platform seam; extracted `Toggle` for direction/mode.
+**Avoids:** Pitfall 10 (error-as-value on `new URL`/`decodeURIComponent` throws; preserve repeated keys via `getAll`; label component-vs-full; `+`→space awareness).
 
-### Phase C: `build-and-publish` driver + universal binary + `pnpm release` umbrella + preflight/verify rails
-**Rationale:** Depends on Phase A (manifest) + a tag from Phase B; heaviest side effects (network publish to the public repo) and the universal platform-key decision; needs the real DST-02 round-trip verify (the phase-boundary human sign-off).
-**Delivers:** `scripts/build-and-publish.mjs` — `rustup` both-targets preflight, `gh` auth/push-permission preflight on the releases repo, signing-key presence check, `tauri build --target universal-apple-darwin`, fresh-`.sig` single-match discovery, `buildLatestJson` (dual `darwin-aarch64`+`darwin-x86_64` keys → same universal URL/sig), `gh release create/upload --repo bklim5/devtools-releases` with DMG + `.app.tar.gz` + `latest.json`, post-publish `curl` endpoint verify, `APPLE_*` passthrough, DMG-flake handling; the preflight/`--dry-run`/draft-promote safety rails wrapping both scripts; wire `release:publish` + `release` umbrella.
-**Uses:** Tauri CLI universal target, `gh` cross-repo, the pure manifest assembly.
-**Avoids:** Pitfalls 1, 2, 3, 6, 7, 8, 9, 10 (signature/universal-key/blast-radius/cross-repo/secret-leak cluster).
-**Gate:** review → unit → real round-trip (older install → detect → minisign verify → relaunch into new version), per runbook §7. **Human phase-boundary sign-off.**
+### Phase 14: Regex tool
+**Rationale:** Highest UI novelty — match-highlight overlay, capture-group breakdown, replace preview — plus the structural ReDoS risk. Allow extra UI-verification budget.
+**Delivers:** Live matching with highlight, flag toggles `g/i/m/s/u`, capture + named groups, live `$1` replace preview, 3-pattern library.
+**Uses:** Native `RegExp` + `matchAll` + `replace`; extracted `Toggle` for flags; React-node highlighting (escaped text, no raw HTML).
+**Avoids:** Pitfall 6 (Web Worker + timeout — recommended), Pitfall 7 (`matchAll` over `.exec()`), Pitfall 8 (no `dangerouslySetInnerHTML`), Pitfall 9 (invalid ≠ no-match, error-as-value).
+
+### Phase 15: Cron tool
+**Rationale:** Highest logic novelty (hand-rolled next-run); most unit-test surface. Sequenced last so the easy wins land first; can also run as a parallel side-plan after Phase 12/13.
+**Delivers:** 5/6-field parse, macros, day/month names, ranges/steps/lists, `?`, DOM/DOW OR, human description, next-5 runs in local time.
+**Uses:** Hand-rolled `src/lib/cron/`; `timeFormat.ts` for local-time display; `Date` component matching.
+**Avoids:** Pitfalls 1–5 (bounded field-jump iterator; OR `dayMatches`; DST component read-back; field-count/numbering/macro correctness; field-set expansion).
+
+### Phase 15b (isolated slice): Cron `L` / `nL`
+**Rationale:** Last-day / last-weekday math (month-length + leap-year + weekday) is the single highest-complexity item in the milestone. Isolate it as its own requirement with explicit fixtures so the rest of cron ships even if this is hard.
+**Delivers:** `L` (last day of month) and `nL` (last weekday) in the next-run iterator.
+**Avoids:** Deepening Pitfall 1's iterator risk; give it dedicated leap-day fixtures (last day of Feb leap vs non-leap; last Friday in 4- vs 5-Friday months).
 
 ### Phase Ordering Rationale
-- **Pure core first** because the drivers `import` it and the only silently-corrupting logic must be unit-tested before anything calls it.
-- **Bump before publish** because a tag/version must exist before a build can be labeled and a release cut; splitting them (two scripts, decision #4) makes the version bump reviewable and the publish half independently re-runnable after a DMG flake.
-- **Safety rails land with Phase C** because that is where the irreversible actions (`git push`, `gh release create`) live — the `--dry-run`/separate-build-from-publish/draft-promote guards backstop every other pitfall and are the highest-priority controls.
+- No inter-feature dependencies exist — the only shared touchpoint is the mechanical registry append. Ordering is purely risk-driven.
+- Phase 12 first proves the untouched-decoder promise and answers the detection-precedence design question before anything depends on it.
+- The two deep features (Regex UI, Cron logic) come last so the two window-freeze risks (ReDoS, unbounded loop) get concentrated verification and the worker/bound decisions are made deliberately, not retrofitted.
+- `Toggle` extraction in Phase 13 pays off across Phases 14 and 15.
 
 ### Research Flags
 
-Phases likely needing deeper validation during planning/execution:
-- **Phase C:** the universal-binary updater platform-key behavior is the one rough edge that must be **proven by a real round-trip**, not just unit-asserted — Intel (`darwin-x86_64`) and Apple Silicon installs must both detect + verify + relaunch. The output-path move and `lipo -archs` check should be confirmed against the first actual universal build. This is the load-bearing DST-02 proof.
+Phases likely needing `/gsd-research-phase` during planning:
+- **Phase 14 (Regex):** the Web-Worker-vs-debounce execution-model decision and the highlight-overlay technique warrant a focused spike. ReDoS mitigation is structural.
+- **Phase 15 (Cron):** DST wall-clock handling (component read-back, skipped/repeated-hour behavior) and the bounded field-jump algorithm benefit from deeper design before coding.
+- **Phase 15b (Cron `L`/`nL`):** highest-risk math; dedicated fixture design.
 
-Phases with standard patterns (skip `/gsd-research-phase`):
-- **Phase A:** pure string/JSON transforms with full unit coverage — well-defined, no external unknowns.
-- **Phase B:** local file edits + git over `execFileSync` — established, dry-run-testable.
+Phases with standard patterns (skip research-phase):
+- **Phase 12 (Protobuf decimal):** seam is precisely mapped; ~3 additive edits.
+- **Phase 13 (URL):** thin view over well-documented native APIs.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Verified by direct tool probes on this machine (versions, `gh` auth/scope, rustup targets, Cargo `0.1.0`) + official Tauri/`gh` docs. Zero-dep claim is grounded in installed reality. |
-| Features | HIGH | Every feature is the script form of a proven step in `docs/RELEASE.md` (real `0.2.0 → 0.2.1` round-trip shipped) + confirmed milestone scope in PROJECT.md / backlog 999.2. |
-| Architecture | HIGH | Grounded in this repo's actual files (`tsconfig include:["src"]`, `lefthook.yml`, `vite.config.ts`, `scripts/e2e-spike.sh`); mirrors the existing `decoder.ts` / `src/lib/format/` ethos. |
-| Pitfalls | HIGH | First-party runbook + repo state are the sources; the universal-key + bundle-path specifics verified against current Tauri 2 docs and community discussions. |
+| Stack | HIGH | Zero-dep confirmed against `package.json` + existing `timeFormat.ts`/`bytes.ts` precedents; native API support verified for the WKWebView baseline; `Temporal` absence confirmed. |
+| Features | HIGH | Field syntax/semantics grounded in crontab.guru + man7 crontab.5; regex/URL behavior from MDN; scope decisions tied to PROJECT.md. |
+| Architecture | HIGH | Every integration point read directly from the codebase; only lucide-react exact glyph names are MEDIUM (verify at build). |
+| Pitfalls | HIGH | DOM/DOW union + 0/7-Sunday verified against man7; `lastIndex`/zero-width and ReDoS verified against MDN; decoder-untouched constraint from PROJECT.md. |
 
 **Overall confidence:** HIGH
 
+### Open UX Decisions for the Requirements Author
+
+Research is conclusive on stack/architecture/pitfalls; these are product calls the requirements author must lock (recommendations given):
+- **Cron time format:** 24h vs 12h — recommend **24h** (developer audience, matches Unix Time tool).
+- **Cron next-N count:** recommend **5**.
+- **Cron timezone label:** whether to surface the resolved IANA TZ label alongside local-time runs.
+- **Regex execution model:** Web Worker + timeout (recommended) vs debounce + input-size cap (minimum bar).
+- **Protobuf decimal precedence:** confirm "comma anywhere ⇒ decimal list, all tokens ≤255," with manual override; space-only-separated digits fall through to hex/base64.
+- **Decimal home:** `decimalToBytes` in `src/lib/bytes.ts` (recommended for symmetry) vs tool-local.
+
 ### Gaps to Address
-- **Universal platform-key round-trip is unproven on real hardware.** The dual-key approach is correct per docs, but only a live update test on both an Intel and an Apple-Silicon install confirms it. Handle: make this the explicit Phase C human-gate acceptance criterion; if a second machine/arch isn't available, document the residual risk.
-- **`latest.json` cleanup may be a no-op.** STACK.md verified the root `latest.json` is *already gitignored AND already untracked* (`git ls-files latest.json` empty), while PITFALLS/ARCHITECTURE describe it as still-tracked. Handle: Phase A *verifies* the actual `git ls-files` state and only `git rm --cached`s if tracked — don't assume; reconcile the two readings at execution time.
-- **`pnpm-lock.yaml` root-version coupling.** Whether the lockfile pins the workspace root `version` (and thus needs refresh on bump) is flagged but not confirmed. Handle: Phase B checks empirically and only regenerates if it drifts the tree.
-- **DMG-mount flake recovery depth.** Whether to auto-`hdiutil detach`+retry or just surface a clear error is left to "add after validation." Handle: ship the clear-error minimum in Phase C; add the retry loop only if the flake recurs.
+- **lucide-react glyph names** (`Regex`, `Link`, `Clock`): MEDIUM — verify availability against the installed version during phase work.
+- **DST skipped/repeated-hour behavior:** must be a deliberate, documented choice with injectable "now" for testing — flag during Phase 15 planning.
+- **Regex worker bundling under Vite:** confirm the worker bundles without a new dependency during Phase 14 planning.
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- `docs/RELEASE.md` (this repo) — the proven manual runbook being automated.
-- `.planning/PROJECT.md` + `.planning/ROADMAP.md` backlog 999.2 — confirmed v1.2 scope/constraints, CI parked.
-- Repo state + installed-tool probes (this machine, 2026-06-02) — `tauri-cli 2.11.2`, `gh 2.93.0` (auth `bklim5`, scope `repo`), `rustc 1.96.0`, `node v22.21.1`, rustup = `aarch64-apple-darwin` only, `Cargo.toml` = `0.1.0`, `latest.json` gitignored + untracked.
-- `package.json` / `tsconfig.json` / `vite.config.ts` / `lefthook.yml` / `.gitignore` / `scripts/e2e-spike.sh`.
-- [Tauri v2 CLI reference](https://v2.tauri.app/reference/cli/), [Tauri v2 Updater plugin docs](https://v2.tauri.app/plugin/updater/).
-- tauri-apps/tauri #8265, #8664, discussion #9419; cli/cli release docs.
-- MEMORY: `tauri-dmg-bundle-flake`, `verify-gate-builds-real-app`, `tauri-store-async-init-race`.
+- DevTools `.planning/PROJECT.md` — zero-dep constraint, registry/platform-seam/FormatterView contracts, frozen `decoder.ts` + 19 tests, paste-instant/WCAG-AA, Unix Time local-time precedent.
+- Codebase: `src/lib/tools/registry.ts`, `types.ts`, `src/tools/json-formatter/*`, `src/components/FormatterView.tsx`/`StatusBar.tsx`/`CopyButton.tsx`, `src/tools/protobuf-decoder/{detectEncoding,useDecode}.ts` + `ProtobufDecoder.tsx`, `src/lib/{timeFormat,bytes}.ts`, `src/lib/platform/index.ts` — every integration point read directly.
+- man7.org crontab(5) — DOM/DOW union semantics, field ranges, 0/7=Sunday, `@reboot`.
+- MDN — `RegExp`/`matchAll`/`replace`/`exec` (`lastIndex`, zero-width, named groups), `URL`/`URLSearchParams`/`encodeURI(Component)` semantics and throw behavior.
+- crontab.guru + Healthchecks.io cron cheatsheet — field syntax, macros, deliberate omissions.
 
 ### Secondary (MEDIUM confidence)
-- [tauri-action behavior](https://dev.to/tomtomdu73/ship-your-tauri-v2-app-like-a-pro-github-actions-and-release-automation-part-22-2ef7).
-- [thatgurjot.com Tauri auto-updater TIL](https://thatgurjot.com/til/tauri-auto-updater/), [Ratul's Tauri v2 updater notes](https://ratulmaharaj.com/posts/tauri-automatic-updates/).
-- [prerelease-checks (npm)](https://www.npmjs.com/package/prerelease-checks).
+- croner / cron-parser (npm) — reviewed to confirm what to deliberately NOT add and the DST semantics replicated hand-rolled.
+- DEV / Groundy — native `Date` DST gotcha + `Temporal` availability timeline (Chrome 144 Jan 2026 / Firefox 139 May 2025; Safari/JSC not yet) justifying hand-rolled over Temporal.
+- V8 / Mathias Bynens — regex flag history/support, corroborating MDN.
 
 ### Tertiary (LOW confidence)
-- None — all findings trace to first-party repo state, direct tool probes, or official docs.
+- lucide-react exact glyph names — training data; verify at build.
 
 ---
-*Research completed: 2026-06-02*
+*Research completed: 2026-06-03*
 *Ready for roadmap: yes*

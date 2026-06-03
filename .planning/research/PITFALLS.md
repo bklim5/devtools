@@ -1,235 +1,271 @@
 # Pitfalls Research
 
-**Domain:** Local release-automation helper scripts for a Tauri 2 macOS desktop app with a minisign-signed auto-updater, split-repo publish (private source → public releases), and a universal-binary target.
-**Researched:** 2026-06-02
-**Confidence:** HIGH (the manual `docs/RELEASE.md` runbook + repo state are first-party sources; the universal-binary platform-key and bundle-path details verified against current Tauri 2 docs)
+**Domain:** Adding Cron, URL, Regex tools + a Protobuf decimal-byte-array input mode to a zero-dep, paste-instant, offline Tauri 2 + React + TS desktop app (DevTools v1.3 "More Tools")
+**Researched:** 2026-06-03
+**Confidence:** HIGH (cron DOM/DOW union semantics + field numbering verified against man7 crontab.5; RegExp `lastIndex`/zero-width loop verified against MDN; URL/`encodeURIComponent` semantics and the decoder-untouched constraint grounded in authoritative docs + PROJECT.md)
 
-> **Framing for the roadmapper/planner:** these are mistakes made when *automating an already-working manual process*. The manual runbook (`docs/RELEASE.md`) is proven (a real 0.2.0→0.2.1 round-trip shipped). The danger in v1.2 is that a script *silently* does the wrong thing where a human previously eyeballed it. Every prevention below should be a **concrete script guard or preflight that aborts non-zero before any irreversible action** (tag push, release publish). The auto-update blast-radius pitfalls (1, 6, 9) are ordered first — a broken release auto-installs onto every user.
+> **Framing for the roadmapper/planner:** these are mistakes made when *adding four specific features under hard constraints* — **zero new runtime deps** (so cron next-run is HAND-ROLLED), **paste-instant <2s**, **offline**, **WCAG-AA**, and **`decoder.ts` + its 19 tests stay byte-for-byte untouched**. Two pitfalls are uniquely dangerous in a WKWebView: a non-terminating cron loop and a ReDoS regex both **freeze the entire window** (single JS thread, no separate UI thread to rescue it). Those are ordered first. Every prevention below should land as a **tool-phase acceptance criterion with a named fixture**.
 >
-> **Suggested phase shape** (referenced in the per-pitfall "Phase to address" and in the mapping table):
-> - **Phase A — `bump-and-tag`** (version lockstep, lockfile refresh, tag/version agreement, push target).
-> - **Phase B — `build-and-publish`** (universal build, fresh-`.sig` `latest.json` generation, cross-repo publish, secret hygiene).
-> - **Phase C — Preflight / dry-run / verify harness** (the irreversibility guards that wrap both scripts; the post-publish round-trip verify).
+> **Suggested phase shape** (referenced in per-pitfall "Phase to address" and the mapping table). Phase numbering continues from v1.2's Phase 11 → starts at Phase 12:
+> - **Cron tool phase** — hand-rolled parse + bounded next-run (the only non-trivial bit; highest risk).
+> - **URL tool phase** — native `URL`/`URLSearchParams`, error-as-value.
+> - **Regex tool phase** — native `RegExp`, off-main-thread match, safe highlight.
+> - **Protobuf decimal-input phase** — pre-decode adapter; decoder stays untouched.
 
 ---
 
 ## Critical Pitfalls
 
-### Pitfall 1: Stale / wrong signature pasted into `latest.json` (updater rejects every download)
+### Pitfall 1: Cron next-run loop hangs on impossible / sparse expressions — freezes the window
 
 **What goes wrong:**
-`latest.json`'s `platforms.<key>.signature` carries a `.sig` that does **not** match the `.app.tar.gz` actually uploaded for this release. The updater downloads the payload, runs the mandatory minisign verify (DST-02, cannot be disabled), the signature fails, and it refuses to install — for **every** user, on every check. The release looks published and correct; updating is 100% broken. RELEASE.md §5 calls this out in bold ("NEVER reuse a stale `.sig`") precisely because it is the easiest fatal mistake.
+The obvious next-run algorithm — "start at now, add one minute, test the expression, repeat until match" — **never terminates** for impossible expressions (`0 0 30 2 *` = Feb 30, never) and is pathologically slow for sparse-but-valid ones (`0 0 29 2 *` = Feb 29, up to ~4 years × 525,600 minutes). In a WKWebView a non-terminating loop **freezes the whole window** — ⌘K stops responding, nothing paints, and there is no decode button to cancel. This is the single highest-risk item in v1.3 because next-run is hand-rolled (no `cron-parser` lib).
 
 **Why it happens:**
-The signature is per-payload — a fresh `tauri build` produces a *new* `.sig` every time (minisign signs the exact bytes). A script that (a) caches/hardcodes a signature, (b) reads a `.sig` from a previous build dir not cleaned between runs, (c) generates `latest.json` *before* the build, or (d) reads `*.app.tar.gz.sig` with a loose glob that matches an older file, will embed a mismatched signature. The manual paste was error-prone; an automated paste from the wrong file is *worse* because no human re-reads it.
+Minute-by-minute increment is the most intuitive formulation and works for every common expression, so the unbounded case is never hit in casual testing. Impossible expressions (Feb 30, day 31 in a 30-day month) are valid *syntax*.
 
-**How to avoid (script guards — Phase B):**
-- Generate `latest.json` **only after** the build, reading the `.sig` from the **exact** path of the artifact being uploaded (not a glob that could match siblings). Resolve a single concrete file; abort if zero or >1 match.
-- **Clean the bundle output dir before each build** (`rm -rf src-tauri/target/universal-apple-darwin/release/bundle` or `cargo clean`-equivalent for the bundle) so a stale `.sig` from a prior version cannot be picked up.
-- **Cross-check the signature locally before publishing**: run `minisign -V` (or the Tauri verify path) on the freshly-built `.app.tar.gz` against the *committed pubkey* from `tauri.conf.json` — not the local pubkey file. This catches both a stale `.sig` AND a pubkey/keypair mismatch (Pitfall 8) in one preflight.
-- Assert `latest.json.version == built artifact version == tag` before upload (ties to Pitfall 3).
-- Embed the `.sig` by reading the file at publish time into the JSON; never store the signature in a tracked file.
+**How to avoid (Cron tool phase):**
+1. **Hard iteration bound — required.** Cap the search (e.g. stop after scanning ~4 years forward, or after N candidate evaluations such as 500k). On hitting the bound, return "no upcoming run found" — never loop forever.
+2. **Field-jump, not minute-jump.** Compute the next valid value per field (next matching month → day → hour → minute) instead of +1 minute. Feb-30 then exhausts the year search in a handful of iterations; `* * * * *` and `0 0 29 2 *` both stay well under the <2s budget.
 
 **Warning signs:**
-Updater banner appears ("vX.Y.Z available") but Install fails / silently does nothing; logs show `InvalidSignature` / signature-verification error; the `.sig` file's mtime is older than the `.app.tar.gz` it supposedly signs.
+The tab spins / window beachballs on a hand-typed expression; computing 5 next-runs for a sparse expression is visibly slow.
 
-**Phase to address:** Phase B (`build-and-publish`), with the verify step belonging to Phase C preflight.
+**Phase to address:** Cron tool phase. Acceptance criterion: "next-run is bounded — `0 0 30 2 *` returns 'no upcoming run' (no hang); `0 0 29 2 *` returns N runs in <2s." Add impossible-expression + leap-day fixtures.
 
 ---
 
-### Pitfall 6: Publishing an irreversible broken release that users auto-update into (blast radius)
+### Pitfall 2: Cron day-of-month vs day-of-week — AND instead of OR (the classic Vixie-cron bug)
 
 **What goes wrong:**
-A script pushes a tag and/or creates a GitHub Release that is broken (bad signature, wrong URL, missing arch, wrong version). Because `releases/latest/download/latest.json` is a **stable redirect to the newest release**, the moment the release is the newest, every installed app that polls picks it up. Unlike a website you can hotfix, an update that *installs* onto users' machines (or *fails* for all of them) cannot be recalled — you can only ship a *newer* good release on top, and only to users whose updater still works.
+When BOTH day-of-month (DOM) and day-of-week (DOW) are restricted (neither is `*`), the entry must fire when **either** matches — it is a **UNION (OR)**, not an intersection (AND). A naive `domMatches && dowMatches` silently skips valid runs. Canonical example: `30 4 1,15 * 5` runs at 04:30 on the 1st, on the 15th, **AND** every Friday — not only on a 1st/15th that happens to be a Friday. (Verified against man7 crontab.5: "the command will be run when *either* field matches the current time.")
 
 **Why it happens:**
-Scripts make destructive actions trivial and fast — `git push --tags` and `gh release create` are one line each, with no "are you sure". The manual runbook interleaved human judgement between steps; a script runs them in sequence with no gate. There is no staging environment for an auto-updater.
+Every other field combines with AND (minute AND hour AND month), so developers extend the same logic to the day pair. The day-pair OR is an old Vixie-cron exception that's easy to miss — and the human-readable *description* will lie too if it renders the pair as AND.
 
-**How to avoid (Phase C — the load-bearing guards):**
-- **Separate "build" from "publish".** Build + generate `latest.json` + locally verify the round-trip *first*; make publish a distinct, explicit step (or `--publish` flag) that runs **only after** preflight passes.
-- **`--dry-run` by default** (or at minimum a first-class flag) that does everything except `git push`, `gh release create`, and `gh release upload` — printing exactly what *would* be pushed/uploaded and to which repo.
-- **Order publish so the manifest goes last and atomically promotes:** upload assets (DMG, `.app.tar.gz`) and *then* `latest.json`. Until `latest.json` resolves to the new version, no client updates. Consider creating the release as a **draft**, uploading + verifying `curl -L .../latest/download/latest.json`, then publishing the draft — so a half-finished release never becomes "latest".
-- **Post-publish smoke check in the script:** `curl -L` the live endpoint, assert the served `version` and `signature` match what was just built; if not, fail loudly (and ideally re-draft).
-- **Idempotency / re-run safety:** detect an existing release for the tag and refuse to clobber silently.
+**How to avoid (Cron tool phase):**
+Make a named, unit-tested `dayMatches` with explicit quadrant logic:
+- both DOM and DOW restricted → `domMatches || dowMatches`
+- exactly one restricted → use that one
+- neither restricted (`* * `) → always true
+
+Test one fixture per quadrant; `30 4 1,15 * 5` is the canonical case. The description text must reflect the OR ("on the 1st and 15th, and every Friday").
 
 **Warning signs:**
-Release published but the local round-trip (Pitfall 1 verify) was skipped; `latest.json` uploaded before assets finished; no dry-run was run; the script has no path that stops between "build" and "the world updates".
+`* * * * *` and `0 0 1 * *` pass but a mixed DOM+DOW expression skips runs; user reports "it's not firing on Fridays."
 
-**Phase to address:** Phase C (preflight + dry-run + draft-promote ordering). This is the highest-priority guard — it backstops every other pitfall.
+**Phase to address:** Cron tool phase. Acceptance criterion: "DOM+DOW union semantics verified with `30 4 1,15 * 5`; four-quadrant unit tests."
 
 ---
 
-### Pitfall 9: Universal artifact has no `darwin-universal` key — updater can't match it (silent no-update for an arch)
+### Pitfall 3: Cron next-run wrong across DST transitions (JS `Date` local-time arithmetic)
 
 **What goes wrong:**
-The team builds a universal binary to close the arm64-only gap, then writes `latest.json` with a single made-up key like `"darwin-universal"` (mirroring the `universal-apple-darwin` *build* target name). **There is no default `darwin-universal` platform key.** With the current default updater config, the *running app* looks itself up by the default `OS-ARCH` value — `darwin-aarch64` on Apple Silicon, `darwin-x86_64` on Intel. A `darwin-universal` entry matches neither, so **no machine finds an update** — the opposite of the intended fix, and silent.
+Next-runs are shown in local time (mirroring the Unix Time tool). Local-time `Date` arithmetic breaks at DST boundaries:
+- **Spring-forward (skipped hour):** a 02:30 run on the spring-forward day doesn't exist locally; `new Date(y, m, d, 2, 30)` silently rolls to 03:30 (or back), so the displayed time is wrong or a run is dropped/duplicated.
+- **Fall-back (repeated hour):** 01:30 occurs twice; a minute-walk can run it twice or skip the second occurrence depending on how `Date` resolves the ambiguous local time.
 
 **Why it happens:**
-The universal *binary* is one file, so it feels like it should have one *key*. But the platform key is matched against the **client's** OS-ARCH, not the artifact's contents. Conflating the build-target name with the manifest key is the trap. RELEASE.md §5 already warns not to add `{{target}}`/`{{arch}}` templating to a static manifest; the universal case is the inverse failure.
+`new Date(year, monthIndex, day, hour, minute)` interprets fields in the host zone and resolves invalid/ambiguous local times implicitly. Developers test in summer or a no-DST setup and never see it.
 
-**How to avoid (Phase B):**
-- With the **default** updater config (this app's current state — no custom target set), emit **both** default keys pointing at the **same** universal artifact:
-  ```json
-  "platforms": {
-    "darwin-aarch64":  { "signature": "<sig>", "url": ".../<name>.app.tar.gz" },
-    "darwin-x86_64":   { "signature": "<sig>", "url": ".../<name>.app.tar.gz" }
-  }
-  ```
-  Same `url`, same `signature` (one universal payload, one `.sig`). The script should write both entries from the single freshly-built `.sig`.
-- *Alternative (only if you also change app config):* set a **custom updater target** (e.g. `"macos-universal"`) via the plugin/updater builder, then the manifest key must be that exact custom string. Do **not** do this without changing the Rust-side config — the key and the configured target must agree. For v1.2, the two-default-keys approach is lower-risk (no app-config change, no new round-trip to re-prove).
-- **Build prerequisite guard:** assert `rustup target list --installed` contains **both** `x86_64-apple-darwin` and `aarch64-apple-darwin`; otherwise `tauri build --target universal-apple-darwin` fails (or worse, the missing-target error is mistaken for a transient flake). Offer to run `rustup target add x86_64-apple-darwin`.
+**How to avoid (Cron tool phase):**
+- Match on **local-time calendar components** (`getFullYear`/`getMonth`/`getDate`/`getHours`/`getMinutes`), and after constructing the next candidate, **re-read its components to confirm the constructed time actually matches** (defends against the silent spring-forward roll). If the read-back hour ≠ intended hour (skipped hour), advance to the next valid minute rather than displaying the rolled value.
+- For fall-back, dedupe on matched wall-clock minute so a repeated local hour doesn't yield two identical displayed runs.
+- Make "now" injectable so behavior is testable independent of the host zone; assert at the component level. Document the chosen skipped/repeated-hour behavior (deliberate, Vixie-convention-compatible).
 
 **Warning signs:**
-`latest.json` contains a `darwin-universal` (or any non-OS-ARCH) key under default config; Intel users still report "no update available" after the universal release; `tauri build` errors with a missing-target / linker message.
+A run shows the wrong hour twice a year; duplicate/missing entry near March/November; tests only ever run in one TZ.
 
-**Phase to address:** Phase B (`build-and-publish`); the `rustup target` precondition is a Phase B preflight.
+**Phase to address:** Cron tool phase (flag for deeper research during planning). Acceptance criterion: "next-run uses component matching with constructed-time read-back; DST behavior deliberate and fixture-tested."
 
 ---
 
-### Pitfall 2: Universal-binary output path moves — scripts read the wrong (stale) bundle
+### Pitfall 4: Cron field-count and numbering errors (6-field seconds, month/DOW indexing, macros)
 
 **What goes wrong:**
-Switching from a plain `tauri build` to `tauri build --target universal-apple-darwin` **changes the output path**: artifacts move from `src-tauri/target/release/bundle/...` to `src-tauri/target/universal-apple-darwin/release/bundle/...`. A script with the old hardcoded path either (a) errors "no such file" (best case — loud), or (b) **silently finds a stale artifact** from a previous non-universal build still sitting in `target/release/bundle/`, then signs/publishes *that* — shipping an arm64-only binary labeled as universal, with a `.sig` that doesn't even match the uploaded file.
+Several parse-layer mistakes, each producing silently-wrong runs:
+- **5-field vs 6-field ambiguity:** standard cron is 5 fields (min hour DOM month DOW); a leading **seconds** field makes it 6. Mis-counting shifts every field by one (treating seconds as minutes, etc.).
+- **Off-by-one month indexing:** cron months are **1–12** (1 = January) but JS `Date.getMonth()` is **0–11**. Forgetting the conversion fires a month early/late.
+- **DOW numbering:** **0–7**, where **both 0 and 7 = Sunday** (verified against man7 crontab.5). Treating it as 0–6 mis-handles `7`.
+- **`@reboot` has no schedulable next run** — fabricating a time for it is wrong; `@daily`/`@hourly`/`@weekly` etc. must expand to their canonical 5-field form.
 
 **Why it happens:**
-The path change is documented but easy to miss; the manual runbook (RELEASE.md §3) still references `src-tauri/target/release/bundle/` because the proven release was non-universal. Anyone copying those paths into a script inherits the wrong location. A leftover `target/release/bundle/` makes the wrong path "work".
+Cron's numbering predates JS conventions; the 0/7-Sunday and 1-based-month quirks are exactly the kind of detail dropped under "it mostly works." Macros look like an afterthought.
 
-**How to avoid (Phase B):**
-- Centralize the bundle dir in **one variable** derived from the target: `BUNDLE=src-tauri/target/universal-apple-darwin/release/bundle`. No path literals scattered through the script.
-- After build, **assert each expected artifact exists at the universal path** (`$BUNDLE/dmg/*.dmg`, `$BUNDLE/macos/*.app.tar.gz`, `$BUNDLE/macos/*.app.tar.gz.sig`); fail if any is missing or if the glob is ambiguous (>1 match).
-- **Clean before build** (Pitfall 1's clean step doubles here) so no stale `target/release/bundle/` can be mistaken for the universal output. Optionally assert the *old* `target/release/bundle/macos/*.app.tar.gz` is absent to catch accidental non-universal builds.
-- Verify the binary is actually universal: `lipo -archs "$BUNDLE/macos/<App>.app/Contents/MacOS/<bin>"` should list both `x86_64 arm64`.
+**How to avoid (Cron tool phase):**
+- Disambiguate field count by token count: 5 → standard, 6 → leading seconds; reject other counts with an explicit error. Document which the tool supports (spec says 5-field, 6-field seconds, and `@daily`/`@hourly`-style macros).
+- Normalize at parse time: cron month 1–12 → store/compare consistently (convert to/from `getMonth` 0–11 in exactly one place); map DOW `7 → 0`.
+- Expand macros to 5-field form in a lookup table; detect `@reboot` (and any reboot-class macro) and render "runs at startup — no scheduled next run" instead of a fabricated time.
 
 **Warning signs:**
-"file not found" on publish; `.app.tar.gz` size unchanged from the previous arm64-only build (universal should be noticeably larger); `lipo -archs` shows only `arm64`.
+A `@monthly`/`@weekly` expression computes wrong; a 6-field expression is parsed as 5; runs land one month off; `0` and `7` for Sunday behave differently.
 
-**Phase to address:** Phase B (`build-and-publish`).
+**Phase to address:** Cron tool phase. Acceptance criterion: "field-count disambiguation + month(1–12)/DOW(0–7, 0=7=Sun) numbering + macro expansion fixtures; `@reboot` shows no next run."
 
 ---
 
-### Pitfall 3: Version lockstep drift across `package.json` / `tauri.conf.json` / `Cargo.toml` and the tag
+### Pitfall 5: Cron step/range/list parsing (`*/15`, `1-5`, `1,3,5`) — silent mis-expansion
 
 **What goes wrong:**
-The release version must be identical in `package.json`, `src-tauri/tauri.conf.json`, the git tag `vX.Y.Z`, *and* `latest.json.version`. Today they are **already drifted**: `package.json` = `0.2.1`, `tauri.conf.json` = `0.2.1`, but **`Cargo.toml` = `0.1.0`**. The updater compares `latest.json.version` against the *running app's `tauri.conf.json` version*, so a `tauri.conf.json` left un-bumped means existing installs **never detect** the new release (no update offered). A tag that disagrees with the artifact version produces a release whose URL path (`/download/vX.Y.Z/`) and manifest version don't line up.
+Each field can be a list of ranges/steps: `1,3,5`, `1-5`, `*/15`, `0-30/10`, `MON-FRI`. Hand-rolled parsing easily mishandles: `*/15` on minutes = 0,15,30,45 (not "every 15th from 1"); step base for `5/15` starts at 5; ranges are inclusive on both ends; mixed lists (`1-5,15,30-40/2`) must compose; out-of-range values (`*/61` minutes, `8` for DOW beyond 7) must error, not wrap.
 
 **Why it happens:**
-Three files in two languages, no single source of truth. `Cargo.toml` was never in the manual lockstep (RELEASE.md §1 bumps only two files), so it silently rotted to `0.1.0`. A bump script that updates two of three, or computes "next version" from a different file than it writes, drifts again. The confirmed v1.2 scope **adds `Cargo.toml` to the lockstep** — but the script must also *reconcile* the existing 0.1.0→current drift on first run.
+The grammar is small but composes in ways a quick split-on-comma misses; step semantics (`base/step` over the field's full range vs a sub-range) are subtle.
 
-**How to avoid (Phase A — `bump-and-tag`):**
-- **One bump function writes all three** (`package.json`, `tauri.conf.json`, `Cargo.toml` `[package].version`) from a single computed target version. Use a real TOML/JSON edit (not regex that could match a dependency's `version =`), targeting the `[package]` table specifically in `Cargo.toml`.
-- **Preflight equality assert:** before bumping, optionally assert the three are already equal (after the one-time 0.1.0 reconciliation); after bumping, assert all three == the new version == the tag about to be created. Abort non-zero on any mismatch.
-- **Derive the tag from the written version**, never type it twice: `TAG="v$(read version from package.json)"`. The `latest.json.version` in Phase B must be read from the same source.
-- Keep app semver (`0.2.x`) decoupled from GSD milestone tags (`v1.x`) — the script keys off the **app** version only (per PROJECT.md scope note). Don't let the script reach for the GSD `v1.1` tag.
+**How to avoid (Cron tool phase):**
+- Parse each field into an explicit **set of allowed integers** via a single tokenizer: split on `,` → for each token resolve `*`, `a`, `a-b`, `*/s`, `a-b/s` to a sorted integer set, validated against that field's min/max. Reject anything out of range with a clear message.
+- Unit-test the set expansions directly (`*/15` on minutes → {0,15,30,45}; `1-5` → {1,2,3,4,5}; `5/15` → {5,20,35,50}) — pure, fast, and the bedrock the matcher and next-run rely on.
+- Support name aliases (JAN–DEC, SUN–SAT) only if the spec wants them; otherwise reject names with a clear error rather than mis-parsing.
 
 **Warning signs:**
-`grep '"version"'` / `grep '^version' Cargo.toml` disagree; new release published but old installs show "up to date"; release URL `vX.Y.Z` path 404s because the tag differs from the manifest version.
+`*/15` produces the wrong set; an inclusive range drops an endpoint; an out-of-range value silently wraps; mixed lists lose tokens.
 
-**Phase to address:** Phase A (`bump-and-tag`); the one-time `Cargo.toml` 0.1.0 reconciliation is a Phase A task.
+**Phase to address:** Cron tool phase. Acceptance criterion: "field-set expansion unit-tested for `*/15`, `1-5`, `1,3,5`, `a-b/s`; out-of-range tokens error."
 
 ---
 
-### Pitfall 4: `pnpm-lock.yaml` (and/or `Cargo.lock`) goes stale after a bump → dirty tree / failed commit
+### Pitfall 6: Regex catastrophic backtracking (ReDoS) freezes the window
 
 **What goes wrong:**
-Bumping `package.json`'s `version` can leave `pnpm-lock.yaml` out of sync (lockfiles record the workspace package version), and bumping `Cargo.toml` leaves `Cargo.lock` stale. The bump script commits `package.json` + `tauri.conf.json` + `Cargo.toml`, pushes the tag — but the lockfiles are now dirty/uncommitted, so (a) the lefthook pre-commit gate or a `--frozen-lockfile` CI install later fails, (b) the working tree is dirty at tag time so the tag captures an inconsistent state, or (c) a follow-up commit "fix lockfile" lands *after* the tag, meaning the tag doesn't point at a buildable, lockfile-consistent commit.
+The user supplies BOTH the pattern and the test text. A pattern like `(a+)+$` against `"aaaaaaaaaaaaaaaaaaaa!"` triggers exponential backtracking in JSC/V8. Because regex runs synchronously on the WKWebView's single JS thread, a slow match **hangs the whole app** — the window stops painting, ⌘K dies, and there's no cancel. A regex tester is uniquely exposed: *the user owns both inputs*, so there's no trusted pattern to sanitize.
 
 **Why it happens:**
-Lockfiles are derived artifacts that humans forget and scripts often don't regenerate. The manual runbook never mentions them. `pnpm install --frozen-lockfile` (common in verify gates) then explodes far from the bump.
+ReDoS only manifests on adversarial pattern+input combinations the developer never types. Nested quantifiers (`(a+)+`, `(a*)*`, `(.*)*`) plus a non-matching suffix are exactly what a tester's users will paste.
 
-**How to avoid (Phase A):**
-- After writing the three version files, **regenerate lockfiles deterministically**: `pnpm install --lockfile-only` (refreshes `pnpm-lock.yaml` without touching node_modules) and `cargo update -p <crate> --precise <ver>` *or* a plain `cargo build`/`cargo generate-lockfile` so `Cargo.lock` reflects the new `[package].version`.
-- **Stage the regenerated lockfiles in the same commit** as the version bump, so the `vX.Y.Z` tag points at a clean, consistent tree.
-- **Assert a clean working tree** (`git status --porcelain` empty) *immediately after* the bump commit and *before* `git tag` — abort if anything is unstaged. This is the single best guard that the tagged commit is reproducible.
-- Run the existing lefthook gate's checks (or `pnpm install --frozen-lockfile`) in the preflight to prove the lockfile is honored.
+**How to avoid (Regex tool phase):**
+- **Run the match in a Web Worker** so a hung match freezes only the worker, not the UI. Wrap each attempt in a **timeout watchdog** (terminate/restart the worker if no result within ~250–500ms) and surface "pattern too slow on this input" instead of freezing. Workers are native → no new runtime dep (holds the zero-dep line).
+- If a worker is judged too heavy for v1.3, the *minimum* bar is **debounced match + input-size cap + documented limitation** — but the worker+timeout is the only real ReDoS protection and is the recommended path for a webview app where a hang is a frozen window.
+- Do **not** try to "detect ReDoS patterns" heuristically — unreliable; bound execution instead.
 
 **Warning signs:**
-`git status` dirty after the bump commit; later `pnpm install --frozen-lockfile` fails with a lockfile-mismatch; a "fix lockfile" commit sits after the tag.
+Typing a nested-quantifier pattern against a long string beachballs the window; one keystroke blows the <2s budget.
 
-**Phase to address:** Phase A (`bump-and-tag`).
+**Phase to address:** Regex tool phase (flag for deeper research). Acceptance criterion: "regex matching cannot freeze the UI — `(a+)+$` on a long non-matching string yields a timeout message, window stays responsive." Highest-risk regex item.
 
 ---
 
-### Pitfall 5: Cross-repo publish — pushing the tag / release to the wrong repo, or `gh` auth/scope wrong
+### Pitfall 7: Regex `/g` `lastIndex` statefulness + zero-width-match infinite loop
 
 **What goes wrong:**
-The split-repo layout means: **source commits + tag go to the private `bklim5/devtools` (`origin`)**, but the **GitHub Release + assets + `latest.json` go to the public `bklim5/devtools-releases`**. Easy failures: (a) `gh release create` without `--repo` targets `origin` (private) — the updater (unauthenticated) then 404s on the asset, breaking updates; (b) the tag gets pushed to the wrong remote, or the release is created against a tag that exists only in the private repo; (c) `gh auth` lacks write scope on the *public releases* repo (different repo, possibly needs explicit auth / PAT); (d) the `tauri.conf.json` `endpoints` URL drifts from the repo the release was actually published to.
+Two related bugs from the global flag (verified against MDN):
+1. **Shared stateful RegExp:** a `RegExp` with `g` (or `y`) carries `lastIndex` between calls; reusing one instance across renders/inputs makes `.test()`/`.exec()` resume mid-string and return alternating/wrong results (after a failed match `lastIndex` resets to 0, compounding confusion).
+2. **Zero-width infinite loop:** in `while ((m = re.exec(str)) !== null)`, a zero-width match (`/^/gm`, `/(?=x)/g`, `/a*/g`) consumes nothing, `lastIndex` doesn't advance, and the loop spins forever — another window freeze.
 
 **Why it happens:**
-Two repos, one local checkout. `gh` defaults to the repo of the current directory's `origin` — which is the *private* one here. The manual runbook always passes `--repo bklim5/devtools-releases`; a script that drops it silently publishes to the wrong place. Cross-repo writes are an auth/scope footgun (the local-script milestone uses your personal `gh` auth; the CI cross-repo PAT is parked).
+`while(exec)` is the textbook way to enumerate matches, and zero-width patterns (anchors, lookaheads, `*`-quantified groups) are exactly what a regex tester's users type.
 
-**How to avoid (Phase B):**
-- **Hardcode the releases repo in one constant** `RELEASES_REPO=bklim5/devtools-releases` and pass `--repo "$RELEASES_REPO"` on **every** `gh release` call. Never rely on `origin`.
-- **Preflight auth + scope assert:** `gh auth status` and `gh repo view "$RELEASES_REPO"` (or `gh api repos/$RELEASES_REPO --jq .permissions.push`) must succeed and show push permission *before* building — fail early, not after a 20-minute universal build.
-- **Assert the source push target:** the tag/commit push goes to the private `origin`; assert `git remote get-url origin` matches the expected private URL.
-- **Pin-consistency assert:** read `plugins.updater.endpoints[0]` from `tauri.conf.json` and assert it references `$RELEASES_REPO` and `releases/latest/download/latest.json`. If someone moves the endpoint, the script catches the drift (RELEASE.md §0.3: update *both* the endpoint and every manifest `url`).
-- **Verify the public endpoint resolves** post-publish (`curl -L`) — confirms the asset is actually reachable unauthenticated.
+**How to avoid (Regex tool phase):**
+- **Prefer `String.prototype.matchAll(re)`** to enumerate matches — it copies the regex internally, requires `g`, and is immune to both the shared-`lastIndex` bug and the zero-width loop (MDN's explicit recommendation). Native, zero-dep.
+- If `exec` must be used: **bump `lastIndex` by 1 on a zero-length match** (`if (m.index === re.lastIndex) re.lastIndex++`) and construct a **fresh RegExp per evaluation** (or reset `lastIndex = 0`) so state never leaks between inputs/renders.
+- For substitution preview (`$1` refs), use native `String.prototype.replace`/`replaceAll` rather than hand-rolling capture-ref expansion.
 
 **Warning signs:**
-Release appears in the private repo's Releases tab; `curl -L .../devtools-releases/.../latest.json` 404s; `gh` errors with `HTTP 403`/`Resource not accessible`; the manifest `url` host doesn't match the configured endpoint host.
+Match count changes when you re-run the same pattern; an anchor-only or `*` pattern hangs; highlighted matches drift.
 
-**Phase to address:** Phase B (`build-and-publish`); endpoint-consistency assert is a shared Phase C preflight.
+**Phase to address:** Regex tool phase. Acceptance criterion: "enumeration uses `matchAll` (or zero-width-guarded `exec`); `/^/gm`, `(?=…)`, `a*` with `/g` enumerate finitely; regex instances not shared across inputs."
 
 ---
 
-### Pitfall 7: Leaking the minisign password / private key (in logs, process args, shell history, or commits)
+### Pitfall 8: Regex match highlighting — XSS via `dangerouslySetInnerHTML`
 
 **What goes wrong:**
-Signed builds need `TAURI_SIGNING_PRIVATE_KEY` (or `_PATH`) **and** `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. A script can leak these by: (a) `set -x` / verbose tracing echoing the env into logs; (b) passing the password as a **command-line argument** (visible in `ps`/process table to any local process); (c) `echo`-ing the key into a file inside the repo; (d) committing the key or a `.env`; (e) printing the env on error. The private key is password-protected, so a leaked key *alone* can't forge an update — but leaking the **password too** removes that safety, and a forged update is signature-valid and auto-installs (catastrophic, see Pitfall 6).
+Highlighting matches by building an HTML string (`<mark>…</mark>` around match spans) and injecting it with `dangerouslySetInnerHTML` lets user-supplied test text inject markup/script. The test text is untrusted user input rendered back into the DOM.
 
 **Why it happens:**
-`set -x` for debugging is the classic culprit — it dumps every expanded variable. Convenience (inlining secrets as args) and habit (`echo $VAR` to debug) leak silently. Scripts run unattended, so a leak into a CI log or a committed file persists.
+String-splice-then-inject-HTML is the quickest way to wrap matches in `<mark>`, and React's `dangerouslySetInnerHTML` is right there.
 
-**How to avoid (Phase B + repo hygiene):**
-- **Pass secrets only via environment**, never as CLI args (env is not in `ps`). Read the key from `~/.tauri/devtools.key` (outside the repo) at runtime; never copy it in.
-- **Disable tracing around secret handling** — never `set -x` globally in the release script; if tracing is needed, scope it and `set +x` before touching `TAURI_SIGNING_*`.
-- **Never echo secrets**; for presence checks, test `[ -n "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" ]` and print only "set"/"unset", never the value.
-- **Preflight gitignore assert:** confirm `.gitignore` still blocks `*.key`, `*.p8`, `.env*`, `.envrc` (already in place per RELEASE.md §2) and that no key/`.env` is staged (`git diff --cached --name-only` contains none).
-- **Confirm the password-protection invariant:** a missing/wrong password makes `tauri build` *fail to produce the `.sig`* — that's the gate working, not a bug (RELEASE.md §2). The script should surface that as a clear "signing failed: check `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`", not retry blindly.
-- **Notarisation-ready secret handling:** apply the same no-echo/env-only rule to `APPLE_*` vars (`.p8`, key-id, issuer) for the deferred notarisation flip.
+**How to avoid (Regex tool phase):**
+Render highlights as **React elements** — split the text by match index into non-match / match segments and emit `<span>{segment}</span>` / `<mark>{segment}</mark>` nodes. React escapes text children automatically, so no markup executes. Never assemble an HTML string for match output.
 
 **Warning signs:**
-`set -x` present in the release script; password appears in a CLI invocation; a `.key`/`.env` shows in `git status`; secrets visible in any captured log.
+Any `dangerouslySetInnerHTML` in the regex tool; test text `<img onerror=alert(1)>` renders an element instead of literal text.
 
-**Phase to address:** Phase B (`build-and-publish`) for runtime handling; a Phase C preflight asserts the gitignore + no-staged-secret invariants.
+**Phase to address:** Regex tool phase. Acceptance criterion: "highlighting renders React text nodes (no `dangerouslySetInnerHTML`); `<script>`/`<img onerror>` in test text renders as literal text."
 
 ---
 
-### Pitfall 8: Pubkey / keypair mismatch — the committed `pubkey` doesn't match the signing key
+### Pitfall 9: Regex invalid-pattern handling — `new RegExp` throws; "no match" ≠ "invalid"
 
 **What goes wrong:**
-The updater verifies the payload signature against `plugins.updater.pubkey` **baked into the shipped app** (in `tauri.conf.json`). If the local private key (`~/.tauri/devtools.key`) is ever regenerated/rotated without re-pasting the new public half into `tauri.conf.json` *and shipping a build with it*, every signature verify fails — and you can't fix already-installed apps (they carry the old pubkey). This is a variant of Pitfall 1 that survives even a perfectly fresh `.sig`.
+`new RegExp(userPattern, flags)` **throws `SyntaxError`** on an invalid/incomplete pattern (unbalanced `(`, bad `\`, invalid flag). An unguarded constructor crashes the render while the user is mid-typing a pattern. Separately, conflating "valid pattern, zero matches" with "invalid pattern" confuses users.
 
 **Why it happens:**
-The pubkey is committed once and forgotten; key rotation is rare so the coupling is easy to overlook. The signing succeeds (the private key is valid) and the `.sig` is fresh — only the *client's* baked-in pubkey disagrees, so it can't be caught by building/signing alone.
+Live evaluation runs `new RegExp` on every keystroke, including transient invalid states (`(foo` before the `)`); the throw escapes if not caught.
 
-**How to avoid (Phase B / C preflight):**
-- **Local verify against the committed pubkey, not the local pubkey file:** in the same preflight as Pitfall 1, extract `plugins.updater.pubkey` from `tauri.conf.json` and verify the fresh `.app.tar.gz` + `.sig` against *that* exact key. If it fails, the keypair and the shipped pubkey have diverged — stop before publishing.
-- Treat any pubkey change as a coordinated event: rotating the key requires shipping a new build (carrying the new pubkey) *before* old installs can verify anything signed by the new key — and old installs may be strandable. Document this in the script's header.
+**How to avoid (Regex tool phase):**
+- Wrap `new RegExp` in try/catch returning **error-as-value** (mirrors the decoder/formatter tolerant style); surface the `SyntaxError` message via the existing explicit-error UX, never let it throw to the UI.
+- Distinguish three states explicitly: **invalid pattern** (catch), **valid + no matches**, **valid + matches** — each with distinct UI copy.
 
 **Warning signs:**
-`InvalidSignature` even with a verified-fresh `.sig`; `tauri.conf.json` `pubkey` recently changed; `~/.tauri/devtools.key.pub` contents differ from the committed `pubkey` (base64-decode and compare).
+A red error overlay appears while typing an incomplete pattern; "no match" and "invalid regex" look the same.
 
-**Phase to address:** Phase C (preflight verify); rotation policy documented in Phase B script.
+**Phase to address:** Regex tool phase. Acceptance criterion: "invalid patterns are error-as-value (no throw to UI); invalid vs zero-match states distinguished."
 
 ---
 
-### Pitfall 10: Committed/stale root `latest.json` shipped instead of the generated one
+### Pitfall 10: URL parsing — `new URL()` / `decodeURIComponent` throw, and encode/decode-mode confusion
 
 **What goes wrong:**
-A `latest.json` sits at the repo root (currently pinned at `0.2.1`). Although `/latest.json` is **already in `.gitignore`**, the file still exists on disk (tracked from before it was ignored, or just untracked-but-present). A publish script that uploads `./latest.json` instead of the freshly generated one re-ships a stale manifest (old version, old signature) → updater offers nothing new or fails verify. The gitignore entry can also mask a *tracked* copy that git still version-controls (gitignore doesn't untrack already-tracked files).
+- `new URL(input)` **throws `TypeError`** on relative/malformed input (`/path`, bare `example.com`, `"not a url"`). An unguarded constructor crashes the render or shows a stack trace.
+- `decodeURIComponent` **throws `URIError`** on malformed percent-sequences (`%`, `%ZZ`, `%E0%A4`).
+- `encodeURI` vs `encodeURIComponent`: `encodeURI` leaves `&`, `=`, `?`, `/`, `#` unescaped (whole-URL use); `encodeURIComponent` escapes them (single-component). Wrong choice corrupts query values or double-encodes.
+- `+` vs `%20`: `URLSearchParams` decodes `+` as space (form semantics); `decodeURIComponent` does **not**. Mixing them mis-decodes query strings.
+- Repeated query keys (`?a=1&a=2`) collapse if you build a plain object.
 
 **Why it happens:**
-The historical workflow committed `latest.json`; v1.2 scope explicitly switches to **generated-only**. Until the tracked copy is `git rm --cached`'d and the on-disk file removed/regenerated, ambiguity remains about which `latest.json` is authoritative.
+Native `URL`/`URLSearchParams`/encode-decode each have their own throw behavior and encoding rules; they're easy to conflate, and happy-path inputs hide all of it.
 
-**How to avoid (Phase B):**
-- **`git rm --cached latest.json`** if still tracked; confirm `git ls-files latest.json` returns nothing. Keep `/latest.json` in `.gitignore`.
-- **Generate `latest.json` to a build/output dir** (e.g. alongside the bundle, or a `dist-release/` temp), not the repo root, and upload *that explicit path* — never `./latest.json`.
-- **Assert freshness before upload:** the generated manifest's `version` must equal this build's version; refuse to upload a manifest whose version != the tag.
+**How to avoid (URL tool phase):**
+- Wrap `new URL()` and every `encode/decodeURIComponent` in **try/catch returning error-as-value**, surfaced via the explicit-error UX — never throw to the UI (mirrors the decoder).
+- Offer **both** `encodeURI`/`decodeURI` (full string) and `encodeURIComponent`/`decodeURIComponent` (component), clearly labeled, so the user picks the right semantics (spec: "component + full-string encode/decode both ways").
+- Build the query → key/value table from **`URLSearchParams`** and enumerate with `getAll`/iteration so **repeated keys are preserved** (rows, not an object). Document that `URLSearchParams` treats `+` as space.
+- Split scheme/host/port/path/query/fragment from the parsed `URL` object's properties (only after a successful, guarded parse).
 
 **Warning signs:**
-`git ls-files latest.json` returns the path (still tracked); published manifest shows an old version; the script references `./latest.json`.
+Pasting a bare host or `%`-truncated string shows a red overlay/blank pane; `?a=1&a=2` shows one row; `+` renders inconsistently as `+` vs space across modes.
 
-**Phase to address:** Phase B (`build-and-publish`); the `git rm --cached` cleanup is a one-time Phase A/B task.
+**Phase to address:** URL tool phase. Acceptance criterion: "all URL/encode/decode ops are error-as-value (no throw to UI); repeated query keys preserved; component vs full-string offered + labeled; malformed-percent and relative-input fixtures covered."
+
+---
+
+### Pitfall 11: Protobuf decimal input — modifying `decoder.ts` or its 19 tests (the hardest constraint)
+
+**What goes wrong:**
+The decimal-byte-array mode (`10, 3, 80, 81, 82` → bytes) is implemented by editing `decoder.ts` or relaxing/adding to its 19 tests. This violates the project's hardest constraint: **`decoder.ts` + its 19 tests stay byte-for-byte untouched** (the test bar IS the hero feature's spec).
+
+**Why it happens:**
+The new input is "about decoding," so the decoder file feels like the natural home. It isn't — decimal parsing is a *pre-decode input adapter*, not a decoder concern.
+
+**How to avoid (Protobuf decimal-input phase):**
+Implement decimal parsing as a **separate pre-decode parse layer** (new module, e.g. `src/lib/protobuf/parseInput.ts` or alongside the existing input auto-detect) that converts the decimal string → `Uint8Array`, then feeds the **unchanged** decoder exactly as hex/base64 do. New behavior gets its **own** tests; the 19 stay green and unedited. Verify with `git diff -- src/lib/decoder.ts` (and its test file) showing zero changes at the phase boundary — exactly as every prior milestone proved.
+
+**Warning signs:**
+`git diff` touches `decoder.ts` or its test file; the 19-count changes; a "small tweak" to the decoder to accept a new input shape.
+
+**Phase to address:** Protobuf decimal-input phase. Acceptance criterion: "decoder.ts + its 19 tests byte-for-byte untouched; decimal parsing in a new pre-decode module with its own tests."
+
+---
+
+### Pitfall 12: Protobuf input auto-detect — decimal vs hex/base64 ambiguity & range validation
+
+**What goes wrong:**
+Decimal byte-arrays are auto-detected *alongside* hex and base64. Ambiguous inputs get misrouted:
+- `10, 20` reads as decimal [10,20] — but `10 20` (no commas) could look like spaced hex (`0x10 0x20`), and `1020` is valid hex/base64-ish.
+- Out-of-range decimal tokens (`256`, `-1`, `3.5`, non-integer) must be **rejected**, not silently truncated/wrapped to a byte.
+- Auto-detect ordering matters: overlapping character sets ([0-9], space, comma) make several formats plausible for one string.
+
+**Why it happens:**
+Detection order and overlapping alphabets make the same string look like multiple formats; "10, 20" is genuinely ambiguous without a precedence rule.
+
+**How to avoid (Protobuf decimal-input phase):**
+- Require an **unambiguous decimal signal**: presence of a delimiter (comma, or comma+space) AND all tokens integers in **0–255**. Treat the comma-separated form as the canonical decimal trigger so `10, 20` is decimal but `1020`/`10 20` fall through to existing hex/base64 detection. Document and test the precedence order explicitly.
+- **Validate range per token** (`Number.isInteger(n) && 0 <= n <= 255`); on any out-of-range/non-integer token, surface an explicit error (consistent with the existing "explicit errors" UX) — never wrap/truncate.
+- Leave existing hex/base64 detection **behavior unchanged** — add decimal as a new branch with a clear, tested priority, and re-run the existing detection tests to prove no regression.
+
+**Warning signs:**
+A hex string starts decoding as decimal (or vice versa) after the feature lands; `256, 0` decodes to `[0,0]` instead of erroring; existing base64/hex detection tests change behavior.
+
+**Phase to address:** Protobuf decimal-input phase. Acceptance criterion: "decimal detection requires delimiter + all tokens 0–255; out-of-range/non-integer tokens error explicitly; existing hex/base64 detection unchanged (regression tests green)."
 
 ---
 
@@ -237,81 +273,116 @@ The historical workflow committed `latest.json`; v1.2 scope explicitly switches 
 
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
 |----------|-------------------|----------------|-----------------|
-| Skip the local round-trip verify, trust the build | Faster release | A broken update auto-installs/fails for all users; unrecallable (Pitfall 6) | **Never** — this is the load-bearing check |
-| Hardcode `target/release/bundle` paths (copy from RELEASE.md) | Less code | Silently ships stale/arm64-only artifacts under universal target (Pitfall 2) | Never for universal builds |
-| Ship arm64-only `latest.json` (defer universal) | No `rustup target add`, faster build | Intel users get no updates (existing gap) — acceptable *only* if explicitly documented as the prior state | Only as the pre-v1.2 status quo, not as the v1.2 deliverable |
-| One script does bump+build+publish with no dry-run | One command | No gate before irreversible publish (Pitfall 6) | Never — split build from publish |
-| Regex-edit `Cargo.toml` version | Trivial | Can match a dependency's `version =`; bumps the wrong field (Pitfall 3) | Only with a `[package]`-scoped TOML edit |
-| Leave `Cargo.lock`/`pnpm-lock.yaml` un-regenerated | Skips an install step | Tag points at a non-reproducible/dirty tree (Pitfall 4) | Never |
+| Cron next-run by minute-increment loop | Trivial; passes common expressions | Hangs on impossible/sparse → frozen window | **Never** — bound from day one (Pitfall 1) |
+| Regex match on the main thread (no worker/timeout) | Simpler wiring | One ReDoS pattern freezes the app | Interim only with input-size cap + documented limit; worker+timeout is the real fix (Pitfall 6) |
+| `while(exec())` for match enumeration | Familiar idiom | Zero-width infinite loop + shared `lastIndex` bugs | Only with explicit zero-width `lastIndex++` guard; prefer `matchAll` (Pitfall 7) |
+| Plain object for query params | Easy table | Drops repeated keys (`?a=1&a=2`) | **Never** — use `URLSearchParams.getAll` (Pitfall 10) |
+| Decimal parsing inside `decoder.ts` | Feels co-located | Violates byte-for-byte-untouched; breaks the hero spec | **Never** (Pitfall 11) |
+| `dangerouslySetInnerHTML` for highlighting | One-liner | XSS on untrusted test text | **Never** — render React nodes (Pitfall 8) |
+| Adding a cron/regex lib instead of hand-rolling | Less code | Violates zero-new-runtime-deps wedge constraint | **Never** this milestone (zero-dep line) |
 
 ## Integration Gotchas
 
 | Integration | Common Mistake | Correct Approach |
 |-------------|----------------|------------------|
-| GitHub Releases (`gh`) cross-repo | Omitting `--repo`; defaults to private `origin` | Always `--repo bklim5/devtools-releases`; preflight `gh auth`+push-permission check |
-| Updater endpoint (`releases/latest/download`) | Adding `{{target}}`/`{{arch}}` templating to a static manifest URL → 404 | Static `latest.json` with explicit `platforms` keys; no templating in the endpoint |
-| Universal binary ↔ `latest.json` keys | Inventing a `darwin-universal` key under default config | List both `darwin-aarch64` + `darwin-x86_64` → same universal `url`/`signature` (Pitfall 9) |
-| minisign signature | Reusing/caching a `.sig`, or reading via loose glob | Read the exact fresh `.sig` post-build; verify against the committed pubkey (Pitfalls 1, 8) |
-| `rustup` toolchain | Building universal without `x86_64-apple-darwin` installed | Preflight `rustup target list --installed`; offer `rustup target add x86_64-apple-darwin` |
-| Tauri signing env | Passing key/password as CLI args; `set -x` | Env-only; no global tracing; presence-check without echoing (Pitfall 7) |
+| Native `URL` constructor | Calling it bare; throws on relative/invalid | try/catch → error-as-value via explicit-error UX |
+| `URLSearchParams` | Assuming `+` is literal; collapsing repeated keys into an object | Know `+`→space; enumerate with `getAll`, preserve all rows |
+| `decodeURIComponent` | Assuming it tolerates malformed `%` | Wrap in try/catch — throws `URIError` on `%`, `%ZZ` |
+| Native `RegExp` `/g` | Sharing one stateful instance across inputs/renders | Fresh instance per eval (or `lastIndex=0`); prefer `matchAll` |
+| `new RegExp(userPattern)` | Letting `SyntaxError` escape on incomplete pattern | try/catch → error-as-value |
+| JS `Date` (cron local-time) | `new Date(y,m,d,h,min)` silently resolves DST-invalid times | Read-back constructed components; deliberate skipped/repeated-hour handling |
+| `platform/` seam | Importing `@tauri-apps/*` directly in new tools | Route clipboard/store through `src/lib/platform/` like every existing tool |
+| Tool registry | Hand-wiring sidebar/palette/router for the 3 new tools | Register in the registry array only — single control plane (sidebar/palette/router derive from it) |
+| Web Worker (regex) | Assuming it needs a network/bundler dep | Native browser API; bundle a worker via Vite — zero new runtime dep |
+
+## Performance Traps
+
+| Trap | Symptoms | Prevention | When It Breaks |
+|------|----------|------------|----------------|
+| Unbounded cron next-run search | Window beachballs on a hand-typed expression | Iteration bound + field-jump algorithm | Impossible (`0 0 30 2 *`) / sparse (`0 0 29 2 *`) |
+| ReDoS regex on main thread | One keystroke freezes the window | Web Worker + timeout watchdog | Nested-quantifier pattern on long input |
+| Zero-width `/g` exec loop | Tab hangs on anchor/lookahead/`*` patterns | `matchAll` or `lastIndex++` guard | Any zero-width-capable pattern with `/g` |
+| Live regex/replace on every keystroke over large text | Lag while typing | Debounce + (ideally) worker; respect <2s | Large test text + frequent re-eval |
+| Cron next-run recomputed every render | Sluggish UI | Memoize on expression + base time | Only matters once bounded; bound first |
 
 ## Security Mistakes
 
 | Mistake | Risk | Prevention |
 |---------|------|------------|
-| `set -x` / verbose logs expose `TAURI_SIGNING_*` | Password leak → forged auto-installing updates | No global `set -x`; scope+`set +x` around secret handling |
-| Password as command-line argument | Visible in `ps` to any local process | Pass via environment only |
-| Committing `*.key` / `.env` / `.p8` | Permanent key exposure in git history | Preflight: assert gitignore covers them + nothing secret is staged |
-| Publishing to a private repo by accident | Updater 404s (unauthenticated) → no updates | Force `--repo` to the public releases repo; verify endpoint resolves |
-| Rotating the keypair without re-shipping pubkey | All signature verifies fail; installs strandable | Verify fresh `.sig` against the *committed* pubkey before publish (Pitfall 8) |
+| Highlighting via `dangerouslySetInnerHTML` | XSS from untrusted test text | Render React text/`<mark>` nodes only |
+| `new URL()` / `decodeURIComponent` throwing to UI | Crash / stack-trace leak; bad UX | Error-as-value try/catch via existing error UX |
+| No execution bound on user-supplied regex | DoS-by-self (frozen window); foot-gun if patterns shared | Worker + timeout; never trust pattern+input combos |
+| Silently wrapping out-of-range decimal bytes to 0–255 | Wrong decode shown as authoritative | Reject out-of-range/non-integer tokens with explicit error |
+
+## UX Pitfalls
+
+| Pitfall | User Impact | Better Approach |
+|---------|-------------|-----------------|
+| Cron next-runs without a timezone/local-time note | User misreads runs around DST | Show local time (consistent w/ Unix Time tool); make DST behavior deliberate + documented |
+| `@reboot` shown with a fake "next run" | Misleading — it has no schedulable next run | "Runs at startup — no scheduled next run" |
+| Cron description that lies about DOM+DOW | "Every Friday AND the 1st" rendered as AND | Description must reflect the OR semantics (Pitfall 2) |
+| Hover-only copy on the new tools | Violates the binding no-hover-only-copy constraint | Visible, focusable copy via the platform seam (every existing tool does this) |
+| Regex "no match" shown as an error | Confuses no-match with invalid-pattern | Distinguish invalid (catch) vs valid-zero-match (Pitfall 9) |
+| URL component vs full-string encode not labeled | Wrong encoding chosen, output corrupted | Clearly label component vs full-string for both encode + decode |
 
 ## "Looks Done But Isn't" Checklist
 
-- [ ] **Version bump:** `package.json`, `tauri.conf.json`, AND `Cargo.toml` `[package].version` all equal the tag — verify all three (Cargo.toml is currently drifted at 0.1.0).
-- [ ] **Lockfiles:** `pnpm-lock.yaml` + `Cargo.lock` regenerated and committed *with* the bump — verify `git status --porcelain` is empty before tagging.
-- [ ] **Fresh signature:** `latest.json.signature` came from *this* build's `.sig` — verify the fresh `.app.tar.gz` + `.sig` against the committed `pubkey` locally.
-- [ ] **Universal coverage:** `lipo -archs` shows `x86_64 arm64`; `latest.json` has both `darwin-aarch64` + `darwin-x86_64` keys → same URL.
-- [ ] **Right repo:** release + assets + `latest.json` on `bklim5/devtools-releases` (public); tag on private `origin` — verify `curl -L .../latest/download/latest.json` resolves and matches the built version.
-- [ ] **No stale manifest:** `git ls-files latest.json` is empty; the uploaded manifest is the generated one, not `./latest.json`.
-- [ ] **Round-trip:** an *older* install actually detects → verifies → relaunches into the new version (the DST-02 proof) — not just "release exists".
-- [ ] **Notarisation-ready:** script honors `APPLE_*` env if present but doesn't require it (ad-hoc signing path is the default this milestone).
+- [ ] **Cron next-run bound:** verify `0 0 30 2 *` returns "no upcoming run" (no hang); `0 0 29 2 *` returns N runs <2s.
+- [ ] **Cron DOM/DOW OR:** verify `30 4 1,15 * 5` fires on the 1st, the 15th, AND every Friday.
+- [ ] **Cron DST:** verify spring-forward (skipped hour) and fall-back (repeated hour) behavior is deliberate + tested.
+- [ ] **Cron numbering:** verify months 1–12 (1=Jan), DOW 0–7 (0=7=Sun), 5- vs 6-field disambiguation.
+- [ ] **Cron macros:** verify `@reboot` → "no scheduled next run"; `@daily`/`@hourly` expand correctly.
+- [ ] **Cron field-set:** verify `*/15` → {0,15,30,45}, `1-5` inclusive, `1,3,5` list, out-of-range errors.
+- [ ] **Regex ReDoS:** verify `(a+)+$` on a long non-matching string times out gracefully (window responsive).
+- [ ] **Regex zero-width:** verify `/^/gm`, `/(?=x)/g`, `/a*/g` enumerate finitely (no hang).
+- [ ] **Regex state:** verify re-running the same pattern gives the same match count (no leaked `lastIndex`).
+- [ ] **Regex invalid:** verify an incomplete pattern (`(foo`) shows a message, doesn't throw; invalid ≠ no-match.
+- [ ] **Regex XSS:** verify `<img onerror=alert(1)>` as test text renders as literal text.
+- [ ] **URL throws:** verify bare host, relative path, `%`-truncated input show messages, not crashes.
+- [ ] **URL repeated keys:** verify `?a=1&a=2` shows two rows; `+` vs `%20` handled consistently.
+- [ ] **Protobuf decoder untouched:** verify `git diff -- src/lib/decoder.ts` and its test file are empty; 19 tests still 19 and green.
+- [ ] **Protobuf decimal range:** verify `256, 0` / `-1` / `3.5` error explicitly; `10, 20` decodes; `1020`/`10 20` route to hex/base64 unchanged.
+- [ ] **All four features:** verify registry-only wiring (no hand-wired router/sidebar), platform-seam copy (no `@tauri-apps/*` import), paste-instant (no decode button), WCAG-AA (visible focus, AA contrast, no opacity-only disabled), zero new runtime deps.
 
 ## Recovery Strategies
 
 | Pitfall | Recovery Cost | Recovery Steps |
 |---------|---------------|----------------|
-| Stale/wrong `.sig` in `latest.json` (1, 8) | MEDIUM | Rebuild, regenerate manifest from the fresh `.sig`, re-upload `latest.json` (and asset if it changed); no version bump needed if the artifact is the same build, but safest is a new patch release |
-| Published broken release as "latest" (6) | HIGH | Cut a new *good* patch release on top so `latest/download` redirects to it; users with a working updater recover, but those who already hit the bad one may need a manual DMG reinstall — unrecallable |
-| Universal key missing / wrong (9) | LOW–MEDIUM | Edit `latest.json` (add both default keys → universal URL), re-upload; no rebuild if the universal artifact is already published |
-| Tag pushed to wrong repo / wrong tag (5, 3) | MEDIUM | Delete the bad tag/release (private repo, before anyone consumes it); re-tag from the corrected, lockfile-clean commit; never delete a tag the public updater already serves |
-| Leaked private key + password (7) | HIGH | Rotate the keypair, ship a new build carrying the new pubkey, deprecate old installs — strands users who can't reach the new build; treat as a security incident |
-| Dirty tree / stale lockfile at tag (4) | LOW | Regenerate lockfiles, amend or add a clean commit, move the tag to the clean commit *before* publishing |
+| Cron unbounded loop shipped | MEDIUM | Add iteration bound + switch to field-jump; user already saw a hang (trust hit) |
+| Cron AND-instead-of-OR shipped | LOW | Fix `dayMatches`, add four-quadrant + `30 4 1,15 * 5` fixtures; logic-only |
+| Cron DST wrong | LOW–MEDIUM | Add component read-back + dedupe; pin DST fixtures with injectable "now" |
+| Regex UI freeze (ReDoS) shipped | MEDIUM–HIGH | Retrofit Web Worker + timeout — structural; hard to bolt on late |
+| Regex zero-width loop shipped | LOW | Swap `exec` loop for `matchAll`, or add `lastIndex++` guard |
+| Regex XSS via innerHTML shipped | MEDIUM | Replace HTML-string injection with React node rendering across the highlight path |
+| URL throw reaches UI | LOW | Wrap calls in try/catch error-as-value; add malformed/relative fixtures |
+| Decoder.ts edited for decimal input | MEDIUM | Revert decoder + tests byte-for-byte; move parsing to a pre-decode module; re-verify 19 green |
 
 ## Pitfall-to-Phase Mapping
 
 | Pitfall | Prevention Phase | Verification |
 |---------|------------------|--------------|
-| 1. Stale/wrong signature | Phase B (gen) + Phase C (verify) | Local verify of fresh `.app.tar.gz`+`.sig` vs committed pubkey passes; post-publish `curl` matches |
-| 6. Irreversible broken publish (blast radius) | Phase C | `--dry-run` shows intended actions; draft-promote ordering; post-publish endpoint smoke check |
-| 9. Universal key mismatch | Phase B | `latest.json` has both default OS-ARCH keys → universal URL; Intel install updates |
-| 2. Universal output path moved | Phase B | Artifacts asserted at `target/universal-apple-darwin/...`; `lipo -archs` shows both arches |
-| 3. Version lockstep drift (incl. Cargo.toml) | Phase A | All three files + tag equal; one-time 0.1.0 reconciliation done |
-| 4. Stale lockfiles / dirty tree | Phase A | `git status --porcelain` empty after bump commit; `--frozen-lockfile` install passes |
-| 5. Cross-repo publish / auth | Phase B (+ Phase C preflight) | `gh` push permission on releases repo asserted; release lands on public repo; endpoint resolves |
-| 7. Secret leakage | Phase B (+ Phase C preflight) | No `set -x` near secrets; no secret in args/logs; no staged `.key`/`.env` |
-| 8. Pubkey/keypair mismatch | Phase C preflight | Fresh `.sig` verifies against the *committed* `pubkey`, not the local pubkey file |
-| 10. Stale root `latest.json` | Phase A/B | `git ls-files latest.json` empty; generated manifest (not `./latest.json`) uploaded |
+| 1. Cron unbounded next-run loop | Cron tool phase | `0 0 30 2 *` → "no run" (no hang); `0 0 29 2 *` → N runs <2s |
+| 2. Cron DOM/DOW OR-semantics | Cron tool phase | `30 4 1,15 * 5` fires 1st + 15th + every Friday; four-quadrant tests |
+| 3. Cron DST transitions | Cron tool phase (deeper research) | Spring-forward/fall-back fixtures; constructed-time read-back asserted |
+| 4. Cron field-count / numbering / macros | Cron tool phase | 5/6-field disambiguation; month 1–12, DOW 0/7=Sun; `@reboot` no next run |
+| 5. Cron step/range/list expansion | Cron tool phase | `*/15`→{0,15,30,45}, `1-5` inclusive, out-of-range errors |
+| 6. Regex ReDoS / UI freeze | Regex tool phase (deeper research) | `(a+)+$` on long input → timeout message, window responsive |
+| 7. Regex `lastIndex` / zero-width loop | Regex tool phase | `matchAll` used; zero-width enumerate finitely; re-run count stable |
+| 8. Regex highlight XSS | Regex tool phase | No `dangerouslySetInnerHTML`; `<img onerror>` renders literal |
+| 9. Regex invalid-pattern handling | Regex tool phase | Incomplete pattern → message, no throw; invalid ≠ no-match |
+| 10. URL throws / encoding confusion | URL tool phase | Error-as-value on bad input; repeated keys preserved; component vs full labeled; malformed-% fixtures |
+| 11. Decoder.ts untouched | Protobuf decimal-input phase | `git diff` on decoder + tests empty; 19/19 green |
+| 12. Decimal vs hex/base64 ambiguity | Protobuf decimal-input phase | Delimiter+0–255 detection; out-of-range errors; hex/base64 detection regression-tested |
+| Workflow constraints (registry, seam, paste-instant, copy, WCAG-AA, zero-dep) | All four phases | Registry-only wiring; platform-seam copy; no decode button; gsd-ui-review WCAG-AA PASS; no new deps |
 
 ## Sources
 
-- `docs/RELEASE.md` (first-party manual runbook — §0 split-repo/pubkey, §1 lockstep, §2 secrets, §3 build/DMG-flake, §4 cross-repo `gh`, §5 fresh-`.sig`/platform-key/no-templating, §6 endpoint resolve, §7 round-trip, Pitfall-7 arm64-only callout). HIGH.
-- `.planning/ROADMAP.md` Phase 999.2 backlog (captured: arm64-only gap, stale committed `latest.json`, signing secrets, cross-repo PAT, Cargo.toml 0.1.0). HIGH.
-- `src-tauri/tauri.conf.json` (default updater config — no custom target; endpoint pinned to public releases repo; ad-hoc `signingIdentity: "-"`; `createUpdaterArtifacts: true`). HIGH.
-- Repo state verified 2026-06-02: `Cargo.toml` = `0.1.0`, `package.json`/`tauri.conf.json` = `0.2.1`; `/latest.json` gitignored but present on disk at `0.2.1`. HIGH.
-- [Tauri 2 Updater plugin docs](https://v2.tauri.app/plugin/updater/) — static-JSON platform-key matching; custom target vs default OS-ARCH; no default `darwin-universal` key. HIGH.
-- [Tauri 2 macOS Application Bundle docs](https://v2.tauri.app/distribute/macos-application-bundle/) and [Building universal binary discussion #9419](https://github.com/orgs/tauri-apps/discussions/9419) — `--target universal-apple-darwin` output path `src-tauri/target/universal-apple-darwin/release/bundle/...`; both arch targets required. MEDIUM–HIGH (output path corroborated across docs + community).
-- MEMORY: `tauri-dmg-bundle-flake` (DMG step fails when other DMGs mounted — `hdiutil detach` + retry). HIGH (project experience).
+- man7.org — crontab(5) man page (HIGH): DOM+DOW **"run when *either* field matches"** union semantics + `30 4 1,15 * 5` example; field ranges (minute 0–59, hour 0–23, DOM 1–31, month 1–12, DOW 0–7 with 0/7=Sunday); `@reboot` = "run once after reboot" (no scheduled next run). https://man7.org/linux/man-pages/man5/crontab.5.html
+- MDN — RegExp.prototype.exec (HIGH): `g`/`y` flag makes regex stateful via `lastIndex`; resets to 0 on failed match; zero-width matches cause infinite loops in `while(exec)`; **recommends `matchAll`**; manual `lastIndex++` guard for zero-width. https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/RegExp/exec
+- MDN — encodeURI/encodeURIComponent, URL, URLSearchParams, decodeURIComponent (MEDIUM, docs + established knowledge): component vs whole-URL escaping; `URL`/`decodeURIComponent` throw on invalid input; `URLSearchParams` `+`→space and repeated-key (`getAll`) behavior.
+- DevTools `.planning/PROJECT.md` (HIGH): zero-new-runtime-deps line; `decoder.ts` + 19 tests byte-for-byte untouched; paste-instant <2s; WCAG-AA; offline; registry as single control plane; `src/lib/platform/` seam; no hover-only copy; explicit-error UX precedent; v1.3 target features (5-field/6-field/macros, both encode/decode modes, flag toggles g/i/m/s/u, decimal delimiter input).
+- Established domain knowledge: Vixie-cron field/macro behavior, JSC/V8 regex catastrophic backtracking (ReDoS), React `dangerouslySetInnerHTML` XSS (MEDIUM, well-corroborated).
 
 ---
-*Pitfalls research for: local release-automation scripts (Tauri 2 macOS, signed updater, split-repo, universal binary)*
-*Researched: 2026-06-02*
+*Pitfalls research for: adding Cron + URL + Regex tools and a Protobuf decimal-byte-array input mode to a zero-dep, paste-instant Tauri desktop app*
+*Researched: 2026-06-03*
