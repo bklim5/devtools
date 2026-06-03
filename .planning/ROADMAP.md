@@ -68,11 +68,12 @@ The four features are fully independent (no inter-feature dependencies); phase o
   2. Decimal mode is auto-detected by the rule "a comma anywhere ⇒ decimal list, all tokens integers 0–255," shown via a visible detected-mode indicator the user can override.
   3. Invalid decimal input (token >255, negative, non-integer, unparseable) surfaces a clear inline error without crashing the tool.
   4. `decoder.ts` and its 19 tests are unmodified (verified via `git diff`); the parse lives in a new `decimalToBytes` in `src/lib/bytes.ts`.
-**Plans**: TBD
+**Plans**: 2 plans
 **UI hint**: yes
 
 Plans:
-- [ ] TBD (planned via `/gsd-plan-phase 12`)
+- [ ] 12-01-PLAN.md — decimal parse layer (decimalToBytes + comma-first detectEncoding + useDecode wiring; TDD, decoder untouched)
+- [ ] 12-02-PLAN.md — decimal UI mode (3rd toggle segment + example chip + placeholder; real-WKWebView gate)
 
 ### Phase 13: URL tool
 **Goal**: A new URL tool parses a pasted URL into its components and query table, and encodes/decodes strings at both the component and full-string level, all over native `URL`/`URLSearchParams`/`encodeURI(Component)` with errors surfaced as values.
