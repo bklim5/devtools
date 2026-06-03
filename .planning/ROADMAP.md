@@ -122,11 +122,14 @@ Plans:
   4. `@reboot` is described as run-at-startup with no scheduled next-run (no clock computation attempted).
   5. An impossible/never-firing expression (e.g. `0 0 30 2 *`) terminates gracefully with a clear "no upcoming runs" message via a bounded iteration cap — it never freezes the window.
   6. An invalid cron expression (wrong field count, out-of-range value, unparseable token) surfaces a clear inline error without throwing.
-**Plans**: TBD
+**Plans**: 4 plans
 **UI hint**: yes
 
 Plans:
-- [ ] TBD (planned via `/gsd-plan-phase 15`)
+- [ ] 15-01-PLAN.md — pure parse + describe core (CronFields/CronResult types, field grammar, macros, 5/6-field, hand-rolled 24h description, @reboot, error/empty) — TDD
+- [ ] 15-02-PLAN.md — next-run engine (DST-correct wall-clock odometer, DOM/DOW OR-union + 0/7 Sunday, Intl round-trip, bounded cap → kind:"never") — TDD
+- [ ] 15-03-PLAN.md — ISOLATED L/nL/L-n slice (last-day/last-weekday, leap-year + month-length canonical fixtures, 0–6 nL numbering) — TDD
+- [ ] 15-04-PLAN.md — CronTool view + registry append + real-WKWebView e2e + phase-boundary sign-off (tauri build + gsd-ui-review WCAG-AA)
 
 ## Progress
 
@@ -149,7 +152,7 @@ Phases execute in numeric order. v1.3 phases (12–15) are independent and may b
 | 12. Protobuf decimal input | v1.3 | 2/2 | Complete    | 2026-06-03 |
 | 13. URL tool | v1.3 | 2/2 | Complete    | 2026-06-03 |
 | 14. Regex tester | v1.3 | 3/3 | Complete    | 2026-06-03 |
-| 15. Cron tool | v1.3 | 0/TBD | Not started | - |
+| 15. Cron tool | v1.3 | 0/4 | Planned | - |
 
 ## Backlog
 
