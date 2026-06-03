@@ -89,14 +89,20 @@ describe("Regex tester (real WKWebView)", () => {
       const backdrop = document.querySelector<HTMLElement>(
         '[aria-hidden="true"]',
       );
-      if (!ta || !backdrop) return { ok: false, reason: "missing nodes" };
+      const content = backdrop?.firstElementChild as HTMLElement | null;
+      if (!ta || !content) return { ok: false, reason: "missing nodes" };
       ta.scrollTop = 200;
       ta.dispatchEvent(new Event("scroll", { bubbles: true }));
-      // Allow the synced layout to settle (the sync is synchronous in the handler).
+      // The backdrop CLIPS (overflow-hidden) so its inner content is translate()-d by
+      // the negative scroll offsets — it must track the textarea's actual scrollTop.
+      const m = /translateY?\(.*?(-?\d+(?:\.\d+)?)px\)?\s*$/.exec(
+        content.style.transform,
+      );
+      const ty = m ? Math.abs(parseFloat(m[1])) : NaN;
       return {
-        ok: ta.scrollTop > 0 && backdrop.scrollTop === ta.scrollTop,
+        ok: ta.scrollTop > 0 && Math.abs(ty - ta.scrollTop) <= 1,
         taTop: ta.scrollTop,
-        backdropTop: backdrop.scrollTop,
+        transform: content.style.transform,
       };
     });
     if (!aligned.ok) {

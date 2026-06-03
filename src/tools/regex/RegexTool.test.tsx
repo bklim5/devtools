@@ -114,14 +114,18 @@ describe("RegexTool", () => {
     expect(container.textContent).toContain("<b>");
   });
 
-  it("scrolling the sample-text textarea mirrors BOTH axes onto the highlight backdrop (D-02 — human-review desync fix)", () => {
+  it("scrolling the sample-text textarea translates the highlight backdrop content on BOTH axes (D-02 — human-review desync fix)", () => {
     const { container } = render(<RegexTool />);
     const textarea = textInput(container);
-    // The aria-hidden backdrop is the scroll-synced overlay sibling.
+    // The aria-hidden backdrop CLIPS (overflow-hidden) — an overflow-hidden box can't
+    // take a non-zero scrollTop, so its INNER content is translate()-d instead. The
+    // inner content is the backdrop's only element child.
     const backdrop = container.querySelector<HTMLElement>(
       '[aria-hidden="true"]',
     );
     if (!backdrop) throw new Error("highlight backdrop not found");
+    const content = backdrop.firstElementChild as HTMLElement | null;
+    if (!content) throw new Error("backdrop content node not found");
 
     // Simulate the user scrolling a long input: jsdom doesn't lay out, so set the
     // scroll offsets directly and fire the scroll event the component listens on.
@@ -129,10 +133,9 @@ describe("RegexTool", () => {
     textarea.scrollLeft = 42;
     fireEvent.scroll(textarea);
 
-    // The backdrop must track the textarea on BOTH axes or the <mark>s drift off the
-    // characters/caret (the load-bearing D-02 overlay alignment the human rejected).
-    expect(backdrop.scrollTop).toBe(137);
-    expect(backdrop.scrollLeft).toBe(42);
+    // The content must translate by the NEGATIVE scroll offsets on BOTH axes or the
+    // <mark>s drift off the characters/caret (the D-02 alignment the human rejected).
+    expect(content.style.transform).toBe("translate(-42px, -137px)");
   });
 
   it("places the Email/URL/IPv4 chips next to a 'Common patterns' caption (human-review placement)", () => {

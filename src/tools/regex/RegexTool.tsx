@@ -156,7 +156,7 @@ export default function RegexTool() {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const backdropRef = useRef<HTMLDivElement | null>(null);
+  const backdropContentRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const flagString = useMemo(
@@ -257,30 +257,32 @@ export default function RegexTool() {
 
   // Mirror the textarea's scroll position onto the backdrop so the highlight
   // <mark>s stay EXACTLY under the matched characters/caret (D-02 — the load-bearing
-  // overlay alignment). BOTH axes are synced (vertical scroll + any horizontal
-  // scroll from long unbroken tokens). Pulled out of the JSX handler so it's unit-
-  // testable: pass the live scrollTop/scrollLeft and the backdrop element.
+  // overlay alignment). The backdrop is `overflow-hidden` (so it CANNOT be given a
+  // non-zero scrollTop/scrollLeft — the browser clamps those to 0 on a clipped box,
+  // which was the human-review desync bug). Instead we TRANSLATE the backdrop's inner
+  // content by the negative scroll offsets — a layout-independent technique that
+  // tracks BOTH axes regardless of overflow. Pulled out of the JSX handler so it's
+  // unit-testable: pass the live scroll offsets and the content element.
   function applyScrollSync(
     source: { scrollTop: number; scrollLeft: number },
-    backdrop: HTMLElement | null,
+    content: HTMLElement | null,
   ): void {
-    if (!backdrop) return;
-    backdrop.scrollTop = source.scrollTop;
-    backdrop.scrollLeft = source.scrollLeft;
+    if (!content) return;
+    content.style.transform = `translate(${-source.scrollLeft}px, ${-source.scrollTop}px)`;
   }
 
   function handleScroll(e: React.UIEvent<HTMLTextAreaElement>): void {
-    applyScrollSync(e.currentTarget, backdropRef.current);
+    applyScrollSync(e.currentTarget, backdropContentRef.current);
   }
 
   // Re-sync after EVERY render that can change the backdrop's content/height: the
   // highlight segments (matches), the text, or the box. When the <mark> segments
-  // re-render the backdrop's scroll can reset, drifting it off the textarea — re-apply
+  // re-render the translated content can reset, drifting it off the textarea — re-apply
   // the textarea's current scroll so they never separate (the human-review desync fix).
   useEffect(() => {
     applyScrollSync(
       textareaRef.current ?? { scrollTop: 0, scrollLeft: 0 },
-      backdropRef.current,
+      backdropContentRef.current,
     );
   });
 
@@ -377,16 +379,22 @@ export default function RegexTool() {
             Sample text
           </label>
           {/* The backdrop and textarea share EDITOR_BOX (identical metrics) so the
-              highlight tracks the caret. Both scroll internally (overflow-auto on the
-              textarea, overflow-hidden on the backdrop) and are scroll-synced; resize
-              is OFF so a user-resized textarea can't desync the inset-0 backdrop. */}
+              highlight tracks the caret. The textarea scrolls internally
+              (overflow-auto); the backdrop clips (overflow-hidden) and its INNER
+              content is translate()-d by the textarea's scroll offsets (an overflow-
+              hidden box can't take a non-zero scrollTop — that was the desync bug).
+              resize is OFF so a user-resized textarea can't desync the inset-0
+              backdrop. The inner content carries EDITOR_BOX (padding/font/wrapping) so
+              it lays out identically to the textarea; the outer clip box is a bare
+              border so the translated content is clipped at the same border edge. */}
           <div className="relative min-h-[220px] min-w-0">
             <div
-              ref={backdropRef}
               aria-hidden="true"
-              className={`pointer-events-none absolute inset-0 overflow-hidden border-transparent text-tx ${EDITOR_BOX}`}
+              className="pointer-events-none absolute inset-0 overflow-hidden rounded-lg border border-transparent text-tx"
             >
-              <Highlighted text={text} matches={matches} />
+              <div ref={backdropContentRef} className={`${EDITOR_BOX} border-transparent`}>
+                <Highlighted text={text} matches={matches} />
+              </div>
             </div>
             <textarea
               ref={textareaRef}
