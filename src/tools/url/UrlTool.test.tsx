@@ -139,31 +139,33 @@ describe("UrlTool", () => {
     expect(writeText).toHaveBeenCalledWith("api.example.com");
   });
 
-  it("encode/decode shows both directions live under the component scope", () => {
+  it("encode/decode shows both directions live and defaults to the full scope", () => {
     const { container } = render(<UrlTool />);
     switchToEncode(container);
     fireEvent.change(encodeInput(container), { target: { value: "a b/c" } });
 
     const encoded = container.querySelector("#url-encoded-output")!;
     const decoded = container.querySelector("#url-decoded-output")!;
-    // component scope escapes the slash.
-    expect(encoded.textContent).toContain("%2F");
+    // full scope (default) keeps the slash intact.
+    expect(encoded.textContent).toContain("/");
+    expect(encoded.textContent).not.toContain("%2F");
     // decode of plain text is a no-op echo.
     expect(decoded.textContent).toContain("a b/c");
   });
 
-  it("the component|full scope toggle changes the encoding (slash kept in full)", () => {
+  it("the component|full scope toggle changes the encoding (slash escaped in component)", () => {
     const { container } = render(<UrlTool />);
     switchToEncode(container);
     fireEvent.change(encodeInput(container), { target: { value: "a b/c" } });
-    const encodedComponent = container.querySelector("#url-encoded-output")!.textContent;
-    expect(encodedComponent).toContain("%2F");
-
-    fireEvent.click(within(container).getByRole("button", { name: "full" }));
+    // full is the default — slash kept.
     const encodedFull = container.querySelector("#url-encoded-output")!.textContent;
-    // full (encodeURI) keeps the slash intact.
     expect(encodedFull).toContain("/");
     expect(encodedFull).not.toContain("%2F");
+
+    fireEvent.click(within(container).getByRole("button", { name: "component" }));
+    const encodedComponent = container.querySelector("#url-encoded-output")!.textContent;
+    // component (encodeURIComponent) escapes the slash.
+    expect(encodedComponent).toContain("%2F");
   });
 
   it("a bad percent-sequence '%zz' errors the Decoded pane only; Encoded intact", () => {

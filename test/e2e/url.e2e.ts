@@ -101,8 +101,8 @@ describe("URL tool (real WKWebView)", () => {
       "expected NO host readout row in the relative-URL error state (D-13)",
     );
 
-    // 3. ENCODE/DECODE: switch mode, type a string with a slash under `component`
-    //    scope → the slash is escaped to %2F. Switch to `full` → slash stays "/".
+    // 3. ENCODE/DECODE: switch mode, type a string with a slash. The default
+    //    `full` scope keeps the slash "/". Switch to `component` → it escapes to %2F.
     const encodeSegment = await $("button=Encode/Decode");
     await encodeSegment.click();
 
@@ -113,23 +113,23 @@ describe("URL tool (real WKWebView)", () => {
 
     const encodedOut = await $("#url-encoded-output");
     await browser.waitUntil(
-      async () => (await encodedOut.getText()).includes("%2F"),
-      {
-        timeout: 5_000,
-        timeoutMsg: `expected component scope to escape "/" as %2F, got "${await encodedOut.getText()}"`,
-      },
-    );
-
-    const fullSegment = await $("button=full");
-    await fullSegment.click();
-    await browser.waitUntil(
       async () => {
         const t = await encodedOut.getText();
         return t.includes("/") && !t.includes("%2F");
       },
       {
         timeout: 5_000,
-        timeoutMsg: `expected full scope to keep "/" intact (no %2F), got "${await encodedOut.getText()}"`,
+        timeoutMsg: `expected default full scope to keep "/" intact (no %2F), got "${await encodedOut.getText()}"`,
+      },
+    );
+
+    const componentSegment = await $("button=component");
+    await componentSegment.click();
+    await browser.waitUntil(
+      async () => (await encodedOut.getText()).includes("%2F"),
+      {
+        timeout: 5_000,
+        timeoutMsg: `expected component scope to escape "/" as %2F, got "${await encodedOut.getText()}"`,
       },
     );
 

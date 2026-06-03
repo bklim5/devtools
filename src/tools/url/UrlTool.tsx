@@ -229,7 +229,7 @@ function OutputPane({
 
 function EncodeMode() {
   const [input, setInput] = useState("");
-  const [scope, setScope] = useState<Scope>("component");
+  const [scope, setScope] = useState<Scope>("full");
 
   const encoded = useMemo(
     () => (scope === "component" ? encodeComponent(input) : encodeFull(input)),
