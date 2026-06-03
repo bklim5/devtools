@@ -86,7 +86,11 @@ describe("Regex tester (real WKWebView)", () => {
     await patternInput.setValue("word");
     const aligned = await browser.execute(() => {
       const ta = document.querySelector<HTMLTextAreaElement>("#regex-text");
-      const backdrop = document.querySelector<HTMLElement>(
+      // The backdrop is the textarea's sibling inside the relative editor container;
+      // its only element child is the translate()-d content. Scope off the textarea
+      // (NOT a bare [aria-hidden] query — other nodes carry that attribute).
+      const container = ta?.parentElement;
+      const backdrop = container?.querySelector<HTMLElement>(
         '[aria-hidden="true"]',
       );
       const content = backdrop?.firstElementChild as HTMLElement | null;
