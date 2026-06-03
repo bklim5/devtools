@@ -85,11 +85,12 @@ Plans:
   3. User can paste a URL and see it split into scheme / host / port / path / query / fragment.
   4. User sees the query string as a key→value table, including repeated keys (`getAll`) and empty values, each value decoded.
   5. A malformed/relative URL or bad percent-sequence surfaces a clear inline error without throwing.
-**Plans**: TBD
+**Plans**: 2 plans
 **UI hint**: yes
 
 Plans:
-- [ ] TBD (planned via `/gsd-plan-phase 13`)
+- [ ] 13-01-PLAN.md — pure url.ts parse/encode/decode helpers (TDD) + extracted shared SegmentedControl (D-16)
+- [ ] 13-02-PLAN.md — URL tool view (Parse readout + query table, Encode/Decode panes) + registry entry + real-WKWebView e2e + phase sign-off
 
 ### Phase 14: Regex tester
 **Goal**: A new Regex tester runs a user-supplied pattern against sample text with live highlighted matches, capture-group breakdown, flag toggles, and a replace preview — and a catastrophic-backtracking pattern can never freeze the window because matching runs in a Web Worker with a timeout watchdog.
