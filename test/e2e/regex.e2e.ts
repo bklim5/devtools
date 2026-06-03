@@ -73,17 +73,33 @@ describe("Regex tester (real WKWebView)", () => {
     const yearCopy = await $('button[aria-label="Copy group year"]');
     await yearCopy.waitForExist({ timeout: 5_000 });
 
-    // 2b. OVERLAY SCROLL ALIGNMENT (D-02 — the human-review round-1 desync fix):
-    //     fill the textarea with enough lines to scroll, scroll it, and assert the
-    //     aria-hidden highlight backdrop tracks the SAME scrollTop on the REAL
-    //     WKWebView (where the box layout actually happens, unlike jsdom). If the
-    //     backdrop drifted, the <mark>s would no longer sit over the matched chars.
-    const longText = Array.from({ length: 60 }, (_, i) => `line ${i} word`).join(
-      "\n",
-    );
+    // 2b. OVERLAY GLYPH-LEVEL ALIGNMENT (D-02 — the load-bearing overlay invariant,
+    //     human-review round 2). This replaces the round-1 assertion, which only checked
+    //     that the backdrop's translate tracked scrollTop — it measured scroll PROPAGATION,
+    //     not glyph alignment, so it PASSED while the highlights visibly drifted ~1 line
+    //     lower the further down the document you read (the accumulating-drift bug).
+    //
+    //     The ACTUAL root cause (measured on this WKWebView): with macOS "Show scroll bars:
+    //     Always", the textarea's ~14px scrollbar consumed layout width, so the textarea
+    //     wrapped lines EARLIER than the (scrollbar-less) backdrop — clientWidth 1182 vs
+    //     1194 — and every wrap difference pushed the <mark> one line lower, accumulating.
+    //     The fix makes the textarea scrollbar take ZERO layout width (.no-scrollbar) and
+    //     drops a redundant backdrop border so the two layers have an IDENTICAL text box.
+    //
+    //     This invariant fails-before / passes-after: it forces a sample that BOTH wraps
+    //     (long lines) AND overflows vertically (a scrollbar would appear), then asserts the
+    //     two layers wrap identically (equal clientWidth + scrollHeight within 1px) AND that a
+    //     known <mark> sits on its glyph's line after scrolling. jsdom can't do layout — this
+    //     MUST run on the real WKWebView.
+    const longLine =
+      "the quick brown fox jumps over the lazy dog and then keeps running onward";
+    const wrapSample = Array.from(
+      { length: 40 },
+      (_, i) => `line ${i} ${longLine} target${i}`,
+    ).join("\n");
     await textInput.click();
-    await textInput.setValue(longText);
-    await patternInput.setValue("word");
+    await textInput.setValue(wrapSample);
+    await patternInput.setValue("target30");
     const aligned = await browser.execute(() => {
       const ta = document.querySelector<HTMLTextAreaElement>("#regex-text");
       // The backdrop is the textarea's sibling inside the relative editor container;
@@ -95,23 +111,49 @@ describe("Regex tester (real WKWebView)", () => {
       );
       const content = backdrop?.firstElementChild as HTMLElement | null;
       if (!ta || !content) return { ok: false, reason: "missing nodes" };
-      ta.scrollTop = 200;
+
+      // (a) IDENTICAL WRAP: the textarea and the backdrop content must have the same
+      //     text-box width (or they wrap at different columns — the drift's true cause)
+      //     and therefore the same total height.
+      const widthEqual = ta.clientWidth === content.clientWidth;
+      const heightAligned = Math.abs(ta.scrollHeight - content.scrollHeight) <= 1;
+
+      // (b) GLYPH ALIGNMENT AFTER SCROLL: scroll to the <mark> and assert its rect sits
+      //     on the same line the textarea would render that glyph — i.e. the <mark>'s top,
+      //     relative to the content box, lands at an integer multiple of the line-height
+      //     (within ~2px). If the layers wrapped differently the <mark> would be a line off.
+      ta.scrollTop = ta.scrollHeight; // scroll to the bottom where drift accumulated most
       ta.dispatchEvent(new Event("scroll", { bubbles: true }));
-      // The backdrop CLIPS (overflow-hidden) so its inner content is translate()-d by
-      // the negative scroll offsets — it must track the textarea's actual scrollTop.
-      const m = /translateY?\(.*?(-?\d+(?:\.\d+)?)px\)?\s*$/.exec(
-        content.style.transform,
-      );
-      const ty = m ? Math.abs(parseFloat(m[1])) : NaN;
+      const mark = content.querySelector("mark");
+      const markRect = mark?.getBoundingClientRect();
+      const contentRect = content.getBoundingClientRect();
+      const lineHeight = parseFloat(getComputedStyle(content).lineHeight);
+      const pad = parseFloat(getComputedStyle(content).paddingTop);
+      let lineOffset = NaN;
+      if (markRect) {
+        // Distance from the content's first text baseline row to the mark, in lines.
+        const rel = markRect.top - (contentRect.top + pad);
+        lineOffset = rel / lineHeight;
+      }
+      const onGridLine =
+        Number.isFinite(lineOffset) &&
+        Math.abs(lineOffset - Math.round(lineOffset)) * lineHeight <= 2;
+
       return {
-        ok: ta.scrollTop > 0 && Math.abs(ty - ta.scrollTop) <= 1,
-        taTop: ta.scrollTop,
-        transform: content.style.transform,
+        ok: widthEqual && heightAligned && onGridLine,
+        widthEqual,
+        heightAligned,
+        onGridLine,
+        taClientWidth: ta.clientWidth,
+        contentClientWidth: content.clientWidth,
+        taScrollHeight: ta.scrollHeight,
+        contentScrollHeight: content.scrollHeight,
+        lineOffset,
       };
     });
     if (!aligned.ok) {
       throw new Error(
-        `overlay backdrop drifted from the textarea on scroll: ${JSON.stringify(aligned)}`,
+        `overlay layers misaligned (the accumulating-drift bug): ${JSON.stringify(aligned)}`,
       );
     }
 

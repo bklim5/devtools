@@ -71,3 +71,22 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
 }
+
+/* Zero-width scrollbar — deterministic regardless of the macOS
+   "Show scroll bars: Always" setting. The Regex tool's overlay-on-textarea
+   highlight (src/tools/regex/RegexTool.tsx) needs the editable <textarea> and the
+   highlight backdrop <div> to wrap text at the SAME column, i.e. to have an
+   IDENTICAL content-box width. With "Always show scrollbars" on, a textarea's
+   vertical scrollbar consumes ~14px of layout width, so the textarea wraps lines
+   EARLIER than the backdrop — and the per-line wrap difference accumulates into a
+   visible downward drift of the <mark> highlights (measured: textarea.clientWidth
+   1182 vs backdrop 1194 on the real WKWebView). Removing the scrollbar's layout
+   width makes the two layers wrap identically on every machine; the content still
+   scrolls via wheel/keys and the backdrop is driven by the translate() scroll-sync. */
+.no-scrollbar {
+  scrollbar-width: none; /* Firefox / standard */
+}
+.no-scrollbar::-webkit-scrollbar {
+  width: 0;
+  height: 0; /* WebKit / WKWebView — the layout-width thief */
+}

@@ -388,9 +388,15 @@ export default function RegexTool() {
               it lays out identically to the textarea; the outer clip box is a bare
               border so the translated content is clipped at the same border edge. */}
           <div className="relative min-h-[220px] min-w-0">
+            {/* The outer clip box is a BARE rounded box (overflow-hidden, NO border) so
+                the inner content's single 1px transparent border (from EDITOR_BOX) is
+                the ONLY border on the backdrop — matching the textarea's single border
+                EXACTLY. A border on this outer box too would offset + narrow the backdrop
+                text box by 2px vs the textarea (measured), reintroducing a small wrap
+                mismatch. */}
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute inset-0 overflow-hidden rounded-lg border border-transparent text-tx"
+              className="pointer-events-none absolute inset-0 overflow-hidden rounded-lg text-tx"
             >
               <div ref={backdropContentRef} className={`${EDITOR_BOX} border-transparent`}>
                 <Highlighted text={text} matches={matches} />
@@ -407,7 +413,14 @@ export default function RegexTool() {
               autoCapitalize="off"
               autoCorrect="off"
               placeholder="Paste sample text to match against…"
-              className={`absolute inset-0 h-full w-full resize-none overflow-auto border-bd bg-transparent text-transparent caret-tx outline-none transition-colors focus-visible:border-accent-line focus-visible:ring-2 focus-visible:ring-accent ${EDITOR_BOX}`}
+              // `no-scrollbar` makes the textarea's scrollbar take ZERO layout width
+              // (src/index.css) so its text content box is the SAME width as the
+              // backdrop's and the two layers wrap at the SAME column. Without it, on a
+              // mac with "Show scroll bars: Always" the ~14px scrollbar narrows ONLY the
+              // textarea, so it wraps lines earlier than the backdrop and the <mark>s
+              // drift one line lower per wrap (the accumulating-drift bug — measured
+              // textarea.clientWidth 1182 vs backdrop 1194 on the real WKWebView).
+              className={`no-scrollbar absolute inset-0 h-full w-full resize-none overflow-auto border-bd bg-transparent text-transparent caret-tx outline-none transition-colors focus-visible:border-accent-line focus-visible:ring-2 focus-visible:ring-accent ${EDITOR_BOX}`}
             />
           </div>
         </section>
