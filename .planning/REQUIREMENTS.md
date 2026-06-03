@@ -38,13 +38,13 @@ Three new tools (Cron, URL, Regex) plus a decimal-byte-array input mode for the 
 
 ### Regex tester
 
-- [ ] **RGX-01**: User can test a regex against sample text and see highlighted matches, paste-instant.
-- [ ] **RGX-02**: User sees a per-match capture-group breakdown, including numbered and named groups.
-- [ ] **RGX-03**: User can toggle flags `g`, `i`, `m`, `s`, `u` and matching updates live.
-- [ ] **RGX-04**: User sees a live replace/substitution preview supporting `$1`, `$<name>`, and `$&` references.
-- [ ] **RGX-05**: User can insert from a small common-pattern library (email, URL, IPv4).
-- [ ] **RGX-06**: A catastrophic-backtracking pattern cannot freeze the window — matching runs in a Web Worker with a timeout watchdog; on timeout the user sees a clear "pattern timed out" message and the UI stays responsive.
-- [ ] **RGX-07**: An invalid regex surfaces a clear inline error without throwing; match highlighting renders escaped text safely (span overlay, never `dangerouslySetInnerHTML`).
+- [x] **RGX-01**: User can test a regex against sample text and see highlighted matches, paste-instant.
+- [x] **RGX-02**: User sees a per-match capture-group breakdown, including numbered and named groups.
+- [x] **RGX-03**: User can toggle flags `g`, `i`, `m`, `s`, `u` and matching updates live.
+- [x] **RGX-04**: User sees a live replace/substitution preview supporting `$1`, `$<name>`, and `$&` references.
+- [x] **RGX-05**: User can insert from a small common-pattern library (email, URL, IPv4).
+- [x] **RGX-06**: A catastrophic-backtracking pattern cannot freeze the window — matching runs in a Web Worker with a timeout watchdog; on timeout the user sees a clear "pattern timed out" message and the UI stays responsive.
+- [x] **RGX-07**: An invalid regex surfaces a clear inline error without throwing; match highlighting renders escaped text safely (span overlay, never `dangerouslySetInnerHTML`).
 
 ## Future Requirements (deferred)
 
@@ -82,13 +82,13 @@ Every v1 requirement maps to exactly one phase. Phase numbering continues from v
 | URL-03 | Phase 13 | Complete |
 | URL-04 | Phase 13 | Complete |
 | URL-05 | Phase 13 | Complete |
-| RGX-01 | Phase 14 | Pending |
-| RGX-02 | Phase 14 | Pending |
-| RGX-03 | Phase 14 | Pending |
-| RGX-04 | Phase 14 | Pending |
-| RGX-05 | Phase 14 | Pending |
-| RGX-06 | Phase 14 | Pending |
-| RGX-07 | Phase 14 | Pending |
+| RGX-01 | Phase 14 | Complete |
+| RGX-02 | Phase 14 | Complete |
+| RGX-03 | Phase 14 | Complete |
+| RGX-04 | Phase 14 | Complete |
+| RGX-05 | Phase 14 | Complete |
+| RGX-06 | Phase 14 | Complete |
+| RGX-07 | Phase 14 | Complete |
 | CRON-01 | Phase 15 | Pending |
 | CRON-02 | Phase 15 | Pending |
 | CRON-03 | Phase 15 | Pending |

@@ -54,7 +54,7 @@ The four features are fully independent (no inter-feature dependencies); phase o
 
 - [x] **Phase 12: Protobuf decimal input** — accept a comma/space-separated decimal byte array as a third auto-detected Protobuf input mode (`decimalToBytes` in `src/lib/bytes.ts`; decoder untouched) — completed 2026-06-03
 - [x] **Phase 13: URL tool** — parse a URL into components + query key→value table, component-vs-full encode/decode both ways (native `URL`/`URLSearchParams`/`encodeURI(Component)`) (completed 2026-06-03)
-- [ ] **Phase 14: Regex tester** — live highlighted matches, capture-group breakdown, flag toggles, `$1`/`$<name>`/`$&` replace preview, 3-pattern library, ReDoS-safe via a Web Worker + timeout
+- [x] **Phase 14: Regex tester** — live highlighted matches, capture-group breakdown, flag toggles, `$1`/`$<name>`/`$&` replace preview, 3-pattern library, ReDoS-safe via a Web Worker + timeout (completed 2026-06-03)
 - [ ] **Phase 15: Cron tool** — paste an expression → 24h human-readable description + next 5 runs in local time with IANA TZ label; 5/6-field, macros, full field syntax, DOM/DOW OR, DST-correct, and the isolated `L`/`nL` slice
 
 ## Phase Details
@@ -109,7 +109,7 @@ Plans:
 Plans:
 - [x] 14-01-PLAN.md — TDD Wave 0 (MERGED into 02/03 per user Rule-4): RED-only commits can't pass the lefthook tsc+vitest hook, so each test file ships GREEN with its impl. `regex.test.ts` landed in 14-02; `RegexTool.test.tsx` + `regex.e2e.ts` land in 14-03.
 - [x] 14-02-PLAN.md — Wave 1 COMPLETE: pure error-as-value core src/lib/regex/regex.ts (build/enumerate/replace/runRegex + COMMON_PATTERNS, g-forced enumeration) + the thin Web Worker transport worker.ts. `regex.test.ts` 23/23 GREEN, decoder + CSP untouched. Commits cd604c07, 0b64d34d.
-- [ ] 14-03-PLAN.md — Wave 2: RegexTool view (terminate-on-timeout watchdog, overlay-on-textarea escaped highlight, capture-group breakdown, replace preview, flag toggles, 3-chip library) + registry append + real-WKWebView e2e/tauri-build/gsd-ui-review phase-boundary sign-off
+- [x] 14-03-PLAN.md — Wave 2: RegexTool view (terminate-on-timeout watchdog, overlay-on-textarea escaped highlight, capture-group breakdown, replace preview, flag toggles, 3-chip library) + registry append + real-WKWebView e2e/tauri-build/gsd-ui-review phase-boundary sign-off
 
 ### Phase 15: Cron tool
 **Goal**: A new Cron tool parses an expression into a 24-hour human-readable description and computes the next 5 run times in local time (with an IANA timezone label) over a hand-rolled, DST-correct, bounded next-run iterator — supporting 5/6-field, macros, full field syntax, DOM/DOW OR-union semantics, and last-day / last-weekday (`L`/`nL`/`L-n`) as an isolated high-risk slice.
@@ -148,7 +148,7 @@ Phases execute in numeric order. v1.3 phases (12–15) are independent and may b
 | 11. build-and-publish driver + universal binary + safety rails | v1.2 | 3/3 | Complete    | 2026-06-03 |
 | 12. Protobuf decimal input | v1.3 | 2/2 | Complete    | 2026-06-03 |
 | 13. URL tool | v1.3 | 2/2 | Complete    | 2026-06-03 |
-| 14. Regex tester | v1.3 | 2/3 | In progress (14-01 merged into 02/03; 14-02 core+worker done) | - |
+| 14. Regex tester | v1.3 | 3/3 | Complete    | 2026-06-03 |
 | 15. Cron tool | v1.3 | 0/TBD | Not started | - |
 
 ## Backlog
@@ -174,7 +174,7 @@ Unsequenced ideas captured for future planning. Promote with `/gsd-review-backlo
 Each candidate must still pass the product wedge: offline/no-network, paste-instant (<2s), keyboard-driven, registry-driven, WCAG-AA, and the build+verify harness.
 
 **Requirements:** TBD (remaining wishlist; Cron/URL/Regex requirements now in `.planning/REQUIREMENTS.md` for v1.3)
-**Plans:** 2/2 plans complete
+**Plans:** 3/3 plans complete
 
 Plans:
 - [ ] TBD (promote remaining wishlist with /gsd-review-backlog when ready)

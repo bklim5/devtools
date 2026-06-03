@@ -3,26 +3,26 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: More Tools
 status: executing
-last_updated: "2026-06-03T18:05:00.000Z"
-last_activity: 2026-06-03 -- Plan 14-03 (regex view + registry + e2e) AUTONOMOUS TASKS COMPLETE; awaiting Phase-14 sign-off
+last_updated: "2026-06-03T20:47:38.455Z"
+last_activity: 2026-06-03
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 7
-  completed_plans: 5
-  percent: 71
+  completed_plans: 7
+  percent: 100
 ---
 
 # Project State
 
 ## Current Position
 
-Phase: 14 (regex-tester) — EXECUTING
-Plan: 3 of 3 — 14-03 autonomous tasks COMPLETE; blocking Task-3 human-verify pending
-Status: Executing Phase 14 (awaiting phase-boundary sign-off)
-Last activity: 2026-06-03 -- Plan 14-03 (regex view + registry + e2e) AUTONOMOUS TASKS COMPLETE
+Phase: 15 (cron-tool) — NOT STARTED; Phase 14 COMPLETE & SIGNED OFF ✓
+Plan: Not started
+Status: Ready to plan Phase 15 (run `/gsd-research-phase 15` first — DST wall-clock, bounded field-jump, `L`/`nL` fixtures)
+Last activity: 2026-06-03 -- Phase 14 (Regex tester) complete & human-approved
 
-**Phase-14 plan restructure (user Rule-4 merge):** the original standalone 14-01 TDD "RED" wave (3 test files committed failing) was merged into 02/03 because the binding lefthook pre-commit hook rejects any commit where tsc/vitest fail — RED-only commits can't land. Each test file now ships GREEN with the code that satisfies it. 14-02 absorbed `src/lib/regex/regex.test.ts` (committed GREEN with `regex.ts`). `RegexTool.test.tsx` + `regex.e2e.ts` belong to 14-03.
+**Phase 14 — Regex tester — COMPLETE ✓ (11th tool).** All 3 plans shipped, phase boundary signed off after 3 review rounds. RGX-01..07 validated. The Regex tool (`src/tools/regex/` + `src/lib/regex/`) runs a user pattern against sample text with live highlighted matches, numbered+named capture-group breakdown, g/i/m/s/u flag toggles, `$1`/`$<name>`/`$&` replace preview, an Email/URL/IPv4 common-pattern library, and ReDoS safety via an off-thread Web Worker + a timeout watchdog (armed before worker construction). Verifier PASSED 6/6 must-haves; code review `medium` (0 crit/high, 2 med + 3 low — advisory follow-up: `/gsd-code-review-fix 14`). `decoder.ts` + its 19 tests byte-for-byte untouched. **Plan restructure (user Rule-4 merge):** the standalone 14-01 TDD "RED" wave was merged into 02/03 (the lefthook pre-commit hook rejects failing commits, so RED-only commits can't land) — each test file shipped GREEN with its implementation; 14-01-SUMMARY.md is the bridge doc. **Key fix (3 review rounds):** highlight overlay drifted from the textarea text because macOS "always show scrollbars" gave the textarea a layout-width scrollbar, so the two layers wrapped at different columns — fixed with a zero-width-scrollbar (`.no-scrollbar`) so text widths match on every machine, proven by a non-vacuous `clientWidth`/`scrollHeight` invariant e2e.
 
 **Milestone v1.3 "More Tools" roadmapped 2026-06-03.** Goal: add three new high-frequency tools (Cron, URL, Regex) + a Protobuf decimal-byte-array input mode — each clearing the product wedge with zero new runtime deps. Eight tools → eleven. The research (SUMMARY.md, HIGH confidence) established that the four features are FULLY INDEPENDENT (no inter-feature dependencies) and that every feature ships zero new runtime AND zero new devDependencies over native Web/JS APIs. Phase order is therefore purely RISK-DRIVEN — smallest/safest first, the two deep features last so verification budget concentrates on them:
 
