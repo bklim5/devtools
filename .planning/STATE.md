@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: More Tools
-status: verifying
-last_updated: "2026-06-04T17:22:34.794Z"
-last_activity: 2026-06-04
+status: milestone_complete
+last_updated: "2026-06-04T19:40:00.000Z"
+last_activity: 2026-06-04 -- Milestone v1.3 More Tools shipped & archived
 progress:
   total_phases: 4
   completed_phases: 4
@@ -17,10 +17,10 @@ progress:
 
 ## Current Position
 
-Phase: 15
-Plan: Not started
-Status: BLOCKED on human-verify — `pnpm tauri build` walkthrough + `gsd-ui-review` WCAG-AA PASS on the Cron tool. The 12th tool (Cron) is live at #/tools/cron: CronTool.tsx + tests + registry append + real-WKWebView e2e all shipped (648/648 vitest, tsc/eslint clean, e2e 13/13, screenshot saved). Commits 26230213 (feat) + ebfe49f6 (test). On "approved": flip ROADMAP Phase-15 row to Complete + close milestone v1.3.
-Last activity: 2026-06-04
+Phase: — (no active phase)
+Plan: —
+Status: ✅ **Milestone v1.3 "More Tools" SHIPPED, SIGNED OFF & ARCHIVED** (Phases 12–15; tag `v1.3`, local-only). Eight tools → eleven — Protobuf decimal input (PRO-08/09), URL tool (URL-01..05), Regex tester (RGX-01..07), Cron tool (CRON-01..11) — all 25 requirements validated on the real WKWebView; full suite 650/650; zero new runtime/dev deps; `decoder.ts` + its 19 tests byte-for-byte untouched throughout. Cron (the 11th tool) at #/tools/cron: hand-rolled DST-correct bounded next-run + leap-aware `L`/`nL`/`L-n`; Phase-15 verifier 26/26, gsd-ui-review 23/24 WCAG-AA PASS, code review clean, advisory MD-02/LO-01 fixed (`25daf5d6`/`2ce37ed9`). Archived to `.planning/milestones/v1.3-*`; REQUIREMENTS.md deleted (fresh one comes with the next milestone). **Next: `/gsd-new-milestone` (or `/gsd-review-backlog`) — no active milestone.**
+Last activity: 2026-06-04 -- v1.3 shipped & archived
 
 **Phase 14 — Regex tester — COMPLETE ✓ (the 10th tool; Cron/Phase 15 will be the 11th).** All 3 plans shipped, phase boundary signed off after 3 review rounds. RGX-01..07 validated. The Regex tool (`src/tools/regex/` + `src/lib/regex/`) runs a user pattern against sample text with live highlighted matches, numbered+named capture-group breakdown, g/i/m/s/u flag toggles, `## Current Position
 

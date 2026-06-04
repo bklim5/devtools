@@ -79,6 +79,37 @@
 
 ---
 
+## Milestone: v1.3 — More Tools
+
+**Shipped:** 2026-06-04
+**Phases:** 4 (12–15) | **Plans:** 11
+
+### What Was Built
+Three new tools + a Protobuf input mode, eight tools → eleven: Protobuf decimal input (PRO-08/09), URL tool (URL-01..05), Regex tester (RGX-01..07, ReDoS-safe off-thread Web Worker + watchdog), Cron tool (CRON-01..11, hand-rolled DST-correct bounded next-run + leap-aware `L`/`nL`/`L-n`). All over native browser APIs — zero new runtime AND zero new devDependencies for the whole milestone.
+
+### What Worked
+- **Risk-ordered phases** — research established the four features as fully independent, so they were sequenced smallest/safest first (Protobuf decimal de-risks the untouched-decoder promise) and the two deep tools (Regex ReDoS, Cron next-run) last, concentrating verification budget where novelty lived.
+- **Pure-core-then-thin-view per tool** — every tool TDD'd a total, error-as-value `src/lib/<tool>/` core to GREEN before a thin registry-appended view, so the hard logic was locked by unit tests and the view stayed layout-agnostic.
+- **Isolating the highest-risk slice** — Cron's `L`/`nL`/`L-n` (CRON-10) was planned as an explicitly isolated final plan with dedicated leap-year/month-length fixtures, so the rest of cron could ship even if it proved hard. It didn't block.
+
+### What Was Inefficient
+- **The real-WKWebView gate kept surfacing engine truths** — Regex's textbook ReDoS patterns *don't* time out on WebKit/JSC (it caps backtracking), so the catastrophic-pattern e2e wasn't achievable and RGX-06 had to be proven at the unit layer instead; URL/cron e2e row reads went stale under the embedded WebDriver and needed single-`browser.execute` round-trips. All caught only on the real engine.
+- **The standalone TDD "RED" wave is structurally impossible here** — lefthook rejects failing-test commits, so the planned RED-only plans (13/14) had to merge into their GREEN impl. Now a known pattern; stop planning standalone RED waves.
+
+### Patterns Established
+- **Shared component extraction at first reuse** — `SegmentedControl` was lifted out of FormatterView's idiom in Phase 13 and reused by 14/15, rather than copy-pasted.
+- **Auto-build at the human-verify checkpoint** — per user request, the agent now runs `pnpm tauri build` itself when a phase hits the phase-boundary checkpoint (wired into CLAUDE.md + harness docs), so the human only launches/tests/approves.
+
+### Key Lessons
+- **The hardest logic deserves an isolated plan with its own fixtures** — the Cron L/nL slice shipped cleanly precisely because it was quarantined with canonical leap-year edge cases instead of smeared across the engine.
+- **DST correctness = read wall-clock components back, never step milliseconds** — Cron's odometer uses `Intl.formatToParts` read-back + a bounded day cap, which is both correct and terminating-by-construction.
+
+### Cost Observations
+- Model mix: GSD `quality` profile — primarily Opus for planning/execution/review.
+- Notable: all four features cleared the wedge with native APIs; the entire automatable surface was green (650/650 vitest at close) before each phase's human sign-off, so manual gates were walkthrough-only.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -88,6 +119,7 @@
 | v1.0 Distribution | 6 (1–6) | 28 | Established the full build+verify harness (review → unit → ui + phase sign-off) on a walking skeleton before any feature |
 | v1.1 Formatters | 2 (7–8) | 4 | Shared-foundation-first wave; cleanup phase deliberately sequenced after its real callers landed |
 | v1.2 Release Tooling | 3 (9–11) | 8 | Pure decision core + thin `.mjs` shell per script; dry-run-first; a live human-gate (real publish + updater round-trip) as the load-bearing acceptance |
+| v1.3 More Tools | 4 (12–15) | 11 | Risk-ordered independent features; pure-core-then-thin-view per tool; highest-risk slice (Cron L/nL) isolated with its own fixtures; auto-build at the human-verify checkpoint |
 
 ### Cumulative Quality
 
@@ -96,8 +128,9 @@
 | v1.0 Distribution | 269 vitest | — | `js-md5` (only one), `lucide-react`, `@tauri-apps/plugin-store` |
 | v1.1 Formatters | 378 vitest / 44 files | JSON + XML formatters (native APIs) | **0** |
 | v1.2 Release Tooling | 503 vitest / 49 files | release core + drivers (Node builtins + `tsx`/Tauri CLI/`gh`/`rustup` — all devDeps) | **0** |
+| v1.3 More Tools | 650 vitest | URL + Regex + Cron tools + Protobuf decimal (native `URL`/`RegExp`/`Intl` + a Web Worker) | **0** |
 
-Constant across all three: the hero decoder (`src/lib/protobuf/decoder.ts`) + its **19 tests** stayed byte-for-byte untouched.
+Constant across all four: the hero decoder (`src/lib/protobuf/decoder.ts`) + its **19 tests** stayed byte-for-byte untouched.
 
 ### Top Lessons (Verified Across Milestones)
 

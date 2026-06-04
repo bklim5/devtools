@@ -1,5 +1,20 @@
 # Milestones
 
+## v1.3 More Tools (Shipped: 2026-06-04)
+
+**Phases completed:** 4 phases (12–15), 11 plans, 14 tasks
+**Delivered:** Three new high-frequency tools (URL, Regex, Cron) + a Protobuf decimal-byte-array input mode — eight tools → eleven. Four fully-independent features, risk-ordered (smallest/safest first, the two deep tools last). All 25 requirements validated end-to-end on the real WKWebView; zero new runtime deps; the hero `decoder.ts` + its 19 tests byte-for-byte untouched throughout.
+
+**Key accomplishments:**
+
+- **Protobuf decimal input (Phase 12, PRO-08/09)** — a third auto-detected input mode for the hero: a strict `decimalToBytes` parser + comma-first `detectEncoding` branch in `src/lib/bytes.ts` (decoder NOT touched), surfaced as a `decimal` toggle segment with example chip and named-token inline errors. 24/24 WCAG-AA sign-off.
+- **URL tool (Phase 13, the 9th tool, URL-01..05)** — a thin error-as-value view over native `URL`/`URLSearchParams`/`encodeURI(Component)`: parsed-component readout + from-scratch decoded query key→value table (repeated keys + empty values preserved), and component-vs-full encode/decode both directions. Extracted the shared `SegmentedControl` reused by Phases 14/15.
+- **Regex tester (Phase 14, the 10th tool, RGX-01..07)** — live highlighted matches (escaped React nodes, never `dangerouslySetInnerHTML`), numbered+named capture-group breakdown, g/i/m/s/u flags, `$1`/`$<name>`/`$&` replace preview, and a 3-pattern library. **ReDoS safety is structural:** matching runs off-thread in a Vite module Worker behind a watchdog armed before construction — a catastrophic pattern can never freeze the window.
+- **Cron tool (Phase 15, the 11th tool, CRON-01..11)** — paste → plain 24-hour-English description + the next 5 runs in local time with an IANA TZ label, over a hand-rolled pure core: full field grammar, macros + `@reboot`, 5/6-field disambiguation, DOM/DOW OR-union (0/7-Sunday), **DST-correct next-run by wall-clock component read-back (not ms-deltas)**, a bounded cap so impossible expressions terminate as a calm "never", and leap-aware `L`/`nL`/`L-n` shipped as an isolated final slice.
+- **Discipline held across all four** — zero new runtime AND zero new devDependencies, HashRouter only, registry as the single control plane (sidebar/palette/router auto-derived), WCAG-AA on every tool, and the immovable `decoder.ts` + 19-test bar untouched (`git diff --quiet`) through the whole milestone. Full suite 650/650 at close.
+
+---
+
 ## v1.2 Release Tooling (Shipped: 2026-06-03)
 
 **Phases completed:** 3 phases (9–11), 8 plans, 24 tasks
