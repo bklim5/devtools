@@ -55,7 +55,7 @@ The four features are fully independent (no inter-feature dependencies); phase o
 - [x] **Phase 12: Protobuf decimal input** — accept a comma/space-separated decimal byte array as a third auto-detected Protobuf input mode (`decimalToBytes` in `src/lib/bytes.ts`; decoder untouched) — completed 2026-06-03
 - [x] **Phase 13: URL tool** — parse a URL into components + query key→value table, component-vs-full encode/decode both ways (native `URL`/`URLSearchParams`/`encodeURI(Component)`) (completed 2026-06-03)
 - [x] **Phase 14: Regex tester** — live highlighted matches, capture-group breakdown, flag toggles, `$1`/`$<name>`/`$&` replace preview, 3-pattern library, ReDoS-safe via a Web Worker + timeout (completed 2026-06-03)
-- [ ] **Phase 15: Cron tool** — paste an expression → 24h human-readable description + next 5 runs in local time with IANA TZ label; 5/6-field, macros, full field syntax, DOM/DOW OR, DST-correct, and the isolated `L`/`nL` slice
+- [x] **Phase 15: Cron tool** — paste an expression → 24h human-readable description + next 5 runs in local time with IANA TZ label; 5/6-field, macros, full field syntax, DOM/DOW OR, DST-correct, and the isolated `L`/`nL` slice (completed 2026-06-04)
 
 ## Phase Details
 
@@ -152,7 +152,7 @@ Phases execute in numeric order. v1.3 phases (12–15) are independent and may b
 | 12. Protobuf decimal input | v1.3 | 2/2 | Complete    | 2026-06-03 |
 | 13. URL tool | v1.3 | 2/2 | Complete    | 2026-06-03 |
 | 14. Regex tester | v1.3 | 3/3 | Complete    | 2026-06-03 |
-| 15. Cron tool | v1.3 | 3/4 | In Progress|  |
+| 15. Cron tool | v1.3 | 4/4 | Complete    | 2026-06-04 |
 
 ## Backlog
 
@@ -177,7 +177,7 @@ Unsequenced ideas captured for future planning. Promote with `/gsd-review-backlo
 Each candidate must still pass the product wedge: offline/no-network, paste-instant (<2s), keyboard-driven, registry-driven, WCAG-AA, and the build+verify harness.
 
 **Requirements:** TBD (remaining wishlist; Cron/URL/Regex requirements now in `.planning/REQUIREMENTS.md` for v1.3)
-**Plans:** 3/4 plans executed
+**Plans:** 4/4 plans complete
 
 Plans:
 - [ ] TBD (promote remaining wishlist with /gsd-review-backlog when ready)
