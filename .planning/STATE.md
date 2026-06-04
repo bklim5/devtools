@@ -1,26 +1,26 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.3
-milestone_name: More Tools
-status: milestone_complete
-last_updated: "2026-06-04T19:40:00.000Z"
-last_activity: 2026-06-04 -- Milestone v1.3 More Tools shipped & archived
+milestone: v1.4
+milestone_name: Reorderable Tools
+status: defining_requirements
+last_updated: "2026-06-04T20:00:00.000Z"
+last_activity: 2026-06-04 -- Milestone v1.4 Reorderable Tools started
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 11
-  completed_plans: 11
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Current Position
 
-Phase: — (no active phase)
+Phase: Not started (defining requirements)
 Plan: —
-Status: ✅ **Milestone v1.3 "More Tools" SHIPPED, SIGNED OFF & ARCHIVED** (Phases 12–15; tag `v1.3`, local-only). Eight tools → eleven — Protobuf decimal input (PRO-08/09), URL tool (URL-01..05), Regex tester (RGX-01..07), Cron tool (CRON-01..11) — all 25 requirements validated on the real WKWebView; full suite 650/650; zero new runtime/dev deps; `decoder.ts` + its 19 tests byte-for-byte untouched throughout. Cron (the 11th tool) at #/tools/cron: hand-rolled DST-correct bounded next-run + leap-aware `L`/`nL`/`L-n`; Phase-15 verifier 26/26, gsd-ui-review 23/24 WCAG-AA PASS, code review clean, advisory MD-02/LO-01 fixed (`25daf5d6`/`2ce37ed9`). Archived to `.planning/milestones/v1.3-*`; REQUIREMENTS.md deleted (fresh one comes with the next milestone). **Next: `/gsd-new-milestone` (or `/gsd-review-backlog`) — no active milestone.**
-Last activity: 2026-06-04 -- v1.3 shipped & archived
+Status: 🚧 **Milestone v1.4 "Reorderable Tools" STARTED** (focused single feature, Phase 16). Goal: user-reorderable sidebar tool list (drag-and-drop + Alt+↑/↓ keyboard path, WCAG-AA) with the order persisted as a `toolOrder: string[]` overlay over the registry (registry stays canonical). Promoted from backlog 999.6 — `999.6-CONTEXT.md` already holds 12 locked decisions and will migrate into the Phase 16 directory. Pinning explicitly deferred as its own future feature. Defining requirements next, then roadmap. **Prior:** v1.3 "More Tools" shipped & archived (Phases 12–15, 11 tools, tag `v1.3`).
+Last activity: 2026-06-04 -- v1.4 started, defining requirements
 
 **Phase 14 — Regex tester — COMPLETE ✓ (the 10th tool; Cron/Phase 15 will be the 11th).** All 3 plans shipped, phase boundary signed off after 3 review rounds. RGX-01..07 validated. The Regex tool (`src/tools/regex/` + `src/lib/regex/`) runs a user pattern against sample text with live highlighted matches, numbered+named capture-group breakdown, g/i/m/s/u flag toggles, `## Current Position
 

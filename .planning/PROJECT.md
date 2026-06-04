@@ -16,7 +16,18 @@ v1.3 added three new high-frequency tools — **URL** (9th), **Regex tester** (1
 
 The app now ships **eleven tools**: the Protobuf hero (now with decimal input), Base64/Hex/Bytes, Unix Time, JWT, Hash, UUID/ULID, the JSON + XML formatters, and the new URL, Regex, and Cron tools.
 
-**Next:** no active milestone — plan the next one with `/gsd-new-milestone` (or promote remaining backlog 999.x items: the SQL/Date/JSON↔YAML tool wishlist, or the 999.2 CI track).
+**Active: v1.4 "Reorderable Tools"** (started 2026-06-04) — a focused single-feature milestone (Phase 16): user-reorderable sidebar tool list (drag + accessible keyboard path), order persisted, promoted from backlog 999.6. The first milestone to add a *personalization* capability rather than a tool. Remaining backlog parked (999.1 tool wishlist, 999.2 CI, 999.3 theme settings, 999.4 CLI, 999.5 Protobuf schema-file).
+
+## Current Milestone: v1.4 Reorderable Tools
+
+**Goal:** Let users reorder the sidebar tool list — by drag-and-drop and by an accessible keyboard path — with the order persisted, so frequently-used tools sit at the top instead of the fixed registry order.
+
+**Target features:**
+- **Drag-to-reorder** — handle-initiated native drag (no dnd library); a plain click still navigates to the tool. Subtle insertion-line drop indicator (not accent-colored).
+- **Accessible keyboard reorder** — Alt+↑/↓ moves a focused tool one slot; each move announced via an `aria-live` region. No roving arrow-nav system (preserves the existing Tab-focus-only sidebar model). WCAG-AA binding.
+- **Persistent custom order** — a `toolOrder: string[]` overlay applied over `ENABLED_TOOLS` at render time (registry stays the canonical source); persisted through the existing `usePreferences`/`platform.store` seam. New tools shipped in later versions append to the bottom; a "Reset order" action restores the default.
+
+**Key context:** Built from the already-gathered `999.6-CONTEXT.md` (12 decisions). Inherits the binding wedge: offline/no-network, keyboard-driven, registry-driven single control plane, WCAG-AA, **zero new runtime dependencies**, `decoder.ts` + its 19 tests untouched. **Pinning** (locking the hero to top / pinning favourites) is explicitly deferred as its own future feature. Phase numbering continues from v1.3's Phase 15 (starts at Phase 16).
 
 ## Shipped Milestone: v1.3 More Tools (Phases 12–15, 2026-06-04)
 
@@ -160,4 +171,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-04 after v1.3 milestone — **Milestone v1.3 "More Tools" COMPLETE, SIGNED OFF & ARCHIVED** (Phases 12–15; tag `v1.3`). Eight tools → eleven: Protobuf decimal input (PRO-08/09), URL tool (URL-01..05, 9th), Regex tester (RGX-01..07, 10th — ReDoS-safe Web Worker), Cron tool (CRON-01..11, 11th — DST-correct hand-rolled next-run + `L`/`nL`/`L-n`). All 25 requirements validated on the real WKWebView; full suite 650/650; zero new runtime/dev deps; `decoder.ts` + its 19 tests byte-for-byte untouched throughout. Archived to `.planning/milestones/v1.3-*`. Prior milestones: v1.2 "Release Tooling" (Phases 9–11), v1.1 "Formatters" (Phases 7–8), v1.0 "Distribution" (Phases 1–6). **Next: `/gsd-new-milestone` (or `/gsd-review-backlog`) — no active milestone.***
+*Last updated: 2026-06-04 — **Milestone v1.4 "Reorderable Tools" STARTED** (focused single feature, Phase 16): user-reorderable sidebar tool list (drag + Alt+↑/↓ keyboard path, WCAG-AA), persisted `toolOrder` overlay over the registry, promoted from backlog 999.6 (12 decisions already gathered). Previously: **Milestone v1.3 "More Tools" COMPLETE, SIGNED OFF & ARCHIVED** (Phases 12–15; tag `v1.3`). Eight tools → eleven: Protobuf decimal input (PRO-08/09), URL tool (URL-01..05, 9th), Regex tester (RGX-01..07, 10th — ReDoS-safe Web Worker), Cron tool (CRON-01..11, 11th — DST-correct hand-rolled next-run + `L`/`nL`/`L-n`). All 25 requirements validated on the real WKWebView; full suite 650/650; zero new runtime/dev deps; `decoder.ts` + its 19 tests byte-for-byte untouched throughout. Archived to `.planning/milestones/v1.3-*`. Prior milestones: v1.2 "Release Tooling" (Phases 9–11), v1.1 "Formatters" (Phases 7–8), v1.0 "Distribution" (Phases 1–6). **Next: `/gsd-new-milestone` (or `/gsd-review-backlog`) — no active milestone.***
