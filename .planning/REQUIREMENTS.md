@@ -42,12 +42,12 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| REORD-01 | TBD | Pending |
-| REORD-02 | TBD | Pending |
-| REORD-03 | TBD | Pending |
-| REORD-04 | TBD | Pending |
-| REORD-05 | TBD | Pending |
-| REORD-06 | TBD | Pending |
-| REORD-07 | TBD | Pending |
+| REORD-01 | Phase 16 | Pending |
+| REORD-02 | Phase 16 | Pending |
+| REORD-03 | Phase 16 | Pending |
+| REORD-04 | Phase 16 | Pending |
+| REORD-05 | Phase 16 | Pending |
+| REORD-06 | Phase 16 | Pending |
+| REORD-07 | Phase 16 | Pending |
 
 *(Phase column filled by the roadmapper.)*

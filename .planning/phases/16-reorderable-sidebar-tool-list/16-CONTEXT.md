@@ -1,7 +1,8 @@
-# Phase 999.6: Drag-and-drop reorder the tool list - Context
+# Phase 16: Reorderable Sidebar Tool List - Context
 
-**Gathered:** 2026-06-04
-**Status:** Ready for planning (backlog item — promote via /gsd-review-backlog or seed into a milestone first)
+**Gathered:** 2026-06-04 (as backlog item 999.6; promoted into milestone v1.4 as Phase 16 on 2026-06-04)
+**Status:** Ready for planning
+**Requirements:** REORD-01..07
 
 <domain>
 ## Phase Boundary
