@@ -166,7 +166,9 @@ Plans:
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
 
-### Phase 999.6: Drag-and-drop reorder the tool list (BACKLOG)
+### Phase 999.6: Drag-and-drop reorder the tool list (BACKLOG — ⭐ EARMARKED for next milestone)
+
+**Status:** Context gathered (`999.6-CONTEXT.md`, 12 decisions — discussed 2026-06-04) and **earmarked as a candidate for the next milestone** (reviewed 2026-06-04). Most shovel-ready backlog item. The key decisions are locked: handle-initiated native drag (no dnd lib), Alt+↑/↓ keyboard reorder + `aria-live` (WCAG-AA), flat-list all-tools-movable, persisted `toolOrder: string[]` overlay over the registry, new tools append to bottom, a reset action. Pinning was split out as its own future feature. Promote into the milestone via `/gsd-new-milestone` (no active milestone right now).
 
 **Goal:** [Captured for future planning] — let the user drag-and-drop to reorder the tools in the sidebar (and the order should persist), so the most-used tools can sit at the top instead of the fixed registry order. **Architectural fit:** the registry (`src/lib/tools/registry.ts`) is the single control plane — sidebar, ⌘K palette, and router all derive from it — so a user-defined ordering is a presentation-layer overlay (a persisted array of tool IDs applied over the registry), NOT a mutation of the registry array itself; the registry stays the canonical source. **Open questions for promotion:** persistence via the existing `platform.store` seam (a `toolOrder: string[]` pref, same mechanism as theme/last-used — no new dep); keyboard-accessible reordering (WCAG-AA is binding — drag-drop alone is insufficient; needs a keyboard affordance, e.g. move-up/down or an aria-grabbed pattern); how new tools shipped in a later version slot into an existing custom order (append unknown IDs); whether the ⌘K palette and router care about order (they shouldn't — only the sidebar render order changes); and a reset-to-default affordance. Zero-new-runtime-deps still applies (HTML5 drag events or a small pure handler, not a dnd library).
 **Requirements:** TBD
