@@ -83,11 +83,16 @@ Gate order is the user's explicit sequence: **simplify → review → unit → u
 
 ### 3.2 Outer loop — runs per **phase boundary** (human sign-off)
 
-1. Full **`tauri build`** production bundle (macOS).
-2. Launch the **packaged** app; capture screenshots.
+1. **The agent runs `pnpm tauri build` automatically** when a phase reaches the
+   human-verify checkpoint — the human should never have to kick off the build.
+   The build's final non-zero exit is only the absent updater-signing key
+   (`TAURI_SIGNING_PRIVATE_KEY`); confirm success by the presence of the
+   `.app`/`.dmg` under `src-tauri/target/release/bundle/macos/`, not the exit code.
+2. The agent reports the built-app path; the **human launches the packaged app and
+   walks the new tool** through the checkpoint scenarios.
 3. **`gsd-ui-review`** 6-pillar visual audit + WCAG AA a11y pass on the built app.
-4. **Human reviews and approves** before the next phase begins. This is the only required
-   manual gate.
+4. **Human reviews and approves** before the next phase begins. Launching, testing,
+   and approval are the only required manual steps — the build is automated.
 
 `gsd-ui-phase` produces the `UI-SPEC.md` design contract at the start of each frontend
 phase; `gsd-ui-review` audits against it at the end.
