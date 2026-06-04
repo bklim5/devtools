@@ -79,7 +79,9 @@ A focused single-feature milestone: a user-reorderable sidebar tool list. Drag-t
   3. Every reorder (drag or keyboard) is announced through an `aria-live="polite"` region — e.g. "Moved Cron to position 3 of 11" — so the change is perceivable without sight (WCAG-AA). *(REORD-04)*
   4. The custom order survives an app restart: it is stored as a `toolOrder: string[]` of tool IDs through the existing preferences/store seam, applied as a render-time overlay over `ENABLED_TOOLS` (registry array unchanged; ⌘K palette and router stay order-agnostic). *(REORD-05)*
   5. On load the saved order is reconciled against the live registry — a tool shipped in a later version appears at the bottom, an order referencing an unknown/removed ID is ignored — so the list never crashes, drops, or duplicates a tool; and a "Reset order" action restores the default registry order. *(REORD-06, REORD-07)*
-**Plans**: TBD
+**Plans**: 2 plans
+- [ ] 16-01-PLAN.md — Persistence + pure ordering/reconciliation backbone (toolOrder field + coercion + setToolOrder + pure reconcileToolOrder/moveToolInOrder helpers with vitest coverage); REORD-05/06/07
+- [ ] 16-02-PLAN.md — Reorderable Sidebar UI (grip-handle native drag + neutral insertion line, Alt+↑/↓ keyboard reorder, aria-live announcements, reset affordance) + real-WKWebView e2e + phase sign-off; REORD-01..07
 **UI hint**: yes
 
 **Inherited binding constraints**: zero new runtime dependencies (native HTML5 drag events or a small pure pointer handler — no dnd/animation library); WCAG-AA (the keyboard path + `aria-live` are mandatory, not optional); registry is the single control plane (ordering is a presentation overlay, never a registry mutation); accent = selected-only (drop indicator must be neutral/subtle); `decoder.ts` + its 19 tests stay byte-for-byte untouched; macOS real-WKWebView UI gate + per-task `/codex:review` → unit (`vitest`/`tsc`) → real-webview verification, with human sign-off on a fresh `tauri build` + a passing `gsd-ui-review` WCAG-AA audit at the phase boundary.
