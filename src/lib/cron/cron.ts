@@ -347,12 +347,160 @@ export function analyzeCron(
   };
 }
 
+// --- Description helpers (hand-rolled, 24-hour; cronstrue is a forbidden dep). ---
+
+const WEEKDAY_FULL = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
+const MONTH_FULL = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+/** True iff the set is exactly the full inclusive [min..max] range. */
+function isFullRange(s: Set<number>, min: number, max: number): boolean {
+  if (s.size !== max - min + 1) return false;
+  for (let v = min; v <= max; v++) if (!s.has(v)) return false;
+  return true;
+}
+
 /**
- * Hand-rolled 24-hour human-readable description (CRON-01). Plan 01 ships a
- * minimal placeholder; Plan 01 Task 2 replaces this with the full generator.
+ * If the set is a uniform step from `min` (e.g. {0,15,30,45} over 0..59), return
+ * that step (>1); else null. Used for "Every n minutes/hours" shortcuts.
+ */
+function uniformStepFromMin(s: Set<number>, min: number, max: number): number | null {
+  const vals = [...s].sort((a, b) => a - b);
+  if (vals.length < 2 || vals[0] !== min) return null;
+  const step = vals[1] - vals[0];
+  if (step < 2) return null;
+  for (let i = 0; i < vals.length; i++) {
+    if (vals[i] !== min + i * step) return null;
+  }
+  // Must reach the top of the range within one step (a true full-range step).
+  if (vals[vals.length - 1] + step <= max) return null;
+  return step;
+}
+
+/** Join a list of names with commas + "and" (Oxford-free): "a, b and c". */
+function joinNames(names: string[]): string {
+  if (names.length === 1) return names[0];
+  if (names.length === 2) return `${names[0]} and ${names[1]}`;
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
+
+/** Render a weekday Set as either a contiguous "X through Y" or a name list. */
+function weekdayPhrase(values: Set<number>): string {
+  const vals = [...values].sort((a, b) => a - b);
+  // Contiguous run of ≥3 with no gaps → "Monday through Friday".
+  const contiguous =
+    vals.length >= 3 && vals.every((v, i) => i === 0 || v === vals[i - 1] + 1);
+  if (contiguous) {
+    return `${WEEKDAY_FULL[vals[0]]} through ${WEEKDAY_FULL[vals[vals.length - 1]]}`;
+  }
+  return joinNames(vals.map((v) => WEEKDAY_FULL[v]));
+}
+
+/** The "At HH:MM[:SS]" / "at minutes … past …" / "every n …" time-of-day phrase. */
+function timeOfDayPhrase(f: CronFields, sixField: boolean): string {
+  const minuteSingle = f.minute.size === 1;
+  const hourSingle = f.hour.size === 1;
+  const onlyMinute = [...f.minute][0];
+  const onlyHour = [...f.hour][0];
+
+  if (minuteSingle && hourSingle) {
+    let t = `At ${pad2(onlyHour)}:${pad2(onlyMinute)}`;
+    if (sixField && f.second.size === 1) {
+      t += `:${pad2([...f.second][0])}`;
+    }
+    return t;
+  }
+
+  // Minute is a set but hour is single → "At minute 0 and 30 past 09:00"-ish;
+  // keep it readable with the hour list.
+  const minuteList = joinNames([...f.minute].sort((a, b) => a - b).map(String));
+  const hourList = hourSingle
+    ? pad2(onlyHour)
+    : joinNames([...f.hour].sort((a, b) => a - b).map(pad2));
+  const hourWord = hourSingle ? "hour" : "hours";
+  return `At minute ${minuteList} past ${hourWord} ${hourList}`;
+}
+
+/** The day-of-month / day-of-week phrase, honoring the OR-union WORDING (CRON-06). */
+function dayPhrase(
+  dom: CronFields["dom"],
+  dow: CronFields["dow"],
+): string | null {
+  const domList = joinNames(
+    [...dom.values].sort((a, b) => a - b).map(String),
+  );
+  if (dom.restricted && dow.restricted) {
+    return `on day-of-month ${domList} or ${weekdayPhrase(dow.values)}`;
+  }
+  if (dow.restricted) {
+    return `on ${weekdayPhrase(dow.values)}`;
+  }
+  if (dom.restricted) {
+    return `on day-of-month ${domList}`;
+  }
+  return null;
+}
+
+/** The "in <months>" phrase when month is restricted; else null. */
+function monthPhrase(month: Set<number>): string | null {
+  if (isFullRange(month, 1, 12)) return null;
+  const names = [...month].sort((a, b) => a - b).map((m) => MONTH_FULL[m - 1]);
+  return `in ${joinNames(names)}`;
+}
+
+/**
+ * Hand-rolled 24-hour human-readable description (CRON-01), read from the SAME
+ * normalized CronFields the scheduler uses (single source of truth). Composes
+ * `<timeOfDay>[, <day>][ <month>].` — always 24-hour, never AM/PM. cronstrue is
+ * a forbidden new dependency; this is the deliberate hand-roll.
  */
 export function describe(f: CronFields, sixField: boolean): string {
-  void f;
-  void sixField;
-  return "";
+  const minuteFull = isFullRange(f.minute, 0, 59);
+  const hourFull = isFullRange(f.hour, 0, 23);
+  const secondTrivial = !sixField || (f.second.size === 1 && f.second.has(0));
+  const dayUnrestricted = !f.dom.restricted && !f.dow.restricted;
+  const monthUnrestricted = isFullRange(f.month, 1, 12);
+
+  // 1. Whole-expression shortcuts (nicer output for the common shapes).
+  if (secondTrivial && dayUnrestricted && monthUnrestricted) {
+    if (minuteFull && hourFull) return "Every minute.";
+    const minStep = uniformStepFromMin(f.minute, 0, 59);
+    if (minStep && hourFull) return `Every ${minStep} minutes.`;
+    if (f.minute.size === 1 && f.minute.has(0)) {
+      const hourStep = uniformStepFromMin(f.hour, 0, 23);
+      if (hourStep) return `Every ${hourStep} hours.`;
+    }
+  }
+
+  // 2. Otherwise compose the three phrases.
+  const parts: string[] = [timeOfDayPhrase(f, sixField)];
+  const day = dayPhrase(f.dom, f.dow);
+  const month = monthPhrase(f.month);
+
+  let sentence = parts[0];
+  if (day) sentence += `, ${day}`;
+  if (month) sentence += ` ${month}`;
+  return `${sentence}.`;
 }

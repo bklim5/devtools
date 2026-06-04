@@ -4,7 +4,12 @@
 // flags, the @reboot sentinel, the empty state, and every named error — all
 // error-as-value, never a throw. (Description assertions live in the Task 2 block.)
 import { describe as group, expect, it } from "vitest";
-import { analyzeCron, parseExpression, type CronFields } from "./cron";
+import {
+  analyzeCron,
+  describe as describeCron,
+  parseExpression,
+  type CronFields,
+} from "./cron";
 
 const NOW = new Date("2026-06-04T00:00:00Z");
 const ZONE = "UTC";
@@ -148,5 +153,70 @@ group("analyzeCron — kinds", () => {
     expect(() => analyzeCron("0 99 * * *", NOW, ZONE)).not.toThrow();
     const r = analyzeCron("0 99 * * *", NOW, ZONE);
     expect(r.kind).toBe("error");
+  });
+});
+
+// --- Task 2: hand-rolled 24-hour description generator (CRON-01/03). ---
+
+/** describe() over a parsed expression (single source of truth — the SAME fields). */
+function descOf(expr: string): string {
+  const { fields, sixField } = fieldsOf(expr);
+  return describeCron(fields, sixField);
+}
+
+group("describe — 24-hour descriptions (CRON-01)", () => {
+  it("describes a single time + weekday range without AM/PM", () => {
+    const d = descOf("0 9 * * 1-5");
+    expect(d).toContain("09:00");
+    expect(d).toContain("Monday through Friday");
+    expect(d).not.toContain("9 AM");
+    expect(d).not.toMatch(/AM|PM/);
+  });
+
+  it("uses the Every-n-minutes shortcut for */15", () => {
+    expect(descOf("*/15 * * * *")).toBe("Every 15 minutes.");
+  });
+
+  it("uses Every minute for all-* minute/hour", () => {
+    expect(descOf("* * * * *")).toBe("Every minute.");
+  });
+
+  it("uses the Every-n-hours shortcut", () => {
+    expect(descOf("0 */6 * * *")).toBe("Every 6 hours.");
+  });
+
+  it("describes a yearly midnight with month + day-of-month", () => {
+    const d = descOf("0 0 1 1 *");
+    expect(d).toContain("00:00");
+    expect(d).toContain("January");
+    expect(d).toContain("day-of-month 1");
+  });
+
+  it("zero-pads single-digit hours and minutes (24-hour discipline)", () => {
+    expect(descOf("5 8 * * *")).toContain("08:05");
+  });
+
+  it("includes seconds for a 6-field single time", () => {
+    expect(descOf("30 0 9 * * *")).toContain("09:00:30");
+  });
+
+  it("honors OR-union wording when BOTH dom and dow are restricted (CRON-06)", () => {
+    const d = descOf("30 4 1 * 5");
+    expect(d).toContain("day-of-month 1");
+    expect(d).toContain("Friday");
+    expect(d).toContain("or");
+  });
+
+  it("never emits AM/PM for any supported shape (24-hour discipline)", () => {
+    for (const expr of [
+      "0 9 * * 1-5",
+      "*/15 * * * *",
+      "0 0 1 1 *",
+      "30 0 9 * * *",
+      "0 13 * * *",
+      "0 0 1,15 * *",
+    ]) {
+      expect(descOf(expr)).not.toMatch(/AM|PM/);
+    }
   });
 });
