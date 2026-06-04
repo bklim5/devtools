@@ -127,7 +127,7 @@ Plans:
 
 Plans:
 - [x] 15-01-PLAN.md — pure parse + describe core (CronFields/CronResult types, field grammar, macros, 5/6-field, hand-rolled 24h description, @reboot, error/empty) — TDD
-- [ ] 15-02-PLAN.md — next-run engine (DST-correct wall-clock odometer, DOM/DOW OR-union + 0/7 Sunday, Intl round-trip, bounded cap → kind:"never") — TDD
+- [x] 15-02-PLAN.md — next-run engine (DST-correct wall-clock odometer, DOM/DOW OR-union + 0/7 Sunday, Intl round-trip, bounded cap → kind:"never") — TDD
 - [ ] 15-03-PLAN.md — ISOLATED L/nL/L-n slice (last-day/last-weekday, leap-year + month-length canonical fixtures, 0–6 nL numbering) — TDD
 - [ ] 15-04-PLAN.md — CronTool view + registry append + real-WKWebView e2e + phase-boundary sign-off (tauri build + gsd-ui-review WCAG-AA)
 
@@ -152,7 +152,7 @@ Phases execute in numeric order. v1.3 phases (12–15) are independent and may b
 | 12. Protobuf decimal input | v1.3 | 2/2 | Complete    | 2026-06-03 |
 | 13. URL tool | v1.3 | 2/2 | Complete    | 2026-06-03 |
 | 14. Regex tester | v1.3 | 3/3 | Complete    | 2026-06-03 |
-| 15. Cron tool | v1.3 | 1/4 | In Progress|  |
+| 15. Cron tool | v1.3 | 2/4 | In Progress|  |
 
 ## Backlog
 
@@ -177,7 +177,7 @@ Unsequenced ideas captured for future planning. Promote with `/gsd-review-backlo
 Each candidate must still pass the product wedge: offline/no-network, paste-instant (<2s), keyboard-driven, registry-driven, WCAG-AA, and the build+verify harness.
 
 **Requirements:** TBD (remaining wishlist; Cron/URL/Regex requirements now in `.planning/REQUIREMENTS.md` for v1.3)
-**Plans:** 1/4 plans executed
+**Plans:** 2/4 plans executed
 
 Plans:
 - [ ] TBD (promote remaining wishlist with /gsd-review-backlog when ready)
