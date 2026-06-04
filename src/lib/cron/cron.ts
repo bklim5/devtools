@@ -313,6 +313,114 @@ export function parseExpression(
   return { fields: parsed.fields, sixField };
 }
 
+// --- Next-run engine (Plan 02, CRON-05..08). Wall-clock odometer over native
+// Intl/Date — NEVER millisecond-delta stepping (Pitfall 6, anti-pattern). The
+// seam: cron logic decides which wall-clock Y/M/D/h/m/s to want next; Intl/Date
+// answer what real instant that is in the zone and whether it exists. ---
+
+/** Numeric wall-clock components of an instant, read IN a target IANA zone. */
+interface ZonedParts {
+  year: number;
+  month: number; // 1-based
+  day: number;
+  hour: number; // 0..23 (h23)
+  minute: number;
+  second: number;
+}
+
+/**
+ * Read an instant's wall-clock components in `zone` via Intl.formatToParts.
+ * Fixed `en-US` locale + `hourCycle:"h23"` so midnight is `00` not `24` and
+ * digits are Latin (Pitfall 8). The DST/tzdata rules live in the engine — we
+ * never hand-roll an offset table (Don't-Hand-Roll boundary).
+ */
+function zonedParts(instant: Date, zone: string): ZonedParts {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: zone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(instant);
+  const get = (t: string): number => {
+    const part = parts.find((p) => p.type === t);
+    return part ? Number(part.value) : NaN;
+  };
+  return {
+    year: get("year"),
+    month: get("month"),
+    day: get("day"),
+    hour: get("hour"),
+    minute: get("minute"),
+    second: get("second"),
+  };
+}
+
+/**
+ * Find the real instant for a desired wall-clock time in `zone`, or `null` if
+ * that wall-clock time does not exist (the spring-forward gap, CRON-07). Build a
+ * UTC guess, read it back in-zone, correct by (asked − shown), then VERIFY the
+ * corrected instant round-trips to the exact requested fields — a skipped
+ * wall-clock time will not (Assumption A1: TDD'd against the DST fixtures).
+ * `mo` is 1-based (cron) → `Date.UTC` wants `mo-1`.
+ */
+export function wallClockToInstant(
+  y: number,
+  mo: number,
+  d: number,
+  h: number,
+  mi: number,
+  s: number,
+  zone: string,
+): Date | null {
+  const asked = Date.UTC(y, mo - 1, d, h, mi, s);
+  const guess = new Date(asked);
+  const back = zonedParts(guess, zone);
+  const shown = Date.UTC(
+    back.year,
+    back.month - 1,
+    back.day,
+    back.hour,
+    back.minute,
+    back.second,
+  );
+  const corrected = new Date(guess.getTime() + (asked - shown));
+  const verify = zonedParts(corrected, zone);
+  const ok =
+    verify.year === y &&
+    verify.month === mo &&
+    verify.day === d &&
+    verify.hour === h &&
+    verify.minute === mi &&
+    verify.second === s;
+  return ok ? corrected : null;
+}
+
+/**
+ * Does the calendar day y/mo/d match the DOM/DOW fields? The Vixie OR-union rule
+ * (Pitfall 1, CRON-06): when BOTH dom and dow are restricted a day matches if
+ * EITHER matches; when one is `*` (not restricted) the other is ANDed. `mo` is
+ * 1-based → `Date.UTC` wants `mo-1`; `getUTCDay()` is 0=Sun..6=Sat, and Plan 01
+ * already normalized 7→0 into `dow.values`, so 0 and 7 both match Sunday.
+ * (L-syntax markers are added in Plan 03; here only the value Sets are read.)
+ */
+export function dayMatches(
+  f: CronFields,
+  y: number,
+  mo: number,
+  d: number,
+): boolean {
+  const weekday = new Date(Date.UTC(y, mo - 1, d)).getUTCDay();
+  const domMatch = f.dom.values.has(d);
+  const dowMatch = f.dow.values.has(weekday);
+  return f.dom.restricted && f.dow.restricted
+    ? domMatch || dowMatch
+    : domMatch && dowMatch;
+}
+
 /**
  * The pure, total cron front-half: empty → macro → unsupported-token reject →
  * field-count disambiguation → per-field parse → describe. Returns `runs: []`

@@ -6,8 +6,10 @@
 import { describe as group, expect, it } from "vitest";
 import {
   analyzeCron,
+  dayMatches,
   describe as describeCron,
   parseExpression,
+  wallClockToInstant,
   type CronFields,
 } from "./cron";
 
@@ -218,5 +220,69 @@ group("describe — 24-hour descriptions (CRON-01)", () => {
     ]) {
       expect(descOf(expr)).not.toMatch(/AM|PM/);
     }
+  });
+});
+
+// --- Plan 02 Task 1: zone round-trip + DOM/DOW OR-union day-matcher. ---
+
+/** Field helper for the day-matcher tests. */
+const fOf = (expr: string): CronFields => fieldsOf(expr).fields;
+
+group("dayMatches — DOM/DOW OR-union (CRON-06)", () => {
+  it("OR-unions when BOTH dom and dow are restricted (Pitfall 1)", () => {
+    // `30 4 1 * 5` = 4:30 on the 1st OR on Fridays.
+    const f = fOf("30 4 1 * 5");
+    // 2026-05-01 is a Friday — but pick a 1st that is NOT a Friday:
+    // 2026-06-01 is a Monday → matches via day-of-month.
+    expect(dayMatches(f, 2026, 6, 1)).toBe(true); // the 1st, not a Friday
+    // 2026-06-05 is a Friday, not the 1st → matches via day-of-week.
+    expect(dayMatches(f, 2026, 6, 5)).toBe(true); // a Friday, not the 1st
+    // 2026-06-03 is a Wednesday, not the 1st → matches NEITHER.
+    expect(dayMatches(f, 2026, 6, 3)).toBe(false);
+  });
+
+  it("ANDs when dow is unrestricted (only the 1st)", () => {
+    // `30 4 1 * *` = only the 1st (dow is *).
+    const f = fOf("30 4 1 * *");
+    expect(dayMatches(f, 2026, 6, 1)).toBe(true);
+    expect(dayMatches(f, 2026, 6, 5)).toBe(false); // a Friday but not the 1st
+  });
+
+  it("matches a Sunday for both `* * * * 0` and `* * * * 7` (0/7 Sunday)", () => {
+    // 2026-06-07 is a Sunday.
+    expect(dayMatches(fOf("* * * * 0"), 2026, 6, 7)).toBe(true);
+    expect(dayMatches(fOf("* * * * 7"), 2026, 6, 7)).toBe(true);
+    expect(dayMatches(fOf("* * * * 0"), 2026, 6, 8)).toBe(false); // a Monday
+  });
+});
+
+group("wallClockToInstant — DST round-trip (CRON-07)", () => {
+  const NY = "America/New_York";
+
+  it("returns null for 2:30 on the spring-forward date (the gap does not exist)", () => {
+    // 2026-03-08: clocks jump 02:00 → 03:00, so 02:30 has no instant.
+    expect(wallClockToInstant(2026, 3, 8, 2, 30, 0, NY)).toBeNull();
+  });
+
+  it("returns a valid instant for 1:30 on the fall-back date", () => {
+    // 2026-11-01: 01:30 occurs twice; here we only assert a real instant exists.
+    const inst = wallClockToInstant(2026, 11, 1, 1, 30, 0, NY);
+    expect(inst).not.toBeNull();
+    // The instant reads back as 01:30 local in NY.
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: NY,
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }).formatToParts(inst!);
+    expect(parts.find((p) => p.type === "hour")!.value).toBe("01");
+    expect(parts.find((p) => p.type === "minute")!.value).toBe("30");
+  });
+
+  it("round-trips an ordinary wall-clock time in a non-UTC zone", () => {
+    // 09:00 in Asia/Singapore (no DST) → 01:00 UTC.
+    const inst = wallClockToInstant(2026, 6, 4, 9, 0, 0, "Asia/Singapore");
+    expect(inst).not.toBeNull();
+    expect(inst!.toISOString()).toBe("2026-06-04T01:00:00.000Z");
   });
 });
