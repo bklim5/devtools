@@ -644,6 +644,26 @@ const MONTH_FULL = [
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
+/**
+ * English ordinal for a positive integer: 1→"1st", 2→"2nd", 3→"3rd", 4→"4th",
+ * 11/12/13→"th", 21→"21st", 22→"22nd", 23→"23rd". Used for the L-n description so
+ * the copy reads "the 3rd-from-last day" rather than "3-th-from-last" (LO-01).
+ */
+function ordinal(n: number): string {
+  const mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 13) return `${n}th`;
+  switch (n % 10) {
+    case 1:
+      return `${n}st`;
+    case 2:
+      return `${n}nd`;
+    case 3:
+      return `${n}rd`;
+    default:
+      return `${n}th`;
+  }
+}
+
 /** True iff the set is exactly the full inclusive [min..max] range. */
 function isFullRange(s: Set<number>, min: number, max: number): boolean {
   if (s.size !== max - min + 1) return false;
@@ -714,15 +734,16 @@ function timeOfDayPhrase(f: CronFields, sixField: boolean): string {
 
 /**
  * The day-of-month phrase fragment, honoring the CRON-10 L-forms:
- * `L`→"the last day of the month", `L-n`→"the n-th-from-last day of the month",
- * plus any numeric day-of-month values. Returns null when DOM contributes nothing.
+ * `L`→"the last day of the month", `L-n`→"the nth-from-last day of the month"
+ * (ordinal-correct, e.g. "3rd-from-last"), plus any numeric day-of-month values.
+ * Returns null when DOM contributes nothing.
  */
 function domPhrase(dom: CronFields["dom"]): string | null {
   const fragments: string[] = [];
   if (dom.lastDay && dom.lastOffset == null) {
     fragments.push("the last day of the month");
   } else if (dom.lastOffset != null) {
-    fragments.push(`the ${dom.lastOffset}-th-from-last day of the month`);
+    fragments.push(`the ${ordinal(dom.lastOffset)}-from-last day of the month`);
   }
   if (dom.values.size > 0) {
     const list = joinNames([...dom.values].sort((a, b) => a - b).map(String));

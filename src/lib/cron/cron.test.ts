@@ -507,7 +507,16 @@ group("describe — L-form phrasing (CRON-10)", () => {
   });
 
   it("describes `L-3` as the 3rd-from-last day of the month", () => {
-    expect(descOf("0 0 L-3 * *")).toContain("3-th-from-last day of the month");
+    expect(descOf("0 0 L-3 * *")).toContain("3rd-from-last day of the month");
+  });
+
+  it("renders grammatical ordinals for the L-n offset (1st/2nd/11th/21st)", () => {
+    expect(descOf("0 0 L-1 * *")).toContain("1st-from-last day of the month");
+    expect(descOf("0 0 L-2 * *")).toContain("2nd-from-last day of the month");
+    // The teens are the classic ordinal trap: 11/12/13 stay "th".
+    expect(descOf("0 0 L-11 * *")).toContain("11th-from-last day of the month");
+    // …but 21/22/23 take st/nd/rd again.
+    expect(descOf("0 0 L-21 * *")).toContain("21st-from-last day of the month");
   });
 
   it("describes `5L` as the last Friday of the month", () => {
