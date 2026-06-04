@@ -129,7 +129,7 @@ Plans:
 - [x] 15-01-PLAN.md — pure parse + describe core (CronFields/CronResult types, field grammar, macros, 5/6-field, hand-rolled 24h description, @reboot, error/empty) — TDD
 - [x] 15-02-PLAN.md — next-run engine (DST-correct wall-clock odometer, DOM/DOW OR-union + 0/7 Sunday, Intl round-trip, bounded cap → kind:"never") — TDD
 - [x] 15-03-PLAN.md — ISOLATED L/nL/L-n slice (last-day/last-weekday, leap-year + month-length canonical fixtures, 0–6 nL numbering) — TDD
-- [ ] 15-04-PLAN.md — CronTool view + registry append + real-WKWebView e2e + phase-boundary sign-off (tauri build + gsd-ui-review WCAG-AA)
+- [~] 15-04-PLAN.md — CronTool view + registry append + real-WKWebView e2e DONE (12th tool live at #/tools/cron; 648/648 tests, e2e 13/13); **awaiting** phase-boundary sign-off (tauri build + gsd-ui-review WCAG-AA)
 
 ## Progress
 
