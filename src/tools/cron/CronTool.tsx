@@ -54,12 +54,14 @@ export default function CronTool() {
     [],
   );
 
-  // Paste-instant: a fresh `new Date()` each render keeps the relative captions
-  // honest; analyzeCron is pure + bounded so this is cheap and never hangs.
-  const result = useMemo(
-    () => analyzeCron(expr, new Date(), zone),
-    [expr, zone],
-  );
+  // Paste-instant: freeze ONE `now` per [expr, zone] compute and reuse it for both
+  // the run instants AND the relative captions, so the absolute run labels and the
+  // "in N minutes" lines stay consistent across unrelated re-renders (MD-02).
+  // analyzeCron is pure + bounded so this is cheap and never hangs.
+  const { result, now } = useMemo(() => {
+    const n = new Date();
+    return { result: analyzeCron(expr, n, zone), now: n.getTime() };
+  }, [expr, zone]);
 
   const isError = result.kind === "error";
 
@@ -164,7 +166,7 @@ export default function CronTool() {
                       </span>
                     </div>
                     <span className="text-[12px] text-tx-3">
-                      {relativeTime(run.date.getTime())}
+                      {relativeTime(run.date.getTime(), now)}
                     </span>
                   </div>
                   <CopyButton value={run.label} label={`Copy run ${i + 1}`} />

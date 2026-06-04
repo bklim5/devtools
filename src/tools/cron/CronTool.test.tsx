@@ -141,4 +141,39 @@ describe("CronTool", () => {
     expect(alert).toBeTruthy();
     expect(alert?.textContent).toMatch(/aren't supported yet/i);
   });
+
+  it("freezes the relative caption to the compute-time `now`, not a live clock (MD-02)", () => {
+    // The relative caption is the last span of the first run row's text column
+    // (after the `#N` + absolute-datetime row). Read it structurally so we don't
+    // depend on the runner-locale wording ("tomorrow" / "in 1 hour" / "2 days ago").
+    const relCaption = (container: HTMLElement): string => {
+      const row = container.querySelector("[data-run-row]");
+      if (!row) throw new Error("no run row");
+      const column = row.firstElementChild;
+      const caption = column?.lastElementChild;
+      if (!caption) throw new Error("no relative caption span");
+      return caption.textContent ?? "";
+    };
+
+    // Freeze the clock, compute the runs, capture the relative caption.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-04T08:00:00Z"));
+    try {
+      const { container, rerender } = render(<CronTool />);
+      type(container, "0 9 * * *");
+      const relBefore = relCaption(container);
+
+      // Advance wall-clock far enough that a LIVE `Date.now()` caption would shift,
+      // then force an UNRELATED re-render (same [expr, zone] state, so the memo and
+      // its frozen `now` are reused). The caption must NOT drift from the frozen run
+      // instants — that is the MD-02 guarantee.
+      vi.advanceTimersByTime(45 * 60 * 1000); // +45 minutes
+      rerender(<CronTool />);
+      const relAfter = relCaption(container);
+
+      expect(relAfter).toBe(relBefore);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
