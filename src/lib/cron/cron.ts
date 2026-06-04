@@ -422,20 +422,100 @@ export function dayMatches(
 }
 
 /**
+ * Hard cap on candidate DAYS the odometer walks (~5 years; Assumption A2). This
+ * is the CRON-08 freeze protection — the loop is `for (i < cap)`, NEVER an
+ * uncapped `while(true)`. An impossible expression (Feb 30) walks the whole cap
+ * without a match and falls off → `nextRuns` returns `[]` → `kind:"never"`. Cron
+ * compute is bounded/cheap, so it runs synchronously on the main thread (the cap,
+ * not a Worker, is the protection — RESEARCH §Worker decision, T-15-04).
+ */
+const CANDIDATE_DAY_CAP = 5 * 366;
+
+/** Advance a 1-based y/mo/d by one calendar day, normalizing month/year overflow. */
+function addOneDay(y: number, mo: number, d: number): [number, number, number] {
+  const next = new Date(Date.UTC(y, mo - 1, d + 1));
+  return [next.getUTCFullYear(), next.getUTCMonth() + 1, next.getUTCDate()];
+}
+
+/** Ascending-sorted values of a numeric field Set. */
+function asc(s: Set<number>): number[] {
+  return [...s].sort((a, b) => a - b);
+}
+
+/**
+ * Compute the next `want` runs strictly after `now`, as instants in `zone`, by a
+ * day-granular wall-clock odometer (RESEARCH §Next-run odometer, CRON-05). The
+ * outer walk is DAY-granular (sidesteps month-length/leap carry math — Date.UTC
+ * normalizes overflow); within each matching day, iterate hour×minute×second
+ * ascending. DST is handled by the helpers: `wallClockToInstant` returns null on
+ * the spring-forward gap (skip), and we de-dupe consecutive equal instants so a
+ * repeated fall-back wall-clock hour yields ONE run (CRON-07, Pitfall 6). The cap
+ * guarantees termination for impossible expressions (CRON-08).
+ */
+export function nextRuns(
+  f: CronFields,
+  now: Date,
+  zone: string,
+  want = 5,
+): CronRun[] {
+  const labeller = new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+    hourCycle: "h23",
+    timeZone: zone,
+  });
+
+  const hours = asc(f.hour);
+  const minutes = asc(f.minute);
+  const seconds = asc(f.second);
+  const nowMs = now.getTime();
+
+  const runs: CronRun[] = [];
+  let lastEmittedMs = -1; // fall-back de-dupe: skip an instant equal to the prior one
+
+  // Start from the zoned calendar day of `now` (intra-day candidates may remain).
+  const start = zonedParts(now, zone);
+  let y = start.year;
+  let mo = start.month;
+  let d = start.day;
+
+  for (let i = 0; i < CANDIDATE_DAY_CAP; i++) {
+    if (f.month.has(mo) && dayMatches(f, y, mo, d)) {
+      for (const h of hours) {
+        for (const mi of minutes) {
+          for (const s of seconds) {
+            const inst = wallClockToInstant(y, mo, d, h, mi, s, zone);
+            if (inst === null) continue; // spring-forward gap — skip
+            const ms = inst.getTime();
+            if (ms <= nowMs) continue; // strictly after now
+            if (ms === lastEmittedMs) continue; // fall-back duplicate hour → one run
+            lastEmittedMs = ms;
+            runs.push({ date: inst, label: labeller.format(inst) });
+            if (runs.length >= want) return runs;
+          }
+        }
+      }
+    }
+    [y, mo, d] = addOneDay(y, mo, d);
+  }
+
+  return runs; // fell off the cap → caller treats an empty list as kind:"never"
+}
+
+/**
  * The pure, total cron front-half: empty → macro → unsupported-token reject →
- * field-count disambiguation → per-field parse → describe. Returns `runs: []`
- * for valid non-reboot expressions (Plan 02 fills the real next-runs). The
- * `now`/`zone` params are part of the locked contract Plans 02/03 consume; this
- * plan does not use them yet.
+ * field-count disambiguation → per-field parse → describe → next-runs. Computes
+ * the next 5 runs in `zone` local time; an expression that parses but never fires
+ * within the cap returns `kind:"never"` (the description still renders, CRON-08).
+ * The system zone is supplied by the caller (the view passes
+ * `Intl.DateTimeFormat().resolvedOptions().timeZone`) — kept injectable so the
+ * core stays pure and fixture-testable.
  */
 export function analyzeCron(
   input: string,
   now: Date,
   zone: string,
 ): CronResult {
-  // `now`/`zone` are part of the locked contract Plans 02/03 consume; unused here.
-  void now;
-  void zone;
   const parsed = parseExpression(input);
 
   if ("empty" in parsed) return { kind: "empty" };
@@ -447,12 +527,10 @@ export function analyzeCron(
   }
   if ("error" in parsed) return { kind: "error", message: parsed.error };
 
-  // Plan 02 replaces `runs: []` with the real next-run computation.
-  return {
-    kind: "scheduled",
-    description: describe(parsed.fields, parsed.sixField),
-    runs: [],
-  };
+  const description = describe(parsed.fields, parsed.sixField);
+  const runs = nextRuns(parsed.fields, now, zone, 5);
+  if (runs.length === 0) return { kind: "never", description };
+  return { kind: "scheduled", description, runs };
 }
 
 // --- Description helpers (hand-rolled, 24-hour; cronstrue is a forbidden dep). ---

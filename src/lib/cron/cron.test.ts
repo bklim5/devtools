@@ -8,6 +8,7 @@ import {
   analyzeCron,
   dayMatches,
   describe as describeCron,
+  nextRuns,
   parseExpression,
   wallClockToInstant,
   type CronFields,
@@ -145,10 +146,10 @@ group("analyzeCron — kinds", () => {
     if (r.kind === "reboot") expect(r.description).toContain("startup");
   });
 
-  it("returns kind:scheduled (runs:[] this plan) for a valid expression", () => {
+  it("returns kind:scheduled with computed runs for a valid expression", () => {
     const r = analyzeCron("0 9 * * 1-5", NOW, ZONE);
     expect(r.kind).toBe("scheduled");
-    if (r.kind === "scheduled") expect(r.runs).toEqual([]);
+    if (r.kind === "scheduled") expect(r.runs).toHaveLength(5);
   });
 
   it("returns kind:error for an invalid expression, never throwing", () => {
@@ -284,5 +285,69 @@ group("wallClockToInstant — DST round-trip (CRON-07)", () => {
     const inst = wallClockToInstant(2026, 6, 4, 9, 0, 0, "Asia/Singapore");
     expect(inst).not.toBeNull();
     expect(inst!.toISOString()).toBe("2026-06-04T01:00:00.000Z");
+  });
+});
+
+// --- Plan 02 Task 2: bounded next-run odometer + kind:"never". ---
+
+const FIXED_NOW = new Date("2026-06-04T00:00:00Z");
+
+/** The 24-hour-clock local time (HH:MM) the labeller renders for an instant. */
+function localHM(inst: Date, zone: string): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: zone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(inst);
+  const h = parts.find((p) => p.type === "hour")!.value;
+  const m = parts.find((p) => p.type === "minute")!.value;
+  return `${h}:${m}`;
+}
+
+group("nextRuns / analyzeCron — next 5 runs (CRON-05)", () => {
+  it("returns exactly 5 ascending runs, all strictly after now, at 09:00 local", () => {
+    const r = analyzeCron("0 9 * * *", FIXED_NOW, "Asia/Singapore");
+    expect(r.kind).toBe("scheduled");
+    if (r.kind !== "scheduled") return;
+    expect(r.runs).toHaveLength(5);
+    let prev = FIXED_NOW.getTime();
+    for (const run of r.runs) {
+      expect(run.date.getTime()).toBeGreaterThan(prev);
+      prev = run.date.getTime();
+      expect(localHM(run.date, "Asia/Singapore")).toBe("09:00");
+      expect(run.label).not.toMatch(/AM|PM/); // 24-hour discipline
+    }
+  });
+
+  it("steps minute fields in wall-clock order (every 30 min → 5 runs 30 min apart)", () => {
+    const runs = nextRuns(fOf("*/30 * * * *"), FIXED_NOW, "UTC", 5);
+    expect(runs).toHaveLength(5);
+    for (let i = 1; i < runs.length; i++) {
+      const delta = runs[i].date.getTime() - runs[i - 1].date.getTime();
+      expect(delta).toBe(30 * 60_000);
+    }
+  });
+
+  it("de-dupes the repeated fall-back hour to distinct instants (CRON-07)", () => {
+    // `30 1 * * *` daily across the 2026-11-01 NY fall-back (01:30 occurs twice).
+    const justBefore = new Date("2026-10-30T12:00:00Z");
+    const runs = nextRuns(fOf("30 1 * * *"), justBefore, "America/New_York", 5);
+    expect(runs).toHaveLength(5);
+    const stamps = runs.map((r) => r.date.getTime());
+    expect(new Set(stamps).size).toBe(5); // no duplicate timestamp
+  });
+});
+
+group("analyzeCron — impossible expression (CRON-08)", () => {
+  it("returns kind:never for Feb 30 within the cap, and terminates", () => {
+    const r = analyzeCron("0 0 30 2 *", FIXED_NOW, "UTC");
+    // The test completing at all proves termination (the bounded cap, not a hang).
+    expect(r.kind).toBe("never");
+    if (r.kind === "never") expect(r.description).toContain("30");
+  });
+
+  it("nextRuns returns [] for an impossible expression (bounded, no hang)", () => {
+    expect(nextRuns(fOf("0 0 30 2 *"), FIXED_NOW, "UTC", 5)).toEqual([]);
   });
 });
