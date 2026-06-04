@@ -16,17 +16,17 @@ Three new tools (Cron, URL, Regex) plus a decimal-byte-array input mode for the 
 
 ### Cron tool
 
-- [ ] **CRON-01**: User can paste a standard 5-field cron expression and see a human-readable description (24-hour time), paste-instant.
-- [ ] **CRON-02**: User can paste a 6-field (with-seconds) cron expression and it is parsed and described correctly (5-vs-6-field disambiguated by field count).
-- [ ] **CRON-03**: User can use macros (`@yearly`/`@annually`, `@monthly`, `@weekly`, `@daily`/`@midnight`, `@hourly`, `@reboot`) and they are described and (where applicable) scheduled correctly.
-- [ ] **CRON-04**: User can use full field syntax — wildcards (`*`), ranges (`1-5`), steps (`*/15`, `0-30/10`), lists (`1,3,5`), and day/month names (`MON`, `JAN`) — across all fields.
+- [x] **CRON-01**: User can paste a standard 5-field cron expression and see a human-readable description (24-hour time), paste-instant.
+- [x] **CRON-02**: User can paste a 6-field (with-seconds) cron expression and it is parsed and described correctly (5-vs-6-field disambiguated by field count).
+- [x] **CRON-03**: User can use macros (`@yearly`/`@annually`, `@monthly`, `@weekly`, `@daily`/`@midnight`, `@hourly`, `@reboot`) and they are described and (where applicable) scheduled correctly.
+- [x] **CRON-04**: User can use full field syntax — wildcards (`*`), ranges (`1-5`), steps (`*/15`, `0-30/10`), lists (`1,3,5`), and day/month names (`MON`, `JAN`) — across all fields.
 - [ ] **CRON-05**: User sees the next 5 run times in local time, each with an IANA timezone label.
 - [ ] **CRON-06**: Next-run computation honors cron's day-of-month / day-of-week **OR-union** semantics (when both are restricted, a run matches *either*) and treats both `0` and `7` as Sunday.
 - [ ] **CRON-07**: Next-run computation is DST-correct — it iterates wall-clock fields (not millisecond deltas), so spring-forward (skipped) and fall-back (repeated) hours are handled without duplicate or missing runs.
 - [ ] **CRON-08**: An impossible / never-firing expression (e.g. `0 0 30 2 *` — Feb 30) terminates gracefully with a clear "no upcoming runs" message via a bounded iteration cap — it never freezes the window.
-- [ ] **CRON-09**: `@reboot` is described as run-at-startup with no scheduled next-run (no clock computation attempted).
+- [x] **CRON-09**: `@reboot` is described as run-at-startup with no scheduled next-run (no clock computation attempted).
 - [ ] **CRON-10**: User can use last-day / last-weekday syntax (`L`, `nL`, `L-n`) and see correct next-run times — leap-year and month-length aware (isolated high-risk slice with explicit edge-case fixtures).
-- [ ] **CRON-11**: An invalid cron expression (wrong field count, out-of-range value, unparseable token) surfaces a clear inline error without throwing.
+- [x] **CRON-11**: An invalid cron expression (wrong field count, out-of-range value, unparseable token) surfaces a clear inline error without throwing.
 
 ### URL tool
 
@@ -89,17 +89,17 @@ Every v1 requirement maps to exactly one phase. Phase numbering continues from v
 | RGX-05 | Phase 14 | Complete |
 | RGX-06 | Phase 14 | Complete |
 | RGX-07 | Phase 14 | Complete |
-| CRON-01 | Phase 15 | Pending |
-| CRON-02 | Phase 15 | Pending |
-| CRON-03 | Phase 15 | Pending |
-| CRON-04 | Phase 15 | Pending |
+| CRON-01 | Phase 15 | Complete |
+| CRON-02 | Phase 15 | Complete |
+| CRON-03 | Phase 15 | Complete |
+| CRON-04 | Phase 15 | Complete |
 | CRON-05 | Phase 15 | Pending |
 | CRON-06 | Phase 15 | Pending |
 | CRON-07 | Phase 15 | Pending |
 | CRON-08 | Phase 15 | Pending |
-| CRON-09 | Phase 15 | Pending |
+| CRON-09 | Phase 15 | Complete |
 | CRON-10 | Phase 15 | Pending |
-| CRON-11 | Phase 15 | Pending |
+| CRON-11 | Phase 15 | Complete |
 
 **Coverage:**
 - v1 requirements: 25 total (PRO 2 · CRON 11 · URL 5 · RGX 7)
