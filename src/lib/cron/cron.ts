@@ -1,0 +1,358 @@
+// Pure cron core for the Cron tool (Phase 15, CRON-01..11). Thin error-as-value
+// parse + describe over native primitives — zero new runtime deps. This module is
+// the interface-contract wave: Plans 02 (next-run engine) and 03 (L-syntax) import
+// CronFields / CronResult / CronRun from here and extend analyzeCron.
+//
+// The whole surface is PURE and TOTAL — it never throws, never touches the DOM, and
+// never logs the input expression (mirror src/lib/url.ts / src/lib/regex/regex.ts).
+// The parser uses only fixed split + integer parse + range-check on the untrusted
+// expression: NO eval / Function / user-built RegExp (T-15-01); the only regexes are
+// fixed linear non-backtracking literals (T-15-02). Empty input is a neutral state,
+// never an error (mirror url.ts D-15). This plan computes NO next-runs — it returns
+// `runs: []` for valid non-reboot expressions; Plan 02 fills them.
+
+/** One computed next run (Plan 02 fills these). label = Intl-formatted local + IANA zone. */
+export interface CronRun {
+  date: Date;
+  label: string;
+}
+
+/**
+ * Discriminated result the view renders without try/catch (mirror src/lib/url.ts).
+ * `never` (impossible expression) is produced by Plan 02's iterator; this plan
+ * returns `scheduled` (runs: []) / `reboot` / `empty` / `error`.
+ */
+export type CronResult =
+  | { kind: "scheduled"; description: string; runs: CronRun[] } // normal expr
+  | { kind: "reboot"; description: string } // @reboot — no runs (CRON-09)
+  | { kind: "never"; description: string } // impossible expr (CRON-08, Plan 02)
+  | { kind: "empty" } // neutral state
+  | { kind: "error"; message: string }; // invalid (CRON-11)
+
+/**
+ * Normalized field model — parse once, match many. Each numeric field is the
+ * explicit Set of allowed values, already expanded for *, ranges, steps, lists,
+ * and names. DOM/DOW also carry `restricted` (was it NOT a wildcard?) for the
+ * OR-union rule (CRON-06), plus the L-marker slots Plan 03 fills.
+ */
+export interface CronFields {
+  second: Set<number>; // 0..59  (6-field only; defaults to {0} for 5-field)
+  minute: Set<number>; // 0..59
+  hour: Set<number>; // 0..23
+  /** 1..31 + L / L-n (markers parsed in Plan 03; this plan leaves them false/unset). */
+  dom: {
+    values: Set<number>;
+    restricted: boolean;
+    lastDay: boolean;
+    lastOffset?: number;
+  };
+  month: Set<number>; // 1..12
+  /** 0..6 (7→0) + nL (Plan 03). */
+  dow: { values: Set<number>; restricted: boolean; lastWeekday?: number };
+}
+
+// --- Named error constants (mirror url.ts: name the bad token AND the valid range). ---
+const UNSUPPORTED_TOKEN =
+  "`W`, `#` and `LW` aren't supported yet — try a standard field, range, step, list, or `L` / `nL` / `L-n`.";
+
+// --- Macro table (CRON-03). Expand to a 5-field string, then continue parsing. ---
+const MACROS: Record<string, string> = {
+  "@yearly": "0 0 1 1 *",
+  "@annually": "0 0 1 1 *",
+  "@monthly": "0 0 1 * *",
+  "@weekly": "0 0 * * 0",
+  "@daily": "0 0 * * *",
+  "@midnight": "0 0 * * *",
+  "@hourly": "0 * * * *",
+};
+
+const MONTH_NAMES = [
+  "jan",
+  "feb",
+  "mar",
+  "apr",
+  "may",
+  "jun",
+  "jul",
+  "aug",
+  "sep",
+  "oct",
+  "nov",
+  "dec",
+];
+const DOW_NAMES = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+
+/** Fixed, linear, non-backtracking literals (T-15-02). A bare non-negative integer. */
+const INT_RE = /^\d+$/;
+
+/** Per-field spec for parseField: bounds + optional name map (lowercased → number). */
+interface FieldSpec {
+  name: string;
+  min: number;
+  max: number;
+  names?: Record<string, number>;
+}
+
+const monthNameMap: Record<string, number> = Object.fromEntries(
+  MONTH_NAMES.map((n, i) => [n, i + 1]),
+);
+const dowNameMap: Record<string, number> = Object.fromEntries(
+  DOW_NAMES.map((n, i) => [n, i]),
+);
+
+/** Result of parsing one field token: the value Set + whether it was restricted. */
+type FieldParse = { values: Set<number>; restricted: boolean } | { error: string };
+
+/**
+ * Parse ONE field token into its allowed-value Set (CRON-04). Pipeline:
+ * split top-level on `,` (lists) → each item is `*` | `<n>` | `<a>-<b>` |
+ * `<base>/<step>` | a name → expand → union → range-check every produced value.
+ * `restricted` is true iff the field is NOT a bare `*` and NOT a full-range
+ * step (needed for the OR-union rule, CRON-06). Never throws.
+ */
+function parseField(token: string, spec: FieldSpec): FieldParse {
+  const { name, min, max, names } = spec;
+  const values = new Set<number>();
+  let restricted = false;
+
+  // Map a single name/number to its numeric value (names BEFORE numeric parse).
+  const toNum = (raw: string): number | null => {
+    const lower = raw.toLowerCase();
+    if (names && lower in names) return names[lower];
+    if (INT_RE.test(raw)) return Number(raw);
+    return null;
+  };
+
+  const items = token.split(",");
+  for (const item of items) {
+    if (item === "") {
+      return { error: `Unparseable token: "${item}" in ${name}.` };
+    }
+
+    // Split off an optional /step suffix.
+    const slash = item.indexOf("/");
+    const basePart = slash === -1 ? item : item.slice(0, slash);
+    const stepPart = slash === -1 ? null : item.slice(slash + 1);
+
+    let step = 1;
+    if (stepPart !== null) {
+      if (!INT_RE.test(stepPart) || Number(stepPart) < 1) {
+        return { error: `Unparseable token: "${item}" in ${name}.` };
+      }
+      step = Number(stepPart);
+    }
+
+    // Expand the base into an inclusive [lo..hi] range.
+    let lo: number;
+    let hi: number;
+    let fullRangeBase = false;
+    if (basePart === "*") {
+      lo = min;
+      hi = max;
+      fullRangeBase = true;
+    } else if (basePart.includes("-")) {
+      const dash = basePart.indexOf("-");
+      const aRaw = basePart.slice(0, dash);
+      const bRaw = basePart.slice(dash + 1);
+      const a = toNum(aRaw);
+      const b = toNum(bRaw);
+      if (a === null || b === null) {
+        return { error: `Unparseable token: "${item}" in ${name}.` };
+      }
+      if (a > b) {
+        return { error: `Invalid range "${basePart}": start must be ≤ end.` };
+      }
+      lo = a;
+      hi = b;
+    } else {
+      const n = toNum(basePart);
+      if (n === null) {
+        return { error: `Unparseable token: "${item}" in ${name}.` };
+      }
+      if (stepPart !== null) {
+        // bare `a/step` → a-max/step
+        lo = n;
+        hi = max;
+      } else {
+        lo = n;
+        hi = n;
+      }
+    }
+
+    // Range-check the produced bounds, naming the bad token + valid range.
+    for (const bound of [lo, hi]) {
+      if (bound < min || bound > max) {
+        return {
+          error: `Out of range: ${name} "${bound}" must be ${min}–${max}.`,
+        };
+      }
+    }
+
+    // Emit every step-th element from the range's low end (Pitfall 2).
+    for (let v = lo; v <= hi; v += step) {
+      values.add(v);
+    }
+
+    // Restricted iff this item is NOT a bare `*` and NOT `*/n` over the full range.
+    const isFullRangeStar = fullRangeBase;
+    if (!isFullRangeStar) restricted = true;
+  }
+
+  return { values, restricted };
+}
+
+/**
+ * Parse a cron expression into a normalized CronFields, or return a parse error.
+ * Used by analyzeCron after macro-expansion + unsupported-token rejection.
+ */
+function parseFields(
+  tokens: string[],
+  sixField: boolean,
+):
+  | { fields: CronFields }
+  | { error: string } {
+  // tokens length is already validated to 5 or 6 by the caller.
+  const [secTok, minTok, hourTok, domTok, monthTok, dowTok] = sixField
+    ? tokens
+    : ["0", ...tokens];
+
+  const second = parseField(secTok, { name: "second", min: 0, max: 59 });
+  if ("error" in second) return { error: second.error };
+
+  const minute = parseField(minTok, { name: "minute", min: 0, max: 59 });
+  if ("error" in minute) return { error: minute.error };
+
+  const hour = parseField(hourTok, { name: "hour", min: 0, max: 23 });
+  if ("error" in hour) return { error: hour.error };
+
+  const dom = parseField(domTok, { name: "day-of-month", min: 1, max: 31 });
+  if ("error" in dom) return { error: dom.error };
+
+  const month = parseField(monthTok, {
+    name: "month",
+    min: 1,
+    max: 12,
+    names: monthNameMap,
+  });
+  if ("error" in month) return { error: month.error };
+
+  // DOW parsed against 0–7, then 7→0 normalized (Pitfall 3, CRON-06).
+  const dow = parseField(dowTok, {
+    name: "day-of-week",
+    min: 0,
+    max: 7,
+    names: dowNameMap,
+  });
+  if ("error" in dow) return { error: dow.error };
+  const dowValues = new Set<number>();
+  for (const v of dow.values) dowValues.add(v === 7 ? 0 : v);
+
+  return {
+    fields: {
+      second: second.values,
+      minute: minute.values,
+      hour: hour.values,
+      dom: {
+        values: dom.values,
+        restricted: dom.restricted,
+        lastDay: false,
+      },
+      month: month.values,
+      dow: {
+        values: dowValues,
+        restricted: dow.restricted,
+      },
+    },
+  };
+}
+
+/**
+ * Parse an expression to its normalized CronFields (+ whether it was 6-field), or
+ * a parse error / non-field kind. Exposed so the description generator and tests
+ * can read the SAME normalized model analyzeCron uses (single source of truth).
+ * Mirrors analyzeCron's front-half but returns the fields instead of a CronResult.
+ */
+export function parseExpression(
+  input: string,
+):
+  | { fields: CronFields; sixField: boolean }
+  | { reboot: true }
+  | { empty: true }
+  | { error: string } {
+  const trimmed = input.trim();
+  if (trimmed === "") return { empty: true };
+
+  let expression = trimmed;
+  if (trimmed.startsWith("@")) {
+    const macro = trimmed.toLowerCase();
+    if (macro === "@reboot") return { reboot: true };
+    if (macro in MACROS) {
+      expression = MACROS[macro];
+    } else {
+      return {
+        error: `Unknown macro "${trimmed}" — try @yearly, @monthly, @weekly, @daily, @hourly, or @reboot.`,
+      };
+    }
+  }
+
+  const upper = expression.toUpperCase();
+  if (upper.includes("LW") || upper.includes("W") || upper.includes("#")) {
+    return { error: UNSUPPORTED_TOKEN };
+  }
+
+  const tokens = expression.split(/\s+/).filter((t) => t !== "");
+  if (tokens.length !== 5 && tokens.length !== 6) {
+    return {
+      error: `Wrong field count: expected 5 or 6 fields, got ${tokens.length}.`,
+    };
+  }
+  const sixField = tokens.length === 6;
+
+  const parsed = parseFields(tokens, sixField);
+  if ("error" in parsed) return { error: parsed.error };
+  return { fields: parsed.fields, sixField };
+}
+
+/**
+ * The pure, total cron front-half: empty → macro → unsupported-token reject →
+ * field-count disambiguation → per-field parse → describe. Returns `runs: []`
+ * for valid non-reboot expressions (Plan 02 fills the real next-runs). The
+ * `now`/`zone` params are part of the locked contract Plans 02/03 consume; this
+ * plan does not use them yet.
+ */
+export function analyzeCron(
+  input: string,
+  now: Date,
+  zone: string,
+): CronResult {
+  // `now`/`zone` are part of the locked contract Plans 02/03 consume; unused here.
+  void now;
+  void zone;
+  const parsed = parseExpression(input);
+
+  if ("empty" in parsed) return { kind: "empty" };
+  if ("reboot" in parsed) {
+    return {
+      kind: "reboot",
+      description: "At startup — runs once when the scheduler starts.",
+    };
+  }
+  if ("error" in parsed) return { kind: "error", message: parsed.error };
+
+  // Plan 02 replaces `runs: []` with the real next-run computation.
+  return {
+    kind: "scheduled",
+    description: describe(parsed.fields, parsed.sixField),
+    runs: [],
+  };
+}
+
+/**
+ * Hand-rolled 24-hour human-readable description (CRON-01). Plan 01 ships a
+ * minimal placeholder; Plan 01 Task 2 replaces this with the full generator.
+ */
+export function describe(f: CronFields, sixField: boolean): string {
+  void f;
+  void sixField;
+  return "";
+}
