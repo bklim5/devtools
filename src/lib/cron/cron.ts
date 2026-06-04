@@ -471,7 +471,13 @@ export function wallClockToInstant(
  * EITHER matches; when one is `*` (not restricted) the other is ANDed. `mo` is
  * 1-based → `Date.UTC` wants `mo-1`; `getUTCDay()` is 0=Sun..6=Sat, and Plan 01
  * already normalized 7→0 into `dow.values`, so 0 and 7 both match Sunday.
- * (L-syntax markers are added in Plan 03; here only the value Sets are read.)
+ *
+ * CRON-10 L-syntax (the leap-year/month-length-aware cases): `daysInMonth` comes
+ * from `Date.UTC(y, mo, 0).getUTCDate()` (mo 1-based, day 0 → the last day of
+ * month `mo`) — leap-year-correct for free, no hand-rolled leap-year ladder.
+ *   - `L`      → d === daysInMonth
+ *   - `L-n`    → d === daysInMonth - n  (an over-large n simply never matches)
+ *   - `nL`     → weekday === n AND no later same-weekday this month (d + 7 > daysInMonth)
  */
 export function dayMatches(
   f: CronFields,
@@ -479,9 +485,20 @@ export function dayMatches(
   mo: number,
   d: number,
 ): boolean {
+  const daysInMonth = new Date(Date.UTC(y, mo, 0)).getUTCDate();
   const weekday = new Date(Date.UTC(y, mo - 1, d)).getUTCDay();
-  const domMatch = f.dom.values.has(d);
-  const dowMatch = f.dow.values.has(weekday);
+
+  const domMatch =
+    (f.dom.lastDay && f.dom.lastOffset == null && d === daysInMonth) ||
+    (f.dom.lastOffset != null && d === daysInMonth - f.dom.lastOffset) ||
+    f.dom.values.has(d);
+
+  const isLastWeekdayOfMonth =
+    f.dow.lastWeekday != null &&
+    weekday === f.dow.lastWeekday &&
+    d + 7 > daysInMonth; // no same weekday later this month ⇒ this is the last
+  const dowMatch = f.dow.values.has(weekday) || isLastWeekdayOfMonth;
+
   return f.dom.restricted && f.dow.restricted
     ? domMatch || dowMatch
     : domMatch && dowMatch;
@@ -695,22 +712,54 @@ function timeOfDayPhrase(f: CronFields, sixField: boolean): string {
   return `At minute ${minuteList} past ${hourWord} ${hourList}`;
 }
 
+/**
+ * The day-of-month phrase fragment, honoring the CRON-10 L-forms:
+ * `L`→"the last day of the month", `L-n`→"the n-th-from-last day of the month",
+ * plus any numeric day-of-month values. Returns null when DOM contributes nothing.
+ */
+function domPhrase(dom: CronFields["dom"]): string | null {
+  const fragments: string[] = [];
+  if (dom.lastDay && dom.lastOffset == null) {
+    fragments.push("the last day of the month");
+  } else if (dom.lastOffset != null) {
+    fragments.push(`the ${dom.lastOffset}-th-from-last day of the month`);
+  }
+  if (dom.values.size > 0) {
+    const list = joinNames([...dom.values].sort((a, b) => a - b).map(String));
+    fragments.push(`day-of-month ${list}`);
+  }
+  return fragments.length ? joinNames(fragments) : null;
+}
+
+/**
+ * The day-of-week phrase fragment, honoring the CRON-10 `nL` form:
+ * `nL`→"the last <weekday> of the month", plus any numeric weekday values.
+ * Returns null when DOW contributes nothing.
+ */
+function dowPhrase(dow: CronFields["dow"]): string | null {
+  const fragments: string[] = [];
+  if (dow.values.size > 0) fragments.push(weekdayPhrase(dow.values));
+  if (dow.lastWeekday != null) {
+    fragments.push(`the last ${WEEKDAY_FULL[dow.lastWeekday]} of the month`);
+  }
+  return fragments.length ? joinNames(fragments) : null;
+}
+
 /** The day-of-month / day-of-week phrase, honoring the OR-union WORDING (CRON-06). */
 function dayPhrase(
   dom: CronFields["dom"],
   dow: CronFields["dow"],
 ): string | null {
-  const domList = joinNames(
-    [...dom.values].sort((a, b) => a - b).map(String),
-  );
-  if (dom.restricted && dow.restricted) {
-    return `on day-of-month ${domList} or ${weekdayPhrase(dow.values)}`;
+  const domStr = domPhrase(dom);
+  const dowStr = dowPhrase(dow);
+  if (dom.restricted && dow.restricted && domStr && dowStr) {
+    return `on ${domStr} or ${dowStr}`;
   }
-  if (dow.restricted) {
-    return `on ${weekdayPhrase(dow.values)}`;
+  if (dow.restricted && dowStr) {
+    return `on ${dowStr}`;
   }
-  if (dom.restricted) {
-    return `on day-of-month ${domList}`;
+  if (dom.restricted && domStr) {
+    return `on ${domStr}`;
   }
   return null;
 }

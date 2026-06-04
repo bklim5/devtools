@@ -405,6 +405,116 @@ group("parseExpression — L / L-n / nL markers (CRON-10)", () => {
   });
 });
 
+// --- Plan 03 Task 2: dayMatches L-syntax + canonical leap-year fixtures. ---
+
+/** The zoned Y/M/D an instant renders to in `zone` (UTC throughout these fixtures). */
+function ymd(inst: Date, zone = "UTC"): { y: number; m: number; d: number } {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: zone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(inst);
+  const get = (t: string) => Number(parts.find((p) => p.type === t)!.value);
+  return { y: get("year"), m: get("month"), d: get("day") };
+}
+
+/** First scheduled run of `expr` with `now`, or throw if it isn't `scheduled`. */
+function firstRun(expr: string, now: Date): Date {
+  const r = analyzeCron(expr, now, "UTC");
+  if (r.kind !== "scheduled") {
+    throw new Error(`expected ${expr} scheduled, got ${JSON.stringify(r)}`);
+  }
+  return r.runs[0].date;
+}
+
+group("dayMatches / analyzeCron — L last-day (CRON-10)", () => {
+  it("`0 0 L * *` fires on the last day of each month (Jan 31, Apr 30)", () => {
+    // now just before end of Jan 2025 → first run is Jan 31.
+    expect(ymd(firstRun("0 0 L * *", new Date("2025-01-15T00:00:00Z")))).toEqual({
+      y: 2025,
+      m: 1,
+      d: 31,
+    });
+    // now in mid-April → last day is Apr 30 (30-day month, not 31).
+    expect(ymd(firstRun("0 0 L * *", new Date("2025-04-10T00:00:00Z")))).toEqual({
+      y: 2025,
+      m: 4,
+      d: 30,
+    });
+  });
+
+  it("`0 0 L 2 *` → Feb 29 in a leap year (2024), Feb 28 in a non-leap year (2025)", () => {
+    expect(ymd(firstRun("0 0 L 2 *", new Date("2024-01-15T00:00:00Z")))).toEqual({
+      y: 2024,
+      m: 2,
+      d: 29,
+    });
+    expect(ymd(firstRun("0 0 L 2 *", new Date("2025-01-15T00:00:00Z")))).toEqual({
+      y: 2025,
+      m: 2,
+      d: 28,
+    });
+  });
+
+  it("`0 0 L 4 *` → Apr 30 (30-day month, not 31)", () => {
+    expect(ymd(firstRun("0 0 L 4 *", new Date("2025-01-01T00:00:00Z")))).toEqual({
+      y: 2025,
+      m: 4,
+      d: 30,
+    });
+  });
+
+  it("`0 0 L-3 * *` → 3rd-from-last day (Jan 28; Feb 25 in 2025, Feb 26 in 2024)", () => {
+    expect(ymd(firstRun("0 0 L-3 * *", new Date("2025-01-10T00:00:00Z")))).toEqual({
+      y: 2025,
+      m: 1,
+      d: 28,
+    });
+    expect(
+      ymd(firstRun("0 0 L-3 2 *", new Date("2025-01-10T00:00:00Z"))),
+    ).toEqual({ y: 2025, m: 2, d: 25 });
+    expect(
+      ymd(firstRun("0 0 L-3 2 *", new Date("2024-01-10T00:00:00Z"))),
+    ).toEqual({ y: 2024, m: 2, d: 26 });
+  });
+
+  it("`0 0 L-0 * *` behaves identically to bare `L`", () => {
+    const now = new Date("2025-01-15T00:00:00Z");
+    expect(ymd(firstRun("0 0 L-0 * *", now))).toEqual(ymd(firstRun("0 0 L * *", now)));
+  });
+
+  it("`0 0 * * 5L` fires on the last Friday of the month", () => {
+    const inst = firstRun("0 0 * * 5L", new Date("2025-01-01T00:00:00Z"));
+    // It must be a Friday and the LAST Friday (no later Friday this month).
+    expect(inst.getUTCDay()).toBe(5); // Friday
+    const { y, m, d } = ymd(inst);
+    const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
+    expect(d + 7).toBeGreaterThan(daysInMonth); // no later same-weekday this month
+  });
+
+  it("`0 0 L-31 * *` over-large offset never matches → kind:never (no hang)", () => {
+    const r = analyzeCron("0 0 L-31 * *", new Date("2025-01-01T00:00:00Z"), "UTC");
+    // Completing at all proves the bounded cap terminated (no infinite loop).
+    expect(r.kind).toBe("never");
+  });
+});
+
+group("describe — L-form phrasing (CRON-10)", () => {
+  it("describes bare `L` as the last day of the month", () => {
+    expect(descOf("0 0 L * *")).toContain("the last day of the month");
+  });
+
+  it("describes `L-3` as the 3rd-from-last day of the month", () => {
+    expect(descOf("0 0 L-3 * *")).toContain("3-th-from-last day of the month");
+  });
+
+  it("describes `5L` as the last Friday of the month", () => {
+    expect(descOf("0 0 * * 5L")).toContain("the last Friday of the month");
+  });
+});
+
 group("analyzeCron — impossible expression (CRON-08)", () => {
   it("returns kind:never for Feb 30 within the cap, and terminates", () => {
     const r = analyzeCron("0 0 30 2 *", FIXED_NOW, "UTC");
