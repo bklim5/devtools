@@ -339,6 +339,72 @@ group("nextRuns / analyzeCron — next 5 runs (CRON-05)", () => {
   });
 });
 
+// --- Plan 03 Task 1: L / L-n / nL parse markers (CRON-10). ---
+
+group("parseExpression — L / L-n / nL markers (CRON-10)", () => {
+  it("parses bare `L` (day-of-month) → lastDay, no offset, restricted", () => {
+    const { fields } = fieldsOf("0 0 L * *");
+    expect(fields.dom.lastDay).toBe(true);
+    expect(fields.dom.lastOffset).toBeUndefined();
+    expect(fields.dom.restricted).toBe(true);
+  });
+
+  it("parses `L-3` → lastDay + lastOffset 3", () => {
+    const { fields } = fieldsOf("0 0 L-3 * *");
+    expect(fields.dom.lastDay).toBe(true);
+    expect(fields.dom.lastOffset).toBe(3);
+    expect(fields.dom.restricted).toBe(true);
+  });
+
+  it("treats `L-0` as equivalent to bare `L` (offset 0 → undefined)", () => {
+    const { fields } = fieldsOf("0 0 L-0 * *");
+    expect(fields.dom.lastDay).toBe(true);
+    expect(fields.dom.lastOffset).toBeUndefined();
+  });
+
+  it("parses `5L` (day-of-week) → lastWeekday 5 (last Friday, 0–6 mapping)", () => {
+    const { fields } = fieldsOf("0 0 * 2 5L");
+    expect(fields.dow.lastWeekday).toBe(5);
+    expect(fields.dow.restricted).toBe(true);
+  });
+
+  it("normalizes `7L` → lastWeekday 0 (last Sunday, 7→0)", () => {
+    expect(fieldsOf("0 0 * * 7L").fields.dow.lastWeekday).toBe(0);
+    expect(fieldsOf("0 0 * * 0L").fields.dow.lastWeekday).toBe(0);
+  });
+
+  it("keeps numeric DOM values alongside an L marker in a list (`1,L`)", () => {
+    const { fields } = fieldsOf("0 0 1,L * *");
+    expect(sorted(fields.dom.values)).toEqual([1]);
+    expect(fields.dom.lastDay).toBe(true);
+  });
+
+  it("still rejects `LW` cleanly (W unsupported, before the bare-L branch)", () => {
+    const r = parseExpression("0 0 LW * *");
+    expect(r).toHaveProperty("error");
+    if ("error" in r) expect(r.error).toContain("aren't supported yet");
+  });
+
+  it("rejects a malformed L-form (`L-abc`) as unparseable, never throwing", () => {
+    expect(() => parseExpression("0 0 L-abc * *")).not.toThrow();
+    const r = parseExpression("0 0 L-abc * *");
+    expect(r).toHaveProperty("error");
+    if ("error" in r) expect(r.error).toContain("Unparseable token");
+  });
+
+  it("rejects an out-of-range `nL` weekday (`9L`)", () => {
+    const r = parseExpression("0 0 * * 9L");
+    expect(r).toHaveProperty("error");
+    if ("error" in r) expect(r.error).toContain("day-of-week");
+  });
+
+  it("parses an over-large offset `L-31` without throwing (never matches)", () => {
+    expect(() => parseExpression("0 0 L-31 * *")).not.toThrow();
+    const { fields } = fieldsOf("0 0 L-31 * *");
+    expect(fields.dom.lastOffset).toBe(31);
+  });
+});
+
 group("analyzeCron — impossible expression (CRON-08)", () => {
   it("returns kind:never for Feb 30 within the cap, and terminates", () => {
     const r = analyzeCron("0 0 30 2 *", FIXED_NOW, "UTC");

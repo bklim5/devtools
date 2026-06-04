@@ -85,12 +85,19 @@ const DOW_NAMES = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
 /** Fixed, linear, non-backtracking literals (T-15-02). A bare non-negative integer. */
 const INT_RE = /^\d+$/;
 
-/** Per-field spec for parseField: bounds + optional name map (lowercased → number). */
+/**
+ * Per-field spec for parseField: bounds + optional name map (lowercased → number).
+ * `lastForm` enables the CRON-10 L-syntax for this field:
+ *   - "dom": accept `L` (last day of month) and `L-n` (n days before the last).
+ *   - "dow": accept `nL` (the last <weekday-n> of the month, 0–6 mapping).
+ * Fields without `lastForm` reject any L-bearing token as unparseable (unchanged).
+ */
 interface FieldSpec {
   name: string;
   min: number;
   max: number;
   names?: Record<string, number>;
+  lastForm?: "dom" | "dow";
 }
 
 const monthNameMap: Record<string, number> = Object.fromEntries(
@@ -100,8 +107,20 @@ const dowNameMap: Record<string, number> = Object.fromEntries(
   DOW_NAMES.map((n, i) => [n, i]),
 );
 
-/** Result of parsing one field token: the value Set + whether it was restricted. */
-type FieldParse = { values: Set<number>; restricted: boolean } | { error: string };
+/**
+ * Result of parsing one field token: the value Set + whether it was restricted,
+ * plus the optional CRON-10 L-markers (dom `L`/`L-n`, dow `nL`). The markers are
+ * only ever populated for fields whose spec enables `lastForm`.
+ */
+type FieldParse =
+  | {
+      values: Set<number>;
+      restricted: boolean;
+      lastDay?: boolean;
+      lastOffset?: number;
+      lastWeekday?: number;
+    }
+  | { error: string };
 
 /**
  * Parse ONE field token into its allowed-value Set (CRON-04). Pipeline:
@@ -111,9 +130,13 @@ type FieldParse = { values: Set<number>; restricted: boolean } | { error: string
  * step (needed for the OR-union rule, CRON-06). Never throws.
  */
 function parseField(token: string, spec: FieldSpec): FieldParse {
-  const { name, min, max, names } = spec;
+  const { name, min, max, names, lastForm } = spec;
   const values = new Set<number>();
   let restricted = false;
+  // CRON-10 L-markers, filled when a list item is an L-form (dom: L/L-n; dow: nL).
+  let lastDay = false;
+  let lastOffset: number | undefined;
+  let lastWeekday: number | undefined;
 
   // Map a single name/number to its numeric value (names BEFORE numeric parse).
   const toNum = (raw: string): number | null => {
@@ -127,6 +150,41 @@ function parseField(token: string, spec: FieldSpec): FieldParse {
   for (const item of items) {
     if (item === "") {
       return { error: `Unparseable token: "${item}" in ${name}.` };
+    }
+
+    // CRON-10 L-syntax (only where the spec enables it; `LW` was already rejected
+    // before any field parsing, so a bare `L` reaching here is never `LW`).
+    if (lastForm === "dom" && (item === "L" || item.startsWith("L-"))) {
+      // `L` → last day of month; `L-n` → n days before the last (0..30 sane range).
+      lastDay = true;
+      restricted = true;
+      if (item !== "L") {
+        const offRaw = item.slice(2);
+        if (!INT_RE.test(offRaw)) {
+          return { error: `Unparseable token: "${item}" in ${name}.` };
+        }
+        // `L-0` is equivalent to bare `L` (offset 0); an over-large offset (e.g.
+        // L-31) parses fine and simply never matches → contributes to kind:"never".
+        const off = Number(offRaw);
+        if (off > 0) lastOffset = off;
+      }
+      continue;
+    }
+    if (lastForm === "dow" && item.length >= 2 && item.endsWith("L")) {
+      // `nL` → the last <weekday-n> of the month. LOCKED 0–6 mapping (Assumption A3,
+      // CRON-06): `5L` = last Friday (5=Fri), NOT Quartz's 1–7 where 5=Thursday.
+      // After 7→0 normalization `7L` → last Sunday. This 0–6 choice is the single
+      // most likely off-by-one — it is fixtured and documented deliberately.
+      const nRaw = item.slice(0, -1);
+      const n = toNum(nRaw);
+      if (n === null || n < min || n > max) {
+        return n !== null
+          ? { error: `Out of range: ${name} "${n}" must be ${min}–${max}.` }
+          : { error: `Unparseable token: "${item}" in ${name}.` };
+      }
+      lastWeekday = n === 7 ? 0 : n; // 7→0 (Sunday), consistent with dow.values
+      restricted = true;
+      continue;
     }
 
     // Split off an optional /step suffix.
@@ -198,7 +256,7 @@ function parseField(token: string, spec: FieldSpec): FieldParse {
     if (!isFullRangeStar) restricted = true;
   }
 
-  return { values, restricted };
+  return { values, restricted, lastDay, lastOffset, lastWeekday };
 }
 
 /**
@@ -225,7 +283,12 @@ function parseFields(
   const hour = parseField(hourTok, { name: "hour", min: 0, max: 23 });
   if ("error" in hour) return { error: hour.error };
 
-  const dom = parseField(domTok, { name: "day-of-month", min: 1, max: 31 });
+  const dom = parseField(domTok, {
+    name: "day-of-month",
+    min: 1,
+    max: 31,
+    lastForm: "dom",
+  });
   if ("error" in dom) return { error: dom.error };
 
   const month = parseField(monthTok, {
@@ -242,6 +305,7 @@ function parseFields(
     min: 0,
     max: 7,
     names: dowNameMap,
+    lastForm: "dow",
   });
   if ("error" in dow) return { error: dow.error };
   const dowValues = new Set<number>();
@@ -255,12 +319,14 @@ function parseFields(
       dom: {
         values: dom.values,
         restricted: dom.restricted,
-        lastDay: false,
+        lastDay: dom.lastDay ?? false,
+        lastOffset: dom.lastOffset,
       },
       month: month.values,
       dow: {
         values: dowValues,
         restricted: dow.restricted,
+        lastWeekday: dow.lastWeekday,
       },
     },
   };
