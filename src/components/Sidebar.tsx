@@ -161,6 +161,13 @@ export function Sidebar() {
       const tool = getToolById(id);
       if (!tool) return;
       const willPin = !pinnedSet.has(id);
+      // INVARIANT: a registry id is always exactly one of pinned/unpinned, so
+      // togglePinned(id) ALWAYS flips membership and produces a new array — the
+      // row always moves groups. The focus restoration is therefore safe to set
+      // unconditionally here: there is no no-op path that would yank focus away
+      // from where a screen reader was reading. If togglePinned ever gains a
+      // short-circuit (e.g. an unknown id no-ops), gate this set on the membership
+      // actually changing, the way commitMove gates on opts?.focus.
       focusAfterMoveRef.current = id;
       togglePinned(id);
       announce(willPin ? `Pinned ${tool.name}` : `Unpinned ${tool.name}`);
