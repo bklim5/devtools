@@ -409,7 +409,10 @@ export function Sidebar() {
       if (!tool) return null; // defensive — partitionTools already guarantees this
       const Icon = tool.icon;
       const isDragging = draggingId === id && draggingGroup === group;
-      const isPinned = group === "pinned" || pinnedSet.has(id);
+      // pinnedSet is derived from the reconciled `pinned` group, so a row in the
+      // pinned group is always in pinnedSet — the membership check alone suffices
+      // for both groups (no redundant `group === "pinned"` short-circuit needed).
+      const isPinned = pinnedSet.has(id);
       const groupLen = group === "pinned" ? pinned.length : unpinned.length;
       return (
         <div
