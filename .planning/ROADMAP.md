@@ -65,7 +65,7 @@ All 25 requirements complete. Full detail: `.planning/milestones/v1.3-ROADMAP.md
 
 A focused single-feature milestone: a user-reorderable sidebar tool list. Drag-to-reorder (handle-initiated native drag, no dnd library) plus an accessible Alt+↑/↓ keyboard path with `aria-live` announcements, the custom order persisted as a `toolOrder` overlay over the registry, with graceful reconciliation for new/removed tools and a reset-to-default action. Promoted from backlog 999.6 (12 locked decisions). Zero new runtime deps; WCAG-AA; registry stays the single control plane; `decoder.ts` + its 19 tests untouched.
 
-- [ ] Phase 16: Reorderable sidebar tool list — drag + Alt+↑/↓ keyboard reorder, `aria-live` announcements, persisted `toolOrder` overlay, new-tool-append reconciliation, reset-to-default; REORD-01..07
+- [x] Phase 16: Reorderable sidebar tool list — drag + Alt+↑/↓ keyboard reorder, `aria-live` announcements, persisted `toolOrder` overlay, new-tool-append reconciliation, reset-to-default; REORD-01..07 (completed 2026-06-05)
 
 ## Phase Details
 
@@ -108,7 +108,7 @@ Phases execute in numeric order. v1.4 is a single phase (16) continuing from v1.
 | 13. URL tool | v1.3 | 2/2 | Complete    | 2026-06-03 |
 | 14. Regex tester | v1.3 | 3/3 | Complete    | 2026-06-03 |
 | 15. Cron tool | v1.3 | 4/4 | Complete    | 2026-06-04 |
-| 16. Reorderable sidebar tool list | v1.4 | 2/2 | Complete | 2026-06-05 |
+| 16. Reorderable sidebar tool list | v1.4 | 2/2 | Complete    | 2026-06-05 |
 
 ## Backlog
 
@@ -133,7 +133,7 @@ Unsequenced ideas captured for future planning. Promote with `/gsd-review-backlo
 Each candidate must still pass the product wedge: offline/no-network, paste-instant (<2s), keyboard-driven, registry-driven, WCAG-AA, and the build+verify harness.
 
 **Requirements:** TBD (remaining wishlist; Cron/URL/Regex requirements now in `.planning/REQUIREMENTS.md` for v1.3)
-**Plans:** 4/4 plans complete
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] TBD (promote remaining wishlist with /gsd-review-backlog when ready)

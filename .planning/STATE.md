@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Reorderable Tools
-status: executing
-last_updated: "2026-06-05T09:30:00.000Z"
-last_activity: 2026-06-05 -- Phase 16 Plan 02 complete + human-approved (reorderable sidebar UI); phase 16 complete pending orchestrator phase-complete
+status: completed
+last_updated: "2026-06-05T07:18:15.942Z"
+last_activity: 2026-06-05
 progress:
   total_phases: 1
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
   completed_plans: 2
   percent: 100
@@ -17,12 +17,12 @@ progress:
 
 ## Current Position
 
-Phase: 16 (reorderable-sidebar-tool-list) — COMPLETE (pending orchestrator phase-complete)
-Plan: 2 of 2 (both complete)
-Status: Phase 16 complete + human-approved; awaiting orchestrator phase-complete / milestone wrap
-Last activity: 2026-06-05 -- Phase 16 Plan 02 complete + human-approved (reorderable sidebar UI)
+Phase: 16 — COMPLETE (verification passed 11/11 must-haves, human-approved)
+Plan: 2/2 complete
+Status: Phase 16 complete; milestone v1.4 (single phase) ready to close out
+Last activity: 2026-06-05 -- Phase 16 complete (verification passed, code review clean)
 
-**Next:** Orchestrator phase-complete for Phase 16, then close out milestone v1.4 "Reorderable Tools" (archive + tag — milestone tags local-only). All 7 REORD requirements delivered.
+**Next:** Close out milestone v1.4 "Reorderable Tools" — `/gsd-complete-milestone` (archive + local-only tag). All 7 REORD requirements delivered; code review clean (0 critical; 2 warnings fixed `da94809c`; 4 info deferred).
 
 **Plan 01 delivered:** `toolOrder: string[]` (default `[]`) persisted through the existing prefs blob (mirrors `recentToolIds`); `coerceToolOrder` untrusted-merge; `setToolOrder` setter; pure `reconcileToolOrder` (D-11 render overlay, always a registry permutation) + `moveToolInOrder` (clamped relocate). 40/40 suite tests + tsc + eslint green; decoder 19/19 untouched; zero new deps. Commits `90857271`, `72955ab3`.
 
