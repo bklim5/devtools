@@ -2,11 +2,11 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Pinned Tools
-status: context_ready
-last_updated: "2026-06-05T14:30:00.000Z"
-last_activity: 2026-06-05
+status: executing
+last_updated: "2026-06-05T22:12:13.310Z"
+last_activity: 2026-06-05 -- Phase 17 planning complete
 progress:
-  total_phases: 1
+  total_phases: 6
   completed_phases: 0
   total_plans: 2
   completed_plans: 0
@@ -18,12 +18,12 @@ progress:
 ## Current Position
 
 Milestone: **v1.5 "Pinned Tools"** — started 2026-06-05; roadmap created.
-Phase: **17 — Pinned Sidebar Section** (context gathered; ready to plan)
+Phase: **17 — Pinned Sidebar Section** (planned — 2 plans in 2 waves; research + validation strategy done; plan-checker PASSED)
 Plan: —
-Status: Context ready — awaiting phase planning
-Last activity: 2026-06-05 — Phase 17 context gathered (`17-CONTEXT.md`). Four open specifics settled: pin/unpin shortcut **Alt+P** (D-13); pin icon left of grip with a **persistent filled pin on pinned rows** / hover-focus outline on unpinned (D-14); **bare divider, no visible label** (SR group via aria-label, D-15); **"Unpin all" joins the right-click "Reset order" menu** (D-16). All other design carried forward locked from the milestone.
+Status: Ready to execute
+Last activity: 2026-06-05 -- Phase 17 planning complete
 
-**Next:** `/gsd-plan-phase 17`. Goal: a distinct, reorderable "Pinned" section at the top of the sidebar — pin/unpin via a row pin icon (hover + focus-visible) + a keyboard shortcut (`aria-live`-announced), a `pinnedToolIds` overlay persisted through the prefs seam (beside `toolOrder`) and reconciled against the registry on load (drop unknown, de-dupe), independent per-group drag + Alt+↑/↓ reorder (no cross-boundary drag), plus a keyboard-reachable "Unpin all". Settings surface + auto-pin-hero stay deferred.
+**Next:** `/gsd-execute-phase 17`. Two plans, two waves: 17-01 (wave 1) — `pinnedToolIds: string[]` prefs field (`coercePinnedToolIds` untrusted-merge, `setPinnedToolIds`/`togglePinned` setters) + the pure `partitionTools` immovable-bar backbone (always a full registry partition; drop unknown, de-dupe); 17-02 (wave 2, depends on 17-01) — the two-group Sidebar UI: left-of-grip pin icon (filled-persistent on pinned, outline hover+focus on unpinned), Alt+P toggle (`aria-live`-announced), bare neutral divider + SR-labelled group, independent per-group drag + Alt+↑/↓ reorder (no cross-boundary), and "Unpin all" in the Shift+F10 reset menu. Native pointer drag + hover reveal are the phase-gate manual-walkthrough items.
 
 ## Project Reference
 
