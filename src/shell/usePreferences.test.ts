@@ -94,6 +94,44 @@ describe("usePreferences", () => {
     expect(stored.toolOrder).toEqual(["x", "y"]);
   });
 
+  it("setPinnedToolIds persists the set and round-trips through the seam (PIN-07)", async () => {
+    const { result } = renderHook(() => usePreferences());
+    await act(async () => {
+      result.current.setPinnedToolIds(["a"]);
+    });
+    // Local state reflects the choice immediately (write-on-change).
+    expect(result.current.preferences.pinnedToolIds).toEqual(["a"]);
+    // The persisted blob under the prefs key round-trips the set.
+    const stored = (await platform.store.get(PREFERENCES_STORE_KEY)) as {
+      pinnedToolIds: string[];
+    };
+    expect(stored.pinnedToolIds).toEqual(["a"]);
+  });
+
+  it("togglePinned appends-on-pin (bottom) and removes-on-unpin (PIN-07)", async () => {
+    const { result } = renderHook(() => usePreferences());
+    // Pin on an empty set → ["a"].
+    await act(async () => {
+      result.current.togglePinned("a");
+    });
+    expect(result.current.preferences.pinnedToolIds).toEqual(["a"]);
+    // Pin a second → appends to the bottom → ["a", "b"].
+    await act(async () => {
+      result.current.togglePinned("b");
+    });
+    expect(result.current.preferences.pinnedToolIds).toEqual(["a", "b"]);
+    // Toggle "a" again → removes it → ["b"].
+    await act(async () => {
+      result.current.togglePinned("a");
+    });
+    expect(result.current.preferences.pinnedToolIds).toEqual(["b"]);
+    // The removal persisted through the seam.
+    const stored = (await platform.store.get(PREFERENCES_STORE_KEY)) as {
+      pinnedToolIds: string[];
+    };
+    expect(stored.pinnedToolIds).toEqual(["b"]);
+  });
+
   it("setTreeStyle persists the choice and round-trips through a fresh load", async () => {
     const first = renderHook(() => usePreferences());
     await act(async () => {

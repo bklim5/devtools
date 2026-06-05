@@ -81,6 +81,25 @@ export function coerceToolOrder(value: unknown): string[] {
   return out;
 }
 
+/** Keep only string ids, de-dupe — NO length cap (the pinned set is unbounded
+ *  but partitionTools gates it against the registry). Mirrors coerceToolOrder
+ *  byte-for-byte except the name. Untrusted (threat T-17-01): the user can
+ *  hand-edit prefs.json, so a non-array yields [], non-strings are dropped, and
+ *  duplicates collapse here — the partitionTools registry-membership gating in
+ *  the Sidebar (PIN-08) is the final bound. */
+export function coercePinnedToolIds(value: unknown): string[] {
+  const raw = Array.isArray(value) ? value : [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const item of raw) {
+    if (typeof item !== "string") continue; // untrusted: drop non-strings
+    if (seen.has(item)) continue; // de-dupe
+    seen.add(item);
+    out.push(item);
+  }
+  return out;
+}
+
 /** Merge an untrusted stored blob over the defaults, accepting only known
  *  fields/types. The result is always a valid `Preferences`. */
 export function mergePreferences(stored: unknown): Preferences {
@@ -94,6 +113,7 @@ export function mergePreferences(stored: unknown): Preferences {
     lastUsedId: coerceLastUsedId(blob.lastUsedId),
     recentToolIds: normalizeRecents(blob.recentToolIds),
     toolOrder: coerceToolOrder(blob.toolOrder),
+    pinnedToolIds: coercePinnedToolIds(blob.pinnedToolIds),
     protobufTreeStyle: coerceTreeStyle(blob.protobufTreeStyle),
     autoUpdateCheck: coerceAutoUpdateCheck(blob.autoUpdateCheck),
   };

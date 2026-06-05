@@ -34,6 +34,10 @@ export interface Preferences {
    *  as a render overlay over ENABLED_TOOLS (D-10). [] = default registry order.
    *  Reconciled against the live registry on every load (D-11). */
   toolOrder: string[];
+  /** User's pinned tool IDs (PIN-07). Render-overlay over ENABLED_TOOLS — pinned
+   *  group order IS this array's order (append-on-pin). [] = nothing pinned.
+   *  Reconciled against the live registry on render via partitionTools (PIN-08). */
+  pinnedToolIds: string[];
   /** Protobuf tree layout (PRO-06, D-07). Persisted; default "cards". */
   protobufTreeStyle: ProtobufTreeStyle;
   /** First-run update-check opt-in (D-09). null = never asked (show the one-time
@@ -48,6 +52,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   lastUsedId: null,
   recentToolIds: [],
   toolOrder: [],
+  pinnedToolIds: [],
   protobufTreeStyle: "cards",
   autoUpdateCheck: null,
 };

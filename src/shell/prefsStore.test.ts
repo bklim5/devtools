@@ -12,7 +12,12 @@ import {
 } from "@/lib/platform";
 import { createStoreStub } from "@/lib/platform/stub";
 import { makeMemoryPlatform } from "./testStore";
-import { loadPreferences, mergePreferences, savePreferences } from "./prefsStore";
+import {
+  coercePinnedToolIds,
+  loadPreferences,
+  mergePreferences,
+  savePreferences,
+} from "./prefsStore";
 import { DEFAULT_PREFERENCES, PREFERENCES_STORE_KEY } from "./preferences";
 
 let store: Store;
@@ -109,6 +114,40 @@ describe("toolOrder coercion (REORD-05, D-09)", () => {
     const merged = mergePreferences({ toolOrder: ["a"], protobufTreeStyle: "rows" });
     expect(merged.toolOrder).toEqual(["a"]);
     expect(merged.protobufTreeStyle).toBe("rows");
+  });
+});
+
+// pinnedToolIds is the user's pinned set (PIN-07), read from the same untrusted
+// on-disk blob (threat T-17-01: hand-edited prefs.json). coercePinnedToolIds
+// mirrors coerceToolOrder — keeps only string members, de-dupes, yields [] for a
+// non-array — and (like toolOrder, unlike recents) applies NO length cap.
+describe("coercePinnedToolIds (PIN-07, T-17-01)", () => {
+  it("keeps string ids, drops non-strings, and de-dupes", () => {
+    expect(coercePinnedToolIds(["a", "a", "b"])).toEqual(["a", "b"]);
+    expect(coercePinnedToolIds([1, "a", null])).toEqual(["a"]);
+  });
+
+  it("yields [] for a non-array value (untrusted hand-edited prefs.json)", () => {
+    expect(coercePinnedToolIds("nope")).toEqual([]);
+    expect(coercePinnedToolIds(null)).toEqual([]);
+    expect(coercePinnedToolIds(undefined)).toEqual([]);
+  });
+
+  it("applies NO length cap (distinct from normalizeRecents' cap of 5)", () => {
+    const fifty = Array.from({ length: 50 }, (_, i) => `t${i}`);
+    expect(coercePinnedToolIds(fifty)).toEqual(fifty);
+    expect(coercePinnedToolIds(fifty)).toHaveLength(50);
+  });
+
+  it("is wired into mergePreferences (defaults to [], round-trips a value)", () => {
+    expect(mergePreferences({}).pinnedToolIds).toEqual([]);
+    expect(mergePreferences({ pinnedToolIds: ["x"] }).pinnedToolIds).toEqual(["x"]);
+  });
+
+  it("does not regress a sibling field in the same merged blob", () => {
+    const merged = mergePreferences({ pinnedToolIds: ["a"], toolOrder: ["b"] });
+    expect(merged.pinnedToolIds).toEqual(["a"]);
+    expect(merged.toolOrder).toEqual(["b"]);
   });
 });
 

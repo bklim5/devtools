@@ -30,6 +30,13 @@ export interface UsePreferences {
    *  the raw ordered tool IDs; D-11 reconciliation against the live registry
    *  happens at sidebar render, not here. */
   setToolOrder: (order: string[]) => void;
+  /** Persist the user's pinned tool IDs (PIN-07). The array is the raw ordered
+   *  pinned IDs (pinned group order = this order); PIN-08 reconciliation against
+   *  the live registry happens at sidebar render via partitionTools, not here. */
+  setPinnedToolIds: (ids: string[]) => void;
+  /** Toggle a tool's pinned membership (PIN-07): append-on-pin (bottom of the
+   *  pinned group) or remove-on-unpin. */
+  togglePinned: (id: string) => void;
   setTreeStyle: (style: ProtobufTreeStyle) => void;
   /** Persist the first-run update-check opt-in (D-09). true = silent launch check,
    *  false = no automatic network call ever, null = ask again. */
@@ -84,6 +91,21 @@ export function usePreferences(): UsePreferences {
     (order: string[]) => update({ toolOrder: order }),
     [update],
   );
+  const setPinnedToolIds = useCallback(
+    (ids: string[]) => update({ pinnedToolIds: ids }),
+    [update],
+  );
+  // The preferences.pinnedToolIds dep is REQUIRED so the closure re-creates on
+  // change and reads the current pinned set (RESEARCH.md:223 prefsRef pitfall).
+  const togglePinned = useCallback(
+    (id: string) =>
+      setPinnedToolIds(
+        preferences.pinnedToolIds.includes(id)
+          ? preferences.pinnedToolIds.filter((x) => x !== id) // unpin → remove
+          : [...preferences.pinnedToolIds, id], // pin → append to bottom
+      ),
+    [preferences.pinnedToolIds, setPinnedToolIds],
+  );
   const setTreeStyle = useCallback(
     (style: ProtobufTreeStyle) => update({ protobufTreeStyle: style }),
     [update],
@@ -100,6 +122,8 @@ export function usePreferences(): UsePreferences {
     setAccent,
     setLastUsedId,
     setToolOrder,
+    setPinnedToolIds,
+    togglePinned,
     setTreeStyle,
     setAutoUpdateCheck,
   };
