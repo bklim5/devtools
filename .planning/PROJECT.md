@@ -8,6 +8,19 @@ DevTools is a fast, offline, keyboard-driven **desktop application** (macOS firs
 
 **Paste an unknown blob → get a usable, explorable interpretation in under 2 seconds, entirely offline, without touching the mouse.** If everything else fails, the Protobuf decoder doing this flawlessly is the product.
 
+## Current Milestone: v1.5 Pinned Tools
+
+**Goal:** Let users pin favourite tools to a distinct, reorderable section at the top of the sidebar.
+
+**Target features:**
+- **Pinned section** — a separate "Pinned" group at the top of the sidebar (divider between it and the rest); shown only when at least one tool is pinned.
+- **Independently reorderable** — both the pinned group and the unpinned list keep the v1.4 drag + Alt+↑/↓ reorder; a tool changes membership by pinning/unpinning, not by dragging across the divider.
+- **Pin affordances** — a pin icon on the row (hover + `focus-visible`, mirroring the v1.4 grip handle) **and** a keyboard shortcut on the focused tool, each announced via `aria-live`.
+- **Persistence + reconciliation** — pinned state is a persisted `pinnedToolIds` overlay through the existing prefs seam (beside `toolOrder`/`recentToolIds`), reconciled against the live registry on load (unknown/removed IDs dropped, de-duped — never a crash/drop/duplicate).
+- **Reset** — keyboard-reachable "Unpin all" (alongside the existing "Reset order").
+
+**Assumed defaults:** no tool pinned by default (empty pinned section → no divider; hero not auto-pinned); pinning appends to the bottom of the pinned section; registry stays the single control plane (pinning is a render-time presentation overlay; ⌘K palette + router stay pin-agnostic). Scope is pinning only — the dedicated settings surface remains deferred.
+
 ## Current State
 
 **Shipped & archived: v1.4 "Reorderable Tools"** (2026-06-05) — Phase 16, on top of v1.3 "More Tools" (Phases 12–15, 2026-06-04), v1.2 "Release Tooling" (Phases 9–11, 2026-06-03), v1.1 "Formatters" (Phases 7–8, 2026-06-02), and v1.0 "Distribution" (Phases 1–6, 2026-06-01).
@@ -90,6 +103,14 @@ The app still ships **eleven tools** (v1.4 added no tools): the Protobuf hero (w
 - [x] Copy-result-instantly via visible, focusable affordance (≤1 keystroke; no hover-only copy)
 - [x] Status bar: parse state · byte count · current encoding · errors · timing
 - [x] WCAG AA accessibility across the board (visible focus, AA contrast, no opacity-only disabled state)
+
+**Personalization — Pinned Tools (v1.5, in progress)**
+- [ ] Pin/unpin a tool to a distinct "Pinned" section at the top of the sidebar
+- [ ] Pinned section shown only when ≥1 tool is pinned (divider between pinned and rest)
+- [ ] Pinned group and unpinned list each independently reorderable (v1.4 drag + Alt+↑/↓)
+- [ ] Pin affordances: row pin icon (hover + focus-visible) and keyboard shortcut, each `aria-live`-announced
+- [ ] `pinnedToolIds` overlay persisted through the prefs seam, reconciled against the registry on load (drop unknown, de-dupe)
+- [ ] Keyboard-reachable "Unpin all" reset
 
 **Ideas / backlog (not yet scheduled)**
 - [ ] Protobuf decoder: decimal-byte-array (JS `Uint8Array`) input mode — paste `10, 3, 80, 81, 82` and decode, alongside hex/base64 (user feedback at Phase-3 sign-off, 2026-05-31)
@@ -174,4 +195,6 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-05 after v1.4 milestone — **Milestone v1.4 "Reorderable Tools" COMPLETE, SIGNED OFF & ARCHIVED** (sole phase 16; tag `v1.4` local-only). The app's first personalization feature: user-reorderable sidebar — `toolOrder` overlay over the registry (registry stays the single control plane; ⌘K palette + router order-agnostic), handle-initiated native HTML5 drag + neutral insertion line, Alt+↑/↓ keyboard reorder with `aria-live`, persisted + reconciled (new-tool-append / unknown-drop / de-dupe) + keyboard-reachable reset-to-default; all 7 REORD requirements verified (11/11 must-haves), human-signed-off on the real WKWebView; full suite 668/668, decoder 19/19 untouched, zero new runtime/dev deps, gsd-ui-review WCAG-AA 22/24 (findings fixed), code review 0 critical, security 8/8. Post-ship: Tauri `dragDropEnabled:false` so in-page HTML5 drag works. Archived to `.planning/milestones/v1.4-*`. Prior milestones: v1.3 "More Tools" (Phases 12–15, tag `v1.3`), v1.2 "Release Tooling" (Phases 9–11), v1.1 "Formatters" (Phases 7–8), v1.0 "Distribution" (Phases 1–6). **Next: `/gsd-new-milestone` (or `/gsd-review-backlog`) — no active milestone.***
+*Last updated: 2026-06-05 — **Milestone v1.5 "Pinned Tools" STARTED** (defining requirements). Goal: a distinct, reorderable "Pinned" section at the top of the sidebar — pin/unpin via a row pin icon + keyboard shortcut (`aria-live`-announced), `pinnedToolIds` overlay persisted through the prefs seam beside `toolOrder` and reconciled against the registry on load, plus a keyboard-reachable "Unpin all". Pinning is a render-time presentation overlay (registry stays the single control plane; ⌘K palette + router pin-agnostic); the v1.4 drag + Alt+↑/↓ reorder applies independently within the pinned group and the rest. Scope is pinning only — the dedicated settings surface stays deferred. Wedge holds: offline · paste-instant · WCAG-AA · zero new runtime/dev deps · `decoder.ts` + its 19 tests untouched. Prior milestone footer below.*
+
+*2026-06-05 after v1.4 milestone — **Milestone v1.4 "Reorderable Tools" COMPLETE, SIGNED OFF & ARCHIVED** (sole phase 16; tag `v1.4` local-only). The app's first personalization feature: user-reorderable sidebar — `toolOrder` overlay over the registry (registry stays the single control plane; ⌘K palette + router order-agnostic), handle-initiated native HTML5 drag + neutral insertion line, Alt+↑/↓ keyboard reorder with `aria-live`, persisted + reconciled (new-tool-append / unknown-drop / de-dupe) + keyboard-reachable reset-to-default; all 7 REORD requirements verified (11/11 must-haves), human-signed-off on the real WKWebView; full suite 668/668, decoder 19/19 untouched, zero new runtime/dev deps, gsd-ui-review WCAG-AA 22/24 (findings fixed), code review 0 critical, security 8/8. Post-ship: Tauri `dragDropEnabled:false` so in-page HTML5 drag works. Archived to `.planning/milestones/v1.4-*`. Prior milestones: v1.3 "More Tools" (Phases 12–15, tag `v1.3`), v1.2 "Release Tooling" (Phases 9–11), v1.1 "Formatters" (Phases 7–8), v1.0 "Distribution" (Phases 1–6). **Next: `/gsd-new-milestone` (or `/gsd-review-backlog`) — no active milestone.***

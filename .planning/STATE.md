@@ -1,9 +1,9 @@
 ---
 gsd_state_version: 1.0
-milestone: none
-milestone_name: (between milestones)
-status: milestone_complete
-last_updated: "2026-06-05T11:00:00.000Z"
+milestone: v1.5
+milestone_name: Pinned Tools
+status: defining_requirements
+last_updated: "2026-06-05T12:00:00.000Z"
 last_activity: 2026-06-05
 progress:
   total_phases: 0
@@ -17,11 +17,13 @@ progress:
 
 ## Current Position
 
-Milestone: none — **v1.4 "Reorderable Tools" SHIPPED & ARCHIVED 2026-06-05** (sole phase 16, 2/2 plans; tag `v1.4` local-only).
-Status: between milestones — no active phase.
-Last activity: 2026-06-05 -- v1.4 milestone completed (archived ROADMAP + REQUIREMENTS, PROJECT.md evolved, retrospective written, tagged `v1.4` local).
+Milestone: **v1.5 "Pinned Tools"** — started 2026-06-05 (defining requirements).
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-06-05 — Milestone v1.5 started (PROJECT.md + STATE.md updated; pinning-only scope confirmed).
 
-**Next:** Start the next milestone — `/clear` then `/gsd-new-milestone` (questioning → research → requirements → roadmap). Or promote a backlog item with `/gsd-review-backlog`. Carry-forward future features split out of v1.4: **pinning** (lock the hero to top / pin favourites) and a **dedicated settings surface**.
+**Next:** Define REQUIREMENTS.md, then spawn the roadmapper. Goal: a distinct, reorderable "Pinned" section at the top of the sidebar (pin icon + keyboard shortcut, `pinnedToolIds` overlay through the prefs seam, "Unpin all" reset). Settings surface stays deferred.
 
 ## Project Reference
 
