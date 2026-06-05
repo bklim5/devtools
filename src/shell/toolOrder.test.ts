@@ -4,7 +4,11 @@
 // return a permutation of the registry. moveToolInOrder is the clamped relocate
 // shared by drag-drop and the Alt+arrow keyboard path.
 import { describe, expect, it } from "vitest";
-import { moveToolInOrder, reconcileToolOrder } from "./toolOrder";
+import {
+  moveToolInOrder,
+  partitionTools,
+  reconcileToolOrder,
+} from "./toolOrder";
 
 describe("reconcileToolOrder (D-11)", () => {
   it("empty saved → pure registry order (default)", () => {
@@ -59,6 +63,121 @@ describe("reconcileToolOrder (D-11)", () => {
     expect([...out].sort()).toEqual([...registry].sort());
     // No duplicates.
     expect(new Set(out).size).toBe(out.length);
+  });
+});
+
+// partitionTools (PIN-07/08) splits the live registry into an ordered pinned
+// group + an ordered unpinned remainder. Both pinnedToolIds and toolOrder are
+// UNTRUSTED (hand-edited prefs.json — threats T-17-01/02/03). The immovable bar:
+// every registry id appears in EXACTLY ONE group, unknown ids dropped, dupes
+// collapsed, non-array → [], no crash. pinned order = pinnedToolIds order;
+// unpinned = reconcileToolOrder over the registry-minus-pinned remainder.
+describe("partitionTools (PIN-08 immovable bar)", () => {
+  // Shared invariant: union is exactly the registry, disjoint, no duplicate.
+  const assertFullPartition = (
+    pinned: string[],
+    unpinned: string[],
+    registry: string[],
+  ) => {
+    const union = [...pinned, ...unpinned];
+    expect([...union].sort()).toEqual([...registry].sort());
+    expect(new Set(union).size).toBe(registry.length);
+    // Disjoint: no id in both groups.
+    const pinnedSet = new Set(pinned);
+    expect(unpinned.some((id) => pinnedSet.has(id))).toBe(false);
+  };
+
+  it("Case 1: nothing pinned → all in unpinned (registry order)", () => {
+    const { pinned, unpinned } = partitionTools([], [], ["a", "b", "c"]);
+    expect(pinned).toEqual([]);
+    expect(unpinned).toEqual(["a", "b", "c"]);
+    assertFullPartition(pinned, unpinned, ["a", "b", "c"]);
+  });
+
+  it("Case 2: one pinned → that id pinned, the rest unpinned", () => {
+    const { pinned, unpinned } = partitionTools(["b"], [], ["a", "b", "c"]);
+    expect(pinned).toEqual(["b"]);
+    expect(unpinned).toEqual(["a", "c"]);
+    assertFullPartition(pinned, unpinned, ["a", "b", "c"]);
+  });
+
+  it("Case 3: pinned order honored (pinnedToolIds order, not registry order)", () => {
+    const { pinned, unpinned } = partitionTools(["c", "a"], [], ["a", "b", "c"]);
+    expect(pinned).toEqual(["c", "a"]);
+    assertFullPartition(pinned, unpinned, ["a", "b", "c"]);
+  });
+
+  it("Case 4: unknown pinned id dropped (registry-gated)", () => {
+    const { pinned, unpinned } = partitionTools(["ghost", "a"], [], ["a", "b"]);
+    expect(pinned).toEqual(["a"]);
+    assertFullPartition(pinned, unpinned, ["a", "b"]);
+  });
+
+  it("Case 5: duplicate pinned id collapsed", () => {
+    const { pinned, unpinned } = partitionTools(["a", "a"], [], ["a", "b"]);
+    expect(pinned).toEqual(["a"]);
+    assertFullPartition(pinned, unpinned, ["a", "b"]);
+  });
+
+  it("Case 6: non-string junk in pinned dropped (untrusted blob)", () => {
+    const { pinned, unpinned } = partitionTools(
+      [1 as unknown as string, "a", null as unknown as string],
+      [],
+      ["a", "b"],
+    );
+    expect(pinned).toEqual(["a"]);
+    assertFullPartition(pinned, unpinned, ["a", "b"]);
+  });
+
+  it("Case 7: non-array pinned → pinned [], unpinned = registry", () => {
+    const reg = ["a", "b", "c"];
+    const fromString = partitionTools("nope" as unknown as string[], [], reg);
+    expect(fromString.pinned).toEqual([]);
+    expect(fromString.unpinned).toEqual(reg);
+    const fromNull = partitionTools(null as unknown as string[], [], reg);
+    expect(fromNull.pinned).toEqual([]);
+    expect(fromNull.unpinned).toEqual(reg);
+  });
+
+  it("Case 8: a pinned id also present in toolOrder does NOT appear in unpinned (union-once)", () => {
+    const { pinned, unpinned } = partitionTools(
+      ["a"],
+      ["a", "b"], // stale pinned id "a" lingering in toolOrder is inert
+      ["a", "b", "c"],
+    );
+    expect(pinned).toEqual(["a"]);
+    expect(unpinned).not.toContain("a");
+    expect(unpinned).toEqual(["b", "c"]);
+    assertFullPartition(pinned, unpinned, ["a", "b", "c"]);
+  });
+
+  it("Case 9: a new registry tool absent from both prefs appears once in unpinned (appended)", () => {
+    const { pinned, unpinned } = partitionTools(
+      ["a"],
+      ["b"], // "c" is a newly-shipped registry tool in neither pref
+      ["a", "b", "c"],
+    );
+    expect(pinned).toEqual(["a"]);
+    expect(unpinned).toEqual(["b", "c"]);
+    assertFullPartition(pinned, unpinned, ["a", "b", "c"]);
+  });
+
+  it("Case 10 (property): arbitrary junk inputs still yield a full registry partition", () => {
+    const registry = ["a", "b", "c", "d", "e"];
+    const junkPinned = [
+      "ghost",
+      "a",
+      "a", // dup
+      9 as unknown as string, // non-string
+      "e",
+      null as unknown as string,
+    ];
+    const junkOrder = ["x", "d", "d", 7 as unknown as string, "b"];
+    const { pinned, unpinned } = partitionTools(junkPinned, junkOrder, registry);
+    // Pinned is registry-gated + de-duped, honoring pinnedToolIds order.
+    expect(pinned).toEqual(["a", "e"]);
+    // The bar: union === registry, disjoint, no duplicate.
+    assertFullPartition(pinned, unpinned, registry);
   });
 });
 

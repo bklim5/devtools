@@ -42,6 +42,45 @@ export function reconcileToolOrder(
   return out;
 }
 
+/** The two ordered, disjoint id groups derived from the registry by
+ *  partitionTools: `pinned` (the pinned group's order) and `unpinned` (the
+ *  remainder, reconciled). Their union is exactly the registry set. */
+export interface ToolPartition {
+  pinned: string[];
+  unpinned: string[];
+}
+
+/** Render-overlay partition (PIN-07/08, extends D-10/D-11). All inputs may be
+ *  UNTRUSTED (hand-edited prefs.json — threats T-17-01/02/03). Guarantees: every
+ *  registry id appears in EXACTLY ONE of the two arrays; no unknown id, no
+ *  duplicate, no crash. `pinned` order = `pinnedToolIds` order (registry-gated,
+ *  de-duped — append-on-pin); `unpinned` = reconcileToolOrder(toolOrder) over the
+ *  registry-minus-pinned set. Pinned membership is gated against the registry Set,
+ *  so the output is bounded by the registry regardless of an oversized/duplicate-
+ *  stuffed blob. */
+export function partitionTools(
+  pinnedToolIds: string[],
+  toolOrder: string[],
+  registryIds: string[],
+): ToolPartition {
+  const known = new Set(registryIds);
+  const seen = new Set<string>();
+  const pinned: string[] = [];
+  const savedPinned = Array.isArray(pinnedToolIds) ? pinnedToolIds : [];
+  for (const id of savedPinned) {
+    if (typeof id !== "string") continue; // untrusted: drop non-strings
+    if (!known.has(id)) continue; // drop ids not in the live registry
+    if (seen.has(id)) continue; // de-dupe (collapse duplicates)
+    seen.add(id);
+    pinned.push(id);
+  }
+  // Unpinned = the registry remainder, ORDERED by the existing v1.4 helper —
+  // reuse reconcileToolOrder rather than re-deriving the permutation guarantee.
+  const remainderRegistry = registryIds.filter((id) => !seen.has(id));
+  const unpinned = reconcileToolOrder(toolOrder, remainderRegistry);
+  return { pinned, unpinned };
+}
+
 /** Relocate `id` to `toIndex` (clamped to [0, length-1]) within `order`,
  *  returning a NEW array. Unknown id → input returned unchanged (as a fresh
  *  copy). Used by both drag-drop and the Alt+arrow keyboard move (the caller
