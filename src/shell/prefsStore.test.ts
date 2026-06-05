@@ -85,6 +85,33 @@ describe("protobufTreeStyle coercion", () => {
   });
 });
 
+// toolOrder is the user's custom sidebar order (REORD-05, D-09), read from the
+// same untrusted on-disk blob (threat T-16-01: hand-edited prefs.json). coerce
+// keeps only string members, de-dupes, and yields [] for a non-array — but
+// (unlike recents) applies NO length cap, since the full order can be all ids.
+describe("toolOrder coercion (REORD-05, D-09)", () => {
+  it("keeps string ids, drops non-strings, and de-dupes", () => {
+    expect(mergePreferences({ toolOrder: ["b", "a", 5, "a"] }).toolOrder).toEqual([
+      "b",
+      "a",
+    ]);
+  });
+
+  it("defaults to [] when absent", () => {
+    expect(mergePreferences({}).toolOrder).toEqual([]);
+  });
+
+  it("yields [] for a non-array value (untrusted hand-edited prefs.json)", () => {
+    expect(mergePreferences({ toolOrder: "nope" }).toolOrder).toEqual([]);
+  });
+
+  it("does not regress a sibling field in the same merged blob", () => {
+    const merged = mergePreferences({ toolOrder: ["a"], protobufTreeStyle: "rows" });
+    expect(merged.toolOrder).toEqual(["a"]);
+    expect(merged.protobufTreeStyle).toBe("rows");
+  });
+});
+
 // autoUpdateCheck is the first-run opt-in (D-09), read from the same untrusted
 // on-disk blob (threat T-06-03: the user can hand-edit prefs.json). Only the
 // booleans true/false are honored; anything else — absent, junk string, number —

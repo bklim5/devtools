@@ -26,6 +26,10 @@ export interface UsePreferences {
   setTheme: (theme: ThemeName) => void;
   setAccent: (accent: string) => void;
   setLastUsedId: (id: string | null) => void;
+  /** Persist the user's custom sidebar tool order (REORD-05, D-09). The array is
+   *  the raw ordered tool IDs; D-11 reconciliation against the live registry
+   *  happens at sidebar render, not here. */
+  setToolOrder: (order: string[]) => void;
   setTreeStyle: (style: ProtobufTreeStyle) => void;
   /** Persist the first-run update-check opt-in (D-09). true = silent launch check,
    *  false = no automatic network call ever, null = ask again. */
@@ -76,6 +80,10 @@ export function usePreferences(): UsePreferences {
     (id: string | null) => update({ lastUsedId: id }),
     [update],
   );
+  const setToolOrder = useCallback(
+    (order: string[]) => update({ toolOrder: order }),
+    [update],
+  );
   const setTreeStyle = useCallback(
     (style: ProtobufTreeStyle) => update({ protobufTreeStyle: style }),
     [update],
@@ -91,6 +99,7 @@ export function usePreferences(): UsePreferences {
     setTheme,
     setAccent,
     setLastUsedId,
+    setToolOrder,
     setTreeStyle,
     setAutoUpdateCheck,
   };

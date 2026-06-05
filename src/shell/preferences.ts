@@ -30,6 +30,10 @@ export interface Preferences {
   /** Most-recent-first, de-duped, capped list of recently used tool ids
    *  (powers the palette's recents group, SHL-03/D-05). */
   recentToolIds: string[];
+  /** User's custom sidebar tool order (REORD-05, D-09): ordered tool IDs applied
+   *  as a render overlay over ENABLED_TOOLS (D-10). [] = default registry order.
+   *  Reconciled against the live registry on every load (D-11). */
+  toolOrder: string[];
   /** Protobuf tree layout (PRO-06, D-07). Persisted; default "cards". */
   protobufTreeStyle: ProtobufTreeStyle;
   /** First-run update-check opt-in (D-09). null = never asked (show the one-time
@@ -43,6 +47,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   accent: "#3b82f6",
   lastUsedId: null,
   recentToolIds: [],
+  toolOrder: [],
   protobufTreeStyle: "cards",
   autoUpdateCheck: null,
 };

@@ -62,6 +62,25 @@ export function normalizeRecents(value: unknown): string[] {
   return out;
 }
 
+/** Keep only string ids, de-dupe — NO length cap (the full custom order can be
+ *  all 11+ registry ids). Untrusted (threat T-16-01): the user can hand-edit
+ *  prefs.json, so a tampered/oversized blob must not crash here — drop
+ *  non-strings, collapse duplicates. The D-11 reconciliation in the Sidebar
+ *  (registry-membership gating) is the final bound; this is the first defensive
+ *  layer (a non-array yields []). */
+export function coerceToolOrder(value: unknown): string[] {
+  const raw = Array.isArray(value) ? value : [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const item of raw) {
+    if (typeof item !== "string") continue; // untrusted: drop non-strings
+    if (seen.has(item)) continue; // de-dupe
+    seen.add(item);
+    out.push(item);
+  }
+  return out;
+}
+
 /** Merge an untrusted stored blob over the defaults, accepting only known
  *  fields/types. The result is always a valid `Preferences`. */
 export function mergePreferences(stored: unknown): Preferences {
@@ -74,6 +93,7 @@ export function mergePreferences(stored: unknown): Preferences {
     accent: coerceAccent(blob.accent),
     lastUsedId: coerceLastUsedId(blob.lastUsedId),
     recentToolIds: normalizeRecents(blob.recentToolIds),
+    toolOrder: coerceToolOrder(blob.toolOrder),
     protobufTreeStyle: coerceTreeStyle(blob.protobufTreeStyle),
     autoUpdateCheck: coerceAutoUpdateCheck(blob.autoUpdateCheck),
   };

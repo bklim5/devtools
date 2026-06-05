@@ -80,6 +80,20 @@ describe("usePreferences", () => {
     expect(stored.lastUsedId).toBe("base64");
   });
 
+  it("setToolOrder persists the order and round-trips through the seam (REORD-05)", async () => {
+    const { result } = renderHook(() => usePreferences());
+    await act(async () => {
+      result.current.setToolOrder(["x", "y"]);
+    });
+    // Local state reflects the choice immediately (write-on-change).
+    expect(result.current.preferences.toolOrder).toEqual(["x", "y"]);
+    // The persisted blob under the prefs key round-trips the order.
+    const stored = (await platform.store.get(PREFERENCES_STORE_KEY)) as {
+      toolOrder: string[];
+    };
+    expect(stored.toolOrder).toEqual(["x", "y"]);
+  });
+
   it("setTreeStyle persists the choice and round-trips through a fresh load", async () => {
     const first = renderHook(() => usePreferences());
     await act(async () => {
