@@ -1,53 +1,50 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.4
-milestone_name: Reorderable Tools
-status: completed
-last_updated: "2026-06-05T07:18:15.942Z"
+milestone: none
+milestone_name: (between milestones)
+status: milestone_complete
+last_updated: "2026-06-05T11:00:00.000Z"
 last_activity: 2026-06-05
 progress:
-  total_phases: 1
-  completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Current Position
 
-Phase: 16 — COMPLETE (verification passed 11/11 must-haves, human-approved)
-Plan: 2/2 complete
-Status: Phase 16 complete; milestone v1.4 (single phase) ready to close out
-Last activity: 2026-06-05 -- Phase 16 post-ship drag fix (dragDropEnabled:false)
+Milestone: none — **v1.4 "Reorderable Tools" SHIPPED & ARCHIVED 2026-06-05** (sole phase 16, 2/2 plans; tag `v1.4` local-only).
+Status: between milestones — no active phase.
+Last activity: 2026-06-05 -- v1.4 milestone completed (archived ROADMAP + REQUIREMENTS, PROJECT.md evolved, retrospective written, tagged `v1.4` local).
 
-**Next:** Close out milestone v1.4 "Reorderable Tools" — `/gsd-complete-milestone` (archive + local-only tag). All 7 REORD requirements delivered; code review clean (0 critical; 2 warnings fixed `da94809c`; 4 info deferred).
+**Next:** Start the next milestone — `/clear` then `/gsd-new-milestone` (questioning → research → requirements → roadmap). Or promote a backlog item with `/gsd-review-backlog`. Carry-forward future features split out of v1.4: **pinning** (lock the hero to top / pin favourites) and a **dedicated settings surface**.
 
-**Post-ship fix (`1c2c7664`, 2026-06-05):** mouse drag-to-reorder showed the drag image but never moved rows on the real WKWebView — Tauri v2 window `dragDropEnabled` defaults to `true`, so the OS-level file-drop handler intercepts the webview's HTML5 `dragover`/`drop` (the Alt+arrow keyboard path was unaffected — pure DOM). Set `dragDropEnabled:false` in `tauri.conf.json` (safe; app has no file-drop feature). Verified working in a fresh `tauri build`. NOT caught by gates: WebDriver can't synthesize native OS drag, so the e2e only exercised the keyboard path — the drag rode on manual walkthrough. See [[tauri-native-dragdrop-blocks-html5-dnd]].
+## Project Reference
 
-**Plan 01 delivered:** `toolOrder: string[]` (default `[]`) persisted through the existing prefs blob (mirrors `recentToolIds`); `coerceToolOrder` untrusted-merge; `setToolOrder` setter; pure `reconcileToolOrder` (D-11 render overlay, always a registry permutation) + `moveToolInOrder` (clamped relocate). 40/40 suite tests + tsc + eslint green; decoder 19/19 untouched; zero new deps. Commits `90857271`, `72955ab3`.
+See: .planning/PROJECT.md (updated 2026-06-05 after v1.4)
 
-**Plan 02 delivered (human-approved):** reorderable `Sidebar.tsx` — reconciled `toolOrder` overlay over `ENABLED_TOOLS` (registry/⌘K/router untouched), handle-initiated native HTML5 drag with a neutral (`tx-2`, non-accent) insertion line + end-of-list drop zone, Alt+↑/↓ keyboard reorder (one slot/press, moved item keeps focus, plain arrows unbound), `aria-live="polite"` "Moved {tool} to position N of M" announcements, and a keyboard-reachable Reset-order affordance (right-click + Shift+F10 + focus-on-open + Escape-restore) that sets `toolOrder=[]`. Real-WKWebView e2e (`test/e2e/sidebar.e2e.ts`) green (Alt+ArrowDown reorders + persists across reload, announces, click navigates) + sign-off screenshot. tsc/eslint clean, full vitest 668/668 (decoder 19/19 untouched), e2e 14/14, zero new deps. gsd-ui-review WCAG-AA 22/24 (all 3 findings fixed, `16-UI-REVIEW.md`). `tauri build` bundle refreshed. Commits `026575b4`, `a3dc2927`, `f91a777a`, `4c64b900`, `8c23ac9a`, `b7896524`. Two notable deviations: drop-indicator `bd-2`→`tx-2` for WCAG 1.4.11 contrast; WebKit-driver Alt-modifier gap handled via a bubbling `KeyboardEvent` in the e2e.
+**Core value:** Paste an unknown blob → usable, explorable interpretation in <2s, entirely offline, no mouse.
+**Current focus:** Planning next milestone (no active milestone).
 
 ## Accumulated Context
 
-**Phase 16 integration contract (from `999.6-CONTEXT.md`):**
+**Inherited binding wedge (every phase):** offline/no-network · paste-instant (<2s) · keyboard-driven · registry-driven single control plane · HashRouter only · WCAG-AA · layout-agnostic · **zero new runtime dependencies** · **`src/lib/protobuf/decoder.ts` + its 19 tests stay byte-for-byte untouched**. UI features add the **real-WKWebView UI gate**.
 
-- Ordering is a **render-time presentation overlay** over `ENABLED_TOOLS` — the registry array stays the single control plane; ⌘K palette + router remain order-agnostic.
-- Persist via the existing `usePreferences` / `platform.store` seam — same mechanism as `recentToolIds`, one additive `toolOrder: string[]` field, write-on-change.
-- Reconcile on load: registry IDs in `toolOrder` render in saved order; registry IDs absent from `toolOrder` append at the bottom in registry order; `toolOrder` IDs no longer in the registry are ignored.
-- Drag is **handle-initiated** (grip on hover + focus) so a plain click still navigates; drop indicator is a **neutral/subtle insertion line** (accent = selected-only).
-- Keyboard reorder is **Alt+↑/↓ only** (one slot per press) — NO roving arrow nav (plain arrows stay unbound, preserving the Phase-2 pointer+Tab-focus model); moved item keeps focus; each move announced via `aria-live="polite"` ("Moved {tool} to position N of M").
-- "Reset order" action restores the default registry order (clears/repopulates `toolOrder`); placement at Claude's discretion (context-menu suggested).
-
-**Inherited binding wedge (every phase):** offline/no-network · paste-instant (<2s) · keyboard-driven · registry-driven single control plane · HashRouter only · WCAG-AA · layout-agnostic · **zero new runtime dependencies** · **`src/lib/protobuf/decoder.ts` + its 19 tests stay byte-for-byte untouched**. This is a UI feature, so the **real-WKWebView UI gate applies**.
+**Open carry-forwards (non-blocking):** pinning + settings surface (split out of v1.4); CI track (999.2); remaining tool wishlist (999.1); theme settings (999.3); DevTools CLI (999.4); Protobuf schema-file (999.5); FormatterView narrow-width stacking (UX-05); notarisation pending Apple enrolment (D-02); NAT-01 global summon hotkey (G-05-1); Cron advisory follow-ups (`15-REVIEW-FIX.md`); 3 minor updater a11y follow-ups.
 
 ## Harness reminder (per-task DoD, in order)
 
-simplify → /codex:review → unit (vitest + tsc + eslint green) → real-WKWebView UI verification. Phase boundary: human sign-off on a fresh `tauri build` + a passing `gsd-ui-review` WCAG-AA audit. Never skip gates; parallelize plans but not past the gates.
+simplify → /codex:review → unit (vitest + tsc + eslint green) → real-WKWebView UI verification. Phase boundary: human sign-off on a fresh `tauri build` + a passing `gsd-ui-review` WCAG-AA audit. Never skip gates; parallelize plans but not past the gates. **Native-OS input (drag/drop, OS key chords, file drops) is manual-walkthrough coverage — the WebDriver can't synthesize it; make it an explicit human-verify item.** See [[tauri-native-dragdrop-blocks-html5-dnd]].
 
 ---
+
+## v1.4 — Reorderable Tools (SHIPPED & ARCHIVED, 2026-06-05)
+
+v1.4 complete — Phase 16 (2 plans), archived to `.planning/milestones/v1.4-*`, tag `v1.4` (local-only). The app's first personalization feature: a user-reorderable sidebar — `toolOrder` overlay over the registry (registry stays the single control plane), handle-initiated native HTML5 drag + neutral insertion line, Alt+↑/↓ keyboard reorder with `aria-live`, persisted + reconciled (new-tool-append / unknown-drop / de-dupe) + keyboard-reachable reset-to-default. All 7 REORD requirements validated on the real WKWebView; full suite 668/668; zero new runtime/dev deps; decoder + its 19 tests byte-for-byte untouched. Post-ship fix `1c2c7664`: Tauri `dragDropEnabled:false` so in-page HTML5 drag works.
 
 ## v1.3 — More Tools (SHIPPED & ARCHIVED, 2026-06-04)
 

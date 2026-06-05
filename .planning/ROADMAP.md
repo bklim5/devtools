@@ -6,7 +6,7 @@
 - ✅ **v1.1 Formatters** — Phases 7–8 (shipped 2026-06-02) — see `milestones/v1.1-ROADMAP.md`
 - ✅ **v1.2 Release Tooling** — Phases 9–11 (shipped 2026-06-03) — see `milestones/v1.2-ROADMAP.md`
 - ✅ **v1.3 More Tools** — Phases 12–15 (shipped 2026-06-04) — see `milestones/v1.3-ROADMAP.md`
-- 🚧 **v1.4 Reorderable Tools** — Phase 16 (in progress)
+- ✅ **v1.4 Reorderable Tools** — Phase 16 (shipped 2026-06-05) — see `milestones/v1.4-ROADMAP.md`
 
 ## Phases
 
@@ -61,30 +61,16 @@ All 25 requirements complete. Full detail: `.planning/milestones/v1.3-ROADMAP.md
 
 </details>
 
-### 🚧 v1.4 Reorderable Tools (Phase 16) — IN PROGRESS
+<details>
+<summary>✅ v1.4 Reorderable Tools (Phase 16) — SHIPPED 2026-06-05</summary>
 
-A focused single-feature milestone: a user-reorderable sidebar tool list. Drag-to-reorder (handle-initiated native drag, no dnd library) plus an accessible Alt+↑/↓ keyboard path with `aria-live` announcements, the custom order persisted as a `toolOrder` overlay over the registry, with graceful reconciliation for new/removed tools and a reset-to-default action. Promoted from backlog 999.6 (12 locked decisions). Zero new runtime deps; WCAG-AA; registry stays the single control plane; `decoder.ts` + its 19 tests untouched.
+A focused single-feature milestone: a user-reorderable sidebar tool list (the first personalization feature). Drag-to-reorder (handle-initiated native drag, no dnd library) plus an accessible Alt+↑/↓ keyboard path with `aria-live` announcements, the custom order persisted as a `toolOrder` overlay over the registry, with graceful reconciliation for new/removed tools and a reset-to-default action. Promoted from backlog 999.6 (12 locked decisions). Zero new runtime deps; WCAG-AA; registry stays the single control plane; `decoder.ts` + its 19 tests untouched.
 
-- [x] Phase 16: Reorderable sidebar tool list — drag + Alt+↑/↓ keyboard reorder, `aria-live` announcements, persisted `toolOrder` overlay, new-tool-append reconciliation, reset-to-default; REORD-01..07 (completed 2026-06-05)
+- [x] Phase 16: Reorderable sidebar tool list — drag + Alt+↑/↓ keyboard reorder, `aria-live` announcements, persisted `toolOrder` overlay, new-tool-append reconciliation, reset-to-default; REORD-01..07 (2/2 plans) — completed 2026-06-05
 
-## Phase Details
+All 7 REORD requirements complete. Full detail: `.planning/milestones/v1.4-ROADMAP.md` · requirements: `milestones/v1.4-REQUIREMENTS.md`
 
-### Phase 16: Reorderable Sidebar Tool List
-**Goal**: A user can reorder the sidebar tools to suit their own workflow — by drag-and-drop or by keyboard — and that order is remembered across restarts, while the registry stays the canonical source of truth.
-**Depends on**: Phase 2 (Shell — `Sidebar.tsx`, registry projection) and Phase 5 (`usePreferences` / `platform.store` persistence seam); both shipped. No intra-milestone dependencies (single phase).
-**Requirements**: REORD-01, REORD-02, REORD-03, REORD-04, REORD-05, REORD-06, REORD-07
-**Success Criteria** (what must be TRUE):
-  1. A user can grab a sidebar tool by its grip handle and drag it to a new position — a subtle, neutral (non-accent) insertion line shows where it will land — and a plain click on a tool still navigates to it without ever starting a drag. *(REORD-01, REORD-02)*
-  2. A keyboard user can focus a tool's handle and press Alt+↑ / Alt+↓ to move it one slot per press; plain arrow keys remain unbound in the sidebar (no roving navigation introduced), and the moved tool keeps keyboard focus. *(REORD-03)*
-  3. Every reorder (drag or keyboard) is announced through an `aria-live="polite"` region — e.g. "Moved Cron to position 3 of 11" — so the change is perceivable without sight (WCAG-AA). *(REORD-04)*
-  4. The custom order survives an app restart: it is stored as a `toolOrder: string[]` of tool IDs through the existing preferences/store seam, applied as a render-time overlay over `ENABLED_TOOLS` (registry array unchanged; ⌘K palette and router stay order-agnostic). *(REORD-05)*
-  5. On load the saved order is reconciled against the live registry — a tool shipped in a later version appears at the bottom, an order referencing an unknown/removed ID is ignored — so the list never crashes, drops, or duplicates a tool; and a "Reset order" action restores the default registry order. *(REORD-06, REORD-07)*
-**Plans**: 2 plans
-- [x] 16-01-PLAN.md — Persistence + pure ordering/reconciliation backbone (toolOrder field + coercion + setToolOrder + pure reconcileToolOrder/moveToolInOrder helpers with vitest coverage); REORD-05/06/07 — Complete 2026-06-05 (40/40 suite tests, decoder 19/19 untouched, zero new deps)
-- [x] 16-02-PLAN.md — Reorderable Sidebar UI (grip-handle native drag + neutral insertion line, Alt+↑/↓ keyboard reorder, aria-live announcements, reset affordance) + real-WKWebView e2e + phase sign-off; REORD-01..07 — Complete 2026-06-05, human-approved (full vitest 668/668 + e2e 14/14, decoder 19/19 untouched, gsd-ui-review WCAG-AA 22/24, zero new deps)
-**UI hint**: yes
-
-**Inherited binding constraints**: zero new runtime dependencies (native HTML5 drag events or a small pure pointer handler — no dnd/animation library); WCAG-AA (the keyboard path + `aria-live` are mandatory, not optional); registry is the single control plane (ordering is a presentation overlay, never a registry mutation); accent = selected-only (drop indicator must be neutral/subtle); `decoder.ts` + its 19 tests stay byte-for-byte untouched; macOS real-WKWebView UI gate + per-task `/codex:review` → unit (`vitest`/`tsc`) → real-webview verification, with human sign-off on a fresh `tauri build` + a passing `gsd-ui-review` WCAG-AA audit at the phase boundary.
+</details>
 
 ## Progress
 

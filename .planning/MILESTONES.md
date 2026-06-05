@@ -1,5 +1,22 @@
 # Milestones
 
+## v1.4 Reorderable Tools (Shipped: 2026-06-05)
+
+**Phases completed:** 1 phase (16), 2 plans, 5 tasks
+**Delivered:** A user-reorderable sidebar tool list — the first personalization feature. Drag-and-drop (handle-initiated native HTML5 drag, no dnd library) plus an accessible Alt+↑/↓ keyboard path with `aria-live` announcements, persisted as a `toolOrder` overlay over the registry with graceful new/removed-tool reconciliation and a keyboard-reachable reset. All 7 REORD requirements validated on the real WKWebView; zero new runtime/dev deps; the hero `decoder.ts` + its 19 tests byte-for-byte untouched.
+
+**Key accomplishments:**
+
+- **Persistence + pure ordering backbone (Plan 16-01, REORD-05/06/07)** — an additive `toolOrder: string[]` Preferences field persisted through the existing prefs seam (`coerceToolOrder` untrusted-merge — string-only, de-dupe, no length cap, non-array → `[]`; `setToolOrder` write-on-change setter), plus two pure, fully-tested helpers: `reconcileToolOrder` (D-11 render overlay — honors saved order gated by registry-membership, appends missing registry IDs, drops unknown/removed IDs, collapses duplicates; output **always a registry permutation**) and `moveToolInOrder` (clamped relocate shared by drag and the Alt+arrow path). 13 toolOrder + 14 prefsStore + 13 usePreferences cases green.
+- **Reorderable Sidebar UI (Plan 16-02, REORD-01..07)** — `Sidebar.tsx` renders the reconciled `toolOrder` overlay over `ENABLED_TOOLS` (registry array, ⌘K palette, and router never mutated). A `GripVertical` handle on row hover + `focus-visible` is the only `draggable` element, so a plain `NavLink` click still navigates; a neutral (`tx-2`, NOT accent) insertion line — plus an end-of-list drop zone — shows the drop position. Alt+↑/↓ moves the focused tool one slot per press and re-focuses it after re-render (plain arrows stay unbound — no roving nav). One visually-hidden `aria-live="polite"` region announces "Moved {tool} to position N of M" using the registry-controlled `tool.name`. A right-click + keyboard-reachable Shift+F10 (focus-on-open, Escape-restore) "Reset order" sets `toolOrder=[]`.
+- **Ordering is an overlay, never a registry mutation** — the registry stays the single control plane; accent stays selected-only (reorder chrome — grip, insertion line — uses neutral tokens). New tools append, unknown/removed IDs drop, duplicates collapse: the list can never crash, drop, or duplicate a tool.
+- **Discipline held** — zero new runtime AND zero new devDependencies, HashRouter only, WCAG-AA (the keyboard path + `aria-live` are mandatory, not optional), and the immovable `decoder.ts` + 19-test bar untouched. Full suite **668/668** at close; real-WKWebView e2e 14/14; code review 0 critical (2 warnings fixed `da94809c`); security 8/8 STRIDE; **gsd-ui-review WCAG-AA 22/24** (all 3 findings fixed); human-signed-off on a fresh `tauri build`.
+- **Post-ship fix (`1c2c7664`)** — mouse drag showed the drag image but never moved rows on the real WKWebView: Tauri v2 window `dragDropEnabled` defaults to `true`, so the OS file-drop handler intercepted the webview's HTML5 `dragover`/`drop` (the keyboard path was unaffected). Set `dragDropEnabled:false` in `tauri.conf.json` (safe — no file-drop feature); verified in a fresh build. Not caught by the gates because WebDriver can't synthesize native OS drag, so the e2e only exercised the keyboard path.
+
+**Archived:** `.planning/milestones/v1.4-ROADMAP.md`, `.planning/milestones/v1.4-REQUIREMENTS.md`.
+
+---
+
 ## v1.3 More Tools (Shipped: 2026-06-04)
 
 **Phases completed:** 4 phases (12–15), 11 plans, 14 tasks

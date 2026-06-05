@@ -110,6 +110,40 @@ Three new tools + a Protobuf input mode, eight tools → eleven: Protobuf decima
 
 ---
 
+## Milestone: v1.4 — Reorderable Tools
+
+**Shipped:** 2026-06-05
+**Phases:** 1 (16) | **Plans:** 2
+
+### What Was Built
+The app's first personalization feature: a user-reorderable sidebar tool list (REORD-01..07). A persisted `toolOrder: string[]` overlay applied over `ENABLED_TOOLS` at render time (registry stays the single control plane; ⌘K palette + router order-agnostic), with two pure tested helpers — `reconcileToolOrder` (always a registry permutation: append-new, drop-unknown, de-dupe) and `moveToolInOrder` (clamped relocate). The UI: handle-initiated native HTML5 drag (no dnd library) with a neutral insertion line + end-of-list drop zone, Alt+↑/↓ keyboard reorder with focus retention (no roving nav), `aria-live="polite"` "Moved {tool} to position N of M" announcements, and a keyboard-reachable reset. Zero new runtime AND dev deps; decoder + 19 tests untouched.
+
+### What Worked
+- **Pure-backbone-then-thin-view split (again)** — Plan 16-01 landed the entire persistence + reconciliation contract as pure, fully-unit-tested helpers (40/40) with NO UI, so Plan 16-02's Sidebar was thin wiring over a locked, permutation-invariant core. The hard correctness (untrusted-blob safety, new/removed-tool reconciliation) was proven before any pixels.
+- **Treating ordering as a presentation overlay, not a registry mutation** kept the blast radius tiny — the ⌘K palette, router, and registry array were literally never touched, so nothing downstream of the registry could regress.
+- **The keyboard path + `aria-live` were designed in from the start, not bolted on** — WCAG-AA was treated as a build requirement (Alt+arrow, focus retention, announcements, keyboard-reachable reset), so the gsd-ui-review findings were refinements (boundary announce, end-of-list drop zone) rather than missing capabilities.
+
+### What Was Inefficient
+- **The real-WKWebView gate missed the pointer-drag bug entirely** — WebDriver can't synthesize a native OS drag, so the e2e only ever exercised the keyboard reorder path. The mouse drag (drag image shown but rows never moved) shipped and was caught only in post-ship manual use: Tauri v2's `dragDropEnabled` defaults to `true`, so the OS file-drop handler was swallowing the webview's HTML5 `dragover`/`drop`. Fixed by `dragDropEnabled:false` (`1c2c7664`). The gate gave false confidence on the one interaction it structurally can't drive.
+- **The WebKit-driver Alt-modifier key-chord gap** forced the keyboard e2e to dispatch a bubbling `KeyboardEvent` rather than use the driver's native key path — a second instance of "the embedded WebDriver can't fully drive real input," consistent with v1.3's stale-row-read workarounds.
+- **A WCAG 1.4.11 contrast miss on the neutral drop indicator** (`bd-2` → `tx-2`) — "neutral" was specced without pinning the 3:1 non-text contrast target, so the first insertion-line token failed the audit.
+
+### Patterns Established
+- **Personalization = a persisted overlay over the canonical model, never a mutation of it** — `toolOrder` sits beside `recentToolIds` in the same prefs blob and is reconciled to a registry permutation on every read. A reusable shape for any future user-ordering/pinning feature.
+- **Dedicated untrusted-merge coercer per field when semantics differ** — `coerceToolOrder` is separate from `normalizeRecents` precisely because `toolOrder` has no length cap; sharing would have obscured the difference.
+- **Native-input interactions need a manual gate line item** — drag/drop (and other native-OS input the WebDriver can't synthesize) must be explicitly walked by a human, since a green e2e says nothing about them.
+
+### Key Lessons
+1. **A green real-WKWebView e2e is not coverage of native-OS input** — drag-and-drop, OS key chords, and file drops ride on the manual walkthrough. Make those an explicit checklist item at the human-verify checkpoint; don't let a passing keyboard-path e2e imply the pointer path works.
+2. **Tauri webview defaults can silently intercept in-page behavior** — `dragDropEnabled:true` swallowing HTML5 DnD is a config footgun; when an in-page interaction works in a browser but not the packaged app, suspect the native window layer before the React code.
+3. **Pin measurable targets for "subtle/neutral" UI** — "neutral, non-accent" still has to clear 3:1 (WCAG 1.4.11); specify the contrast number, not just the intent.
+
+### Cost Observations
+- Model mix: GSD `quality` profile — primarily Opus for planning/execution/review.
+- Notable: a tightly-scoped single-phase milestone; the automatable surface was green (668/668 vitest) before sign-off, so the only material post-gate work was the one native-drag config fix surfaced by real-world use.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -120,6 +154,7 @@ Three new tools + a Protobuf input mode, eight tools → eleven: Protobuf decima
 | v1.1 Formatters | 2 (7–8) | 4 | Shared-foundation-first wave; cleanup phase deliberately sequenced after its real callers landed |
 | v1.2 Release Tooling | 3 (9–11) | 8 | Pure decision core + thin `.mjs` shell per script; dry-run-first; a live human-gate (real publish + updater round-trip) as the load-bearing acceptance |
 | v1.3 More Tools | 4 (12–15) | 11 | Risk-ordered independent features; pure-core-then-thin-view per tool; highest-risk slice (Cron L/nL) isolated with its own fixtures; auto-build at the human-verify checkpoint |
+| v1.4 Reorderable Tools | 1 (16) | 2 | First personalization feature; persisted overlay over the canonical registry (never a mutation); pure reconciliation backbone landed UI-free before the thin Sidebar wiring |
 
 ### Cumulative Quality
 
@@ -129,8 +164,9 @@ Three new tools + a Protobuf input mode, eight tools → eleven: Protobuf decima
 | v1.1 Formatters | 378 vitest / 44 files | JSON + XML formatters (native APIs) | **0** |
 | v1.2 Release Tooling | 503 vitest / 49 files | release core + drivers (Node builtins + `tsx`/Tauri CLI/`gh`/`rustup` — all devDeps) | **0** |
 | v1.3 More Tools | 650 vitest | URL + Regex + Cron tools + Protobuf decimal (native `URL`/`RegExp`/`Intl` + a Web Worker) | **0** |
+| v1.4 Reorderable Tools | 668 vitest | reorderable sidebar — `toolOrder` overlay + pure reconciliation helpers (native HTML5 drag + Alt+arrow, no dnd library) | **0** |
 
-Constant across all four: the hero decoder (`src/lib/protobuf/decoder.ts`) + its **19 tests** stayed byte-for-byte untouched.
+Constant across all five: the hero decoder (`src/lib/protobuf/decoder.ts`) + its **19 tests** stayed byte-for-byte untouched.
 
 ### Top Lessons (Verified Across Milestones)
 
@@ -138,3 +174,4 @@ Constant across all four: the hero decoder (`src/lib/protobuf/decoder.ts`) + its
 2. **Code review reliably finds real bugs each milestone** — keep it as a hard per-task gate, not a formality. (v1.2: 0 critical, but the live human-gate found the two that mattered.)
 3. **Zero-runtime-dependency is sustainable** — three milestones in, the only runtime dep is still `js-md5`; native browser APIs + Node builtins + dev-only CLIs covered formatting *and* the entire release pipeline.
 4. **Push logic out of I/O shells into pure tested cores** — v1.2's two live bugs both lived in the deliberately-uncovered driver shell; the thinner the shell, the fewer places a bug can hide where tests don't look.
+5. **The real-WKWebView e2e cannot drive native-OS input** — v1.4's pointer drag-and-drop (and the Alt key-chord) couldn't be synthesized by the WebDriver, so the drag shipped broken (Tauri `dragDropEnabled` interception) and surfaced only in manual use. Native drag/drop, OS key chords, and file drops are *manual-walkthrough* coverage — make them an explicit human-verify checklist item; a green e2e on the keyboard path says nothing about them.
