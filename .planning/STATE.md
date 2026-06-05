@@ -2,31 +2,34 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Reorderable Tools
-status: roadmap_created
-last_updated: "2026-06-04T21:00:00.000Z"
-last_activity: 2026-06-04 -- v1.4 roadmap created (Phase 16)
+status: executing
+last_updated: "2026-06-05T07:42:00.000Z"
+last_activity: 2026-06-05 -- Phase 16 Plan 01 complete (toolOrder persistence + pure ordering backbone)
 progress:
   total_phases: 1
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_plans: 2
+  completed_plans: 1
+  percent: 50
 ---
 
 # Project State
 
 ## Current Position
 
-Phase: 16 (Reorderable sidebar tool list) — NOT STARTED; roadmap created
-Plan: Not started
-Status: 🚧 **Milestone v1.4 "Reorderable Tools" ROADMAPPED** (single focused phase, Phase 16). All 7 REORD requirements (REORD-01..07) map 1:1 to Phase 16 — drag-to-reorder (handle-initiated native drag, no dnd lib), Alt+↑/↓ keyboard reorder + `aria-live` announcements, a persisted `toolOrder: string[]` overlay over the registry (registry stays canonical), new-tool-append reconciliation, and a reset-to-default action. Promoted from backlog 999.6 (12 locked decisions in `999.6-CONTEXT.md`). Pinning explicitly deferred as its own future feature. Numbering continues from v1.3's Phase 15 (NOT reset).
-Last activity: 2026-06-04 -- v1.4 roadmap created
+Phase: 16 (reorderable-sidebar-tool-list) — EXECUTING
+Plan: 2 of 2 (Plan 01 complete)
+Status: Executing Phase 16
+Last activity: 2026-06-05 -- Phase 16 Plan 01 complete (toolOrder persistence + pure ordering backbone)
 
-**Next:** `/gsd-plan-phase 16` (a standard-pattern UI feature on an existing seam — `999.6-CONTEXT.md` already captures the design decisions; research likely skippable). The phase touches `src/components/Sidebar.tsx` (ordered overlay + grip handle + `aria-live` region), `src/shell/preferences.ts` (`toolOrder: string[]` field + default `[]`), and `src/shell/usePreferences.ts` (`setToolOrder` setter mirroring `setLastUsedId`) — all over the existing `platform.store` seam, zero new deps.
+**Next:** Execute Plan 02 (the Sidebar UI: ordered overlay + grip handle + drag/Alt-arrow reorder + `aria-live` region + Reset action) — it consumes Plan 01's contract layer: `reconcileToolOrder`/`moveToolInOrder` (`src/shell/toolOrder.ts`), the `toolOrder` Preferences field, and `usePreferences().setToolOrder`. Plan 02 owns the real-WKWebView UI gate + WCAG-AA sign-off (N/A for Plan 01, no UI).
+
+**Plan 01 delivered:** `toolOrder: string[]` (default `[]`) persisted through the existing prefs blob (mirrors `recentToolIds`); `coerceToolOrder` untrusted-merge; `setToolOrder` setter; pure `reconcileToolOrder` (D-11 render overlay, always a registry permutation) + `moveToolInOrder` (clamped relocate). 40/40 suite tests + tsc + eslint green; decoder 19/19 untouched; zero new deps. Commits `90857271`, `72955ab3`.
 
 ## Accumulated Context
 
 **Phase 16 integration contract (from `999.6-CONTEXT.md`):**
+
 - Ordering is a **render-time presentation overlay** over `ENABLED_TOOLS` — the registry array stays the single control plane; ⌘K palette + router remain order-agnostic.
 - Persist via the existing `usePreferences` / `platform.store` seam — same mechanism as `recentToolIds`, one additive `toolOrder: string[]` field, write-on-change.
 - Reconcile on load: registry IDs in `toolOrder` render in saved order; registry IDs absent from `toolOrder` append at the bottom in registry order; `toolOrder` IDs no longer in the registry are ignored.

@@ -16,8 +16,8 @@
 - [ ] **REORD-02**: A plain click on a tool still navigates to that tool — dragging never triggers from a normal click (drag is handle-initiated).
 - [ ] **REORD-03**: User can reorder a keyboard-focused tool with `Alt+↑` / `Alt+↓`, moving it one slot per press, without introducing a roving arrow-key navigation system (plain arrows stay unbound in the sidebar).
 - [ ] **REORD-04**: Each reorder is announced to assistive technology via an `aria-live` region (e.g. "Moved Cron to position 3 of 11"), and the moved tool retains keyboard focus. (WCAG-AA.)
-- [ ] **REORD-05**: The user's custom tool order persists across app restarts (stored as a `toolOrder` array of tool IDs via the existing preferences/store seam; the registry stays the canonical source).
-- [ ] **REORD-06**: A tool shipped in a later app version appears at the bottom of an existing custom order; an order referencing an unknown or removed tool ID degrades gracefully (no crash, no missing or duplicated tools).
+- [x] **REORD-05**: The user's custom tool order persists across app restarts (stored as a `toolOrder` array of tool IDs via the existing preferences/store seam; the registry stays the canonical source). — Plan 16-01 (toolOrder field + coerceToolOrder + setToolOrder, round-tripped through the prefs seam)
+- [x] **REORD-06**: A tool shipped in a later app version appears at the bottom of an existing custom order; an order referencing an unknown or removed tool ID degrades gracefully (no crash, no missing or duplicated tools). — Plan 16-01 (reconcileToolOrder: append-new + drop-unknown + de-dupe, output always a registry permutation)
 - [ ] **REORD-07**: User can reset the sidebar to the default (registry) order.
 
 ---
@@ -46,8 +46,8 @@
 | REORD-02 | Phase 16 | Pending |
 | REORD-03 | Phase 16 | Pending |
 | REORD-04 | Phase 16 | Pending |
-| REORD-05 | Phase 16 | Pending |
-| REORD-06 | Phase 16 | Pending |
-| REORD-07 | Phase 16 | Pending |
+| REORD-05 | Phase 16 | Done (16-01) |
+| REORD-06 | Phase 16 | Done (16-01) |
+| REORD-07 | Phase 16 | Pending (backbone in 16-01; reset affordance in 16-02) |
 
 *(Phase column filled by the roadmapper.)*

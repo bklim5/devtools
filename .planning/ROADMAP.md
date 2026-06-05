@@ -80,7 +80,7 @@ A focused single-feature milestone: a user-reorderable sidebar tool list. Drag-t
   4. The custom order survives an app restart: it is stored as a `toolOrder: string[]` of tool IDs through the existing preferences/store seam, applied as a render-time overlay over `ENABLED_TOOLS` (registry array unchanged; ⌘K palette and router stay order-agnostic). *(REORD-05)*
   5. On load the saved order is reconciled against the live registry — a tool shipped in a later version appears at the bottom, an order referencing an unknown/removed ID is ignored — so the list never crashes, drops, or duplicates a tool; and a "Reset order" action restores the default registry order. *(REORD-06, REORD-07)*
 **Plans**: 2 plans
-- [ ] 16-01-PLAN.md — Persistence + pure ordering/reconciliation backbone (toolOrder field + coercion + setToolOrder + pure reconcileToolOrder/moveToolInOrder helpers with vitest coverage); REORD-05/06/07
+- [x] 16-01-PLAN.md — Persistence + pure ordering/reconciliation backbone (toolOrder field + coercion + setToolOrder + pure reconcileToolOrder/moveToolInOrder helpers with vitest coverage); REORD-05/06/07 — Complete 2026-06-05 (40/40 suite tests, decoder 19/19 untouched, zero new deps)
 - [ ] 16-02-PLAN.md — Reorderable Sidebar UI (grip-handle native drag + neutral insertion line, Alt+↑/↓ keyboard reorder, aria-live announcements, reset affordance) + real-WKWebView e2e + phase sign-off; REORD-01..07
 **UI hint**: yes
 
@@ -108,7 +108,7 @@ Phases execute in numeric order. v1.4 is a single phase (16) continuing from v1.
 | 13. URL tool | v1.3 | 2/2 | Complete    | 2026-06-03 |
 | 14. Regex tester | v1.3 | 3/3 | Complete    | 2026-06-03 |
 | 15. Cron tool | v1.3 | 4/4 | Complete    | 2026-06-04 |
-| 16. Reorderable sidebar tool list | v1.4 | 0/0 | Not started | - |
+| 16. Reorderable sidebar tool list | v1.4 | 1/2 | In progress | - |
 
 ## Backlog
 
