@@ -49,6 +49,9 @@ export function Sidebar() {
   // The right-click "Reset order" context menu (D-12), positioned at the cursor.
   const [resetMenu, setResetMenu] = useState<ResetMenu | null>(null);
 
+  // The <nav> element — a stable focus anchor for menu dismissal when the saved
+  // return-focus element is no longer connected (WR-02 fallback).
+  const navRef = useRef<HTMLElement | null>(null);
   // Handle elements keyed by tool id, so a keyboard move can re-focus the moved
   // tool's handle after React re-renders the reordered list (REORD-04).
   const handleRefs = useRef(new Map<string, HTMLButtonElement | null>());
@@ -164,11 +167,21 @@ export function Sidebar() {
       e.preventDefault();
       const id = draggingId ?? e.dataTransfer.getData("text/plain");
       if (id && dropIndex !== null) {
-        // dropIndex is a GAP index; if the gap is past the dragged item's own
-        // current slot, account for its removal so it lands where the line shows.
+        // dropIndex is a GAP index captured against the CURRENT orderedIds. If
+        // the dragged id is no longer in that order (e.g. a future external sync
+        // mutated preferences.toolOrder mid-drag, desyncing dropIndex from
+        // orderedIds), the removal math below would be meaningless — bail out
+        // cleanly without committing rather than land the item one slot off.
         const from = orderedIds.indexOf(id);
-        const target = from !== -1 && from < dropIndex ? dropIndex - 1 : dropIndex;
-        if (from !== -1 && target !== from) commitMove(id, target);
+        if (from === -1) {
+          setDraggingId(null);
+          setDropIndex(null);
+          return;
+        }
+        // The gap is past the dragged item's own current slot → account for its
+        // removal so it lands where the line shows.
+        const target = from < dropIndex ? dropIndex - 1 : dropIndex;
+        if (target !== from) commitMove(id, target);
       }
       setDraggingId(null);
       setDropIndex(null);
@@ -256,7 +269,24 @@ export function Sidebar() {
 
   const closeResetMenu = useCallback((opts?: { restoreFocus?: boolean }) => {
     setResetMenu(null);
-    if (opts?.restoreFocus) menuReturnFocusRef.current?.focus();
+    if (opts?.restoreFocus) {
+      // The saved element (typically a grip handle) may have been detached or
+      // re-keyed between open and close — calling .focus() on a disconnected
+      // node is a no-op that silently strands focus on <body>. Only restore to
+      // it while it is still in the DOM; otherwise fall back to a stable anchor
+      // (the <nav>, then any live grip) so keyboard users are never left without
+      // a focus target (WR-02).
+      const el = menuReturnFocusRef.current;
+      if (el && el.isConnected) {
+        el.focus();
+      } else {
+        const fallback =
+          navRef.current ??
+          [...handleRefs.current.values()].find((h) => h?.isConnected) ??
+          null;
+        fallback?.focus();
+      }
+    }
     menuReturnFocusRef.current = null;
   }, []);
 
@@ -291,10 +321,15 @@ export function Sidebar() {
   return (
     <aside className="flex w-[268px] flex-none flex-col gap-3 border-r border-bd bg-sidebar p-[14px]">
       <nav
+        ref={navRef}
+        // tabIndex -1 keeps the nav OUT of the normal tab order but makes it a
+        // valid programmatic .focus() target — the stable fallback anchor when a
+        // detached return-focus element would otherwise strand focus (WR-02).
+        tabIndex={-1}
         // flex-1 lets the nav fill the aside's height so the empty area below
         // the last row is part of the droppable surface (Fix 3 end-zone), not a
         // dead gap. Rows stay top-aligned; the tail is the end drop zone.
-        className="flex flex-1 flex-col gap-0.5"
+        className="flex flex-1 flex-col gap-0.5 outline-none"
         onContextMenu={openResetMenuFromMouse}
         onKeyDown={openResetMenuFromKeyboard}
         onDragOver={onNavDragOver}
