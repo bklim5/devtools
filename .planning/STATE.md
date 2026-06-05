@@ -3,29 +3,31 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Pinned Tools
 status: executing
-last_updated: "2026-06-05T23:21:00.000Z"
-last_activity: 2026-06-05 -- Phase 17 Plan 01 complete (pinning backbone)
+last_updated: "2026-06-05T23:31:00.000Z"
+last_activity: 2026-06-05 -- Phase 17 Plan 02 complete (pinned sidebar UI + e2e)
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 2
-  completed_plans: 1
-  percent: 50
+  completed_plans: 2
+  percent: 100
 ---
 
 # Project State
 
 ## Current Position
 
-Milestone: **v1.5 "Pinned Tools"** — started 2026-06-05; roadmap created.
-Phase: 17 (pinned-sidebar-section) — EXECUTING
-Plan: 2 of 2
-Status: Executing Phase 17 (17-01 complete)
-Last activity: 2026-06-05 -- Phase 17 Plan 01 complete (pinning backbone)
+Milestone: **v1.5 "Pinned Tools"** — started 2026-06-05; both plans implemented.
+Phase: 17 (pinned-sidebar-section) — IMPLEMENTED, pending human sign-off
+Plan: 2 of 2 (both complete)
+Status: Phase 17 implementation complete (17-01 + 17-02); awaiting phase-gate `tauri build` walkthrough + `gsd-ui-review`
+Last activity: 2026-06-05 -- Phase 17 Plan 02 complete (pinned sidebar UI + e2e)
 
-**17-01 done (`8bac1768`, `c7b94741`):** `pinnedToolIds: string[]` prefs field (default `[]`) + `coercePinnedToolIds` untrusted-merge (no cap, wired into `mergePreferences`) + `setPinnedToolIds`/`togglePinned` (append-on-pin / remove) + pure `partitionTools(pinnedToolIds, toolOrder, registryIds) → { pinned, unpinned }` (reuses `reconcileToolOrder` for the remainder; 10-case immovable-bar matrix). Full suite 685/685; decoder 19/19 untouched; zero new deps. PIN-07/PIN-08 ✅. Summary: `.planning/phases/17-pinned-sidebar-section/17-01-SUMMARY.md`.
+**17-01 done (`8bac1768`, `c7b94741`):** `pinnedToolIds: string[]` prefs field (default `[]`) + `coercePinnedToolIds` untrusted-merge (no cap, wired into `mergePreferences`) + `setPinnedToolIds`/`togglePinned` (append-on-pin / remove) + pure `partitionTools(pinnedToolIds, toolOrder, registryIds) → { pinned, unpinned }` (reuses `reconcileToolOrder` for the remainder; 10-case immovable-bar matrix). PIN-07/PIN-08 ✅. Summary: `.planning/phases/17-pinned-sidebar-section/17-01-SUMMARY.md`.
 
-**Next:** `/gsd-execute-phase 17` (Plan 17-02, wave 2, depends on 17-01) — the two-group Sidebar UI: left-of-grip pin icon (filled-persistent on pinned, outline hover+focus on unpinned), Alt+P toggle (`aria-live`-announced), bare neutral divider + SR-labelled group, independent per-group drag + Alt+↑/↓ reorder (no cross-boundary), and "Unpin all" in the Shift+F10 reset menu. Consumes `partitionTools`/`ToolPartition` + `setPinnedToolIds`/`togglePinned`/`preferences.pinnedToolIds` from 17-01. Native pointer drag + hover reveal are the phase-gate manual-walkthrough items. **Gate the divider/group/"Unpin all" on `partition.pinned.length > 0`, not the raw pref (RESEARCH Pitfall 5).**
+**17-02 done (`aee22ada`, `cb24e74f`):** two-group `Sidebar.tsx` via `partitionTools` — SR-named "Pinned tools" group + bare neutral divider above the "Tools" group (gated on the post-reconcile `pinned.length > 0`, Pitfall 5); left-of-grip pin toggle (persistent filled on pinned, outline hover+`focus-visible` on unpinned, `aria-pressed`) that toggles membership without navigating; **Alt+P** on the focused handle pins/unpins (`aria-live` "Pinned/Unpinned {name}" via the registry name); per-group drag + Alt+↑/↓ scoped by `draggingGroup` (pinned→`setPinnedToolIds`, unpinned→`setToolOrder`) with no cross-boundary; "Unpin all" as a second item in the Shift+F10 reset menu → `setPinnedToolIds([])`. Shared `renderRow` + one `handleRefs`/`focusAfterMoveRef` map across both groups (focus survives cross-group toggle). Registry/⌘K/router untouched. Full suite 685/685; decoder 19/19 untouched; zero new deps; **real-WKWebView e2e green via `scripts/e2e-spike.sh` (14/14 spec files; `sidebar.e2e` 2/2)**. PIN-01..06 + PIN-09 ✅. Summary: `.planning/phases/17-pinned-sidebar-section/17-02-SUMMARY.md`.
+
+**Next:** Phase-17 human sign-off — run `pnpm tauri build` (ignore the final non-zero exit = absent updater-signing key; confirm the `.app`/`.dmg` under `src-tauri/target/release/bundle/macos/`), hand off the built app for the **manual-walkthrough** items (native pointer DRAG reorder within each group — never across the divider — + pin-icon reveal on pointer HOVER for unpinned rows), then a passing `gsd-ui-review` WCAG-AA audit. After sign-off: `/gsd-transition` to close Phase 17 / complete milestone v1.5.
 
 ## Project Reference
 
@@ -36,9 +38,9 @@ See: .planning/PROJECT.md (updated 2026-06-05 after v1.4) · roadmap: .planning/
 
 ## Phases (v1.5)
 
-- [ ] **Phase 17: Pinned Sidebar Section** (1/2 plans) — PIN-01..09
+- [~] **Phase 17: Pinned Sidebar Section** (2/2 plans implemented — pending human sign-off) — PIN-01..09
   - [x] 17-01: Persistence + pure pinning backbone — `pinnedToolIds: string[]` prefs field (`coercePinnedToolIds` untrusted-merge, `setPinnedToolIds` write-on-change, `togglePinned`), pure reconcile + pinned/unpinned partition (always a registry partition; drop unknown, de-dupe), reusing `reconcileToolOrder`/`moveToolInOrder` per group. PIN-07/08.
-  - [ ] 17-02: Pinned Sidebar UI — pinned group + divider (shown only when non-empty) above the unpinned list; pin icon (hover + focus-visible) + keyboard shortcut toggle (`aria-live`-announced); independent per-group drag + Alt+↑/↓ reorder (no cross-boundary drag); keyboard-reachable "Unpin all" beside "Reset order". PIN-01..06, PIN-09.
+  - [x] 17-02: Pinned Sidebar UI — pinned group + neutral divider (shown only when ≥1 pinned) above the unpinned list; left-of-grip pin toggle (filled-persistent / outline hover+focus-visible) + Alt+P (`aria-live`-announced); independent per-group drag + Alt+↑/↓ reorder (no cross-boundary, `draggingGroup` scope); "Unpin all" as a second item in the Shift+F10 reset menu. Real-WKWebView e2e green (sidebar.e2e 2/2). PIN-01..06, PIN-09. (`aee22ada`, `cb24e74f`)
 
 ## Accumulated Context
 
