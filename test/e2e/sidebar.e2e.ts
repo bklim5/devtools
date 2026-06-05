@@ -31,7 +31,7 @@ function assert(cond: boolean, message: string): asserts cond {
 }
 
 // Read the visible sidebar order from the grip handles' aria-labels
-// ("Reorder {name}" → "{name}"), in DOM order. A single round-trip (WebKit's
+// ("Reorder {name}" -> "{name}"), in DOM order. A single round-trip (WebKit's
 // embedded WebDriver goes stale on chained element handles — the url.e2e lesson).
 function readOrder(): Promise<string[]> {
   return browser.execute(() =>
@@ -74,9 +74,44 @@ describe("Reorderable sidebar (real WKWebView)", () => {
       "the first grip handle did not accept keyboard focus — not keyboard-reachable?",
     );
 
-    // WebDriver chord: hold Alt, press ArrowDown (the array form sends a chord;
-    // modifiers are released at the end of the keys() call).
-    await browser.keys(["Alt", "ArrowDown"]);
+    // Drive the keydown via a bubbling KeyboardEvent dispatched on the focused
+    // handle. WHY not browser.keys()/the W3C Actions API: macOS WebKit's embedded
+    // WebDriver (605.1.15) does NOT deliver the Alt modifier on synthesized key
+    // actions — the keydown arrives with altKey:false, so the handler's altKey
+    // guard (correctly) ignores it (confirmed empirically: an Actions Alt+Arrow
+    // chord left the order unchanged). React attaches its listeners at the document
+    // root via native bubbling, so a dispatched bubbling KeyboardEvent on the
+    // focused button fires the real onKeyDown handler — this exercises the SAME
+    // app code path, with the real altKey/e.key the handler reads (the update.e2e
+    // dev-injector precedent: drive the one bit WebDriver can't, assert the rest).
+    function dispatchKey(key: string, altKey: boolean): Promise<void> {
+      return browser.execute(
+        (k: string, alt: boolean) => {
+          const el = document.activeElement as HTMLElement | null;
+          el?.dispatchEvent(
+            new KeyboardEvent("keydown", {
+              key: k,
+              altKey: alt,
+              bubbles: true,
+              cancelable: true,
+            }),
+          );
+        },
+        key,
+        altKey,
+      );
+    }
+
+    // 2a. PLAIN ArrowDown (no Alt) must be UNBOUND — no roving nav (D-05/REORD-03).
+    await dispatchKey("ArrowDown", false);
+    const afterPlain = await readOrder();
+    assert(
+      afterPlain[0] === firstName,
+      `plain ArrowDown must NOT reorder (no roving nav, D-05) — "${firstName}" left index 0: ${JSON.stringify(afterPlain)}`,
+    );
+
+    // 2b. Alt+ArrowDown moves the focused tool one slot down.
+    await dispatchKey("ArrowDown", true);
 
     await browser.waitUntil(
       async () => {
