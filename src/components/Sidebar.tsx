@@ -377,9 +377,17 @@ export function Sidebar() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") closeResetMenu({ restoreFocus: true });
     };
-    document.addEventListener("click", onDocClick);
+    // Defer attaching the click-away listener by one tick. Today the only open
+    // paths are right-click and keyboard, but if a future caller ever opens the
+    // menu from a click/pointerup handler, the SAME gesture's click could bubble
+    // to document in this tick and immediately self-close the menu. The timeout-0
+    // lets the opening gesture finish before the listener is live.
+    const clickListenerId = window.setTimeout(() => {
+      document.addEventListener("click", onDocClick);
+    }, 0);
     document.addEventListener("keydown", onKey);
     return () => {
+      window.clearTimeout(clickListenerId);
       document.removeEventListener("click", onDocClick);
       document.removeEventListener("keydown", onKey);
     };
