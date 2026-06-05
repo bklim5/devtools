@@ -330,11 +330,15 @@ export function Sidebar() {
     if (opts?.restoreFocus) {
       // The saved element (typically a grip handle) may have been detached or
       // re-keyed between open and close — calling .focus() on a disconnected node
-      // is a no-op that silently strands focus on <body>. Only restore to it while
-      // it is still in the DOM; otherwise fall back to a stable anchor (the <nav>,
-      // then any live grip) so keyboard users are never left without a target.
+      // is a no-op that silently strands focus on <body>. A right-click open also
+      // captures document.activeElement as <body> (a right-click does not focus the
+      // row), which IS connected — restoring to it would strand keyboard focus on
+      // <body> just the same. Only restore to a still-connected, genuinely focusable
+      // element (not <body>, tabIndex >= 0); otherwise fall back to a stable anchor
+      // (the <nav>, then any live grip) so keyboard users are never left adrift.
       const el = menuReturnFocusRef.current;
-      if (el && el.isConnected) {
+      const usable = el && el.isConnected && el !== document.body && el.tabIndex >= 0;
+      if (usable) {
         el.focus();
       } else {
         const fallback =
