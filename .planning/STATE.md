@@ -3,28 +3,30 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Reorderable Tools
 status: executing
-last_updated: "2026-06-05T07:42:00.000Z"
-last_activity: 2026-06-05 -- Phase 16 Plan 01 complete (toolOrder persistence + pure ordering backbone)
+last_updated: "2026-06-05T09:30:00.000Z"
+last_activity: 2026-06-05 -- Phase 16 Plan 02 complete + human-approved (reorderable sidebar UI); phase 16 complete pending orchestrator phase-complete
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 2
-  completed_plans: 1
-  percent: 50
+  completed_plans: 2
+  percent: 100
 ---
 
 # Project State
 
 ## Current Position
 
-Phase: 16 (reorderable-sidebar-tool-list) — EXECUTING
-Plan: 2 of 2 (Plan 01 complete)
-Status: Executing Phase 16
-Last activity: 2026-06-05 -- Phase 16 Plan 01 complete (toolOrder persistence + pure ordering backbone)
+Phase: 16 (reorderable-sidebar-tool-list) — COMPLETE (pending orchestrator phase-complete)
+Plan: 2 of 2 (both complete)
+Status: Phase 16 complete + human-approved; awaiting orchestrator phase-complete / milestone wrap
+Last activity: 2026-06-05 -- Phase 16 Plan 02 complete + human-approved (reorderable sidebar UI)
 
-**Next:** Execute Plan 02 (the Sidebar UI: ordered overlay + grip handle + drag/Alt-arrow reorder + `aria-live` region + Reset action) — it consumes Plan 01's contract layer: `reconcileToolOrder`/`moveToolInOrder` (`src/shell/toolOrder.ts`), the `toolOrder` Preferences field, and `usePreferences().setToolOrder`. Plan 02 owns the real-WKWebView UI gate + WCAG-AA sign-off (N/A for Plan 01, no UI).
+**Next:** Orchestrator phase-complete for Phase 16, then close out milestone v1.4 "Reorderable Tools" (archive + tag — milestone tags local-only). All 7 REORD requirements delivered.
 
 **Plan 01 delivered:** `toolOrder: string[]` (default `[]`) persisted through the existing prefs blob (mirrors `recentToolIds`); `coerceToolOrder` untrusted-merge; `setToolOrder` setter; pure `reconcileToolOrder` (D-11 render overlay, always a registry permutation) + `moveToolInOrder` (clamped relocate). 40/40 suite tests + tsc + eslint green; decoder 19/19 untouched; zero new deps. Commits `90857271`, `72955ab3`.
+
+**Plan 02 delivered (human-approved):** reorderable `Sidebar.tsx` — reconciled `toolOrder` overlay over `ENABLED_TOOLS` (registry/⌘K/router untouched), handle-initiated native HTML5 drag with a neutral (`tx-2`, non-accent) insertion line + end-of-list drop zone, Alt+↑/↓ keyboard reorder (one slot/press, moved item keeps focus, plain arrows unbound), `aria-live="polite"` "Moved {tool} to position N of M" announcements, and a keyboard-reachable Reset-order affordance (right-click + Shift+F10 + focus-on-open + Escape-restore) that sets `toolOrder=[]`. Real-WKWebView e2e (`test/e2e/sidebar.e2e.ts`) green (Alt+ArrowDown reorders + persists across reload, announces, click navigates) + sign-off screenshot. tsc/eslint clean, full vitest 668/668 (decoder 19/19 untouched), e2e 14/14, zero new deps. gsd-ui-review WCAG-AA 22/24 (all 3 findings fixed, `16-UI-REVIEW.md`). `tauri build` bundle refreshed. Commits `026575b4`, `a3dc2927`, `f91a777a`, `4c64b900`, `8c23ac9a`, `b7896524`. Two notable deviations: drop-indicator `bd-2`→`tx-2` for WCAG 1.4.11 contrast; WebKit-driver Alt-modifier gap handled via a bubbling `KeyboardEvent` in the e2e.
 
 ## Accumulated Context
 

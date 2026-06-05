@@ -81,7 +81,7 @@ A focused single-feature milestone: a user-reorderable sidebar tool list. Drag-t
   5. On load the saved order is reconciled against the live registry — a tool shipped in a later version appears at the bottom, an order referencing an unknown/removed ID is ignored — so the list never crashes, drops, or duplicates a tool; and a "Reset order" action restores the default registry order. *(REORD-06, REORD-07)*
 **Plans**: 2 plans
 - [x] 16-01-PLAN.md — Persistence + pure ordering/reconciliation backbone (toolOrder field + coercion + setToolOrder + pure reconcileToolOrder/moveToolInOrder helpers with vitest coverage); REORD-05/06/07 — Complete 2026-06-05 (40/40 suite tests, decoder 19/19 untouched, zero new deps)
-- [ ] 16-02-PLAN.md — Reorderable Sidebar UI (grip-handle native drag + neutral insertion line, Alt+↑/↓ keyboard reorder, aria-live announcements, reset affordance) + real-WKWebView e2e + phase sign-off; REORD-01..07
+- [x] 16-02-PLAN.md — Reorderable Sidebar UI (grip-handle native drag + neutral insertion line, Alt+↑/↓ keyboard reorder, aria-live announcements, reset affordance) + real-WKWebView e2e + phase sign-off; REORD-01..07 — Complete 2026-06-05, human-approved (full vitest 668/668 + e2e 14/14, decoder 19/19 untouched, gsd-ui-review WCAG-AA 22/24, zero new deps)
 **UI hint**: yes
 
 **Inherited binding constraints**: zero new runtime dependencies (native HTML5 drag events or a small pure pointer handler — no dnd/animation library); WCAG-AA (the keyboard path + `aria-live` are mandatory, not optional); registry is the single control plane (ordering is a presentation overlay, never a registry mutation); accent = selected-only (drop indicator must be neutral/subtle); `decoder.ts` + its 19 tests stay byte-for-byte untouched; macOS real-WKWebView UI gate + per-task `/codex:review` → unit (`vitest`/`tsc`) → real-webview verification, with human sign-off on a fresh `tauri build` + a passing `gsd-ui-review` WCAG-AA audit at the phase boundary.
@@ -108,7 +108,7 @@ Phases execute in numeric order. v1.4 is a single phase (16) continuing from v1.
 | 13. URL tool | v1.3 | 2/2 | Complete    | 2026-06-03 |
 | 14. Regex tester | v1.3 | 3/3 | Complete    | 2026-06-03 |
 | 15. Cron tool | v1.3 | 4/4 | Complete    | 2026-06-04 |
-| 16. Reorderable sidebar tool list | v1.4 | 1/2 | In progress | - |
+| 16. Reorderable sidebar tool list | v1.4 | 2/2 | Complete | 2026-06-05 |
 
 ## Backlog
 
