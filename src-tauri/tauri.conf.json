@@ -18,7 +18,8 @@
         "minWidth": 720,
         "minHeight": 480,
         "theme": "Dark",
-        "visible": false
+        "visible": false,
+        "dragDropEnabled": false
       }
     ],
     "security": {
