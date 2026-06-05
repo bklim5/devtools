@@ -125,6 +125,43 @@ function focusHandle(name: string): Promise<boolean> {
 }
 
 describe("Reorderable sidebar (real WKWebView)", () => {
+  // Start from a clean (zero-pinned) set, the same way the pinned-section block
+  // establishes clean state. Without this, a pin left by a prior run (or the
+  // pinned-section block's persisted prefs.json) can make the first tool the sole
+  // member of the pinned group — turning the Alt+ArrowDown below into a correct
+  // PIN-06 single-group boundary no-op, which flakes the "moves to position 2"
+  // assertion. The reorder test reasons about a single ungrouped list, so we reset
+  // pins via the same Shift+F10 -> "Unpin all" gesture the pinned-section block uses.
+  beforeEach(async () => {
+    // Land on a deterministic tool so the shell + sidebar are mounted.
+    await browser.execute(() => {
+      window.location.hash = "#/tools/protobuf-decoder";
+    });
+    const firstHandle = await $('button[aria-label^="Reorder "]');
+    await firstHandle.waitForExist({ timeout: 15_000 });
+
+    const startPinned = await readPinnedOrder();
+    if (startPinned.length > 0) {
+      const focusedForReset = await focusHandle((await readOrder())[0]);
+      assert(focusedForReset, "could not focus a handle to clear pre-existing pins");
+      await browser.execute(() => {
+        document.activeElement?.dispatchEvent(
+          new KeyboardEvent("keydown", { key: "F10", shiftKey: true, bubbles: true }),
+        );
+      });
+      await browser.execute(() => {
+        const item = Array.from(
+          document.querySelectorAll('[role="menuitem"]'),
+        ).find((b) => (b.textContent ?? "").includes("Unpin all")) as HTMLElement | null;
+        item?.click();
+      });
+      await browser.waitUntil(async () => (await readPinnedOrder()).length === 0, {
+        timeout: 5_000,
+        timeoutMsg: "failed to clear pre-existing pins before the reorder test",
+      });
+    }
+  });
+
   it("renders the order overlay, Alt+ArrowDown reorders+persists, announces the move, and a plain click still navigates", async () => {
     // Land on a deterministic tool so the shell + sidebar are mounted.
     await browser.execute(() => {
