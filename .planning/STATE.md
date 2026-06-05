@@ -20,9 +20,11 @@ progress:
 Phase: 16 — COMPLETE (verification passed 11/11 must-haves, human-approved)
 Plan: 2/2 complete
 Status: Phase 16 complete; milestone v1.4 (single phase) ready to close out
-Last activity: 2026-06-05 -- Phase 16 complete (verification passed, code review clean)
+Last activity: 2026-06-05 -- Phase 16 post-ship drag fix (dragDropEnabled:false)
 
 **Next:** Close out milestone v1.4 "Reorderable Tools" — `/gsd-complete-milestone` (archive + local-only tag). All 7 REORD requirements delivered; code review clean (0 critical; 2 warnings fixed `da94809c`; 4 info deferred).
+
+**Post-ship fix (`1c2c7664`, 2026-06-05):** mouse drag-to-reorder showed the drag image but never moved rows on the real WKWebView — Tauri v2 window `dragDropEnabled` defaults to `true`, so the OS-level file-drop handler intercepts the webview's HTML5 `dragover`/`drop` (the Alt+arrow keyboard path was unaffected — pure DOM). Set `dragDropEnabled:false` in `tauri.conf.json` (safe; app has no file-drop feature). Verified working in a fresh `tauri build`. NOT caught by gates: WebDriver can't synthesize native OS drag, so the e2e only exercised the keyboard path — the drag rode on manual walkthrough. See [[tauri-native-dragdrop-blocks-html5-dnd]].
 
 **Plan 01 delivered:** `toolOrder: string[]` (default `[]`) persisted through the existing prefs blob (mirrors `recentToolIds`); `coerceToolOrder` untrusted-merge; `setToolOrder` setter; pure `reconcileToolOrder` (D-11 render overlay, always a registry permutation) + `moveToolInOrder` (clamped relocate). 40/40 suite tests + tsc + eslint green; decoder 19/19 untouched; zero new deps. Commits `90857271`, `72955ab3`.
 
