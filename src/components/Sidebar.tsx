@@ -128,14 +128,24 @@ export function Sidebar() {
   // Announce a completed move with the registry NAME (never the raw stored id /
   // untrusted overlay string — closes the injection surface T-16-06/T-17-05). `n`
   // / `total` are positions WITHIN the row's group.
+  // Name the group in the announcement ONLY when a pinned group exists — with two
+  // visible groups "position 1 of 2" is ambiguous, so SR users need to hear which
+  // list moved. When nothing is pinned there is a single list, so the terse phrasing
+  // stays. `pinned.length` is read at call time via the dep array.
+  const groupSuffix = useCallback(
+    (group: ToolGroup) =>
+      pinned.length > 0 ? ` in ${group === "pinned" ? "pinned tools" : "tools"}` : "",
+    [pinned.length],
+  );
+
   const announceMove = useCallback(
-    (id: string, next: string[]) => {
+    (group: ToolGroup, id: string, next: string[]) => {
       const tool = getToolById(id);
       if (!tool) return;
       const n = next.indexOf(id) + 1; // 1-based new position in the group
-      announce(`Moved ${tool.name} to position ${n} of ${next.length}`);
+      announce(`Moved ${tool.name} to position ${n} of ${next.length}${groupSuffix(group)}`);
     },
-    [announce],
+    [announce, groupSuffix],
   );
 
   // Commit a reorder WITHIN a group: persist (write-on-change) to that group's
@@ -147,7 +157,7 @@ export function Sidebar() {
       const next = moveToolInOrder(groupOrder(group), id, toIndex);
       if (group === "pinned") setPinnedToolIds(next);
       else setToolOrder(next);
-      announceMove(id, next);
+      announceMove(group, id, next);
       if (opts?.focus) focusAfterMoveRef.current = id;
     },
     [groupOrder, setPinnedToolIds, setToolOrder, announceMove],
@@ -280,17 +290,18 @@ export function Sidebar() {
         if (tool) {
           const pos = current + 1; // 1-based
           const total = order.length;
+          const suffix = groupSuffix(group);
           const msg =
             target < 0
-              ? `Already at position ${pos} of ${total}`
-              : `Already at last position ${pos} of ${total}`;
+              ? `Already at position ${pos} of ${total}${suffix}`
+              : `Already at last position ${pos} of ${total}${suffix}`;
           announce(msg);
         }
         return;
       }
       commitMove(group, id, target, { focus: true });
     },
-    [groupOrder, commitMove, announce, togglePin],
+    [groupOrder, commitMove, announce, togglePin, groupSuffix],
   );
 
   // --- Reset order (D-12) + Unpin all (D-16) menu ----------------------------
