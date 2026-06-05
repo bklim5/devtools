@@ -195,11 +195,13 @@ export function Sidebar() {
               onDrop={onDrop}
             >
               {/* Neutral insertion line above this row when it is the drop slot.
-                  Uses bd-2 (a neutral token), explicitly NOT bg-accent (D-03). */}
+                  Uses tx-2 (a neutral grey, ~6.9:1 on the sidebar so the drop
+                  cue is actually perceivable — WCAG 1.4.11), explicitly NOT
+                  bg-accent (accent = selected-only, D-03). */}
               {dropIndex === index ? (
                 <span
                   aria-hidden="true"
-                  className="pointer-events-none absolute -top-px left-1 right-1 h-[2px] rounded-full bg-bd-2"
+                  className="pointer-events-none absolute -top-px left-1 right-1 h-[2px] rounded-full bg-tx-2"
                 />
               ) : null}
               <div
@@ -275,7 +277,7 @@ export function Sidebar() {
               {index === orderedIds.length - 1 && dropIndex === orderedIds.length ? (
                 <span
                   aria-hidden="true"
-                  className="pointer-events-none absolute -bottom-px left-1 right-1 h-[2px] rounded-full bg-bd-2"
+                  className="pointer-events-none absolute -bottom-px left-1 right-1 h-[2px] rounded-full bg-tx-2"
                 />
               ) : null}
             </div>
