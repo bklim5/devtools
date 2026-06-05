@@ -49,14 +49,14 @@
 
 | Requirement | Phase | Plan | Status |
 |-------------|-------|------|--------|
-| PIN-01 | TBD | — | ⬜ Pending |
-| PIN-02 | TBD | — | ⬜ Pending |
-| PIN-03 | TBD | — | ⬜ Pending |
-| PIN-04 | TBD | — | ⬜ Pending |
-| PIN-05 | TBD | — | ⬜ Pending |
-| PIN-06 | TBD | — | ⬜ Pending |
-| PIN-07 | TBD | — | ⬜ Pending |
-| PIN-08 | TBD | — | ⬜ Pending |
-| PIN-09 | TBD | — | ⬜ Pending |
+| PIN-01 | Phase 17 | 17-02 | ⬜ Pending |
+| PIN-02 | Phase 17 | 17-02 | ⬜ Pending |
+| PIN-03 | Phase 17 | 17-02 | ⬜ Pending |
+| PIN-04 | Phase 17 | 17-02 | ⬜ Pending |
+| PIN-05 | Phase 17 | 17-02 | ⬜ Pending |
+| PIN-06 | Phase 17 | 17-02 | ⬜ Pending |
+| PIN-07 | Phase 17 | 17-01 | ⬜ Pending |
+| PIN-08 | Phase 17 | 17-01 | ⬜ Pending |
+| PIN-09 | Phase 17 | 17-02 | ⬜ Pending |
 
 *Phase/plan columns filled by the roadmapper.*

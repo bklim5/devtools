@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Pinned Tools
-status: defining_requirements
-last_updated: "2026-06-05T12:00:00.000Z"
+status: roadmap_ready
+last_updated: "2026-06-05T13:00:00.000Z"
 last_activity: 2026-06-05
 progress:
-  total_phases: 0
+  total_phases: 1
   completed_phases: 0
-  total_plans: 0
+  total_plans: 2
   completed_plans: 0
   percent: 0
 ---
@@ -17,26 +17,34 @@ progress:
 
 ## Current Position
 
-Milestone: **v1.5 "Pinned Tools"** — started 2026-06-05 (defining requirements).
-Phase: Not started (defining requirements)
+Milestone: **v1.5 "Pinned Tools"** — started 2026-06-05; roadmap created.
+Phase: **17 — Pinned Sidebar Section** (not started; ready to plan)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-06-05 — Milestone v1.5 started (PROJECT.md + STATE.md updated; pinning-only scope confirmed).
+Status: Roadmap ready — awaiting phase planning
+Last activity: 2026-06-05 — Roadmap created. Single phase (17) continuing from v1.4's Phase 16; 2 plans (17-01 persistence + pure pinning backbone, 17-02 Pinned Sidebar UI); all 9 PIN requirements mapped.
 
-**Next:** Define REQUIREMENTS.md, then spawn the roadmapper. Goal: a distinct, reorderable "Pinned" section at the top of the sidebar (pin icon + keyboard shortcut, `pinnedToolIds` overlay through the prefs seam, "Unpin all" reset). Settings surface stays deferred.
+**Next:** `/gsd-plan-phase 17`. Goal: a distinct, reorderable "Pinned" section at the top of the sidebar — pin/unpin via a row pin icon (hover + focus-visible) + a keyboard shortcut (`aria-live`-announced), a `pinnedToolIds` overlay persisted through the prefs seam (beside `toolOrder`) and reconciled against the registry on load (drop unknown, de-dupe), independent per-group drag + Alt+↑/↓ reorder (no cross-boundary drag), plus a keyboard-reachable "Unpin all". Settings surface + auto-pin-hero stay deferred.
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-06-05 after v1.4)
+See: .planning/PROJECT.md (updated 2026-06-05 after v1.4) · roadmap: .planning/milestones/v1.5-ROADMAP.md
 
 **Core value:** Paste an unknown blob → usable, explorable interpretation in <2s, entirely offline, no mouse.
-**Current focus:** Planning next milestone (no active milestone).
+**Current focus:** v1.5 Pinned Tools — Phase 17 (pin/unpin sidebar section over a persisted `pinnedToolIds` overlay).
+
+## Phases (v1.5)
+
+- [ ] **Phase 17: Pinned Sidebar Section** (0/2 plans) — PIN-01..09
+  - [ ] 17-01: Persistence + pure pinning backbone — `pinnedToolIds: string[]` prefs field (`coercePinnedToolIds` untrusted-merge, `setPinnedToolIds` write-on-change, `togglePinned`), pure reconcile + pinned/unpinned partition (always a registry partition; drop unknown, de-dupe), reusing `reconcileToolOrder`/`moveToolInOrder` per group. PIN-07/08.
+  - [ ] 17-02: Pinned Sidebar UI — pinned group + divider (shown only when non-empty) above the unpinned list; pin icon (hover + focus-visible) + keyboard shortcut toggle (`aria-live`-announced); independent per-group drag + Alt+↑/↓ reorder (no cross-boundary drag); keyboard-reachable "Unpin all" beside "Reset order". PIN-01..06, PIN-09.
 
 ## Accumulated Context
 
-**Inherited binding wedge (every phase):** offline/no-network · paste-instant (<2s) · keyboard-driven · registry-driven single control plane · HashRouter only · WCAG-AA · layout-agnostic · **zero new runtime dependencies** · **`src/lib/protobuf/decoder.ts` + its 19 tests stay byte-for-byte untouched**. UI features add the **real-WKWebView UI gate**.
+**Inherited binding wedge (every phase):** offline/no-network · paste-instant (<2s) · keyboard-driven · registry-driven single control plane · HashRouter only · WCAG-AA (keyboard path + `aria-live` mandatory, not optional) · layout-agnostic · **zero new runtime AND dev dependencies** · **`src/lib/protobuf/decoder.ts` + its 19 tests stay byte-for-byte untouched**. UI features add the **real-WKWebView UI gate**.
 
-**Open carry-forwards (non-blocking):** pinning + settings surface (split out of v1.4); CI track (999.2); remaining tool wishlist (999.1); theme settings (999.3); DevTools CLI (999.4); Protobuf schema-file (999.5); FormatterView narrow-width stacking (UX-05); notarisation pending Apple enrolment (D-02); NAT-01 global summon hotkey (G-05-1); Cron advisory follow-ups (`15-REVIEW-FIX.md`); 3 minor updater a11y follow-ups.
+**v1.5 design (confirmed, do not re-litigate):** pinning is a render-time presentation overlay (`pinnedToolIds`) persisted through the existing `usePreferences`/`platform.store` seam beside `toolOrder`/`recentToolIds`; registry stays the single control plane (⌘K palette + router pin-agnostic). Reuses v1.4's `reconcileToolOrder`/`moveToolInOrder`, grip-handle drag + Alt+↑/↓ reorder, and the `aria-live` pattern. **Defaults:** no tool pinned by default (empty pinned section → no divider; hero NOT auto-pinned); pinning appends to the bottom of the pinned section; membership changes via pin/unpin only (no drag-across-boundary). Settings surface + auto-pin-hero stay deferred.
+
+**Open carry-forwards (non-blocking):** settings surface (deferred); auto-pin/lock-hero (deferred); CI track (999.2); remaining tool wishlist (999.1); theme settings (999.3); DevTools CLI (999.4); Protobuf schema-file (999.5); FormatterView narrow-width stacking (UX-05); notarisation pending Apple enrolment (D-02); NAT-01 global summon hotkey (G-05-1); Cron advisory follow-ups (`15-REVIEW-FIX.md`); 3 minor updater a11y follow-ups.
 
 ## Harness reminder (per-task DoD, in order)
 
@@ -64,4 +72,4 @@ v1.1 complete — Phases 7 + 8 (4 plans), archived to `.planning/milestones/v1.1
 
 v1.0 complete — all 6 phases (28/28 plans): foundation/harness (1), shell (2), Protobuf hero + Base64/Hex/Bytes + UX constraints (3), the four catalogue tools (4), native polish (5), distributable self-updating signed-DMG macOS app + verified auto-updater (6). Full archive: `.planning/milestones/v1.0-*` + `.planning/MILESTONES.md`.
 
-**Carry-forwards (NOT v1.4 blockers):** Gatekeeper-clean notarisation deferred post-Apple-enrolment (D-02, credentials-only flip); NAT-01 configurable global summon hotkey parked (G-05-1); 3 minor a11y polish follow-ups from the updater UI review; Cron advisory follow-ups (MD-01 next-run perf, LO-02/LO-03 copy/locale — `15-REVIEW-FIX.md`); backlog 999.1 (remaining tool wishlist), 999.2 (CI track), 999.3 (theme settings), 999.4 (DevTools CLI), 999.5 (Protobuf schema-file).
+**Carry-forwards (NOT v1.5 blockers):** Gatekeeper-clean notarisation deferred post-Apple-enrolment (D-02, credentials-only flip); NAT-01 configurable global summon hotkey parked (G-05-1); 3 minor a11y polish follow-ups from the updater UI review; Cron advisory follow-ups (MD-01 next-run perf, LO-02/LO-03 copy/locale — `15-REVIEW-FIX.md`); backlog 999.1 (remaining tool wishlist), 999.2 (CI track), 999.3 (theme settings), 999.4 (DevTools CLI), 999.5 (Protobuf schema-file).

@@ -7,6 +7,7 @@
 - ✅ **v1.2 Release Tooling** — Phases 9–11 (shipped 2026-06-03) — see `milestones/v1.2-ROADMAP.md`
 - ✅ **v1.3 More Tools** — Phases 12–15 (shipped 2026-06-04) — see `milestones/v1.3-ROADMAP.md`
 - ✅ **v1.4 Reorderable Tools** — Phase 16 (shipped 2026-06-05) — see `milestones/v1.4-ROADMAP.md`
+- 🚧 **v1.5 Pinned Tools** — Phase 17 (in progress, started 2026-06-05) — see `milestones/v1.5-ROADMAP.md`
 
 ## Phases
 
@@ -72,10 +73,18 @@ All 7 REORD requirements complete. Full detail: `.planning/milestones/v1.4-ROADM
 
 </details>
 
+### 🚧 v1.5 Pinned Tools (Phase 17) — IN PROGRESS (started 2026-06-05)
+
+A focused single-feature milestone extending v1.4's personalization: users **pin favourite tools to a distinct, reorderable "Pinned" section at the top of the sidebar**, independent of the v1.4 custom order. Pinning is a render-time `pinnedToolIds` overlay persisted through the existing prefs seam (beside `toolOrder`/`recentToolIds`) and reconciled against the live registry on load; the registry stays the single control plane (⌘K palette + router pin-agnostic). Reuses v1.4's `reconcileToolOrder`/`moveToolInOrder` helpers, the grip-handle drag + Alt+↑/↓ keyboard reorder, and the `aria-live` pattern. Zero new runtime/dev deps; WCAG-AA; `decoder.ts` + its 19 tests untouched. Default: no tool pinned (settings surface + auto-pin-hero deferred).
+
+- [ ] Phase 17: Pinned sidebar section — pin/unpin via a row pin icon (hover + focus-visible) + a keyboard shortcut (`aria-live`-announced), a "Pinned" group with divider shown only when ≥1 tool pinned, independent per-group drag + Alt+↑/↓ reorder (no cross-boundary drag), persisted + reconciled `pinnedToolIds` overlay (drop unknown, de-dupe), and a keyboard-reachable "Unpin all"; PIN-01..09 (0/2 plans)
+
+All 9 PIN requirements mapped. Full detail: `.planning/milestones/v1.5-ROADMAP.md` · requirements: `.planning/REQUIREMENTS.md`
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order. v1.4 is a single phase (16) continuing from v1.3's Phase 15.
+Phases execute in numeric order. v1.5 is a single phase (17) continuing from v1.4's Phase 16.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -95,6 +104,7 @@ Phases execute in numeric order. v1.4 is a single phase (16) continuing from v1.
 | 14. Regex tester | v1.3 | 3/3 | Complete    | 2026-06-03 |
 | 15. Cron tool | v1.3 | 4/4 | Complete    | 2026-06-04 |
 | 16. Reorderable sidebar tool list | v1.4 | 2/2 | Complete    | 2026-06-05 |
+| 17. Pinned sidebar section | v1.5 | 0/2 | Not started | - |
 
 ## Backlog
 
