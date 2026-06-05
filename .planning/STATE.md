@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Pinned Tools
-status: roadmap_ready
-last_updated: "2026-06-05T13:00:00.000Z"
+status: context_ready
+last_updated: "2026-06-05T14:30:00.000Z"
 last_activity: 2026-06-05
 progress:
   total_phases: 1
@@ -18,10 +18,10 @@ progress:
 ## Current Position
 
 Milestone: **v1.5 "Pinned Tools"** — started 2026-06-05; roadmap created.
-Phase: **17 — Pinned Sidebar Section** (not started; ready to plan)
+Phase: **17 — Pinned Sidebar Section** (context gathered; ready to plan)
 Plan: —
-Status: Roadmap ready — awaiting phase planning
-Last activity: 2026-06-05 — Roadmap created. Single phase (17) continuing from v1.4's Phase 16; 2 plans (17-01 persistence + pure pinning backbone, 17-02 Pinned Sidebar UI); all 9 PIN requirements mapped.
+Status: Context ready — awaiting phase planning
+Last activity: 2026-06-05 — Phase 17 context gathered (`17-CONTEXT.md`). Four open specifics settled: pin/unpin shortcut **Alt+P** (D-13); pin icon left of grip with a **persistent filled pin on pinned rows** / hover-focus outline on unpinned (D-14); **bare divider, no visible label** (SR group via aria-label, D-15); **"Unpin all" joins the right-click "Reset order" menu** (D-16). All other design carried forward locked from the milestone.
 
 **Next:** `/gsd-plan-phase 17`. Goal: a distinct, reorderable "Pinned" section at the top of the sidebar — pin/unpin via a row pin icon (hover + focus-visible) + a keyboard shortcut (`aria-live`-announced), a `pinnedToolIds` overlay persisted through the prefs seam (beside `toolOrder`) and reconciled against the registry on load (drop unknown, de-dupe), independent per-group drag + Alt+↑/↓ reorder (no cross-boundary drag), plus a keyboard-reachable "Unpin all". Settings surface + auto-pin-hero stay deferred.
 
@@ -43,6 +43,8 @@ See: .planning/PROJECT.md (updated 2026-06-05 after v1.4) · roadmap: .planning/
 **Inherited binding wedge (every phase):** offline/no-network · paste-instant (<2s) · keyboard-driven · registry-driven single control plane · HashRouter only · WCAG-AA (keyboard path + `aria-live` mandatory, not optional) · layout-agnostic · **zero new runtime AND dev dependencies** · **`src/lib/protobuf/decoder.ts` + its 19 tests stay byte-for-byte untouched**. UI features add the **real-WKWebView UI gate**.
 
 **v1.5 design (confirmed, do not re-litigate):** pinning is a render-time presentation overlay (`pinnedToolIds`) persisted through the existing `usePreferences`/`platform.store` seam beside `toolOrder`/`recentToolIds`; registry stays the single control plane (⌘K palette + router pin-agnostic). Reuses v1.4's `reconcileToolOrder`/`moveToolInOrder`, grip-handle drag + Alt+↑/↓ reorder, and the `aria-live` pattern. **Defaults:** no tool pinned by default (empty pinned section → no divider; hero NOT auto-pinned); pinning appends to the bottom of the pinned section; membership changes via pin/unpin only (no drag-across-boundary). Settings surface + auto-pin-hero stay deferred.
+
+**Phase 17 context decisions (`17-CONTEXT.md`, 2026-06-05):** **D-13** pin/unpin shortcut = **Alt+P** (focused row; same family as Alt+↑/↓; plain single-key rejected per the sidebar's no-single-key model); announced "Pinned/Unpinned {tool}" via the existing `aria-live`. **D-14** pin icon sits **left of the grip handle**; **pinned rows show a persistent always-visible filled pin** (state + unpin target — no hover-only); unpinned rows show an outline pin on hover/`focus-visible` only; neutral tokens, NavLink right-padding widened for two controls. **D-15** Pinned group separated by a **bare neutral divider, no visible "PINNED" label** (compact density preserved); SR group named via `aria-label`; divider/group shown only when ≥1 pinned. **D-16** **"Unpin all" joins the existing right-click "Reset order" context menu** (reuses Shift+F10 entry; calls `setPinnedToolIds([])`), shown only when ≥1 pinned.
 
 **Open carry-forwards (non-blocking):** settings surface (deferred); auto-pin/lock-hero (deferred); CI track (999.2); remaining tool wishlist (999.1); theme settings (999.3); DevTools CLI (999.4); Protobuf schema-file (999.5); FormatterView narrow-width stacking (UX-05); notarisation pending Apple enrolment (D-02); NAT-01 global summon hotkey (G-05-1); Cron advisory follow-ups (`15-REVIEW-FIX.md`); 3 minor updater a11y follow-ups.
 
