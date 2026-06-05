@@ -54,6 +54,8 @@ export function Sidebar() {
   const handleRefs = useRef(new Map<string, HTMLButtonElement | null>());
   // When set, a layout effect focuses this tool's handle once the move lands.
   const focusAfterMoveRef = useRef<string | null>(null);
+  // Pending aria-live re-announce timer (cleared on unmount).
+  const reannounceRef = useRef<number | null>(null);
 
   useLayoutEffect(() => {
     const id = focusAfterMoveRef.current;
@@ -62,14 +64,45 @@ export function Sidebar() {
     handleRefs.current.get(id)?.focus();
   });
 
+  useEffect(
+    () => () => {
+      if (reannounceRef.current !== null) clearTimeout(reannounceRef.current);
+    },
+    [],
+  );
+
+  // Set the aria-live message. A polite region only speaks on CHANGE, so a new,
+  // distinct message is set synchronously (the common path — every move differs).
+  // When the SAME message would repeat (e.g. two boundary bumps in a row), clear
+  // then re-set on the next tick so the text transitions and the region re-fires
+  // instead of going silent.
+  const announce = useCallback((msg: string) => {
+    if (reannounceRef.current !== null) {
+      clearTimeout(reannounceRef.current);
+      reannounceRef.current = null;
+    }
+    setAnnouncement((prev) => {
+      if (prev !== msg) return msg;
+      // Identical to current text — bounce through empty to force a transition.
+      reannounceRef.current = window.setTimeout(() => {
+        setAnnouncement(msg);
+        reannounceRef.current = null;
+      }, 30);
+      return "";
+    });
+  }, []);
+
   // Announce a completed move with the registry NAME (never the raw stored id /
   // untrusted toolOrder string — closes the injection surface T-16-06).
-  const announceMove = useCallback((id: string, next: string[]) => {
-    const tool = getToolById(id);
-    if (!tool) return;
-    const n = next.indexOf(id) + 1; // 1-based new position
-    setAnnouncement(`Moved ${tool.name} to position ${n} of ${next.length}`);
-  }, []);
+  const announceMove = useCallback(
+    (id: string, next: string[]) => {
+      const tool = getToolById(id);
+      if (!tool) return;
+      const n = next.indexOf(id) + 1; // 1-based new position
+      announce(`Moved ${tool.name} to position ${n} of ${next.length}`);
+    },
+    [announce],
+  );
 
   // Commit a reorder: persist (write-on-change) + announce. `focusId` re-focuses
   // the moved handle after the re-render (keyboard path keeps focus — D-06).
@@ -100,12 +133,30 @@ export function Sidebar() {
     (e: React.DragEvent, index: number) => {
       if (!draggingId) return;
       e.preventDefault();
+      // Stop the event reaching the nav-level handler so a drag genuinely over a
+      // row never gets overridden by the end-of-list zone (Fix 3 below).
+      e.stopPropagation();
       e.dataTransfer.dropEffect = "move";
       const rect = e.currentTarget.getBoundingClientRect();
       const after = e.clientY - rect.top > rect.height / 2;
       setDropIndex(after ? index + 1 : index);
     },
     [draggingId],
+  );
+
+  // Dragging into the empty area below the last row (nav gap / aside padding)
+  // no longer dead-ends: the nav itself catches the dragover and parks the drop
+  // slot at the very end (dropIndex = length), so the trailing insertion line
+  // shows and the drop commits to the bottom. Row dragovers stopPropagation, so
+  // this only fires for the genuine empty tail.
+  const onNavDragOver = useCallback(
+    (e: React.DragEvent) => {
+      if (!draggingId) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      setDropIndex(orderedIds.length);
+    },
+    [draggingId, orderedIds.length],
   );
 
   const onDrop = useCallback(
@@ -140,36 +191,94 @@ export function Sidebar() {
       const current = orderedIds.indexOf(id);
       if (current === -1) return;
       const target = e.key === "ArrowUp" ? current - 1 : current + 1;
-      if (target < 0 || target >= orderedIds.length) {
-        e.preventDefault();
-        return; // already at an end — nothing to do, but still consume the chord
-      }
       e.preventDefault();
+      if (target < 0 || target >= orderedIds.length) {
+        // Already at an end — consume the chord, but make the boundary
+        // PERCEIVABLE (don't swallow it silently). Announce the unchanged
+        // position with the registry name, matching the D-06 phrasing, so
+        // SR / keyboard users get feedback instead of a dead key. `announce`
+        // re-fires the polite region even on a repeated identical bump.
+        const tool = getToolById(id);
+        if (tool) {
+          const pos = current + 1; // 1-based
+          const total = orderedIds.length;
+          const msg =
+            target < 0
+              ? `Already at position ${pos} of ${total}`
+              : `Already at last position ${pos} of ${total}`;
+          announce(msg);
+        }
+        return;
+      }
       commitMove(id, target, { focus: true });
     },
-    [orderedIds, commitMove],
+    [orderedIds, commitMove, announce],
   );
 
   // --- Reset order (D-12 / REORD-07) -----------------------------------------
-  const openResetMenu = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    setResetMenu({ x: e.clientX, y: e.clientY });
+  // The "Reset order" menu item, focused when the menu opens so it is operable
+  // by keyboard (WCAG 2.1.1), and the element to return focus to on dismiss.
+  const resetItemRef = useRef<HTMLButtonElement | null>(null);
+  const menuReturnFocusRef = useRef<HTMLElement | null>(null);
+
+  const openResetMenu = useCallback((x: number, y: number) => {
+    // Remember where focus was so Escape / dismiss can restore it sensibly.
+    menuReturnFocusRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setResetMenu({ x, y });
   }, []);
 
-  const closeResetMenu = useCallback(() => setResetMenu(null), []);
+  const openResetMenuFromMouse = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      openResetMenu(e.clientX, e.clientY);
+    },
+    [openResetMenu],
+  );
+
+  // Keyboard entry point (WCAG 2.1.1): Shift+F10 / the ContextMenu key opens the
+  // reset menu — the standard context-menu chord — anchored near the focused row
+  // so it appears where the user is looking, not at the cursor.
+  const openResetMenuFromKeyboard = useCallback(
+    (e: React.KeyboardEvent) => {
+      const isContextChord =
+        e.key === "ContextMenu" || (e.shiftKey && e.key === "F10");
+      if (!isContextChord) return;
+      e.preventDefault();
+      const anchor =
+        e.target instanceof HTMLElement ? e.target.getBoundingClientRect() : null;
+      const x = anchor ? Math.round(anchor.left + anchor.width / 2) : 0;
+      const y = anchor ? Math.round(anchor.bottom) : 0;
+      openResetMenu(x, y);
+    },
+    [openResetMenu],
+  );
+
+  const closeResetMenu = useCallback((opts?: { restoreFocus?: boolean }) => {
+    setResetMenu(null);
+    if (opts?.restoreFocus) menuReturnFocusRef.current?.focus();
+    menuReturnFocusRef.current = null;
+  }, []);
 
   const resetOrder = useCallback(() => {
     setToolOrder([]); // clears to default registry order
-    setAnnouncement("Sidebar order reset to default");
-    setResetMenu(null);
-  }, [setToolOrder]);
+    announce("Sidebar order reset to default");
+    closeResetMenu({ restoreFocus: true });
+  }, [setToolOrder, announce, closeResetMenu]);
 
-  // Dismiss the reset menu on click-away or Escape (no focus trap).
+  // Move focus to the menu item when the menu opens, so an open menu is fully
+  // keyboard-operable (not a focus trap — Escape / click-away still dismiss).
+  useLayoutEffect(() => {
+    if (resetMenu) resetItemRef.current?.focus();
+  }, [resetMenu]);
+
+  // Dismiss the reset menu on click-away or Escape (no focus trap). Escape
+  // returns focus to the element the menu was opened from.
   useEffect(() => {
     if (!resetMenu) return;
     const onDocClick = () => closeResetMenu();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeResetMenu();
+      if (e.key === "Escape") closeResetMenu({ restoreFocus: true });
     };
     document.addEventListener("click", onDocClick);
     document.addEventListener("keydown", onKey);
@@ -181,7 +290,16 @@ export function Sidebar() {
 
   return (
     <aside className="flex w-[268px] flex-none flex-col gap-3 border-r border-bd bg-sidebar p-[14px]">
-      <nav className="flex flex-col gap-0.5" onContextMenu={openResetMenu}>
+      <nav
+        // flex-1 lets the nav fill the aside's height so the empty area below
+        // the last row is part of the droppable surface (Fix 3 end-zone), not a
+        // dead gap. Rows stay top-aligned; the tail is the end drop zone.
+        className="flex flex-1 flex-col gap-0.5"
+        onContextMenu={openResetMenuFromMouse}
+        onKeyDown={openResetMenuFromKeyboard}
+        onDragOver={onNavDragOver}
+        onDrop={onDrop}
+      >
         {orderedIds.map((id, index) => {
           const tool = getToolById(id);
           if (!tool) return null; // defensive — reconcile already guarantees this
@@ -262,7 +380,7 @@ export function Sidebar() {
                   onDragEnd={onDragEnd}
                   onKeyDown={(e) => onHandleKeyDown(e, tool.id)}
                   aria-label={`Reorder ${tool.name}`}
-                  title={`Reorder ${tool.name} (drag, or Alt+↑/↓)`}
+                  title={`Reorder ${tool.name} (drag, or Alt+↑/↓; Shift+F10 to reset)`}
                   className={[
                     "absolute right-1 top-1/2 -translate-y-1/2 flex h-6 w-5 cursor-grab items-center justify-center rounded-[6px]",
                     "text-tx-3 opacity-0 transition-opacity",
@@ -303,8 +421,13 @@ export function Sidebar() {
           <button
             type="button"
             role="menuitem"
+            ref={resetItemRef}
             onClick={resetOrder}
-            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12.5px] text-tx-2 outline-none transition-colors hover:bg-[rgba(255,255,255,0.05)] hover:text-tx focus-visible:bg-[rgba(255,255,255,0.05)] focus-visible:text-tx"
+            // Use plain `focus:` (not only `focus-visible:`) so the item reads as
+            // active when the menu is opened by KEYBOARD and we move focus here
+            // programmatically (a programmatic .focus() does not set
+            // :focus-visible). Neutral hover/focus tint — accent stays selected-only.
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12.5px] text-tx-2 outline-none transition-colors hover:bg-[rgba(255,255,255,0.05)] hover:text-tx focus:bg-[rgba(255,255,255,0.05)] focus:text-tx"
           >
             <RotateCcw className="h-[14px] w-[14px] flex-none" />
             Reset order
