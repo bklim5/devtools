@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Pinned Tools
 status: executing
-last_updated: "2026-06-05T22:12:13.310Z"
-last_activity: 2026-06-05 -- Phase 17 planning complete
+last_updated: "2026-06-05T23:21:00.000Z"
+last_activity: 2026-06-05 -- Phase 17 Plan 01 complete (pinning backbone)
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 2
-  completed_plans: 0
-  percent: 0
+  completed_plans: 1
+  percent: 50
 ---
 
 # Project State
@@ -18,24 +18,26 @@ progress:
 ## Current Position
 
 Milestone: **v1.5 "Pinned Tools"** — started 2026-06-05; roadmap created.
-Phase: **17 — Pinned Sidebar Section** (planned — 2 plans in 2 waves; research + validation strategy done; plan-checker PASSED)
-Plan: —
-Status: Ready to execute
-Last activity: 2026-06-05 -- Phase 17 planning complete
+Phase: 17 (pinned-sidebar-section) — EXECUTING
+Plan: 2 of 2
+Status: Executing Phase 17 (17-01 complete)
+Last activity: 2026-06-05 -- Phase 17 Plan 01 complete (pinning backbone)
 
-**Next:** `/gsd-execute-phase 17`. Two plans, two waves: 17-01 (wave 1) — `pinnedToolIds: string[]` prefs field (`coercePinnedToolIds` untrusted-merge, `setPinnedToolIds`/`togglePinned` setters) + the pure `partitionTools` immovable-bar backbone (always a full registry partition; drop unknown, de-dupe); 17-02 (wave 2, depends on 17-01) — the two-group Sidebar UI: left-of-grip pin icon (filled-persistent on pinned, outline hover+focus on unpinned), Alt+P toggle (`aria-live`-announced), bare neutral divider + SR-labelled group, independent per-group drag + Alt+↑/↓ reorder (no cross-boundary), and "Unpin all" in the Shift+F10 reset menu. Native pointer drag + hover reveal are the phase-gate manual-walkthrough items.
+**17-01 done (`8bac1768`, `c7b94741`):** `pinnedToolIds: string[]` prefs field (default `[]`) + `coercePinnedToolIds` untrusted-merge (no cap, wired into `mergePreferences`) + `setPinnedToolIds`/`togglePinned` (append-on-pin / remove) + pure `partitionTools(pinnedToolIds, toolOrder, registryIds) → { pinned, unpinned }` (reuses `reconcileToolOrder` for the remainder; 10-case immovable-bar matrix). Full suite 685/685; decoder 19/19 untouched; zero new deps. PIN-07/PIN-08 ✅. Summary: `.planning/phases/17-pinned-sidebar-section/17-01-SUMMARY.md`.
+
+**Next:** `/gsd-execute-phase 17` (Plan 17-02, wave 2, depends on 17-01) — the two-group Sidebar UI: left-of-grip pin icon (filled-persistent on pinned, outline hover+focus on unpinned), Alt+P toggle (`aria-live`-announced), bare neutral divider + SR-labelled group, independent per-group drag + Alt+↑/↓ reorder (no cross-boundary), and "Unpin all" in the Shift+F10 reset menu. Consumes `partitionTools`/`ToolPartition` + `setPinnedToolIds`/`togglePinned`/`preferences.pinnedToolIds` from 17-01. Native pointer drag + hover reveal are the phase-gate manual-walkthrough items. **Gate the divider/group/"Unpin all" on `partition.pinned.length > 0`, not the raw pref (RESEARCH Pitfall 5).**
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-06-05 after v1.4) · roadmap: .planning/milestones/v1.5-ROADMAP.md
 
 **Core value:** Paste an unknown blob → usable, explorable interpretation in <2s, entirely offline, no mouse.
-**Current focus:** v1.5 Pinned Tools — Phase 17 (pin/unpin sidebar section over a persisted `pinnedToolIds` overlay).
+**Current focus:** Phase 17 — pinned-sidebar-section
 
 ## Phases (v1.5)
 
-- [ ] **Phase 17: Pinned Sidebar Section** (0/2 plans) — PIN-01..09
-  - [ ] 17-01: Persistence + pure pinning backbone — `pinnedToolIds: string[]` prefs field (`coercePinnedToolIds` untrusted-merge, `setPinnedToolIds` write-on-change, `togglePinned`), pure reconcile + pinned/unpinned partition (always a registry partition; drop unknown, de-dupe), reusing `reconcileToolOrder`/`moveToolInOrder` per group. PIN-07/08.
+- [ ] **Phase 17: Pinned Sidebar Section** (1/2 plans) — PIN-01..09
+  - [x] 17-01: Persistence + pure pinning backbone — `pinnedToolIds: string[]` prefs field (`coercePinnedToolIds` untrusted-merge, `setPinnedToolIds` write-on-change, `togglePinned`), pure reconcile + pinned/unpinned partition (always a registry partition; drop unknown, de-dupe), reusing `reconcileToolOrder`/`moveToolInOrder` per group. PIN-07/08.
   - [ ] 17-02: Pinned Sidebar UI — pinned group + divider (shown only when non-empty) above the unpinned list; pin icon (hover + focus-visible) + keyboard shortcut toggle (`aria-live`-announced); independent per-group drag + Alt+↑/↓ reorder (no cross-boundary drag); keyboard-reachable "Unpin all" beside "Reset order". PIN-01..06, PIN-09.
 
 ## Accumulated Context

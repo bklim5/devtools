@@ -20,8 +20,8 @@
 - [ ] **PIN-04**: User can pin/unpin a tool via a pin icon on its sidebar row, visible on hover and when the row is keyboard-focused (mirroring the v1.4 grip handle).
 - [ ] **PIN-05**: User can pin/unpin the keyboard-focused tool via a dedicated shortcut, with the action announced via an `aria-live` region (e.g. "Pinned Hash" / "Unpinned Hash"). (WCAG-AA.)
 - [ ] **PIN-06**: User can reorder tools within the pinned section and within the unpinned list independently (drag + Alt+↑/↓ from v1.4); a tool changes membership only by pinning/unpinning, never by dragging across the pinned↔unpinned boundary.
-- [ ] **PIN-07**: The user's pinned set persists across app restarts (stored as a `pinnedToolIds` array of tool IDs via the existing preferences/store seam; the registry stays the canonical source).
-- [ ] **PIN-08**: A pinned set referencing an unknown or removed tool ID degrades gracefully on load — unknown IDs dropped, duplicates collapsed (no crash, no missing or duplicated tools).
+- [x] **PIN-07**: The user's pinned set persists across app restarts (stored as a `pinnedToolIds` array of tool IDs via the existing preferences/store seam; the registry stays the canonical source). — ✓ Plan 17-01
+- [x] **PIN-08**: A pinned set referencing an unknown or removed tool ID degrades gracefully on load — unknown IDs dropped, duplicates collapsed (no crash, no missing or duplicated tools). — ✓ Plan 17-01
 - [ ] **PIN-09**: User can unpin all tools at once via a keyboard-reachable "Unpin all" control (alongside the existing "Reset order").
 
 ---
@@ -55,8 +55,8 @@
 | PIN-04 | Phase 17 | 17-02 | ⬜ Pending |
 | PIN-05 | Phase 17 | 17-02 | ⬜ Pending |
 | PIN-06 | Phase 17 | 17-02 | ⬜ Pending |
-| PIN-07 | Phase 17 | 17-01 | ⬜ Pending |
-| PIN-08 | Phase 17 | 17-01 | ⬜ Pending |
+| PIN-07 | Phase 17 | 17-01 | ✅ Done |
+| PIN-08 | Phase 17 | 17-01 | ✅ Done |
 | PIN-09 | Phase 17 | 17-02 | ⬜ Pending |
 
 *Phase/plan columns filled by the roadmapper.*
