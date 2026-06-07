@@ -455,7 +455,7 @@ export function Sidebar() {
                   // navitem: compact padding, radius 9px, icon↔name gap 12px. Right
                   // padding leaves room for the two absolutely-positioned controls
                   // (pin + grip) so the name does not truncate under them (Pitfall 6).
-                  "flex min-w-0 flex-1 items-center gap-3 rounded-[9px] py-2 pl-[11px] pr-12",
+                  "flex min-w-0 flex-1 items-center gap-3 rounded-[9px] py-2 pl-[11px] pr-14",
                   "outline-none transition-colors",
                   "focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-0",
                   isActive
@@ -488,7 +488,9 @@ export function Sidebar() {
               )}
             </NavLink>
             {/* Pin toggle — LEFT of the grip (grip stays outermost at right-1, pin
-                at right-7; D-14). Pinned rows show a PERSISTENT filled pin (the
+                at right-8; D-14). Both controls are 24×24 (h-6 w-6) for WCAG 2.5.8
+                target size, with a 0.25rem gap; pr-14 reserves room for both.
+                Pinned rows show a PERSISTENT filled pin (the
                 unpin target — no hover-only); unpinned rows show an OUTLINE pin on
                 hover OR focus-visible only, mirroring the grip's reveal. Neutral
                 tokens only (accent = selected-only, D-03). preventDefault +
@@ -504,7 +506,7 @@ export function Sidebar() {
               aria-pressed={isPinned}
               title={isPinned ? `Unpin ${tool.name} (Alt+P)` : `Pin ${tool.name} (Alt+P)`}
               className={[
-                "absolute right-7 top-1/2 -translate-y-1/2 flex h-6 w-5 items-center justify-center rounded-[6px]",
+                "absolute right-8 top-1/2 -translate-y-1/2 flex h-6 w-6 items-center justify-center rounded-[6px]",
                 "outline-none focus-visible:ring-2 focus-visible:ring-accent",
                 isPinned
                   ? "text-tx-2" // persistent, always-visible, neutral
@@ -532,7 +534,7 @@ export function Sidebar() {
               aria-label={`Reorder ${tool.name}`}
               title={`Reorder ${tool.name} (drag, or Alt+↑/↓; Alt+P to pin; Shift+F10 to reset)`}
               className={[
-                "absolute right-1 top-1/2 -translate-y-1/2 flex h-6 w-5 cursor-grab items-center justify-center rounded-[6px]",
+                "absolute right-1 top-1/2 -translate-y-1/2 flex h-6 w-6 cursor-grab items-center justify-center rounded-[6px]",
                 "text-tx-3 opacity-0 transition-opacity",
                 "group-hover:opacity-100 focus-visible:opacity-100",
                 "outline-none focus-visible:ring-2 focus-visible:ring-accent active:cursor-grabbing",
