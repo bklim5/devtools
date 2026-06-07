@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Pinned Tools
-status: executing
-last_updated: "2026-06-05T23:31:00.000Z"
-last_activity: 2026-06-05 -- Phase 17 Plan 02 complete (pinned sidebar UI + e2e)
+status: completed
+last_updated: "2026-06-07T13:54:25.938Z"
+last_activity: 2026-06-07
 progress:
-  total_phases: 6
-  completed_phases: 0
+  total_phases: 1
+  completed_phases: 1
   total_plans: 2
   completed_plans: 2
   percent: 100
@@ -17,28 +17,28 @@ progress:
 
 ## Current Position
 
-Milestone: **v1.5 "Pinned Tools"** — started 2026-06-05; both plans implemented.
-Phase: 17 (pinned-sidebar-section) — IMPLEMENTED, pending human sign-off
-Plan: 2 of 2 (both complete)
-Status: Phase 17 implementation complete (17-01 + 17-02); awaiting phase-gate `tauri build` walkthrough + `gsd-ui-review`
-Last activity: 2026-06-05 -- Phase 17 Plan 02 complete (pinned sidebar UI + e2e)
+Milestone: **v1.5 "Pinned Tools"** — started 2026-06-05; **Phase 17 COMPLETE & signed off 2026-06-07**. Single-phase milestone → v1.5 ready to close.
+Phase: **17 — Pinned Sidebar Section** (✅ complete, human-approved)
+Plan: 2/2 complete
+Status: Phase 17 signed off; milestone v1.5 ready to complete/archive
+Last activity: 2026-06-07 -- Phase 17 signed off (pin/unpin sidebar shipped)
 
 **17-01 done (`8bac1768`, `c7b94741`):** `pinnedToolIds: string[]` prefs field (default `[]`) + `coercePinnedToolIds` untrusted-merge (no cap, wired into `mergePreferences`) + `setPinnedToolIds`/`togglePinned` (append-on-pin / remove) + pure `partitionTools(pinnedToolIds, toolOrder, registryIds) → { pinned, unpinned }` (reuses `reconcileToolOrder` for the remainder; 10-case immovable-bar matrix). PIN-07/PIN-08 ✅. Summary: `.planning/phases/17-pinned-sidebar-section/17-01-SUMMARY.md`.
 
 **17-02 done (`aee22ada`, `cb24e74f`):** two-group `Sidebar.tsx` via `partitionTools` — SR-named "Pinned tools" group + bare neutral divider above the "Tools" group (gated on the post-reconcile `pinned.length > 0`, Pitfall 5); left-of-grip pin toggle (persistent filled on pinned, outline hover+`focus-visible` on unpinned, `aria-pressed`) that toggles membership without navigating; **Alt+P** on the focused handle pins/unpins (`aria-live` "Pinned/Unpinned {name}" via the registry name); per-group drag + Alt+↑/↓ scoped by `draggingGroup` (pinned→`setPinnedToolIds`, unpinned→`setToolOrder`) with no cross-boundary; "Unpin all" as a second item in the Shift+F10 reset menu → `setPinnedToolIds([])`. Shared `renderRow` + one `handleRefs`/`focusAfterMoveRef` map across both groups (focus survives cross-group toggle). Registry/⌘K/router untouched. Full suite 685/685; decoder 19/19 untouched; zero new deps; **real-WKWebView e2e green via `scripts/e2e-spike.sh` (14/14 spec files; `sidebar.e2e` 2/2)**. PIN-01..06 + PIN-09 ✅. Summary: `.planning/phases/17-pinned-sidebar-section/17-02-SUMMARY.md`.
 
-**Next:** Phase-17 human sign-off — run `pnpm tauri build` (ignore the final non-zero exit = absent updater-signing key; confirm the `.app`/`.dmg` under `src-tauri/target/release/bundle/macos/`), hand off the built app for the **manual-walkthrough** items (native pointer DRAG reorder within each group — never across the divider — + pin-icon reveal on pointer HOVER for unpinned rows), then a passing `gsd-ui-review` WCAG-AA audit. After sign-off: `/gsd-transition` to close Phase 17 / complete milestone v1.5.
+**Next:** v1.5 is a single-phase milestone and Phase 17 is signed off → `/gsd-complete-milestone` to archive v1.5, or `/gsd-progress` to review. Phase-gate evidence: fresh `tauri build` (`.app`/`.dmg` v0.3.0, the absent-updater-key non-zero exit is expected); `gsd-ui-review` **23/24, WCAG-AA PASS (0 failures)**; human walkthrough approved (Alt+P, arrow nav, Tab fallback, native drag, hover reveal). Post-walkthrough gap-closure fixes landed (see corrected **D-17** below): Alt+P now keys off physical `KeyP` (macOS Option+P composes to "π"); every row is a Tab stop with the pin button also Tab-reachable (keyboard fallback) on top of ↑/↓ arrow nav; pin+grip widened to 24×24 (WCAG 2.5.8). Full suite **694/694**; decoder 19/19 untouched; zero new deps.
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-06-05 after v1.4) · roadmap: .planning/milestones/v1.5-ROADMAP.md
 
 **Core value:** Paste an unknown blob → usable, explorable interpretation in <2s, entirely offline, no mouse.
-**Current focus:** Phase 17 — pinned-sidebar-section
+**Current focus:** v1.5 Pinned Tools — Phase 17 complete (pin/unpin sidebar shipped); milestone ready to archive.
 
 ## Phases (v1.5)
 
-- [~] **Phase 17: Pinned Sidebar Section** (2/2 plans implemented — pending human sign-off) — PIN-01..09
+- [x] **Phase 17: Pinned Sidebar Section** (2/2 plans — ✅ COMPLETE, signed off 2026-06-07) — PIN-01..09
   - [x] 17-01: Persistence + pure pinning backbone — `pinnedToolIds: string[]` prefs field (`coercePinnedToolIds` untrusted-merge, `setPinnedToolIds` write-on-change, `togglePinned`), pure reconcile + pinned/unpinned partition (always a registry partition; drop unknown, de-dupe), reusing `reconcileToolOrder`/`moveToolInOrder` per group. PIN-07/08.
   - [x] 17-02: Pinned Sidebar UI — pinned group + neutral divider (shown only when ≥1 pinned) above the unpinned list; left-of-grip pin toggle (filled-persistent / outline hover+focus-visible) + Alt+P (`aria-live`-announced); independent per-group drag + Alt+↑/↓ reorder (no cross-boundary, `draggingGroup` scope); "Unpin all" as a second item in the Shift+F10 reset menu. Real-WKWebView e2e green (sidebar.e2e 2/2). PIN-01..06, PIN-09. (`aee22ada`, `cb24e74f`)
 
@@ -50,7 +50,7 @@ See: .planning/PROJECT.md (updated 2026-06-05 after v1.4) · roadmap: .planning/
 
 **Phase 17 context decisions (`17-CONTEXT.md`, 2026-06-05):** **D-13** pin/unpin shortcut = **Alt+P** (focused row; same family as Alt+↑/↓; plain single-key rejected per the sidebar's no-single-key model); announced "Pinned/Unpinned {tool}" via the existing `aria-live`. **D-14** pin icon sits **left of the grip handle**; **pinned rows show a persistent always-visible filled pin** (state + unpin target — no hover-only); unpinned rows show an outline pin on hover/`focus-visible` only; neutral tokens, NavLink right-padding widened for two controls. **D-15** Pinned group separated by a **bare neutral divider, no visible "PINNED" label** (compact density preserved); SR group named via `aria-label`; divider/group shown only when ≥1 pinned. **D-16** **"Unpin all" joins the existing right-click "Reset order" context menu** (reuses Shift+F10 entry; calls `setPinnedToolIds([])`), shown only when ≥1 pinned.
 
-**D-17 (OVERRIDES D-05, post-sign-off walkthrough, 2026-06-07):** sidebar keyboard model moved onto **roving-tabindex rows** — the `NavLink` tool row is now the **single Tab stop** (pin + grip demoted to `tabIndex={-1}` pointer-only affordances; grip `aria-hidden`). Plain **↑/↓** (and Home/End) move FOCUS across the whole visible list, crossing the pinned↔unpinned divider as one continuous sequence (clamped at ends, no wrap); **Alt+↑/↓** still reorder within the row's own group (PIN-06 boundary intact); **Alt+P** / **Shift+F10** now fire from the row. Fixes the two walkthrough bugs: Alt+P was dead on the row (handler was grip-only), and each row was 3 Tab stops. Pure `resolveRovingTarget` helper in `toolOrder.ts` (+9 unit tests). Commits `b5ef70d3`/`6639da59`; also `a3b0c087` widened pin+grip to 24×24 (WCAG 2.5.8). Why D-05's "no roving nav" was reversed: the user explicitly requested arrow-key tool-to-tool navigation during the walkthrough.
+**D-17 (extends D-13, post-sign-off walkthrough 2026-06-07 — supersedes the planned D-05 "no roving nav"):** sidebar keyboard model reworked from live macOS feedback. **(a) Alt+P macOS fix (the real bug):** Option+P composes to the character "π", so the old `e.key === "p"` check was dead on the real WKWebView (the prior e2e gave a false positive by synthesizing `key:'p'`); now matches the PHYSICAL key `e.code === "KeyP"` (commit `cf7c566d`; e2e regression spec dispatches `key:'π'/code:'KeyP'`). **(b) Arrow nav:** plain **↑/↓** + Home/End move focus tool-to-tool across the pinned↔unpinned divider as one continuous list (clamp at ends, no wrap), via a pure `resolveRovingTarget` helper in `toolOrder.ts` (+9 unit tests). **(c) Tab model (FINAL):** every `NavLink` row is a Tab stop AND the pin button is Tab-reachable (`tabIndex={0}`; Enter/Space pins) as a keyboard fallback; the grip is pointer-only (`tabIndex={-1}`, `aria-hidden`). Alt+↑/↓ still reorder within-group (PIN-06 intact); Alt+P / Shift+F10 fire from the row. **(d)** pin+grip widened to 24×24 for WCAG 2.5.8 (`a3b0c087`). NOTE: an interim single-Tab-stop roving model (`b5ef70d3`/`6639da59`) was reverted to this Tab-friendly model (`1c6bfb8c`) per user request ("tab should also go to the pin / next tool"). Commits: `a3b0c087`, `b5ef70d3`, `6639da59`, `cf7c566d`, `1c6bfb8c`. Full suite **694/694**; real-WKWebView e2e green (macOS Option+P regression covered).
 
 **Open carry-forwards (non-blocking):** settings surface (deferred); auto-pin/lock-hero (deferred); CI track (999.2); remaining tool wishlist (999.1); theme settings (999.3); DevTools CLI (999.4); Protobuf schema-file (999.5); FormatterView narrow-width stacking (UX-05); notarisation pending Apple enrolment (D-02); NAT-01 global summon hotkey (G-05-1); Cron advisory follow-ups (`15-REVIEW-FIX.md`); 3 minor updater a11y follow-ups.
 
