@@ -9,31 +9,35 @@
 // drop unknown, de-dupe, never crash (D-11/PIN-08). The sidebar holds no tool
 // list of its own.
 //
-// Each row keeps its plain NavLink (a normal click navigates — D-01/REORD-02);
-// reordering is a SEPARATE focusable grip handle that carries the drag + keyboard
-// handlers, and pinning is a SEPARATE pin button LEFT of the grip. Because only
-// the handle is `draggable` and only the handle binds the move keys, a click on
-// the row body can never start a drag; the pin button preventDefault/stopPropagation
-// so it toggles membership without navigating (D-14/PIN-04).
+// Each row's NavLink IS the single Tab stop and carries the whole keyboard model
+// (ROVING TABINDEX — exactly one row is tabbable at a time; pointer/programmatic
+// focus syncs the Tab stop via onFocus). A normal click/Enter/Space navigates
+// (D-01/REORD-02). The grip handle and pin button are pointer-only affordances
+// (tabIndex -1) revealed on row hover OR focus-within; the pin button
+// preventDefault/stopPropagation so it toggles membership without navigating
+// (D-14/PIN-04), and the grip stays the only `draggable` element.
 //
 // Drag: native HTML5 drag events (zero new deps — D-02). A neutral insertion
 // line (NOT the accent colour — D-03/accent = selected-only) marks the drop slot.
 // Drag + Alt+↑/↓ reorder run INDEPENDENTLY within each group (`draggingGroup`,
 // per-group clamp) — a tool never crosses the pinned↔unpinned boundary by
 // dragging; membership changes via pin/unpin only (PIN-06).
-// Keyboard: Alt+↑ / Alt+↓ move the focused tool one slot within its group (D-04);
-// Alt+P pins/unpins the focused tool (D-13/PIN-05); plain ↑/↓ stay unbound (no
-// roving nav — D-05); the moved/toggled item keeps focus. Every move/toggle is
-// announced through an aria-live="polite" region using the registry name (D-06).
-// A right-click menu carries "Reset order" (D-12) and "Unpin all" (D-16/PIN-09).
-// Each change persists immediately via setToolOrder / setPinnedToolIds and
-// survives restart.
+// Keyboard (all bound on the ROW): plain ↑/↓ move FOCUS to the previous/next
+// visible row, traversing pinned then unpinned as one continuous sequence across
+// the divider (focus only, clamp at the ends — roving nav); Home/End focus the
+// first/last visible row. Alt+↑/↓ move the focused tool one slot within its OWN
+// group (D-04, never crossing the boundary — PIN-06), keeping focus on the moved
+// row. Alt+P pins/unpins the focused tool (D-13/PIN-05). Shift+F10 / ContextMenu
+// open the reset / "Unpin all" menu. Every move/toggle is announced through an
+// aria-live="polite" region using the registry name (D-06). A right-click menu
+// carries "Reset order" (D-12) and "Unpin all" (D-16/PIN-09). Each change persists
+// immediately via setToolOrder / setPinnedToolIds and survives restart.
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { GripVertical, Pin, PinOff, RotateCcw } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { ENABLED_TOOLS, getToolById } from "@/lib/tools/registry";
 import { usePreferences } from "@/shell/usePreferences";
-import { moveToolInOrder, partitionTools } from "@/shell/toolOrder";
+import { moveToolInOrder, partitionTools, resolveRovingTarget } from "@/shell/toolOrder";
 
 interface ResetMenu {
   x: number;
@@ -65,6 +69,9 @@ export function Sidebar() {
     (group: ToolGroup): string[] => (group === "pinned" ? pinned : unpinned),
     [pinned, unpinned],
   );
+  // The flat visible order — pinned then unpinned as ONE continuous sequence. Plain
+  // ↑/↓ roving nav traverses this across the divider; the Tab stop rides it too.
+  const visibleIds = useMemo(() => [...pinned, ...unpinned], [pinned, unpinned]);
 
   // The id currently being dragged, the group it belongs to, and the gap index
   // the drop indicator sits at (0..group.length — N means "between row N-1 and N"
@@ -76,26 +83,42 @@ export function Sidebar() {
   const [announcement, setAnnouncement] = useState("");
   // The right-click context menu (D-12/D-16), positioned at the cursor.
   const [resetMenu, setResetMenu] = useState<ResetMenu | null>(null);
+  // ROVING TABINDEX: the row that currently owns the single Tab stop. Pointer or
+  // programmatic focus syncs it via the NavLink's onFocus; plain ↑/↓/Home/End move
+  // it. The tabbable row falls back to the first visible row when `rovingId` is
+  // stale (e.g. its tool was unpinned away or the list reconciled).
+  const [rovingId, setRovingId] = useState<string | null>(null);
+  const tabbableId =
+    rovingId && visibleIds.includes(rovingId) ? rovingId : (visibleIds[0] ?? null);
 
   // The <nav> element — a stable focus anchor for menu dismissal when the saved
   // return-focus element is no longer connected (WR-02 fallback).
   const navRef = useRef<HTMLElement | null>(null);
-  // Handle elements keyed by tool id, so a keyboard move/toggle can re-focus the
-  // moved tool's handle after React re-renders the reordered list. ONE shared map
-  // across BOTH groups, so a pin/unpin that moves a tool between groups still
-  // re-finds its handle (Pitfall 3).
-  const handleRefs = useRef(new Map<string, HTMLButtonElement | null>());
-  // When set, a layout effect focuses this tool's handle once the move lands.
+  // Row (NavLink <a>) elements keyed by tool id, so a keyboard move/toggle or a
+  // roving ↑/↓ can re-focus the right row after React re-renders the reordered
+  // list. ONE shared map across BOTH groups, so a pin/unpin that moves a tool
+  // between groups still re-finds its row (Pitfall 3). NavLink forwards its ref to
+  // the underlying <a> (REORD-02 — the row is the Tab stop).
+  const rowRefs = useRef(new Map<string, HTMLAnchorElement | null>());
+  // When set, a layout effect focuses this tool's row once the move lands, and
+  // syncs the roving Tab stop to it.
   const focusAfterMoveRef = useRef<string | null>(null);
   // Pending aria-live re-announce timer (cleared on unmount).
   const reannounceRef = useRef<number | null>(null);
+
+  // Focus a row by tool id (the post-reorder / roving-nav move target). Centralises
+  // the rowRefs lookup + the rovingId sync so the Tab stop always tracks focus.
+  const focusRow = useCallback((id: string) => {
+    rowRefs.current.get(id)?.focus();
+    setRovingId(id);
+  }, []);
 
   useLayoutEffect(() => {
     const id = focusAfterMoveRef.current;
     if (!id) return;
     focusAfterMoveRef.current = null;
-    handleRefs.current.get(id)?.focus();
-  });
+    focusRow(id);
+  }, [focusRow]);
 
   useEffect(
     () => () => {
@@ -259,12 +282,33 @@ export function Sidebar() {
     setDropIndex(null);
   }, []);
 
-  // --- Keyboard reorder: Alt+↑ / Alt+↓ + Alt+P toggle (D-04/D-05/D-13) --------
-  const onHandleKeyDown = useCallback(
+  // --- Row keyboard model: roving ↑/↓/Home/End focus nav, Alt+↑/↓ reorder,
+  //     Alt+P toggle (D-04/D-13/PIN-05/PIN-06). Bound on the NavLink row — the
+  //     single Tab stop — so every chord works from where focus actually is.
+  //     Shift+F10 / ContextMenu fall through to the <nav> handler (which opens the
+  //     reset / "Unpin all" menu); Enter/Space stay default (NavLink navigation).
+  const onRowKeyDown = useCallback(
     (e: React.KeyboardEvent, id: string, group: ToolGroup) => {
-      // Only Alt+chords are consumed. Plain ↑/↓/P fall through unhandled (no
-      // roving nav — D-05); anything without Alt is ignored.
-      if (!e.altKey) return;
+      // Plain (no-Alt) ↑/↓/Home/End move FOCUS across the WHOLE visible list,
+      // crossing the pinned↔unpinned divider as one continuous sequence (focus
+      // only; clamp at the ends, no wrap — roving tabindex nav).
+      if (!e.altKey) {
+        const dir =
+          e.key === "ArrowUp"
+            ? "up"
+            : e.key === "ArrowDown"
+              ? "down"
+              : e.key === "Home"
+                ? "home"
+                : e.key === "End"
+                  ? "end"
+                  : null;
+        if (!dir) return; // Enter/Space/Tab/etc. fall through to default behaviour
+        e.preventDefault();
+        const next = resolveRovingTarget(visibleIds, id, dir);
+        if (next && next !== id) focusRow(next);
+        return;
+      }
 
       // Alt+P pins/unpins the focused tool (D-13/PIN-05). Alt-family only — no
       // plain 'P', matching the sidebar's no-single-key model.
@@ -274,8 +318,9 @@ export function Sidebar() {
         return;
       }
 
+      // Alt+↑/↓ reorder WITHIN the row's OWN group, never the whole list
+      // (Pitfall 2/PIN-06). Focus stays on the moved row.
       if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
-      // Clamp WITHIN the row's OWN group, never the whole list (Pitfall 2/PIN-06).
       const order = groupOrder(group);
       const current = order.indexOf(id);
       if (current === -1) return;
@@ -301,7 +346,7 @@ export function Sidebar() {
       }
       commitMove(group, id, target, { focus: true });
     },
-    [groupOrder, commitMove, announce, togglePin, groupSuffix],
+    [visibleIds, focusRow, groupOrder, commitMove, announce, togglePin, groupSuffix],
   );
 
   // --- Reset order (D-12) + Unpin all (D-16) menu ----------------------------
@@ -361,7 +406,7 @@ export function Sidebar() {
       } else {
         const fallback =
           navRef.current ??
-          [...handleRefs.current.values()].find((h) => h?.isConnected) ??
+          [...rowRefs.current.values()].find((r) => r?.isConnected) ??
           null;
         fallback?.focus();
       }
@@ -425,6 +470,9 @@ export function Sidebar() {
       // for both groups (no redundant `group === "pinned"` short-circuit needed).
       const isPinned = pinnedSet.has(id);
       const groupLen = group === "pinned" ? pinned.length : unpinned.length;
+      // ROVING TABINDEX: exactly one row is tabbable; the rest are -1 so Tab moves
+      // OUT of the list in one press and plain ↑/↓ does the in-list traversal.
+      const isTabbable = tabbableId === id;
       return (
         <div
           key={tool.id}
@@ -450,6 +498,16 @@ export function Sidebar() {
           >
             <NavLink
               to={`/tools/${tool.id}`}
+              // The row IS the single Tab stop and carries the whole keyboard model
+              // (roving ↑/↓ + Home/End focus nav, Alt+↑/↓ reorder, Alt+P pin,
+              // Shift+F10 menu). NavLink forwards this ref to the underlying <a>.
+              ref={(el) => {
+                rowRefs.current.set(tool.id, el);
+              }}
+              tabIndex={isTabbable ? 0 : -1}
+              onFocus={() => setRovingId(tool.id)}
+              onKeyDown={(e) => onRowKeyDown(e, tool.id, group)}
+              aria-keyshortcuts="Alt+P"
               className={({ isActive }) =>
                 [
                   // navitem: compact padding, radius 9px, icon↔name gap 12px. Right
@@ -488,15 +546,18 @@ export function Sidebar() {
               )}
             </NavLink>
             {/* Pin toggle — LEFT of the grip (grip stays outermost at right-1, pin
-                at right-8; D-14). Both controls are 24×24 (h-6 w-6) for WCAG 2.5.8
+                at right-8; D-14). POINTER-ONLY: tabIndex -1 keeps it out of the Tab
+                order (the ROW now owns the keyboard model — Alt+P pins); a click
+                still toggles. Both controls are 24×24 (h-6 w-6) for WCAG 2.5.8
                 target size, with a 0.25rem gap; pr-14 reserves room for both.
-                Pinned rows show a PERSISTENT filled pin (the
-                unpin target — no hover-only); unpinned rows show an OUTLINE pin on
-                hover OR focus-visible only, mirroring the grip's reveal. Neutral
-                tokens only (accent = selected-only, D-03). preventDefault +
+                Pinned rows show a PERSISTENT filled pin (the unpin target — no
+                hover-only); unpinned rows show an OUTLINE pin on row hover OR
+                row focus-within (the row, not the button, takes focus now).
+                Neutral tokens only (accent = selected-only, D-03). preventDefault +
                 stopPropagation so the NavLink does NOT navigate (PIN-04). */}
             <button
               type="button"
+              tabIndex={-1}
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -510,34 +571,34 @@ export function Sidebar() {
                 "outline-none focus-visible:ring-2 focus-visible:ring-accent",
                 isPinned
                   ? "text-tx-2" // persistent, always-visible, neutral
-                  : "text-tx-3 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100",
+                  : "text-tx-3 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100",
               ].join(" ")}
             >
               <Pin
                 className={["h-[14px] w-[14px]", isPinned ? "fill-current" : ""].join(" ")}
               />
             </button>
-            {/* Grip handle — the ONLY draggable + reorder-key control. Hidden until
-                row hover OR its own keyboard focus, so keyboard users can still
-                reach it (D-01). A plain NavLink click never starts a drag because
-                the NavLink is not draggable (REORD-02). It also carries Alt+P
-                (D-13) since it is the row's keyboard control. */}
+            {/* Grip handle — now a POINTER-ONLY drag affordance. tabIndex -1 +
+                aria-hidden: the ROW carries the SR-exposed control, the keyboard
+                reorder (Alt+↑/↓) and the reorder announce()s, so the grip is pure
+                pointer chrome (no Tab stop, no key handler). Revealed on row hover
+                OR row focus-within. A plain NavLink click never starts a drag
+                because the NavLink is not draggable (REORD-02). The aria-label is
+                retained as the stable e2e/test selector for this row's tool. */}
             <button
               type="button"
-              ref={(el) => {
-                handleRefs.current.set(tool.id, el);
-              }}
+              tabIndex={-1}
+              aria-hidden="true"
               draggable
               onDragStart={(e) => onDragStart(e, tool.id, group)}
               onDragEnd={onDragEnd}
-              onKeyDown={(e) => onHandleKeyDown(e, tool.id, group)}
               aria-label={`Reorder ${tool.name}`}
-              title={`Reorder ${tool.name} (drag, or Alt+↑/↓; Alt+P to pin; Shift+F10 to reset)`}
+              title={`Reorder ${tool.name} (drag)`}
               className={[
                 "absolute right-1 top-1/2 -translate-y-1/2 flex h-6 w-6 cursor-grab items-center justify-center rounded-[6px]",
                 "text-tx-3 opacity-0 transition-opacity",
-                "group-hover:opacity-100 focus-visible:opacity-100",
-                "outline-none focus-visible:ring-2 focus-visible:ring-accent active:cursor-grabbing",
+                "group-hover:opacity-100 group-focus-within:opacity-100",
+                "outline-none active:cursor-grabbing",
               ].join(" ")}
             >
               <GripVertical className="h-[15px] w-[15px]" />
@@ -563,11 +624,12 @@ export function Sidebar() {
       pinned.length,
       unpinned.length,
       pinnedSet,
+      tabbableId,
       onRowDragOver,
       onDrop,
       onDragStart,
       onDragEnd,
-      onHandleKeyDown,
+      onRowKeyDown,
       togglePin,
     ],
   );

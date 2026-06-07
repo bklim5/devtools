@@ -8,6 +8,7 @@ import {
   moveToolInOrder,
   partitionTools,
   reconcileToolOrder,
+  resolveRovingTarget,
 } from "./toolOrder";
 
 describe("reconcileToolOrder (D-11)", () => {
@@ -212,5 +213,49 @@ describe("moveToolInOrder (drag + Alt+arrow)", () => {
     expect(out).not.toBe(input);
     expect(input).toEqual(["a", "b", "c"]); // input untouched
     expect([...out].sort()).toEqual([...input].sort());
+  });
+});
+
+describe("resolveRovingTarget (plain ↑/↓/Home/End roving nav)", () => {
+  // The flat visible order traverses pinned THEN unpinned as one continuous
+  // sequence — ↑/↓ cross the divider; Home/End jump to the very ends.
+  const visible = ["pin-a", "pin-b", "u-x", "u-y", "u-z"];
+
+  it("moves focus down one row", () => {
+    expect(resolveRovingTarget(visible, "u-x", "down")).toBe("u-y");
+  });
+
+  it("moves focus up one row", () => {
+    expect(resolveRovingTarget(visible, "u-y", "up")).toBe("u-x");
+  });
+
+  it("crosses the pinned↔unpinned divider on ↓ (last pinned → first unpinned)", () => {
+    expect(resolveRovingTarget(visible, "pin-b", "down")).toBe("u-x");
+  });
+
+  it("crosses the divider on ↑ (first unpinned → last pinned)", () => {
+    expect(resolveRovingTarget(visible, "u-x", "up")).toBe("pin-b");
+  });
+
+  it("clamps at the first row (↑ at index 0 → null, no wrap)", () => {
+    expect(resolveRovingTarget(visible, "pin-a", "up")).toBeNull();
+  });
+
+  it("clamps at the last row (↓ at the end → null, no wrap)", () => {
+    expect(resolveRovingTarget(visible, "u-z", "down")).toBeNull();
+  });
+
+  it("Home → first visible row, End → last visible row", () => {
+    expect(resolveRovingTarget(visible, "u-y", "home")).toBe("pin-a");
+    expect(resolveRovingTarget(visible, "u-y", "end")).toBe("u-z");
+  });
+
+  it("unknown current id → null (nowhere to move from)", () => {
+    expect(resolveRovingTarget(visible, "ghost", "down")).toBeNull();
+  });
+
+  it("empty list → null for every direction", () => {
+    expect(resolveRovingTarget([], "anything", "down")).toBeNull();
+    expect(resolveRovingTarget([], "anything", "home")).toBeNull();
   });
 });

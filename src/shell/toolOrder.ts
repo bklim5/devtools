@@ -81,6 +81,26 @@ export function partitionTools(
   return { pinned, unpinned };
 }
 
+/** Resolve the roving-tabindex focus target for a plain ↑/↓/Home/End keystroke.
+ *  `visibleIds` is the flat visible order (pinned then unpinned, as one sequence);
+ *  `currentId` is the focused row. Returns the id to move focus to, CLAMPED at the
+ *  ends (no wrap), or `null` when there is nowhere to move (current unknown, or a
+ *  ↑ at the first / ↓ at the last row). Pure — the caller does the `.focus()`. */
+export function resolveRovingTarget(
+  visibleIds: string[],
+  currentId: string,
+  direction: "up" | "down" | "home" | "end",
+): string | null {
+  if (visibleIds.length === 0) return null;
+  if (direction === "home") return visibleIds[0];
+  if (direction === "end") return visibleIds[visibleIds.length - 1];
+  const current = visibleIds.indexOf(currentId);
+  if (current === -1) return null;
+  const target = direction === "up" ? current - 1 : current + 1;
+  if (target < 0 || target >= visibleIds.length) return null; // clamp, no wrap
+  return visibleIds[target];
+}
+
 /** Relocate `id` to `toIndex` (clamped to [0, length-1]) within `order`,
  *  returning a NEW array. Unknown id → input returned unchanged (as a fresh
  *  copy). Used by both drag-drop and the Alt+arrow keyboard move (the caller
