@@ -311,8 +311,13 @@ export function Sidebar() {
       }
 
       // Alt+P pins/unpins the focused tool (D-13/PIN-05). Alt-family only — no
-      // plain 'P', matching the sidebar's no-single-key model.
-      if (e.key === "p" || e.key === "P") {
+      // plain 'P', matching the sidebar's no-single-key model. Match the PHYSICAL
+      // key (`e.code === "KeyP"`): on macOS, Option+P COMPOSES to the character "π",
+      // so the keydown arrives with `e.key === "π"` (NOT "p") — an `e.key`-only
+      // check is dead under Option on the real WKWebView. `e.code` is layout/compose-
+      // independent and is what makes real macOS Option+P work; the `e.key` arms stay
+      // as a cross-platform / synthetic-event fallback.
+      if (e.code === "KeyP" || e.key === "p" || e.key === "P") {
         e.preventDefault();
         togglePin(id);
         return;
