@@ -51,9 +51,9 @@ function readOrder(): Promise<string[]> {
 // element fires the real onKeyDown — the SAME app code path, with the real
 // altKey/e.key the handler reads.
 //
-// The focused element is now the ROW (the NavLink <a>), which owns the whole
-// keyboard model (roving ↑/↓ + Home/End, Alt+↑/↓ reorder, Alt+P pin). The grip
-// is pointer-only (tabIndex -1, aria-hidden) and no longer carries key handlers.
+// The focused element is the ROW (the NavLink <a>), which owns the whole keyboard
+// model (plain ↑/↓ + Home/End focus nav, Alt+↑/↓ reorder, Alt+P pin). The grip is
+// pointer-only (tabIndex -1, aria-hidden) and no longer carries key handlers.
 function dispatchKey(key: string, altKey: boolean): Promise<void> {
   return browser.execute(
     (k: string, alt: boolean) => {
@@ -73,12 +73,21 @@ function dispatchKey(key: string, altKey: boolean): Promise<void> {
 }
 
 // Alt+P on the focused ROW — the pin/unpin chord (D-13/PIN-05). A bubbling
-// KeyboardEvent with the literal `key: "p", altKey: true` (same rationale as
-// dispatchKey: WebKit WebDriver drops Alt on synthesized key actions).
+// KeyboardEvent (same rationale as dispatchKey: WebKit WebDriver drops Alt on
+// synthesized key actions). Dispatches the REAL macOS shape: on macOS Option+P
+// COMPOSES to "π", so the keydown carries `key: "π"` (NOT "p") and `code: "KeyP"`,
+// with altKey true. This is the exact event the handler sees on the real WKWebView;
+// it FAILS an `e.key`-only pin check and PASSES the `e.code === "KeyP"` fix.
 function dispatchAltP(): Promise<void> {
   return browser.execute(() => {
     document.activeElement?.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "p", altKey: true, bubbles: true, cancelable: true }),
+      new KeyboardEvent("keydown", {
+        key: "π",
+        code: "KeyP",
+        altKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
     );
   });
 }
@@ -516,14 +525,15 @@ describe("Pinned sidebar section (real WKWebView)", () => {
   });
 });
 
-// Roving-tabindex keyboard model — real macOS WKWebView gate (Phase 17 gap fix).
-// The NavLink row is the SINGLE Tab stop and carries the whole keyboard model.
-// The load-bearing real-runtime checks only the real WKWebView proves:
+// Keyboard model — real macOS WKWebView gate (Phase 17 gap fix). Every NavLink row
+// is a Tab stop and carries the whole keyboard model; arrows are the fast path ON TOP
+// of Tab. The load-bearing real-runtime checks only the real WKWebView proves:
 //   1. Plain ↑/↓ move FOCUS between rows, traversing pinned then unpinned as one
 //      continuous sequence ACROSS the divider (focus only; clamp at the ends, no wrap).
-//   2. Exactly ONE row is tabbable (roving) — row-to-row no longer needs triple-Tab —
-//      and the pin + grip controls are NOT Tab stops (tabIndex -1).
-describe("Sidebar roving-tabindex keyboard model (real WKWebView)", () => {
+//   2. EVERY row is tabbable (tabIndex 0) and the pin button is a Tab stop too
+//      (the keyboard fallback for pinning — Enter/Space on a focused pin toggles),
+//      while the grip stays pointer-only (tabIndex -1).
+describe("Sidebar keyboard model (real WKWebView)", () => {
   // Land clean (zero pinned) so the flat order is deterministic.
   beforeEach(async () => {
     await browser.execute(() => {
@@ -637,26 +647,21 @@ describe("Sidebar roving-tabindex keyboard model (real WKWebView)", () => {
     if (refocus) await dispatchAltP();
   });
 
-  it("exactly one row is tabbable (roving) and the pin + grip controls are not Tab stops", async () => {
-    // Only ONE row carries tabindex 0; every other row is -1 (roving). Reaching the
-    // next tool is one plain ArrowDown, not a triple-Tab through row/pin/grip.
+  it("every row is tabbable, the pin button is a Tab stop (Enter toggles), and the grip stays pointer-only", async () => {
+    // EVERY row carries tabindex 0 (Tab steps through all tools); arrows are the fast
+    // path on top. No row is -1 anymore (the single-stop roving model was walked back).
     const rowTabindices = await browser.execute(() =>
       Array.from(document.querySelectorAll('nav a[href^="#/tools/"]')).map(
         (a) => a.getAttribute("tabindex"),
       ),
     );
-    const tabbableRows = rowTabindices.filter((t) => t === "0").length;
     assert(
-      tabbableRows === 1,
-      `expected EXACTLY ONE tabbable row (roving tabindex), got ${tabbableRows}: ${JSON.stringify(rowTabindices)}`,
-    );
-    assert(
-      rowTabindices.filter((t) => t === "-1").length === rowTabindices.length - 1,
-      `expected every non-tabbable row to be tabindex -1, got ${JSON.stringify(rowTabindices)}`,
+      rowTabindices.length >= 2 && rowTabindices.every((t) => t === "0"),
+      `expected EVERY tool row to be tabindex 0, got ${JSON.stringify(rowTabindices)}`,
     );
 
-    // The pin + grip controls inside every row must be tabIndex -1 (pointer-only) so
-    // Tab moves OUT of the list in one press instead of stepping through them.
+    // The pin button is a Tab stop (tabindex 0 — the keyboard fallback for pinning);
+    // the grip stays pointer-only (tabindex -1 — keyboard reorder is Alt+↑/↓ on the row).
     const controlTabindices = await browser.execute(() => {
       const pins = Array.from(
         document.querySelectorAll('nav button[aria-label^="Pin "], nav button[aria-label^="Unpin "]'),
@@ -668,13 +673,52 @@ describe("Sidebar roving-tabindex keyboard model (real WKWebView)", () => {
     });
     assert(
       controlTabindices.pins.length > 0 &&
-        controlTabindices.pins.every((t) => t === "-1"),
-      `expected every pin button to be tabindex -1 (pointer-only), got ${JSON.stringify(controlTabindices.pins)}`,
+        controlTabindices.pins.every((t) => t === "0"),
+      `expected every pin button to be tabindex 0 (Tab-reachable fallback), got ${JSON.stringify(controlTabindices.pins)}`,
     );
     assert(
       controlTabindices.grips.length > 0 &&
         controlTabindices.grips.every((t) => t === "-1"),
       `expected every grip handle to be tabindex -1 (pointer-only), got ${JSON.stringify(controlTabindices.grips)}`,
     );
+
+    // FALLBACK PATH: focus an unpinned tool's PIN BUTTON directly and press Enter —
+    // a native <button> toggles on Enter/Space, so this must pin the tool (move it
+    // into the pinned group) WITHOUT relying on the Alt+P row chord.
+    const toPin = (await readUnpinnedOrder())[0];
+    assert(!!toPin, "expected at least one unpinned tool to pin via the pin button");
+    const focusedPinBtn = await browser.execute((name: string) => {
+      const btn = Array.from(
+        document.querySelectorAll('nav button[aria-label^="Pin "]'),
+      ).find((b) => b.getAttribute("aria-label") === `Pin ${name}`) as HTMLElement | null;
+      btn?.focus();
+      return document.activeElement === btn;
+    }, toPin);
+    assert(focusedPinBtn, `could not focus the pin button for "${toPin}"`);
+    await browser.execute(() => {
+      document.activeElement?.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
+      );
+      // jsdom/WebKit do not always synthesize the click from a dispatched keydown on a
+      // <button>; a focused button's Enter activates onClick natively when the user
+      // presses it. Emulate that activation explicitly for the WebDriver path.
+      (document.activeElement as HTMLButtonElement | null)?.click();
+    });
+    await browser.waitUntil(async () => (await readPinnedOrder()).includes(toPin), {
+      timeout: 5_000,
+      timeoutMsg: `expected Enter/activation on the focused pin button to pin "${toPin}" (keyboard fallback), got ${JSON.stringify(await readPinnedOrder())}`,
+    });
+
+    // Clean up: unpin via the pin button so the next spec/run starts clean.
+    await browser.execute((name: string) => {
+      const btn = Array.from(
+        document.querySelectorAll('nav button[aria-label^="Unpin "]'),
+      ).find((b) => b.getAttribute("aria-label") === `Unpin ${name}`) as HTMLButtonElement | null;
+      btn?.click();
+    }, toPin);
+    await browser.waitUntil(async () => !(await readPinnedOrder()).includes(toPin), {
+      timeout: 5_000,
+      timeoutMsg: `failed to clean up the "${toPin}" pin after the fallback check`,
+    });
   });
 });

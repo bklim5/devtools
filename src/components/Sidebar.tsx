@@ -9,13 +9,15 @@
 // drop unknown, de-dupe, never crash (D-11/PIN-08). The sidebar holds no tool
 // list of its own.
 //
-// Each row's NavLink IS the single Tab stop and carries the whole keyboard model
-// (ROVING TABINDEX — exactly one row is tabbable at a time; pointer/programmatic
-// focus syncs the Tab stop via onFocus). A normal click/Enter/Space navigates
-// (D-01/REORD-02). The grip handle and pin button are pointer-only affordances
-// (tabIndex -1) revealed on row hover OR focus-within; the pin button
-// preventDefault/stopPropagation so it toggles membership without navigating
-// (D-14/PIN-04), and the grip stays the only `draggable` element.
+// Each row's NavLink is a Tab stop (tabIndex 0 on EVERY row) and carries the whole
+// keyboard model. Tab steps row → pin button → next row (grip excluded); arrows are
+// the FAST tool-to-tool path on top of Tab (D-17). A normal click/Enter/Space
+// navigates (D-01/REORD-02). The pin button is ALSO a Tab stop (tabIndex 0 — a
+// keyboard fallback for pinning via Enter/Space) revealed on row hover, row
+// focus-within, OR its own focus; it preventDefault/stopPropagation so it toggles
+// membership without navigating (D-14/PIN-04). The grip handle stays POINTER-ONLY
+// (tabIndex -1, aria-hidden) — keyboard reorder is Alt+↑/↓ on the row — and remains
+// the only `draggable` element.
 //
 // Drag: native HTML5 drag events (zero new deps — D-02). A neutral insertion
 // line (NOT the accent colour — D-03/accent = selected-only) marks the drop slot.
@@ -24,7 +26,7 @@
 // dragging; membership changes via pin/unpin only (PIN-06).
 // Keyboard (all bound on the ROW): plain ↑/↓ move FOCUS to the previous/next
 // visible row, traversing pinned then unpinned as one continuous sequence across
-// the divider (focus only, clamp at the ends — roving nav); Home/End focus the
+// the divider (focus only, clamp at the ends); Home/End focus the
 // first/last visible row. Alt+↑/↓ move the focused tool one slot within its OWN
 // group (D-04, never crossing the boundary — PIN-06), keeping focus on the moved
 // row. Alt+P pins/unpins the focused tool (D-13/PIN-05). Shift+F10 / ContextMenu
@@ -70,7 +72,7 @@ export function Sidebar() {
     [pinned, unpinned],
   );
   // The flat visible order — pinned then unpinned as ONE continuous sequence. Plain
-  // ↑/↓ roving nav traverses this across the divider; the Tab stop rides it too.
+  // ↑/↓ focus nav traverses this across the divider.
   const visibleIds = useMemo(() => [...pinned, ...unpinned], [pinned, unpinned]);
 
   // The id currently being dragged, the group it belongs to, and the gap index
@@ -83,14 +85,6 @@ export function Sidebar() {
   const [announcement, setAnnouncement] = useState("");
   // The right-click context menu (D-12/D-16), positioned at the cursor.
   const [resetMenu, setResetMenu] = useState<ResetMenu | null>(null);
-  // ROVING TABINDEX: the row that currently owns the single Tab stop. Pointer or
-  // programmatic focus syncs it via the NavLink's onFocus; plain ↑/↓/Home/End move
-  // it. The tabbable row falls back to the first visible row when `rovingId` is
-  // stale (e.g. its tool was unpinned away or the list reconciled).
-  const [rovingId, setRovingId] = useState<string | null>(null);
-  const tabbableId =
-    rovingId && visibleIds.includes(rovingId) ? rovingId : (visibleIds[0] ?? null);
-
   // The <nav> element — a stable focus anchor for menu dismissal when the saved
   // return-focus element is no longer connected (WR-02 fallback).
   const navRef = useRef<HTMLElement | null>(null);
@@ -106,11 +100,11 @@ export function Sidebar() {
   // Pending aria-live re-announce timer (cleared on unmount).
   const reannounceRef = useRef<number | null>(null);
 
-  // Focus a row by tool id (the post-reorder / roving-nav move target). Centralises
-  // the rowRefs lookup + the rovingId sync so the Tab stop always tracks focus.
+  // Focus a row by tool id (the post-reorder / arrow-nav move target). Centralises
+  // the rowRefs lookup. Every row is now a Tab stop (tabIndex 0), so there is no
+  // roving Tab-stop to sync — arrows just move focus directly.
   const focusRow = useCallback((id: string) => {
     rowRefs.current.get(id)?.focus();
-    setRovingId(id);
   }, []);
 
   useLayoutEffect(() => {
@@ -282,16 +276,16 @@ export function Sidebar() {
     setDropIndex(null);
   }, []);
 
-  // --- Row keyboard model: roving ↑/↓/Home/End focus nav, Alt+↑/↓ reorder,
-  //     Alt+P toggle (D-04/D-13/PIN-05/PIN-06). Bound on the NavLink row — the
-  //     single Tab stop — so every chord works from where focus actually is.
+  // --- Row keyboard model: plain ↑/↓/Home/End focus nav, Alt+↑/↓ reorder,
+  //     Alt+P toggle (D-04/D-13/PIN-05/PIN-06). Bound on the NavLink row (every row
+  //     is a Tab stop now) so every chord works from where focus actually is.
   //     Shift+F10 / ContextMenu fall through to the <nav> handler (which opens the
   //     reset / "Unpin all" menu); Enter/Space stay default (NavLink navigation).
   const onRowKeyDown = useCallback(
     (e: React.KeyboardEvent, id: string, group: ToolGroup) => {
       // Plain (no-Alt) ↑/↓/Home/End move FOCUS across the WHOLE visible list,
       // crossing the pinned↔unpinned divider as one continuous sequence (focus
-      // only; clamp at the ends, no wrap — roving tabindex nav).
+      // only; clamp at the ends, no wrap — the fast arrow path over Tab).
       if (!e.altKey) {
         const dir =
           e.key === "ArrowUp"
@@ -475,9 +469,6 @@ export function Sidebar() {
       // for both groups (no redundant `group === "pinned"` short-circuit needed).
       const isPinned = pinnedSet.has(id);
       const groupLen = group === "pinned" ? pinned.length : unpinned.length;
-      // ROVING TABINDEX: exactly one row is tabbable; the rest are -1 so Tab moves
-      // OUT of the list in one press and plain ↑/↓ does the in-list traversal.
-      const isTabbable = tabbableId === id;
       return (
         <div
           key={tool.id}
@@ -503,14 +494,13 @@ export function Sidebar() {
           >
             <NavLink
               to={`/tools/${tool.id}`}
-              // The row IS the single Tab stop and carries the whole keyboard model
-              // (roving ↑/↓ + Home/End focus nav, Alt+↑/↓ reorder, Alt+P pin,
+              // Every row is a Tab stop (tabIndex 0) and carries the whole keyboard
+              // model (plain ↑/↓ + Home/End focus nav, Alt+↑/↓ reorder, Alt+P pin,
               // Shift+F10 menu). NavLink forwards this ref to the underlying <a>.
               ref={(el) => {
                 rowRefs.current.set(tool.id, el);
               }}
-              tabIndex={isTabbable ? 0 : -1}
-              onFocus={() => setRovingId(tool.id)}
+              tabIndex={0}
               onKeyDown={(e) => onRowKeyDown(e, tool.id, group)}
               aria-keyshortcuts="Alt+P"
               className={({ isActive }) =>
@@ -551,18 +541,20 @@ export function Sidebar() {
               )}
             </NavLink>
             {/* Pin toggle — LEFT of the grip (grip stays outermost at right-1, pin
-                at right-8; D-14). POINTER-ONLY: tabIndex -1 keeps it out of the Tab
-                order (the ROW now owns the keyboard model — Alt+P pins); a click
-                still toggles. Both controls are 24×24 (h-6 w-6) for WCAG 2.5.8
-                target size, with a 0.25rem gap; pr-14 reserves room for both.
-                Pinned rows show a PERSISTENT filled pin (the unpin target — no
-                hover-only); unpinned rows show an OUTLINE pin on row hover OR
-                row focus-within (the row, not the button, takes focus now).
-                Neutral tokens only (accent = selected-only, D-03). preventDefault +
-                stopPropagation so the NavLink does NOT navigate (PIN-04). */}
+                at right-8; D-14). A KEYBOARD FALLBACK for pinning: tabIndex 0 puts it
+                in the Tab order (Tab steps row → pin → next row), and as a native
+                <button> Enter/Space toggle it; a click still toggles too (Alt+P on
+                the row remains the fast path). Both controls are 24×24 (h-6 w-6) for
+                WCAG 2.5.8 target size, with a 0.25rem gap; pr-14 reserves room for
+                both. Pinned rows show a PERSISTENT filled pin (the unpin target — no
+                hover-only); unpinned rows show an OUTLINE pin on row hover, row
+                focus-within, OR the pin button's OWN focus (focus-visible) so it is
+                visible while itself Tab-focused. Neutral tokens only (accent =
+                selected-only, D-03). preventDefault + stopPropagation so the NavLink
+                does NOT navigate (PIN-04). */}
             <button
               type="button"
-              tabIndex={-1}
+              tabIndex={0}
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -576,7 +568,7 @@ export function Sidebar() {
                 "outline-none focus-visible:ring-2 focus-visible:ring-accent",
                 isPinned
                   ? "text-tx-2" // persistent, always-visible, neutral
-                  : "text-tx-3 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100",
+                  : "text-tx-3 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100",
               ].join(" ")}
             >
               <Pin
@@ -629,7 +621,6 @@ export function Sidebar() {
       pinned.length,
       unpinned.length,
       pinnedSet,
-      tabbableId,
       onRowDragOver,
       onDrop,
       onDragStart,
