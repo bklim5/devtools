@@ -1,5 +1,24 @@
 # Milestones
 
+## v1.5 Pinned Tools (Shipped: 2026-06-07)
+
+**Phases completed:** 1 phase (17), 2 plans, 4 tasks (+ post-walkthrough gap-closure fixes)
+**Delivered:** Users **pin favourite tools to a distinct "Pinned" section** at the top of the sidebar, above the rest — extending v1.4's personalization. Pinning is a render-time `pinnedToolIds: string[]` overlay persisted through the existing prefs seam (beside `toolOrder`), reconciled against the live registry on load (drop unknown, de-dupe — never crash/drop/duplicate); the partition is always a full registry partition. The registry stays the single control plane (⌘K palette + router pin-agnostic). All 9 PIN requirements validated on the real WKWebView; zero new runtime/dev deps; the hero `decoder.ts` + its 19 tests byte-for-byte untouched.
+
+**Key accomplishments:**
+
+- **Persistence + pure pinning/partition backbone (Plan 17-01, PIN-07/08)** — an additive `pinnedToolIds: string[]` Preferences field (default `[]`) persisted through the prefs seam, with `coercePinnedToolIds` untrusted-merge (non-array → `[]`, drop non-strings, de-dupe, no cap) wired into `mergePreferences`, plus `setPinnedToolIds`/`togglePinned` setters. The pure, fully-tested `partitionTools(pinnedToolIds, toolOrder, registryIds) → { pinned, unpinned }` always returns a full registry partition (every tool in exactly one group), reusing `reconcileToolOrder` for the unpinned remainder. 10-case immovable-bar matrix + setter/coercer tests.
+- **Two-group Pinned Sidebar UI (Plan 17-02, PIN-01..06/09)** — `Sidebar.tsx` renders an SR-named "Pinned tools" group + a bare neutral divider (gated on the post-reconcile `pinned.length`, not the raw pref) above the "Tools" group, both projected from `partitionTools` over `ENABLED_TOOLS` (registry/⌘K/router untouched). A left-of-grip pin toggle (persistent filled on pinned rows, outline on hover/focus-visible for unpinned), **Alt+P** to pin/unpin the focused tool (announced "Pinned/Unpinned {name}" via the existing `aria-live`), independent per-group drag + Alt+↑/↓ reorder (`draggingGroup`-scoped, never across the divider), and a keyboard-reachable "Unpin all" as a second item in the Shift+F10 reset menu.
+- **Pinning is an overlay, never a registry mutation** — the registry stays the single control plane; accent stays selected-only (pin/divider chrome uses neutral tokens). Unknown/removed pinned IDs drop, duplicates collapse: the list can never crash, drop, or duplicate a tool.
+- **Post-walkthrough keyboard-model fixes (D-17, supersedes the planned D-05 "no roving nav")** — live macOS testing surfaced two issues, fixed before sign-off: **(a)** Alt+P was dead because macOS composes Option+P into the character "π" (`e.key` was never "p") — now matches the physical key `e.code === "KeyP"`, with the e2e upgraded to dispatch the real `key:'π'/code:'KeyP'` shape as a genuine regression test; **(b)** the keyboard model became Tab-friendly — every row is a Tab stop AND the pin button is Tab-reachable (Enter/Space pins, a keyboard fallback), plain ↑/↓ + Home/End move focus tool-to-tool across the divider (pure `resolveRovingTarget` helper, +9 unit tests), Alt+↑/↓ still reorder within-group; pin+grip widened to 24×24 (WCAG 2.5.8). Also fixed a code-review focus-stranding bug (WR-01) and a pre-existing reorder-e2e pin-isolation flake.
+- **Discipline held** — zero new runtime AND zero new devDependencies, HashRouter only, WCAG-AA (keyboard path + `aria-live` mandatory), the immovable `decoder.ts` + 19-test bar untouched. Full suite **694/694** at close; real-WKWebView e2e green (`scripts/e2e-spike.sh` 14/14, incl. the macOS Option+P + Tab-model + cross-divider-arrow specs); code review 0 critical; **gsd-ui-review WCAG-AA 23/24 (0 failures)**; human-signed-off on a fresh `tauri build` (`.app`/`.dmg` v0.3.0).
+
+**Carry-forwards (non-blocking):** dedicated settings surface (deferred); auto-pin/lock-hero (deferred); unrelated `base64.e2e` first-worker mount-race flake logged to `deferred-items.md` (Phase 6 hardening candidate).
+
+**Archived:** `.planning/milestones/v1.5-ROADMAP.md`, `.planning/milestones/v1.5-REQUIREMENTS.md`, `.planning/milestones/v1.5-phases/`.
+
+---
+
 ## v1.4 Reorderable Tools (Shipped: 2026-06-05)
 
 **Phases completed:** 1 phase (16), 2 plans, 5 tasks

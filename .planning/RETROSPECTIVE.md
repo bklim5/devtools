@@ -144,6 +144,40 @@ The app's first personalization feature: a user-reorderable sidebar tool list (R
 
 ---
 
+## Milestone: v1.5 — Pinned Tools
+
+**Shipped:** 2026-06-07
+**Phases:** 1 (17) | **Plans:** 2
+
+### What Was Built
+A distinct "Pinned" sidebar section (PIN-01..09) extending v1.4's personalization. A persisted `pinnedToolIds: string[]` overlay through the existing prefs seam, with a pure `partitionTools` that always returns a full registry partition (pinned group + unpinned remainder; drop unknown, de-dupe, reuse `reconcileToolOrder`). The UI: a left-of-grip pin toggle (persistent filled on pinned, outline on hover/focus for unpinned), **Alt+P** to pin/unpin the focused row (`aria-live`-announced), independent per-group drag + Alt+↑/↓ reorder (never across the divider), and a keyboard-reachable "Unpin all" in the Shift+F10 reset menu. Zero new runtime AND dev deps; decoder + 19 tests untouched.
+
+### What Worked
+- **The pure-backbone-then-thin-view split, a third time** — Plan 17-01 landed the entire persistence + partition contract as pure, fully-unit-tested helpers (immovable-bar matrix) with no UI, so Plan 17-02's two-group Sidebar was thin wiring over a locked, partition-invariant core. Directly reused v1.4's `reconcileToolOrder`/`moveToolInOrder` per group.
+- **Overlay-not-mutation kept the blast radius tiny again** — `partitionTools` over `ENABLED_TOOLS`; the registry array, ⌘K palette, and router were never touched, so nothing downstream could regress.
+- **The human walkthrough earned its keep** — every substantive bug this milestone (Alt+P dead on macOS, the keyboard-nav friction) was found by a person using the real app, not by any automated gate.
+
+### What Was Inefficient
+- **The e2e gave a *false positive* on Alt+P** — it synthesized `KeyboardEvent({key:'p', altKey:true})`, which the handler matched, so the test was green while the real app was broken: on macOS, Option+P composes to the character "π", so `e.key` is never "p". This is sharper than v1.4's "the WebDriver can't drive native input" — here the test *looked* like it covered the interaction but encoded the wrong key value. Fixed by matching the physical `e.code === "KeyP"` and rewriting the spec to dispatch the real `key:'π'/code:'KeyP'` shape.
+- **The keyboard model was built twice** — the planned decision (D-05, "no roving nav") was first implemented as a single-Tab-stop roving model, then reversed to a Tab-friendly model (every row + the pin Tab-reachable) one round later when the user clarified they wanted Tab *and* arrows. Confirming the interaction model with the user *before* building — especially when reversing a locked decision — would have saved a full implement+verify+rebuild cycle.
+- **Three post-sign-off rebuild cycles** — target-size polish, then Alt+P, then the Tab model each triggered a fresh `tauri build` + e2e gate. Cheap individually, but a tighter up-front interaction spec would have collapsed them.
+
+### Patterns Established
+- **Synthetic key events must mirror the real platform** — assert on `e.code` (physical key) for letter chords, and dispatch e2e key events with the platform-composed `key` (macOS Option+letter → a composed glyph) so the test reproduces reality instead of an idealized keycode.
+- **Two-group partition reuses the single-group reconciler per group** — `partitionTools` runs the v1.4 `reconcileToolOrder` over the unpinned remainder; pinned order *is* `pinnedToolIds`. Membership and order stay independent overlays, no second order array.
+- **When a walkthrough reopens a locked interaction decision, re-confirm scope before coding** — `AskUserQuestion` on the model fork (roving vs Tab) is far cheaper than building, gating, and reverting.
+
+### Key Lessons
+1. **A green e2e can still be a false positive if it encodes the wrong real-world input** — macOS Option+letter composes (Option+P → "π"), so `e.key`-based shortcut handling silently dies on the real app while a `key:'p'` test passes. Key off the physical `e.code`, and make platform key composition explicit in the e2e.
+2. **Confirm interaction-model changes with the user before implementing** — reversing a locked a11y decision (no-roving-nav) mid-walkthrough cost an extra build because the desired model wasn't pinned down first.
+3. **The human walkthrough is the real acceptance test for interaction feel** — automatable gates were 694/694 green and still missed both real bugs; budget for a hands-on pass and fast rebuild loop at the phase boundary.
+
+### Cost Observations
+- Model mix: GSD `quality` profile — primarily Opus for planning/execution/review.
+- Notable: another tightly-scoped single-phase milestone; the automatable surface was green before sign-off, but the human walkthrough drove three small gap-closure rounds (target size, Alt+P, Tab model) — the material work was post-gate, surfaced only by real use.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -155,6 +189,7 @@ The app's first personalization feature: a user-reorderable sidebar tool list (R
 | v1.2 Release Tooling | 3 (9–11) | 8 | Pure decision core + thin `.mjs` shell per script; dry-run-first; a live human-gate (real publish + updater round-trip) as the load-bearing acceptance |
 | v1.3 More Tools | 4 (12–15) | 11 | Risk-ordered independent features; pure-core-then-thin-view per tool; highest-risk slice (Cron L/nL) isolated with its own fixtures; auto-build at the human-verify checkpoint |
 | v1.4 Reorderable Tools | 1 (16) | 2 | First personalization feature; persisted overlay over the canonical registry (never a mutation); pure reconciliation backbone landed UI-free before the thin Sidebar wiring |
+| v1.5 Pinned Tools | 1 (17) | 2 | Two-group partition overlay reusing v1.4's reconciler per group; all real bugs (macOS Alt+P dead-key, Tab/arrow nav) surfaced by the human walkthrough, driving three post-gate gap-closure rounds |
 
 ### Cumulative Quality
 
@@ -165,8 +200,9 @@ The app's first personalization feature: a user-reorderable sidebar tool list (R
 | v1.2 Release Tooling | 503 vitest / 49 files | release core + drivers (Node builtins + `tsx`/Tauri CLI/`gh`/`rustup` — all devDeps) | **0** |
 | v1.3 More Tools | 650 vitest | URL + Regex + Cron tools + Protobuf decimal (native `URL`/`RegExp`/`Intl` + a Web Worker) | **0** |
 | v1.4 Reorderable Tools | 668 vitest | reorderable sidebar — `toolOrder` overlay + pure reconciliation helpers (native HTML5 drag + Alt+arrow, no dnd library) | **0** |
+| v1.5 Pinned Tools | 694 vitest | pinned sidebar section — `pinnedToolIds` overlay + pure `partitionTools`/`resolveRovingTarget` helpers (Alt+P, arrow focus-nav, per-group reorder) | **0** |
 
-Constant across all five: the hero decoder (`src/lib/protobuf/decoder.ts`) + its **19 tests** stayed byte-for-byte untouched.
+Constant across all six: the hero decoder (`src/lib/protobuf/decoder.ts`) + its **19 tests** stayed byte-for-byte untouched.
 
 ### Top Lessons (Verified Across Milestones)
 
@@ -175,3 +211,4 @@ Constant across all five: the hero decoder (`src/lib/protobuf/decoder.ts`) + its
 3. **Zero-runtime-dependency is sustainable** — three milestones in, the only runtime dep is still `js-md5`; native browser APIs + Node builtins + dev-only CLIs covered formatting *and* the entire release pipeline.
 4. **Push logic out of I/O shells into pure tested cores** — v1.2's two live bugs both lived in the deliberately-uncovered driver shell; the thinner the shell, the fewer places a bug can hide where tests don't look.
 5. **The real-WKWebView e2e cannot drive native-OS input** — v1.4's pointer drag-and-drop (and the Alt key-chord) couldn't be synthesized by the WebDriver, so the drag shipped broken (Tauri `dragDropEnabled` interception) and surfaced only in manual use. Native drag/drop, OS key chords, and file drops are *manual-walkthrough* coverage — make them an explicit human-verify checklist item; a green e2e on the keyboard path says nothing about them.
+6. **A synthetic key event can be a false positive** — v1.5's Alt+P shortcut tested green while dead on the real app: the e2e sent `key:'p'`, but macOS composes Option+P into "π", so production never saw `e.key==='p'`. Key letter chords off the physical `e.code`, and dispatch e2e key events with the platform-composed `key` so the test reproduces the real OS, not an idealized keycode. (Corollary: when a walkthrough reopens a locked interaction decision, re-confirm the model with the user before rebuilding.)

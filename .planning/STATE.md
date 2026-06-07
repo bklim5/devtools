@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Pinned Tools
 status: completed
-last_updated: "2026-06-07T13:54:25.938Z"
-last_activity: 2026-06-07
+last_updated: "2026-06-07T15:10:00.000Z"
+last_activity: 2026-06-07 -- v1.5 "Pinned Tools" shipped & archived
 progress:
   total_phases: 1
   completed_phases: 1
@@ -17,30 +17,24 @@ progress:
 
 ## Current Position
 
-Milestone: **v1.5 "Pinned Tools"** — started 2026-06-05; **Phase 17 COMPLETE & signed off 2026-06-07**. Single-phase milestone → v1.5 ready to close.
-Phase: **17 — Pinned Sidebar Section** (✅ complete, human-approved)
-Plan: 2/2 complete
-Status: Phase 17 signed off; milestone v1.5 ready to complete/archive
-Last activity: 2026-06-07 -- Phase 17 signed off (pin/unpin sidebar shipped)
+Milestone: **v1.5 "Pinned Tools" — SHIPPED & ARCHIVED 2026-06-07** (single phase). **No active milestone.**
+Phase: —
+Plan: —
+Status: Between milestones — v1.5 archived (tag `v1.5` local-only); awaiting next milestone selection.
+Last activity: 2026-06-07 -- v1.5 "Pinned Tools" shipped & archived
 
-**17-01 done (`8bac1768`, `c7b94741`):** `pinnedToolIds: string[]` prefs field (default `[]`) + `coercePinnedToolIds` untrusted-merge (no cap, wired into `mergePreferences`) + `setPinnedToolIds`/`togglePinned` (append-on-pin / remove) + pure `partitionTools(pinnedToolIds, toolOrder, registryIds) → { pinned, unpinned }` (reuses `reconcileToolOrder` for the remainder; 10-case immovable-bar matrix). PIN-07/PIN-08 ✅. Summary: `.planning/phases/17-pinned-sidebar-section/17-01-SUMMARY.md`.
-
-**17-02 done (`aee22ada`, `cb24e74f`):** two-group `Sidebar.tsx` via `partitionTools` — SR-named "Pinned tools" group + bare neutral divider above the "Tools" group (gated on the post-reconcile `pinned.length > 0`, Pitfall 5); left-of-grip pin toggle (persistent filled on pinned, outline hover+`focus-visible` on unpinned, `aria-pressed`) that toggles membership without navigating; **Alt+P** on the focused handle pins/unpins (`aria-live` "Pinned/Unpinned {name}" via the registry name); per-group drag + Alt+↑/↓ scoped by `draggingGroup` (pinned→`setPinnedToolIds`, unpinned→`setToolOrder`) with no cross-boundary; "Unpin all" as a second item in the Shift+F10 reset menu → `setPinnedToolIds([])`. Shared `renderRow` + one `handleRefs`/`focusAfterMoveRef` map across both groups (focus survives cross-group toggle). Registry/⌘K/router untouched. Full suite 685/685; decoder 19/19 untouched; zero new deps; **real-WKWebView e2e green via `scripts/e2e-spike.sh` (14/14 spec files; `sidebar.e2e` 2/2)**. PIN-01..06 + PIN-09 ✅. Summary: `.planning/phases/17-pinned-sidebar-section/17-02-SUMMARY.md`.
-
-**Next:** v1.5 is a single-phase milestone and Phase 17 is signed off → `/gsd-complete-milestone` to archive v1.5, or `/gsd-progress` to review. Phase-gate evidence: fresh `tauri build` (`.app`/`.dmg` v0.3.0, the absent-updater-key non-zero exit is expected); `gsd-ui-review` **23/24, WCAG-AA PASS (0 failures)**; human walkthrough approved (Alt+P, arrow nav, Tab fallback, native drag, hover reveal). Post-walkthrough gap-closure fixes landed (see corrected **D-17** below): Alt+P now keys off physical `KeyP` (macOS Option+P composes to "π"); every row is a Tab stop with the pin button also Tab-reachable (keyboard fallback) on top of ↑/↓ arrow nav; pin+grip widened to 24×24 (WCAG 2.5.8). Full suite **694/694**; decoder 19/19 untouched; zero new deps.
+**Next:** `/gsd-new-milestone` to start the next cycle, or `/gsd-review-backlog` to promote a parked item (999.1 tool wishlist · 999.2 CI · 999.3 theme settings · 999.4 DevTools CLI · 999.5 Protobuf schema-file). v1.5 detail archived to `.planning/milestones/v1.5-*` (+ `v1.5-phases/`); summary in `.planning/MILESTONES.md`; retrospective in `.planning/RETROSPECTIVE.md`.
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-06-05 after v1.4) · roadmap: .planning/milestones/v1.5-ROADMAP.md
+See: .planning/PROJECT.md (updated 2026-06-07 after v1.5) · roadmap: .planning/ROADMAP.md
 
 **Core value:** Paste an unknown blob → usable, explorable interpretation in <2s, entirely offline, no mouse.
-**Current focus:** v1.5 Pinned Tools — Phase 17 complete (pin/unpin sidebar shipped); milestone ready to archive.
+**Current focus:** Between milestones — v1.5 "Pinned Tools" shipped & archived; planning the next cycle.
 
-## Phases (v1.5)
+## v1.5 — Pinned Tools (SHIPPED & ARCHIVED, 2026-06-07)
 
-- [x] **Phase 17: Pinned Sidebar Section** (2/2 plans — ✅ COMPLETE, signed off 2026-06-07) — PIN-01..09
-  - [x] 17-01: Persistence + pure pinning backbone — `pinnedToolIds: string[]` prefs field (`coercePinnedToolIds` untrusted-merge, `setPinnedToolIds` write-on-change, `togglePinned`), pure reconcile + pinned/unpinned partition (always a registry partition; drop unknown, de-dupe), reusing `reconcileToolOrder`/`moveToolInOrder` per group. PIN-07/08.
-  - [x] 17-02: Pinned Sidebar UI — pinned group + neutral divider (shown only when ≥1 pinned) above the unpinned list; left-of-grip pin toggle (filled-persistent / outline hover+focus-visible) + Alt+P (`aria-live`-announced); independent per-group drag + Alt+↑/↓ reorder (no cross-boundary, `draggingGroup` scope); "Unpin all" as a second item in the Shift+F10 reset menu. Real-WKWebView e2e green (sidebar.e2e 2/2). PIN-01..06, PIN-09. (`aee22ada`, `cb24e74f`)
+v1.5 complete — Phase 17 (2 plans), archived to `.planning/milestones/v1.5-*` (+ `v1.5-phases/`), tag `v1.5` (local-only). A distinct "Pinned" sidebar section over a persisted `pinnedToolIds` overlay (registry stays the single control plane; ⌘K palette + router pin-agnostic): left-of-grip pin toggle + **Alt+P**, two-group `partitionTools` (always a full registry partition; drop unknown / de-dupe), independent per-group drag + Alt+↑/↓ reorder (no cross-boundary), "Unpin all" in the Shift+F10 menu, persisted + reconciled on load. All 9 PIN requirements validated on the real WKWebView; full suite **694/694**; decoder + its 19 tests byte-for-byte untouched; zero new runtime/dev deps; gsd-ui-review WCAG-AA 23/24. Post-walkthrough fixes (**D-17**, see Accumulated Context): Alt+P keys off physical `KeyP` (macOS Option+P → "π"); Tab-reachable rows + pin fallback + ↑/↓ focus nav; 24×24 targets.
 
 ## Accumulated Context
 
