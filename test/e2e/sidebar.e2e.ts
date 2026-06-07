@@ -50,6 +50,10 @@ function readOrder(): Promise<string[]> {
 // via native bubbling, so a dispatched bubbling KeyboardEvent on the focused
 // element fires the real onKeyDown — the SAME app code path, with the real
 // altKey/e.key the handler reads.
+//
+// The focused element is now the ROW (the NavLink <a>), which owns the whole
+// keyboard model (roving ↑/↓ + Home/End, Alt+↑/↓ reorder, Alt+P pin). The grip
+// is pointer-only (tabIndex -1, aria-hidden) and no longer carries key handlers.
 function dispatchKey(key: string, altKey: boolean): Promise<void> {
   return browser.execute(
     (k: string, alt: boolean) => {
@@ -68,7 +72,7 @@ function dispatchKey(key: string, altKey: boolean): Promise<void> {
   );
 }
 
-// Alt+P on the focused element — the pin/unpin chord (D-13/PIN-05). A bubbling
+// Alt+P on the focused ROW — the pin/unpin chord (D-13/PIN-05). A bubbling
 // KeyboardEvent with the literal `key: "p", altKey: true` (same rationale as
 // dispatchKey: WebKit WebDriver drops Alt on synthesized key actions).
 function dispatchAltP(): Promise<void> {
@@ -102,6 +106,25 @@ function readUnpinnedOrder(): Promise<string[]> {
   });
 }
 
+// The hrefs of every visible tool row (NavLink <a>) in DOM order — pinned then
+// unpinned as one flat sequence. The roving-nav focus target is asserted by href.
+function readRowHrefs(): Promise<string[]> {
+  return browser.execute(() =>
+    Array.from(document.querySelectorAll('nav a[href^="#/tools/"]')).map(
+      (a) => a.getAttribute("href") ?? "",
+    ),
+  );
+}
+
+// The href of the currently focused row (or null if focus is not on a tool row).
+function activeRowHref(): Promise<string | null> {
+  return browser.execute(() => {
+    const a = document.activeElement as HTMLElement | null;
+    if (!a || a.tagName !== "A") return null;
+    return a.getAttribute("href");
+  });
+}
+
 // The current aria-live="polite".sr-only announcement text.
 function readLiveRegion(): Promise<string> {
   return browser.execute(() => {
@@ -110,17 +133,22 @@ function readLiveRegion(): Promise<string> {
   });
 }
 
-// Focus the grip handle for the named tool (so the next dispatchKey targets it).
-// Returns true if the handle was found + focused.
-function focusHandle(name: string): Promise<boolean> {
+// Focus the ROW (the NavLink <a>) for the named tool, so the next dispatchKey
+// targets the element that now owns the keyboard model. The row is located via its
+// grip's stable `aria-label="Reorder {name}"` (the grip is pointer-only chrome but
+// still the per-row marker), then `.closest()` up to the row wrapper and down to
+// the <a>. Returns true if the row <a> received focus.
+function focusRow(name: string): Promise<boolean> {
   return browser.execute((n: string) => {
-    const el = Array.from(
+    const grip = Array.from(
       document.querySelectorAll('button[aria-label^="Reorder "]'),
-    ).find((b) => b.getAttribute("aria-label") === `Reorder ${n}`) as
-      | HTMLButtonElement
+    ).find((b) => b.getAttribute("aria-label") === `Reorder ${n}`);
+    // The row wrapper is the nearest ancestor that also contains the NavLink <a>.
+    const link = grip?.closest("div")?.querySelector("a") as
+      | HTMLAnchorElement
       | null;
-    el?.focus();
-    return document.activeElement === el;
+    link?.focus();
+    return document.activeElement === link;
   }, name);
 }
 
@@ -142,8 +170,8 @@ describe("Reorderable sidebar (real WKWebView)", () => {
 
     const startPinned = await readPinnedOrder();
     if (startPinned.length > 0) {
-      const focusedForReset = await focusHandle((await readOrder())[0]);
-      assert(focusedForReset, "could not focus a handle to clear pre-existing pins");
+      const focusedForReset = await focusRow((await readOrder())[0]);
+      assert(focusedForReset, "could not focus a row to clear pre-existing pins");
       await browser.execute(() => {
         document.activeElement?.dispatchEvent(
           new KeyboardEvent("keydown", { key: "F10", shiftKey: true, bubbles: true }),
@@ -180,33 +208,41 @@ describe("Reorderable sidebar (real WKWebView)", () => {
     );
     const firstName = initialOrder[0];
 
-    // 2. KEYBOARD REORDER: focus the FIRST tool's grip handle, send the
-    //    Alt+ArrowDown chord. The first tool must move to position 2 (down one).
-    const focusedFirst = await browser.execute(() => {
-      const el = document.querySelector(
-        'button[aria-label^="Reorder "]',
-      ) as HTMLButtonElement | null;
-      el?.focus();
-      return document.activeElement === el;
-    });
+    // 2. KEYBOARD REORDER: focus the FIRST tool's ROW (the NavLink — now the single
+    //    Tab stop carrying the keyboard model), send the Alt+ArrowDown chord. The
+    //    first tool must move to position 2 (down one).
+    const focusedFirst = await focusRow(firstName);
     assert(
       focusedFirst,
-      "the first grip handle did not accept keyboard focus — not keyboard-reachable?",
+      "the first tool ROW did not accept keyboard focus — not keyboard-reachable?",
     );
 
     // The Alt chord is driven by the module-level dispatchKey helper — a bubbling
     // KeyboardEvent, NOT browser.keys()/the Actions API (macOS WebKit's embedded
     // WebDriver drops the Alt modifier on synthesized key actions; RESEARCH.md:499).
 
-    // 2a. PLAIN ArrowDown (no Alt) must be UNBOUND — no roving nav (D-05/REORD-03).
+    // 2a. PLAIN ArrowDown (no Alt) is now roving FOCUS nav (the new model): it moves
+    //    focus to the next row but must NEVER reorder. Assert the order is unchanged
+    //    AND that focus advanced to the second row (then re-focus the first row so
+    //    the Alt chord below reorders the intended tool).
     await dispatchKey("ArrowDown", false);
     const afterPlain = await readOrder();
     assert(
       afterPlain[0] === firstName,
-      `plain ArrowDown must NOT reorder (no roving nav, D-05) — "${firstName}" left index 0: ${JSON.stringify(afterPlain)}`,
+      `plain ArrowDown must move FOCUS only, never reorder — "${firstName}" left index 0: ${JSON.stringify(afterPlain)}`,
+    );
+    const focusAdvanced = await browser.execute((second: string) => {
+      const a = document.activeElement as HTMLElement | null;
+      return a?.tagName === "A" && (a.textContent ?? "").includes(second);
+    }, afterPlain[1]);
+    assert(
+      focusAdvanced,
+      `plain ArrowDown must move focus to the second row ("${afterPlain[1]}") — roving nav`,
     );
 
-    // 2b. Alt+ArrowDown moves the focused tool one slot down.
+    // 2b. Alt+ArrowDown moves the focused tool one slot down. Re-focus the first
+    //     tool's row first (the plain ArrowDown above moved focus to row 2).
+    await focusRow(firstName);
     await dispatchKey("ArrowDown", true);
 
     await browser.waitUntil(
@@ -317,8 +353,8 @@ describe("Pinned sidebar section (real WKWebView)", () => {
     const startPinned = await readPinnedOrder();
     if (startPinned.length > 0) {
       // Open the context menu on the first handle and click "Unpin all".
-      const focusedForReset = await focusHandle((await readOrder())[0]);
-      assert(focusedForReset, "could not focus a handle to clear pre-existing pins");
+      const focusedForReset = await focusRow((await readOrder())[0]);
+      assert(focusedForReset, "could not focus a row to clear pre-existing pins");
       await browser.execute(() => {
         document.activeElement?.dispatchEvent(
           new KeyboardEvent("keydown", { key: "F10", shiftKey: true, bubbles: true }),
@@ -345,8 +381,8 @@ describe("Pinned sidebar section (real WKWebView)", () => {
     // 1. ALT+P PINS (PIN-01/05): focus the first unpinned tool's handle, Alt+P.
     const targetName = (await readUnpinnedOrder())[0];
     assert(!!targetName, "expected at least one unpinned tool to pin");
-    const focused = await focusHandle(targetName);
-    assert(focused, `the "${targetName}" grip handle did not accept keyboard focus`);
+    const focused = await focusRow(targetName);
+    assert(focused, `the "${targetName}" row did not accept keyboard focus`);
     await dispatchAltP();
 
     await browser.waitUntil(
@@ -371,7 +407,7 @@ describe("Pinned sidebar section (real WKWebView)", () => {
     // 4. PER-GROUP Alt+↓ NO CROSS-BOUNDARY (PIN-06): the lone pinned tool is at the
     //    bottom of the pinned group; Alt+↓ must hit the GROUP boundary, never slide
     //    it into the unpinned list.
-    const refocused = await focusHandle(targetName);
+    const refocused = await focusRow(targetName);
     assert(refocused, `could not re-focus "${targetName}" after pinning`);
     await dispatchKey("ArrowDown", true);
     await browser.waitUntil(
@@ -387,7 +423,7 @@ describe("Pinned sidebar section (real WKWebView)", () => {
     // Symmetric: an unpinned tool reordered via Alt+↑ never enters the pinned group.
     const unpinnedFirst = (await readUnpinnedOrder())[0];
     if (unpinnedFirst) {
-      const f = await focusHandle(unpinnedFirst);
+      const f = await focusRow(unpinnedFirst);
       assert(f, `could not focus the unpinned tool "${unpinnedFirst}"`);
       await dispatchKey("ArrowUp", true); // boundary bump — stays in-group
       assert(
@@ -421,7 +457,7 @@ describe("Pinned sidebar section (real WKWebView)", () => {
     // 2. ALT+P UNPINS (PIN-02/03): focus the pinned tool's handle, Alt+P again —
     //    the pinned group (the lone member removed) vanishes and aria-live reads
     //    "Unpinned {name}".
-    const focusedPinned = await focusHandle(targetName);
+    const focusedPinned = await focusRow(targetName);
     assert(focusedPinned, `could not focus the pinned tool "${targetName}" to unpin`);
     await dispatchAltP();
     await browser.waitUntil(
@@ -446,7 +482,7 @@ describe("Pinned sidebar section (real WKWebView)", () => {
     //    and aria-live reads "All tools unpinned".
     const pinAgain = (await readUnpinnedOrder())[0];
     assert(!!pinAgain, "expected an unpinned tool to pin for the Unpin-all check");
-    const f2 = await focusHandle(pinAgain);
+    const f2 = await focusRow(pinAgain);
     assert(f2, `could not focus "${pinAgain}" to pin for Unpin-all`);
     await dispatchAltP();
     await browser.waitUntil(async () => (await readPinnedOrder()).includes(pinAgain), {
@@ -454,7 +490,7 @@ describe("Pinned sidebar section (real WKWebView)", () => {
       timeoutMsg: `expected "${pinAgain}" pinned before exercising Unpin all`,
     });
     // Open the context menu (Shift+F10) on the focused handle, then click "Unpin all".
-    await focusHandle(pinAgain);
+    await focusRow(pinAgain);
     await browser.execute(() => {
       document.activeElement?.dispatchEvent(
         new KeyboardEvent("keydown", { key: "F10", shiftKey: true, bubbles: true }),
@@ -476,6 +512,169 @@ describe("Pinned sidebar section (real WKWebView)", () => {
     assert(
       allUnpinnedLive.includes("All tools unpinned"),
       `expected the aria-live region to read "All tools unpinned", got "${allUnpinnedLive}"`,
+    );
+  });
+});
+
+// Roving-tabindex keyboard model — real macOS WKWebView gate (Phase 17 gap fix).
+// The NavLink row is the SINGLE Tab stop and carries the whole keyboard model.
+// The load-bearing real-runtime checks only the real WKWebView proves:
+//   1. Plain ↑/↓ move FOCUS between rows, traversing pinned then unpinned as one
+//      continuous sequence ACROSS the divider (focus only; clamp at the ends, no wrap).
+//   2. Exactly ONE row is tabbable (roving) — row-to-row no longer needs triple-Tab —
+//      and the pin + grip controls are NOT Tab stops (tabIndex -1).
+describe("Sidebar roving-tabindex keyboard model (real WKWebView)", () => {
+  // Land clean (zero pinned) so the flat order is deterministic.
+  beforeEach(async () => {
+    await browser.execute(() => {
+      window.location.hash = "#/tools/protobuf-decoder";
+    });
+    const firstHandle = await $('button[aria-label^="Reorder "]');
+    await firstHandle.waitForExist({ timeout: 15_000 });
+    const startPinned = await readPinnedOrder();
+    if (startPinned.length > 0) {
+      const focusedForReset = await focusRow((await readOrder())[0]);
+      assert(focusedForReset, "could not focus a row to clear pre-existing pins");
+      await browser.execute(() => {
+        document.activeElement?.dispatchEvent(
+          new KeyboardEvent("keydown", { key: "F10", shiftKey: true, bubbles: true }),
+        );
+      });
+      await browser.execute(() => {
+        const item = Array.from(
+          document.querySelectorAll('[role="menuitem"]'),
+        ).find((b) => (b.textContent ?? "").includes("Unpin all")) as HTMLElement | null;
+        item?.click();
+      });
+      await browser.waitUntil(async () => (await readPinnedOrder()).length === 0, {
+        timeout: 5_000,
+        timeoutMsg: "failed to clear pre-existing pins before the roving test",
+      });
+    }
+  });
+
+  it("plain ↑/↓ move focus between rows and cross the pinned↔unpinned divider, clamped at the ends", async () => {
+    // Pin the FIRST unpinned tool so we have a pinned group above the divider.
+    const toPin = (await readUnpinnedOrder())[0];
+    assert(!!toPin, "expected at least one unpinned tool to pin");
+    const focusedToPin = await focusRow(toPin);
+    assert(focusedToPin, `the "${toPin}" row did not accept keyboard focus`);
+    await dispatchAltP();
+    await browser.waitUntil(async () => (await readPinnedOrder()).includes(toPin), {
+      timeout: 5_000,
+      timeoutMsg: `expected "${toPin}" pinned before the roving check`,
+    });
+
+    // Work in HREF-space: readRowHrefs() returns the rows in DOM order — pinned then
+    // unpinned as one flat sequence — using the ROUTE id (`#/tools/{id}`), not the
+    // display name (the grip aria-label name and the route id can differ in case,
+    // e.g. "Base64" vs base64). The divider sits between the pinned rows and the
+    // unpinned rows; with exactly one tool pinned, hrefs[0] is the last pinned row
+    // and hrefs[1] is the first unpinned row.
+    const pinnedCount = (await readPinnedOrder()).length;
+    const hrefs = await readRowHrefs();
+    assert(
+      pinnedCount === 1 && hrefs.length >= 2,
+      `expected exactly one pinned row above >=1 unpinned to test the divider crossing, got pinnedCount=${pinnedCount} hrefs=${JSON.stringify(hrefs)}`,
+    );
+    const lastPinnedHref = hrefs[pinnedCount - 1]; // = hrefs[0]
+    const firstUnpinnedHref = hrefs[pinnedCount]; // = hrefs[1]
+
+    // focus a row by its href (the route id is stable across the name/id case gap).
+    const focusByHref = (href: string) =>
+      browser.execute((h: string) => {
+        const a = Array.from(
+          document.querySelectorAll('nav a[href^="#/tools/"]'),
+        ).find((el) => el.getAttribute("href") === h) as HTMLElement | null;
+        a?.focus();
+        return document.activeElement === a;
+      }, href);
+
+    // 1. CROSS THE DIVIDER (↓): focus the LAST pinned row, plain ArrowDown must land
+    //    focus on the FIRST unpinned row — one continuous sequence across the divider.
+    const focusedLastPinned = await focusByHref(lastPinnedHref);
+    assert(focusedLastPinned, `could not focus the last pinned row "${lastPinnedHref}"`);
+    await dispatchKey("ArrowDown", false);
+    await browser.waitUntil(async () => (await activeRowHref()) === firstUnpinnedHref, {
+      timeout: 3_000,
+      timeoutMsg: `plain ArrowDown at the last pinned row must move focus across the divider to "${firstUnpinnedHref}", got "${await activeRowHref()}"`,
+    });
+
+    // 2. CROSS BACK (↑): from the first unpinned row, plain ArrowUp returns focus to
+    //    the last pinned row.
+    await dispatchKey("ArrowUp", false);
+    await browser.waitUntil(async () => (await activeRowHref()) === lastPinnedHref, {
+      timeout: 3_000,
+      timeoutMsg: `plain ArrowUp at the first unpinned row must move focus back to "${lastPinnedHref}", got "${await activeRowHref()}"`,
+    });
+
+    // 3. CLAMP AT THE FIRST ROW (↑, no wrap): focus the very first visible row, plain
+    //    ArrowUp must keep focus there (never wraps to the last).
+    const firstHref = hrefs[0];
+    await focusByHref(firstHref);
+    await dispatchKey("ArrowUp", false);
+    assert(
+      (await activeRowHref()) === firstHref,
+      `plain ArrowUp at the first row must CLAMP (no wrap) — focus left "${firstHref}" for "${await activeRowHref()}"`,
+    );
+
+    // 4. CLAMP AT THE LAST ROW (↓, no wrap).
+    const lastHref = hrefs[hrefs.length - 1];
+    await browser.execute((href: string) => {
+      const a = Array.from(
+        document.querySelectorAll('nav a[href^="#/tools/"]'),
+      ).find((el) => el.getAttribute("href") === href) as HTMLElement | null;
+      a?.focus();
+    }, lastHref);
+    await dispatchKey("ArrowDown", false);
+    assert(
+      (await activeRowHref()) === lastHref,
+      `plain ArrowDown at the last row must CLAMP (no wrap) — focus left "${lastHref}" for "${await activeRowHref()}"`,
+    );
+
+    // Clean up: unpin so the next spec/run starts clean.
+    const refocus = await focusRow(toPin);
+    if (refocus) await dispatchAltP();
+  });
+
+  it("exactly one row is tabbable (roving) and the pin + grip controls are not Tab stops", async () => {
+    // Only ONE row carries tabindex 0; every other row is -1 (roving). Reaching the
+    // next tool is one plain ArrowDown, not a triple-Tab through row/pin/grip.
+    const rowTabindices = await browser.execute(() =>
+      Array.from(document.querySelectorAll('nav a[href^="#/tools/"]')).map(
+        (a) => a.getAttribute("tabindex"),
+      ),
+    );
+    const tabbableRows = rowTabindices.filter((t) => t === "0").length;
+    assert(
+      tabbableRows === 1,
+      `expected EXACTLY ONE tabbable row (roving tabindex), got ${tabbableRows}: ${JSON.stringify(rowTabindices)}`,
+    );
+    assert(
+      rowTabindices.filter((t) => t === "-1").length === rowTabindices.length - 1,
+      `expected every non-tabbable row to be tabindex -1, got ${JSON.stringify(rowTabindices)}`,
+    );
+
+    // The pin + grip controls inside every row must be tabIndex -1 (pointer-only) so
+    // Tab moves OUT of the list in one press instead of stepping through them.
+    const controlTabindices = await browser.execute(() => {
+      const pins = Array.from(
+        document.querySelectorAll('nav button[aria-label^="Pin "], nav button[aria-label^="Unpin "]'),
+      ).map((b) => b.getAttribute("tabindex"));
+      const grips = Array.from(
+        document.querySelectorAll('nav button[aria-label^="Reorder "]'),
+      ).map((b) => b.getAttribute("tabindex"));
+      return { pins, grips };
+    });
+    assert(
+      controlTabindices.pins.length > 0 &&
+        controlTabindices.pins.every((t) => t === "-1"),
+      `expected every pin button to be tabindex -1 (pointer-only), got ${JSON.stringify(controlTabindices.pins)}`,
+    );
+    assert(
+      controlTabindices.grips.length > 0 &&
+        controlTabindices.grips.every((t) => t === "-1"),
+      `expected every grip handle to be tabindex -1 (pointer-only), got ${JSON.stringify(controlTabindices.grips)}`,
     );
   });
 });
