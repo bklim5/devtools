@@ -54,7 +54,7 @@ export function UpdateBanner({
           v{info.version} available
         </p>
         {info.notes ? (
-          <p className="text-[12px] leading-5 text-tx-2">{info.notes}</p>
+          <p className="text-[12px] leading-5 text-tx-2 whitespace-pre-line">{info.notes}</p>
         ) : null}
         <div className="mt-2 flex items-center gap-2">
           <button
