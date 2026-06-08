@@ -27,6 +27,23 @@ describe("UpdateBanner", () => {
     expect(getByText(/Faster protobuf decoding/i)).toBeDefined();
   });
 
+  it("renders multi-line notes in a paragraph that preserves line breaks (whitespace-pre-line)", () => {
+    const multiline: UpdateInfo = {
+      version: "0.3.0",
+      notes: "- Added the URL tool.\n- Fixed hex paste.",
+      date: null,
+    };
+    const { getByText } = render(
+      <UpdateBanner info={multiline} onInstall={() => {}} onDismiss={() => {}} />,
+    );
+    // The notes <p> carries whitespace-pre-line so the CHANGELOG's newlines survive
+    // (without it, the browser collapses them into one run of text).
+    const notes = getByText(/Added the URL tool/);
+    expect(notes.tagName).toBe("P");
+    expect(notes.className).toContain("whitespace-pre-line");
+    expect(notes.textContent).toContain("\n");
+  });
+
   it("calls onInstall when the Install button is clicked", () => {
     const onInstall = vi.fn();
     const { getByRole } = render(
