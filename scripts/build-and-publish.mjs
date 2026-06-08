@@ -50,6 +50,7 @@ import { execFileSync } from "node:child_process";
 import process, { stdout, stderr } from "node:process";
 
 import { buildLatestJson } from "../src/lib/release/manifest.ts";
+import { extractChangelogSection } from "../src/lib/release/changelog.ts";
 // Pure decision core — import the publishPlan helpers (mirrors bumpPlan.ts split):
 import {
   parsePublishArgs,
@@ -145,6 +146,26 @@ function readCurrentVersion() {
     abort('package.json has no string "version" field.');
   }
   return pkg.version;
+}
+
+/**
+ * Resolve the release notes for `version`: the matching `CHANGELOG.md` section's
+ * body, or the bare `tag` when the file is missing OR the section is empty/absent.
+ * A missing file never throws (guarded by `existsSync`), and the fall-back emits a
+ * non-fatal `log(...)` warning so the maintainer notices they shipped the tag. The
+ * notes are NEVER interpolated into a shell string — callers pass them as a single
+ * `execFileSync` argv element.
+ */
+function resolveReleaseNotes(version, tag) {
+  let notes = "";
+  if (existsSync("CHANGELOG.md")) {
+    notes = extractChangelogSection(readFileSync("CHANGELOG.md", "utf8"), version);
+  }
+  if (!notes) {
+    log(`note: no CHANGELOG.md section for ${version} — shipping the tag as notes.`);
+    return tag;
+  }
+  return notes;
 }
 
 /**
@@ -283,13 +304,15 @@ function publish(view, version, { x86Present }) {
   log(`First-install DMG: ${dmg}`);
 
   // 7. Build latest.json via the PURE fn (generate-only; never `git add` — REL-08).
+  //    Real CHANGELOG notes for this version, falling back to the tag (resilient).
+  const notes = resolveReleaseNotes(version, view.tag);
   const url = buildAssetUrl(version, tarballBasename);
   const latest = buildLatestJson({
     version,
     pubDate: new Date().toISOString(),
     url,
     signature,
-    notes: view.tag,
+    notes,
   });
   writeFileSync("latest.json", JSON.stringify(latest, null, 2));
   log("Wrote latest.json (generated-only, NOT committed).");
@@ -309,7 +332,7 @@ function publish(view, version, { x86Present }) {
       "--title",
       view.tag,
       "--notes",
-      view.tag,
+      notes,
     ]);
     log("  - gh release create (DMG + .app.tar.gz uploaded)");
 
