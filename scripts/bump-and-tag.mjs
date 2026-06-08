@@ -23,7 +23,7 @@
 //   * all preflights run BEFORE the first write (D-08); a non-TTY run declines
 //     the push (default NO) and keeps local work.
 
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { createInterface } from "node:readline/promises";
 import process, { stdin, stdout, stderr } from "node:process";
@@ -37,7 +37,7 @@ import {
   isAffirmative,
   ALLOWED_PATHS,
 } from "../src/lib/release/bumpPlan.ts";
-import { extractChangelogSection } from "../src/lib/release/changelog.ts";
+import { resolveReleaseNotes } from "./lib/releaseNotes.mjs";
 
 const ALLOWED = new Set(ALLOWED_PATHS);
 
@@ -105,27 +105,6 @@ function readCurrentVersion() {
     abort("package.json has no string \"version\" field.");
   }
   return pkg.version;
-}
-
-/**
- * Resolve the annotated-tag notes for `version`: the matching `CHANGELOG.md`
- * section's body, or the bare `tag` when the file is missing OR the section is
- * empty/absent. A missing file never throws (guarded by `existsSync`), and the
- * fall-back emits a non-fatal `log(...)` warning. Keyed on `plan.nextVersion` —
- * the version being tagged — so the maintainer's entry for the NEW version is the
- * one found. Notes are passed as a single `git tag -a -m` argv element, never a
- * shell string.
- */
-function resolveTagNotes(version, tag) {
-  let notes = "";
-  if (existsSync("CHANGELOG.md")) {
-    notes = extractChangelogSection(readFileSync("CHANGELOG.md", "utf8"), version);
-  }
-  if (!notes) {
-    log(`note: no CHANGELOG.md section for ${version} — tagging with the bare tag as notes.`);
-    return tag;
-  }
-  return notes;
 }
 
 /** The changed-path set from `git status --porcelain` (porcelain line = "XY path"). */
@@ -238,7 +217,14 @@ function commitAndTag(plan) {
   log(`Committed: ${plan.commitMessage}`);
 
   // Real CHANGELOG notes for the version being tagged, falling back to the tag.
-  const notes = resolveTagNotes(plan.nextVersion, plan.tag);
+  // Keyed on plan.nextVersion (the version being tagged) so the maintainer's entry
+  // for the NEW version is the one found.
+  const notes = resolveReleaseNotes(
+    plan.nextVersion,
+    plan.tag,
+    "tagging with the bare tag as notes",
+    log,
+  );
   run("git", ["tag", "-a", plan.tag, "-m", notes]); // annotated (D-04)
   taggedPlan = plan; // from here on, failures must surface recovery (D-09/D-10)
   log(`Created annotated tag: ${plan.tag}`);

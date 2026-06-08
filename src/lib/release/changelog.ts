@@ -12,10 +12,10 @@
 // - Heading-shape tolerance: a version's heading may be written `## [0.3.0] - 2026-06-08`,
 //   `## [0.3.0]`, or `## 0.3.0`. We tolerate optional `[ ]` brackets, an optional
 //   ` - <anything>` date/label suffix, and surrounding whitespace on the line.
-// - Exact-version-only: the version's `.` characters are escaped to LITERAL dots
-//   when building the matcher, and the version is anchored so nothing version-like
-//   may follow it (only `]`, whitespace, a `-` suffix, or end-of-line). So `0.3.0`
-//   matches `## [0.3.0]` but NEVER `## [0.3.10]` or `## [10.3.0]`.
+// - Exact-version-only: matching is plain string comparison (no regex), so the
+//   version's dots are inherently literal, and the version is anchored so nothing
+//   version-like may follow it (only `]`, whitespace, a `-` suffix, or end-of-line).
+//   So `0.3.0` matches `## [0.3.0]` but NEVER `## [0.3.10]` or `## [10.3.0]`.
 // - Body rule: collect every line AFTER the matched heading up to (but excluding)
 //   the next `## ` heading (any version) or EOF, then trim; an empty/whitespace-
 //   only body — and a missing section — both return "".
@@ -40,8 +40,9 @@ function isVersionHeading(line: string, version: string): boolean {
   // Optional opening bracket.
   const bracketed = rest.startsWith("[");
   if (bracketed) rest = rest.slice(1);
-  // The exact version must lead here (literal dots — version came from a manifest,
-  // but escape defensively so a "." can never act as a regex-style wildcard).
+  // The exact version must lead here — plain string match (no regex), so the dots
+  // are inherently literal; a numeric continuation (the "10" of "0.3.10") is
+  // rejected by the tail check below.
   if (!rest.startsWith(version)) return false;
   let after = rest.slice(version.length);
   // A bracketed heading must close the bracket immediately after the version.
