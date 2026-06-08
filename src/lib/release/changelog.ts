@@ -41,8 +41,9 @@ function isVersionHeading(line: string, version: string): boolean {
   const bracketed = rest.startsWith("[");
   if (bracketed) rest = rest.slice(1);
   // The exact version must lead here — plain string match (no regex), so the dots
-  // are inherently literal; a numeric continuation (the "10" of "0.3.10") is
-  // rejected by the tail check below.
+  // are inherently literal. A longer version (the "0.3.10" vs "0.3.0") fails this
+  // prefix check outright; an equal prefix that continues (e.g. "0.3.0-rc.1") is
+  // caught by the bracket-close / whitespace-separator checks below.
   if (!rest.startsWith(version)) return false;
   let after = rest.slice(version.length);
   // A bracketed heading must close the bracket immediately after the version.
@@ -50,12 +51,14 @@ function isVersionHeading(line: string, version: string): boolean {
     if (!after.startsWith("]")) return false;
     after = after.slice(1);
   }
-  after = after.trim();
-  // Nothing left (e.g. "## 0.3.0" / "## [0.3.0]") -> exact match.
+  // Nothing follows the version (e.g. "## 0.3.0" / "## [0.3.0]") -> exact match.
+  // (A bare unbracketed version may carry trailing whitespace; strip it first.)
+  if (!bracketed) after = after.replace(/\s+$/, "");
   if (after.length === 0) return true;
-  // Otherwise only a " - <suffix>" date/label tail is allowed; any other trailing
-  // char (e.g. the "10" of "0.3.10") means this is a DIFFERENT version.
-  return after.startsWith("-");
+  // Otherwise a date/label tail must be SEPARATED by whitespace (e.g. " - 2026-06-08").
+  // Requiring that separator is what rejects a GLUED continuation — the "-rc.1" of
+  // "## 0.3.0-rc.1" — as a DIFFERENT version, not a date suffix of 0.3.0.
+  return /^\s/.test(after);
 }
 
 /**

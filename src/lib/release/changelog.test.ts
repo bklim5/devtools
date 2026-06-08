@@ -69,6 +69,16 @@ describe("extractChangelogSection", () => {
     expect(extractChangelogSection(file, "0.3.0")).toBe("");
   });
 
+  it("does not match a GLUED unbracketed suffix (0.3.0 != 0.3.0-rc.1)", () => {
+    const file = "## 0.3.0-rc.1\n\n- the prerelease\n";
+    expect(extractChangelogSection(file, "0.3.0")).toBe("");
+  });
+
+  it("matches an unbracketed date-suffixed heading (whitespace-separated)", () => {
+    const file = "## 0.3.0 - 2026-06-08\n\n- body\n";
+    expect(extractChangelogSection(file, "0.3.0")).toBe("- body");
+  });
+
   it("tolerates CRLF line endings (still matches + extracts)", () => {
     const crlf = "## [0.3.0]\r\n\r\n- one\r\n- two\r\n\r\n## [0.2.0]\r\n";
     expect(extractChangelogSection(crlf, "0.3.0")).toBe("- one\n- two");
