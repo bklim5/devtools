@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Pinned Tools
 status: completed
-last_updated: "2026-06-07T15:10:00.000Z"
-last_activity: 2026-06-07 -- v1.5 "Pinned Tools" shipped & archived
+last_updated: "2026-06-08T08:13:00.000Z"
+last_activity: 2026-06-08 -- Completed quick task 260608-avk: release notes via CHANGELOG.md
 progress:
   total_phases: 1
   completed_phases: 1
@@ -21,9 +21,15 @@ Milestone: **v1.5 "Pinned Tools" — SHIPPED & ARCHIVED 2026-06-07** (single pha
 Phase: —
 Plan: —
 Status: Between milestones — v1.5 archived (tag `v1.5` local-only); awaiting next milestone selection.
-Last activity: 2026-06-07 -- v1.5 "Pinned Tools" shipped & archived
+Last activity: 2026-06-08 -- Completed quick task 260608-avk: release notes via CHANGELOG.md
 
 **Next:** `/gsd-new-milestone` to start the next cycle, or `/gsd-review-backlog` to promote a parked item (999.1 tool wishlist · 999.2 CI · 999.3 theme settings · 999.4 DevTools CLI · 999.5 Protobuf schema-file). v1.5 detail archived to `.planning/milestones/v1.5-*` (+ `v1.5-phases/`); summary in `.planning/MILESTONES.md`; retrospective in `.planning/RETROSPECTIVE.md`.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260608-avk | Release notes via CHANGELOG.md (pure `extractChangelogSection` + wired both release drivers + multi-line updater banner) | 2026-06-08 | dcbf344f | [260608-avk-plumb-release-notes-through-changelog-md](./quick/260608-avk-plumb-release-notes-through-changelog-md/) |
 
 ## Project Reference
 
