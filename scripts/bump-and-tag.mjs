@@ -23,7 +23,7 @@
 //   * all preflights run BEFORE the first write (D-08); a non-TTY run declines
 //     the push (default NO) and keeps local work.
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { createInterface } from "node:readline/promises";
 import process, { stdin, stdout, stderr } from "node:process";
@@ -37,6 +37,7 @@ import {
   isAffirmative,
   ALLOWED_PATHS,
 } from "../src/lib/release/bumpPlan.ts";
+import { promoteUnreleased } from "../src/lib/release/changelog.ts";
 import { resolveReleaseNotes } from "./lib/releaseNotes.mjs";
 
 const ALLOWED = new Set(ALLOWED_PATHS);
@@ -179,6 +180,24 @@ function writeManifests(plan) {
 }
 
 /**
+ * Promote `## [Unreleased]` -> `## [<nextVersion>] - <today>` (and insert a fresh
+ * empty Unreleased) so the bump commit carries the changelog and the tag message
+ * extracts the real notes. The driver reads the wall clock here (the pure
+ * `promoteUnreleased` must NOT); CHANGELOG.md is OPTIONAL, so a missing file or a
+ * no-op promotion (no Unreleased section / unchanged text) writes nothing and the
+ * file simply stays out of the changed set (it is allowed, not required).
+ */
+function promoteChangelog(plan) {
+  if (!existsSync("CHANGELOG.md")) return;
+  const before = readFileSync("CHANGELOG.md", "utf8");
+  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  const promoted = promoteUnreleased(before, plan.nextVersion, today);
+  if (promoted === before) return; // no Unreleased section -> nothing to cut
+  writeFileSync("CHANGELOG.md", promoted);
+  log(`\nPromoted CHANGELOG.md: [Unreleased] -> [${plan.nextVersion}] - ${today}`);
+}
+
+/**
  * Regenerate the lockfiles (D-11). pnpm is expected to be a no-op (the lockfile
  * does not store the root version — RESEARCH Q1), so it is staged only if it
  * actually changed. cargo is the surgical 1-package relock (`cargo update -p`,
@@ -294,7 +313,11 @@ async function main() {
     process.exit(0);
   }
 
-  // 5-9. Local, reversible work.
+  // 5-9. Local, reversible work. Promote the changelog FIRST (after the dry-run
+  //      short-circuit above, so --dry-run stays ZERO writes) so the promoted
+  //      CHANGELOG.md lands in the changed set, is staged by commitAndTag's
+  //      `changed ∩ ALLOWED`, and feeds resolveReleaseNotes for the tag message.
+  promoteChangelog(plan);
   writeManifests(plan);
   regenLockfiles();
   commitAndTag(plan);

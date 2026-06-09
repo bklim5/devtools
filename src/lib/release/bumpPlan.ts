@@ -156,9 +156,13 @@ export function buildBumpPlan(
 }
 
 /**
- * The 5-path allowlist (RESEARCH §Q3): the only paths a bump may change — the
- * 3 manifests plus the 2 lockfiles. `assertOnlyExpectedPaths` diffs the actual
- * changed set against this; Plan 03 also stages exactly these.
+ * The 6-path allowlist (RESEARCH §Q3): the only paths a bump may change — the
+ * 3 manifests, the 2 lockfiles, plus the optional `CHANGELOG.md` the bump
+ * promotes (`## [Unreleased]` -> `## [<version>] - <date>`). CHANGELOG.md is
+ * ALLOWED but NOT required: a changelog-less repo (or a no-op promotion that
+ * leaves the file byte-identical) must still pass `assertOnlyExpectedPaths`.
+ * `assertOnlyExpectedPaths` diffs the actual changed set against this; Plan 03
+ * also stages exactly these.
  */
 export const ALLOWED_PATHS: readonly string[] = [
   "package.json",
@@ -166,6 +170,7 @@ export const ALLOWED_PATHS: readonly string[] = [
   "src-tauri/Cargo.toml",
   "pnpm-lock.yaml",
   "src-tauri/Cargo.lock",
+  "CHANGELOG.md",
 ];
 
 // The 3 manifests a real bump ALWAYS edits (the lockfiles may be no-ops — Q1).

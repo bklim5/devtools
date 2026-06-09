@@ -182,7 +182,7 @@ describe("buildBumpPlan", () => {
 });
 
 describe("ALLOWED_PATHS", () => {
-  it("is exactly the 3 manifests + 2 lockfiles", () => {
+  it("is exactly the 3 manifests + 2 lockfiles + the optional CHANGELOG.md", () => {
     expect([...ALLOWED_PATHS].sort()).toEqual(
       [
         "package.json",
@@ -190,6 +190,7 @@ describe("ALLOWED_PATHS", () => {
         "src-tauri/Cargo.toml",
         "pnpm-lock.yaml",
         "src-tauri/Cargo.lock",
+        "CHANGELOG.md",
       ].sort(),
     );
   });
@@ -216,6 +217,18 @@ describe("assertOnlyExpectedPaths", () => {
   });
 
   it("accepts the 3 manifests with neither lockfile changed", () => {
+    expect(() => assertOnlyExpectedPaths([...MANIFESTS])).not.toThrow();
+  });
+
+  it("accepts the 3 manifests + a promoted CHANGELOG.md (CHANGELOG is allowed)", () => {
+    expect(() =>
+      assertOnlyExpectedPaths([...MANIFESTS, "CHANGELOG.md"]),
+    ).not.toThrow();
+  });
+
+  it("accepts the 3 manifests with NO CHANGELOG.md (CHANGELOG is not required)", () => {
+    // A changelog-less repo or a no-op promotion leaves CHANGELOG.md out of the
+    // changed set; that must still pass (CHANGELOG is allowed, never required).
     expect(() => assertOnlyExpectedPaths([...MANIFESTS])).not.toThrow();
   });
 
