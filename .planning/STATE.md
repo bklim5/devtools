@@ -2,11 +2,11 @@
 gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Licensing
-status: defining_requirements
+status: roadmap_created
 last_updated: "2026-06-09T00:00:00.000Z"
-last_activity: 2026-06-09 -- Milestone v1.6 "Licensing" started (defining requirements)
+last_activity: 2026-06-09 -- v1.6 roadmap created (Phases 18-21); next /gsd-plan-phase 18
 progress:
-  total_phases: 0
+  total_phases: 4
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -17,13 +17,20 @@ progress:
 
 ## Current Position
 
-Milestone: **v1.6 "Licensing"** — started 2026-06-09.
-Phase: Not started (defining requirements)
+Milestone: **v1.6 "Licensing"** — started 2026-06-09, roadmap created 2026-06-09.
+Phase: **18 — Entitlements Seam & Central Gate** (not started)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-06-09 — Milestone v1.6 started
+Status: Roadmap created — ready to plan Phase 18 (`/gsd-plan-phase 18`)
+Progress: [□□□□] 0/4 phases
+Last activity: 2026-06-09 — v1.6 roadmap created (Phases 18–21, 17/17 requirements mapped)
 
 **Goal:** one-time-payment lifetime license — MoR checkout → webhook → Keygen (perpetual, node-locked, maxMachines=1); paste-key one-time activation (fingerprint `HMAC-SHA256(IOPlatformUUID, salt)`); offline Ed25519-verified `machine.lic` (~30-day TTL) thereafter; license key in Keychain (Rust-owned); free tier locks Protobuf hero + theming + ordering/pinning behind a central entitlement gate. Research: `docs/licensing-research.md`.
+
+**v1.6 phase structure (ROADMAP.md):**
+- **Phase 18 — Entitlements Seam & Central Gate** (ENT-01..05): pure-frontend gating seam, lock badges + upsell panel, lazy registry loaders; in-Tauri default = everything unlocked until Phase 21 flips it.
+- **Phase 19 — License Activation & Offline Verification** (LIC-01/02/03/04/06): Keygen Rust core — activation, fingerprint, Ed25519 offline verify, Keychain, fail-closed. **Riskiest chunk; includes the SPIKE: confirm client-side license-key → license-token exchange against the live Keygen API.**
+- **Phase 20 — Purchase Pipeline** (PAY-01..03): MoR checkout → webhook backend → Keygen license creation → key emailed. External infra; **parallel-capable with Phase 19** (depends only on 18).
+- **Phase 21 — License Lifecycle & Ship Gate** (LIC-05/07/08/09): TTL refresh + grace, transfer, revocation, status UI; **flips the free-tier default live**; full 8-case ship-gate matrix on a fresh build. Depends on 19 AND 20 (end-to-end purchase→activation).
 
 ### Quick Tasks Completed
 
@@ -34,10 +41,10 @@ Last activity: 2026-06-09 — Milestone v1.6 started
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-06-07 after v1.5) · roadmap: .planning/ROADMAP.md
+See: .planning/PROJECT.md (updated 2026-06-09, v1.6 started) · roadmap: .planning/ROADMAP.md · requirements: .planning/REQUIREMENTS.md · research: docs/licensing-research.md
 
 **Core value:** Paste an unknown blob → usable, explorable interpretation in <2s, entirely offline, no mouse.
-**Current focus:** Between milestones — v1.5 "Pinned Tools" shipped & archived; planning the next cycle.
+**Current focus:** v1.6 "Licensing" — Phase 18 (entitlements seam) next.
 
 ## v1.5 — Pinned Tools (SHIPPED & ARCHIVED, 2026-06-07)
 
@@ -45,7 +52,15 @@ v1.5 complete — Phase 17 (2 plans), archived to `.planning/milestones/v1.5-*` 
 
 ## Accumulated Context
 
-**Inherited binding wedge (every phase):** offline/no-network · paste-instant (<2s) · keyboard-driven · registry-driven single control plane · HashRouter only · WCAG-AA (keyboard path + `aria-live` mandatory, not optional) · layout-agnostic · **zero new runtime AND dev dependencies** · **`src/lib/protobuf/decoder.ts` + its 19 tests stay byte-for-byte untouched**. UI features add the **real-WKWebView UI gate**.
+**Inherited binding wedge (every phase):** offline/no-network · paste-instant (<2s) · keyboard-driven · registry-driven single control plane · HashRouter only · WCAG-AA (keyboard path + `aria-live` mandatory, not optional) · layout-agnostic · **zero new runtime AND dev dependencies in the webview** · **`src/lib/protobuf/decoder.ts` + its 19 tests stay byte-for-byte untouched**. UI features add the **real-WKWebView UI gate**.
+
+**v1.6 scoped amendments (locked, recorded in PROJECT.md + REQUIREMENTS.md):** "no network at runtime" gains a narrow licensing-only exception — one-time activation + opportunistic ~30-day TTL refresh, never per-launch checks, all tools fully functional offline. Rust crates for licensing (`ed25519-dalek`, `keyring`, HMAC) are expected and allowed; webview runtime deps stay zero.
+
+**v1.6 architecture (locked — `docs/licensing-research.md`, do not re-litigate):** Keygen perpetual + node-locked (`maxMachines=1`); unencrypted Ed25519-signed `machine.lic` verified in Rust (embedded pubkey + fingerprint `HMAC-SHA256(IOPlatformUUID, app-salt)`); license key in macOS Keychain (Rust-owned, never readable from JS); React sees only `license_status`/`activate_license`/`refresh_license`/`deactivate_machine` returning a resolved entitlement set; MoR checkout (Lemon Squeezy default, payout-country pending) → webhook → small backend → Keygen license creation (privileged tokens server-side ONLY); webview gating = UX-gating, not DRM (accepted); OS-portable seams, macOS-only impl; locked tools stay visible with lock badge + upsell panel (never hidden, no opacity-only state).
+
+**v1.6 sequencing decisions:** entitlements seam FIRST (pure frontend, free-tier default = everything unlocked until Phase 21 flips it at integration); Keygen Rust integration is the riskiest chunk and carries the key→token-exchange SPIKE; PAY pipeline is external infra, parallel-capable with Phase 19; lifecycle hardening + the 8-case ship-gate matrix close the milestone.
+
+**v1.6 open items (resolve in spike/planning):** client-side key→token exchange vs raw key in Keychain (spike, Phase 19); Lemon Squeezy seller payout-country verification (before Phase 20 commits); Keygen production tier (paid Std cloud vs self-hosted CE — free Dev tier dev-only, ~100 ALU cap); exact offline-grace behavior when TTL lapses offline (Phase 21 planning).
 
 **v1.5 design (confirmed, do not re-litigate):** pinning is a render-time presentation overlay (`pinnedToolIds`) persisted through the existing `usePreferences`/`platform.store` seam beside `toolOrder`/`recentToolIds`; registry stays the single control plane (⌘K palette + router pin-agnostic). Reuses v1.4's `reconcileToolOrder`/`moveToolInOrder`, grip-handle drag + Alt+↑/↓ reorder, and the `aria-live` pattern. **Defaults:** no tool pinned by default (empty pinned section → no divider; hero NOT auto-pinned); pinning appends to the bottom of the pinned section; membership changes via pin/unpin only (no drag-across-boundary). Settings surface + auto-pin-hero stay deferred.
 
@@ -81,4 +96,4 @@ v1.1 complete — Phases 7 + 8 (4 plans), archived to `.planning/milestones/v1.1
 
 v1.0 complete — all 6 phases (28/28 plans): foundation/harness (1), shell (2), Protobuf hero + Base64/Hex/Bytes + UX constraints (3), the four catalogue tools (4), native polish (5), distributable self-updating signed-DMG macOS app + verified auto-updater (6). Full archive: `.planning/milestones/v1.0-*` + `.planning/MILESTONES.md`.
 
-**Carry-forwards (NOT v1.5 blockers):** Gatekeeper-clean notarisation deferred post-Apple-enrolment (D-02, credentials-only flip); NAT-01 configurable global summon hotkey parked (G-05-1); 3 minor a11y polish follow-ups from the updater UI review; Cron advisory follow-ups (MD-01 next-run perf, LO-02/LO-03 copy/locale — `15-REVIEW-FIX.md`); backlog 999.1 (remaining tool wishlist), 999.2 (CI track), 999.3 (theme settings), 999.4 (DevTools CLI), 999.5 (Protobuf schema-file).
+**Carry-forwards (NOT v1.6 blockers):** Gatekeeper-clean notarisation deferred post-Apple-enrolment (D-02, credentials-only flip); NAT-01 configurable global summon hotkey parked (G-05-1); 3 minor a11y polish follow-ups from the updater UI review; Cron advisory follow-ups (MD-01 next-run perf, LO-02/LO-03 copy/locale — `15-REVIEW-FIX.md`); backlog 999.1 (remaining tool wishlist), 999.2 (CI track), 999.3 (theme settings), 999.4 (DevTools CLI), 999.5 (Protobuf schema-file).

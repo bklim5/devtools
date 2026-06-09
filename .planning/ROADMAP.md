@@ -8,6 +8,7 @@
 - ✅ **v1.3 More Tools** — Phases 12–15 (shipped 2026-06-04) — see `milestones/v1.3-ROADMAP.md`
 - ✅ **v1.4 Reorderable Tools** — Phase 16 (shipped 2026-06-05) — see `milestones/v1.4-ROADMAP.md`
 - ✅ **v1.5 Pinned Tools** — Phase 17 (shipped 2026-06-07) — see `milestones/v1.5-ROADMAP.md`
+- 🚧 **v1.6 Licensing** — Phases 18–21 (in progress, started 2026-06-09)
 
 ## Phases
 
@@ -84,10 +85,71 @@ All 9 PIN requirements complete; human-signed-off (full suite 694/694, decoder 1
 
 </details>
 
+### 🚧 v1.6 Licensing (Phases 18–21) — IN PROGRESS
+
+One-time-payment lifetime license: MoR checkout → webhook → Keygen (perpetual, node-locked, `maxMachines=1`); paste-key one-time activation (fingerprint `HMAC-SHA256(IOPlatformUUID, app-salt)`); thereafter fully-offline Ed25519-verified `machine.lic` (~30-day TTL) in Rust; license key in macOS Keychain (Rust-owned); free tier locks the Protobuf hero, theming, and ordering/pinning behind ONE central entitlement gate. Architecture locked in `docs/licensing-research.md`. Webview gating accepted as UX-gating, not DRM. Webview runtime deps stay zero (Rust crates `ed25519-dalek`/`keyring`/HMAC allowed); `decoder.ts` + its 19 tests byte-for-byte untouched.
+
+- [ ] **Phase 18: Entitlements Seam & Central Gate** - Pure-frontend entitlement gating (registry + app-level) with lock badges + upsell panel; lazy registry loaders; everything-unlocked in-Tauri default until licensing lands
+- [ ] **Phase 19: License Activation & Offline Verification** - Keygen Rust core: paste-key activation, fingerprint, Ed25519 offline launch verify, Keychain storage, fail-closed; includes the key→token exchange SPIKE
+- [ ] **Phase 20: Purchase Pipeline** - MoR checkout (Lemon Squeezy default) → webhook backend → Keygen license creation → key emailed; privileged tokens server-side only (parallel-capable with Phase 19)
+- [ ] **Phase 21: License Lifecycle & Ship Gate** - TTL refresh + offline grace, self-serve transfer, revocation propagation, license status UI; flip the free-tier default live; full 8-case ship-gate matrix
+
+## Phase Details (v1.6)
+
+### Phase 18: Entitlements Seam & Central Gate
+**Goal**: Feature gating exists as one central, testable seam — tools and app-level features resolve entitlements through a single gate, locked features stay visible-but-locked, and the registry is lazified — while the in-Tauri default keeps everything unlocked until licensing lands (flipped at Phase 21 integration)
+**Depends on**: Nothing (pure frontend; first phase of v1.6)
+**Requirements**: ENT-01, ENT-02, ENT-03, ENT-04, ENT-05
+**Success Criteria** (what must be TRUE):
+  1. With a free-tier entitlement set applied (test/dev toggle), the Protobuf decoder stays visible in the sidebar and ⌘K palette with a lock badge, and opening it shows a WCAG-AA unlock/upsell panel in place of the tool UI (never hidden, no opacity-only locked state)
+  2. Theming and tool ordering/pinning gate through the same app-level entitlement map — flipping the resolved set locks/unlocks them with no scattered per-feature checks (one central gate, registry stays the single control plane)
+  3. React consumes only a resolved entitlement set (Rust command inside Tauri; deterministic free-tier default in browser/jsdom/vite-preview so tests never touch licensing); the in-Tauri default resolves to everything-unlocked pre-licensing, so shipped behavior is unchanged
+  4. All registry tool entries load via lazy `component` loaders and the app behaves identically (paste-instant, full suite green, real-WKWebView e2e green) — a future free-build decoder code-split exclusion is now a real seam, with `decoder.ts` + its 19 tests byte-for-byte untouched
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 19: License Activation & Offline Verification
+**Goal**: A user with a license key can activate this Mac once online and thereafter launch fully licensed, fully offline — all verification and key material Rust-owned, never in the webview
+**Depends on**: Phase 18 (entitlement gate to feed the resolved set into)
+**Requirements**: LIC-01, LIC-02, LIC-03, LIC-04, LIC-06
+**Success Criteria** (what must be TRUE):
+  1. User pastes a license key in-app → one online activation validates against Keygen, binds the machine (fingerprint `HMAC-SHA256(IOPlatformUUID, app-salt)` computed in Rust), checks out and caches the Ed25519-signed `machine.lic` (Rust-owned app data), and full entitlements unlock without restart
+  2. Activating the same key on a second Mac is rejected with a clear, calm error that names the resolution path (deactivate the other machine)
+  3. After activation, launching with networking disabled still resolves licensed entitlements — Rust verifies the `machine.lic` Ed25519 signature with the embedded public key and checks the fingerprint, with zero network calls
+  4. A corrupt, tampered, or foreign-machine `machine.lic` fails closed to the free tier — no crash, calm status messaging, re-activation offered
+  5. The license key lives only in the macOS Keychain (Rust-owned, `keyring` crate) — never readable from JS, never in the Tauri store or app-data files; the SPIKE outcome on client-side license-key → license-token exchange against the live Keygen API is recorded (store a scoped token instead of the raw key if confirmed)
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 20: Purchase Pipeline
+**Goal**: A buyer can pay once through a merchant-of-record checkout and automatically receive a working license key by email — no manual fulfillment, no privileged credentials anywhere near the app
+**Depends on**: Phase 18 (in-app "Buy license" affordance lives in the upsell panel); parallel-capable with Phase 19 (external infra — MoR + webhook backend)
+**Requirements**: PAY-01, PAY-02, PAY-03
+**Success Criteria** (what must be TRUE):
+  1. The in-app "Buy license" affordance opens the MoR purchase page in the default browser (Lemon Squeezy default, seller payout-country verified before committing); checkout completes a one-time payment
+  2. A completed purchase fires the `order_created` webhook → the small backend creates the Keygen license (perpetual, node-locked, `maxMachines=1`, entitlements embedded in the signed license) without manual steps
+  3. The buyer receives the license key by email automatically after purchase, and that key activates successfully through the Phase 19 in-app flow
+  4. Privileged Keygen tokens exist only server-side — verifiably absent from the app bundle, the repo, and every client-reachable surface
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 21: License Lifecycle & Ship Gate
+**Goal**: The license behaves correctly across its whole lifetime — opportunistic refresh, self-serve transfer, revocation propagation, a status UI — the free-tier default flips live, and the full 8-case ship-gate matrix passes end-to-end on a real build
+**Depends on**: Phase 19 + Phase 20 (end-to-end purchase→activation integration requires both)
+**Requirements**: LIC-05, LIC-07, LIC-08, LIC-09
+**Success Criteria** (what must be TRUE):
+  1. The cached `machine.lic` (~30-day TTL) refreshes opportunistically in the background when online, with a generous offline grace in between — never a hard per-launch network check, and every tool stays fully functional offline
+  2. User can self-serve deactivate this Mac from within the app, freeing the seat, and then activate the same key on a new Mac (transfer proven end-to-end)
+  3. A license revoked/suspended in Keygen (refund or chargeback) drops entitlements to the free tier at the next TTL refresh — calm messaging, no crash
+  4. A keyboard-reachable, WCAG-AA license status UI shows the current state (free / licensed / offline-grace / refresh-needed), the masked key + licensee email from the signed license data, and working refresh + deactivate actions
+  5. The in-Tauri free-tier default flips live (an unlicensed install actually locks the decoder, theming, and ordering/pinning) and all 8 ship-gate matrix cases pass on a fresh `tauri build`: valid first-Mac activation · second Mac rejected · offline launch · corrupted `machine.lic` fails closed · copied `machine.lic` fails on foreign fingerprint · TTL-expired grace→refresh · deactivate/transfer end-to-end · revocation propagates on refresh
+**Plans**: TBD
+**UI hint**: yes
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order. v1.5 is a single phase (17) continuing from v1.4's Phase 16.
+Phases execute in numeric order. v1.6 runs 18 → 19 → 21 with Phase 20 parallel-capable beside 19 (external infra); Phase 21 requires both 19 and 20.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -108,6 +170,10 @@ Phases execute in numeric order. v1.5 is a single phase (17) continuing from v1.
 | 15. Cron tool | v1.3 | 4/4 | Complete    | 2026-06-04 |
 | 16. Reorderable sidebar tool list | v1.4 | 2/2 | Complete    | 2026-06-05 |
 | 17. Pinned sidebar section | v1.5 | 2/2 | Complete    | 2026-06-07 |
+| 18. Entitlements Seam & Central Gate | v1.6 | 0/? | Not started | - |
+| 19. License Activation & Offline Verification | v1.6 | 0/? | Not started | - |
+| 20. Purchase Pipeline | v1.6 | 0/? | Not started | - |
+| 21. License Lifecycle & Ship Gate | v1.6 | 0/? | Not started | - |
 
 ## Backlog
 

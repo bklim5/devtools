@@ -71,20 +71,20 @@
 
 | Requirement | Phase | Plan | Status |
 |-------------|-------|------|--------|
-| ENT-01 | — | — | Pending |
-| ENT-02 | — | — | Pending |
-| ENT-03 | — | — | Pending |
-| ENT-04 | — | — | Pending |
-| ENT-05 | — | — | Pending |
-| LIC-01 | — | — | Pending |
-| LIC-02 | — | — | Pending |
-| LIC-03 | — | — | Pending |
-| LIC-04 | — | — | Pending |
-| LIC-05 | — | — | Pending |
-| LIC-06 | — | — | Pending |
-| LIC-07 | — | — | Pending |
-| LIC-08 | — | — | Pending |
-| LIC-09 | — | — | Pending |
-| PAY-01 | — | — | Pending |
-| PAY-02 | — | — | Pending |
-| PAY-03 | — | — | Pending |
+| ENT-01 | Phase 18 | — | Pending |
+| ENT-02 | Phase 18 | — | Pending |
+| ENT-03 | Phase 18 | — | Pending |
+| ENT-04 | Phase 18 | — | Pending |
+| ENT-05 | Phase 18 | — | Pending |
+| LIC-01 | Phase 19 | — | Pending |
+| LIC-02 | Phase 19 | — | Pending |
+| LIC-03 | Phase 19 | — | Pending |
+| LIC-04 | Phase 19 | — | Pending |
+| LIC-05 | Phase 21 | — | Pending |
+| LIC-06 | Phase 19 | — | Pending |
+| LIC-07 | Phase 21 | — | Pending |
+| LIC-08 | Phase 21 | — | Pending |
+| LIC-09 | Phase 21 | — | Pending |
+| PAY-01 | Phase 20 | — | Pending |
+| PAY-02 | Phase 20 | — | Pending |
+| PAY-03 | Phase 20 | — | Pending |
