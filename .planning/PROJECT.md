@@ -8,16 +8,18 @@ DevTools is a fast, offline, keyboard-driven **desktop application** (macOS firs
 
 **Paste an unknown blob → get a usable, explorable interpretation in under 2 seconds, entirely offline, without touching the mouse.** If everything else fails, the Protobuf decoder doing this flawlessly is the product.
 
-## Current Milestone: v1.5 Pinned Tools — ✅ COMPLETE (Phase 17, signed off 2026-06-07)
+## Current Milestone: v1.6 Licensing
 
-**Goal:** Let users pin favourite tools to a distinct, reorderable section at the top of the sidebar. **Delivered** — all 9 PIN requirements validated on the real WKWebView; human-signed-off.
+**Goal:** One-time-payment lifetime license that unlocks full functionality — the free tier keeps core tools but locks the Protobuf decoder (hero), theming, and tool ordering/pinning; activation binds the key to one machine with self-serve transfer.
 
 **Target features:**
-- **Pinned section** — a separate "Pinned" group at the top of the sidebar (divider between it and the rest); shown only when at least one tool is pinned.
-- **Independently reorderable** — both the pinned group and the unpinned list keep the v1.4 drag + Alt+↑/↓ reorder; a tool changes membership by pinning/unpinning, not by dragging across the divider.
-- **Pin affordances** — a pin icon on the row (hover + `focus-visible`, mirroring the v1.4 grip handle) **and** a keyboard shortcut on the focused tool, each announced via `aria-live`.
-- **Persistence + reconciliation** — pinned state is a persisted `pinnedToolIds` overlay through the existing prefs seam (beside `toolOrder`/`recentToolIds`), reconciled against the live registry on load (unknown/removed IDs dropped, de-duped — never a crash/drop/duplicate).
-- **Reset** — keyboard-reachable "Unpin all" (alongside the existing "Reset order").
+- **Entitlements seam** — `requiredEntitlements?: string[]` on `ToolDefinition` + an app-level entitlement map for non-tool gates (theming, reorder/pin); ONE central gate the registry and shell both read; registry entries converted to lazy `component` loaders so a future free-build decoder exclusion is a real code-split seam (decoder.ts itself untouched).
+- **License activation (Keygen)** — paste key → validate → activate machine (fingerprint = `HMAC-SHA256(IOPlatformUUID, app-salt)`) → checkout an **unencrypted Ed25519-signed `machine.lic`** (~30-day TTL) → cache in Rust-owned app data. All verification in Rust with an embedded public key, fully offline at launch; React only calls `license_status` / `activate_license` / `refresh_license` / `deactivate_machine` and receives a resolved entitlement set.
+- **Credential storage** — the license key stored in macOS Keychain (Rust-owned, via the `keyring` crate), used only for TTL refresh + deactivation — never readable from JS.
+- **Purchase pipeline** — MoR checkout (Lemon Squeezy default, pending payout-country verification) → `order_created` webhook → small backend → Keygen license creation (perpetual, node-locked, `maxMachines=1`, entitlements embedded). Privileged Keygen tokens live ONLY server-side.
+- **Transfer + lifecycle UX** — self-serve deactivate/reactivate to move the seat to a new Mac; opportunistic TTL refresh (refund/chargeback revocation propagates within ~30 days); fail-closed on corrupt/foreign `machine.lic`.
+
+**Assumed defaults / accepted limits:** webview gating is UX-gating, not DRM (a determined user can patch the bundle — accepted); future multi-device tiers = raise `maxMachines`; OS-portable seams (fingerprint + credential store behind Rust commands) but macOS-only implementation this milestone; the full 8-case licensing test matrix is a ship gate. Consolidated research: `docs/licensing-research.md`.
 
 **Assumed defaults:** no tool pinned by default (empty pinned section → no divider; hero not auto-pinned); pinning appends to the bottom of the pinned section; registry stays the single control plane (pinning is a render-time presentation overlay; ⌘K palette + router stay pin-agnostic). Scope is pinning only — the dedicated settings surface remains deferred.
 
@@ -114,6 +116,16 @@ The app still ships **eleven tools** (v1.4 added no tools): the Protobuf hero (w
 - [x] `pinnedToolIds` overlay persisted through the prefs seam, reconciled against the registry on load (drop unknown, de-dupe)
 - [x] Keyboard-reachable "Unpin all" reset
 
+**Licensing (v1.6)** — hypotheses, REQ-IDs assigned in REQUIREMENTS.md
+- [ ] User can purchase a lifetime license (one-time payment, MoR checkout) and receive a license key by email
+- [ ] User can paste the key into the app to activate; activation binds the key to one machine (seat limit enforced server-side by Keygen)
+- [ ] After activation the app verifies the license fully offline at every launch (Ed25519-signed `machine.lic`, Rust-side verify + fingerprint check)
+- [ ] Free tier: core tools work; Protobuf decoder, theming, and tool ordering/pinning are locked behind entitlements
+- [ ] Entitlements resolve through one central gate (`requiredEntitlements` on tools + app-level map); React receives only the resolved set
+- [ ] User can self-serve transfer the seat to a new machine (deactivate → reactivate)
+- [ ] License refreshes opportunistically (~30-day TTL) so refund/chargeback revocation propagates; offline grace in between
+- [ ] Corrupt, tampered, or foreign-machine license files fail closed to the free tier
+
 **Ideas / backlog (not yet scheduled)**
 - [ ] Protobuf decoder: decimal-byte-array (JS `Uint8Array`) input mode — paste `10, 3, 80, 81, 82` and decode, alongside hex/base64 (user feedback at Phase-3 sign-off, 2026-05-31)
 
@@ -124,7 +136,7 @@ The app still ships **eleven tools** (v1.4 added no tools): the Protobuf hero (w
 ### Out of Scope
 
 - **Remaining deferred tools** (SQL formatter, Date converter, JSON↔YAML, Number Base, JSON→CSV, diff/comparers, JSONPath, QR, GZIP, etc.) — commodities that would dilute the product wedge. Deferred, not promised. (JSON/XML formatters shipped v1.1; URL, Regex, Cron shipped v1.3 — each cleared the wedge before shipping.)
-- **Cloud sync / accounts / payments** — offline by design; a `premium` registry seam is reserved with **zero v1 UX**.
+- **Cloud sync / accounts** — still out: no user accounts, no sync. ~~Payments~~ **Reopened in v1.6**: one-time lifetime license (MoR checkout + Keygen activation). The "no network at runtime" constraint gains a narrow, explicit exception: one-time activation + ~30-day license refresh — never per-launch checks, and every tool still works fully offline.
 - **Mobile (iOS/Android) UI** — architecture stays open (layout-agnostic tools, responsive Tailwind) but no v1 mobile UI.
 - **Windows + Linux verification/packaging (for now)** — deferred to focus on macOS; Tauri keeps them reachable later.
 - **Plugin marketplace / third-party tool loading**, **SSR/server runtime** — not the product.
@@ -141,7 +153,7 @@ The app still ships **eleven tools** (v1.4 added no tools): the Protobuf hero (w
 ## Constraints
 
 - **Tech stack**: Tauri 2 + Vite + React + TypeScript + Tailwind; `react-router` **HashRouter only** (`BrowserRouter` forbidden — static files 404 on reload). Tool logic is pure frontend TS; Rust core is thin (clipboard, hotkey, tray, single-instance, auto-update).
-- **No network at runtime** — self-host fonts (IBM Plex Sans + JetBrains Mono, SIL OFL, vendored), no CDN, no accounts, no setup.
+- **No network at runtime** — self-host fonts (IBM Plex Sans + JetBrains Mono, SIL OFL, vendored), no CDN, no accounts, no setup. **v1.6 narrow exception (licensing only):** one-time activation + opportunistic ~30-day license refresh against Keygen; never per-launch checks; all tools remain fully functional offline; launch-time license verification is local (Ed25519).
 - **Curated tool set, wedge-gated** — v1.0 locked "six tools only"; v1.1 deliberately reopened that to add the JSON + XML formatters (now eight tools). Growth is mechanical (registry is a plain array) but each new tool must clear the product wedge (offline, paste-instant, keyboard-driven, registry-driven, WCAG-AA, zero new runtime deps). No grab-bag additions.
 - **Zero new runtime dependencies** — every tool so far is built on native browser/Web APIs (`JSON`, `DOMParser`, Web Crypto, `Uint8Array` base64/hex); the only runtime dep is `js-md5`. Hold this line.
 - **Do not refactor `decoder.ts` or its 19 tests** without explicit approval — the test bar is the hero feature's spec.
@@ -181,6 +193,12 @@ The app still ships **eleven tools** (v1.4 added no tools): the Protobuf hero (w
 | **Pinning is a render-time presentation overlay (`pinnedToolIds`), never a registry mutation** (v1.5, extends v1.4) | Same single-control-plane discipline as `toolOrder`; pinning is presentation, so ⌘K palette + router stay pin-agnostic | ✓ Good — `partitionTools` overlay over `ENABLED_TOOLS`; registry/palette/router untouched |
 | **The pinned/unpinned split is always a full registry partition** (v1.5) | Every registry tool must render in exactly one group; a stale/unknown pinned ID must never crash, drop, or duplicate a tool | ✓ Good — `partitionTools` + `coercePinnedToolIds` (drop unknown, de-dupe); 10-case immovable-bar matrix |
 | **Sidebar keyboard model = Tab-friendly rows + arrow focus-nav; Alt+P keys off physical `KeyP`** (v1.5, D-17, supersedes the v1.4 "no roving nav") | Live macOS walkthrough: Option+P composes to "π" so `e.key==='p'` was dead; and users expected ↑/↓ + Tab to move between tools | ✓ Good — `e.code==='KeyP'`; every row + the pin button are Tab stops; ↑/↓/Home/End move focus across the divider; real-WKWebView regression test |
+| **Licensing = Keygen perpetual + node-locked, one-time online activation, offline Ed25519 verify thereafter** (v1.6) | "Same key can't be reused" requires server-side seat counting; pure-offline keys prove authenticity, not uniqueness. Activation-once preserves the offline feel | — Pending — v1.6 |
+| **"No network at runtime" gains a narrow licensing exception** (v1.6, revises a v1.0 constraint) | One-time activation + ~30-day TTL refresh is the minimal network surface that still enables seat limits + refund/chargeback revocation | — Pending — v1.6 |
+| **License key (not a derived token) in macOS Keychain; unencrypted signed `machine.lic` for verification** (v1.6) | Keygen docs sanction license-key auth client-side for activate/deactivate; unencrypted signed file needs no stored credential to verify. Encrypted files would force retaining the key anyway | — Pending — Keygen's authz matrix suggests a client-side key→token exchange is possible — confirm in spike, optionally upgrade |
+| **All license verification + credential access in Rust; React gets only a resolved entitlement set** (v1.6) | Keeps key material and verify logic out of the inspectable webview bundle; sidesteps the JS-store async-init race entirely | — Pending — v1.6 |
+| **Webview entitlement gates accepted as UX-gating, not DRM** (v1.6) | decoder.ts is pure TS and immovable (no Rust rewrite); registry lazification reserves a future free-build code-split exclusion. Casual sharing — the real leak — is stopped by activation | — Pending — v1.6 |
+| **Fingerprint = `HMAC-SHA256(IOPlatformUUID, app-salt)`; imperfection absorbed by "1 active + self-serve transfer"** (v1.6) | Hashing avoids shipping raw hardware IDs; every OS fingerprint has clone/reinstall edge cases — the transfer policy makes them support non-events, not lockouts | — Pending — v1.6 |
 
 ## Evolution
 
@@ -200,6 +218,8 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-07 — **Milestone v1.5 "Pinned Tools" COMPLETE** (Phase 17 signed off; all 9 PIN requirements validated on the real WKWebView; full suite 694/694, decoder 19/19 untouched, zero new runtime/dev deps, gsd-ui-review WCAG-AA 23/24). Pinned sidebar shipped: `pinnedToolIds` render-time overlay, Alt+P (physical-KeyP, macOS-safe) + arrow nav + Tab-reachable pin fallback (D-17), per-group reorder, "Unpin all". Ready to archive via `/gsd-complete-milestone`. Prior start-of-milestone note: 2026-06-05 — **Milestone v1.5 "Pinned Tools" STARTED** (defining requirements). Goal: a distinct, reorderable "Pinned" section at the top of the sidebar — pin/unpin via a row pin icon + keyboard shortcut (`aria-live`-announced), `pinnedToolIds` overlay persisted through the prefs seam beside `toolOrder` and reconciled against the registry on load, plus a keyboard-reachable "Unpin all". Pinning is a render-time presentation overlay (registry stays the single control plane; ⌘K palette + router pin-agnostic); the v1.4 drag + Alt+↑/↓ reorder applies independently within the pinned group and the rest. Scope is pinning only — the dedicated settings surface stays deferred. Wedge holds: offline · paste-instant · WCAG-AA · zero new runtime/dev deps · `decoder.ts` + its 19 tests untouched. Prior milestone footer below.*
+*Last updated: 2026-06-09 — **Milestone v1.6 "Licensing" STARTED** (defining requirements). Goal: one-time-payment lifetime license — MoR checkout (Lemon Squeezy default) → webhook → Keygen license (perpetual, node-locked, maxMachines=1); paste-key activation binds one machine (fingerprint `HMAC-SHA256(IOPlatformUUID, salt)`); thereafter launch verification is fully offline (unencrypted Ed25519-signed `machine.lic`, ~30-day TTL, Rust-side verify; license key in Keychain for refresh/deactivate). Free tier locks the Protobuf hero, theming, and ordering/pinning behind a central entitlement gate (`requiredEntitlements` + app-level map; registry lazified to reserve a free-build code-split exclusion). Webview gating accepted as UX-gating, not DRM. "No network at runtime" gains a narrow licensing-only exception (activation + TTL refresh; never per-launch). OS-portable seams, macOS-only impl. Research: `docs/licensing-research.md`. Prior footer below.*
+
+*2026-06-07 — **Milestone v1.5 "Pinned Tools" COMPLETE** (Phase 17 signed off; all 9 PIN requirements validated on the real WKWebView; full suite 694/694, decoder 19/19 untouched, zero new runtime/dev deps, gsd-ui-review WCAG-AA 23/24). Pinned sidebar shipped: `pinnedToolIds` render-time overlay, Alt+P (physical-KeyP, macOS-safe) + arrow nav + Tab-reachable pin fallback (D-17), per-group reorder, "Unpin all". Ready to archive via `/gsd-complete-milestone`. Prior start-of-milestone note: 2026-06-05 — **Milestone v1.5 "Pinned Tools" STARTED** (defining requirements). Goal: a distinct, reorderable "Pinned" section at the top of the sidebar — pin/unpin via a row pin icon + keyboard shortcut (`aria-live`-announced), `pinnedToolIds` overlay persisted through the prefs seam beside `toolOrder` and reconciled against the registry on load, plus a keyboard-reachable "Unpin all". Pinning is a render-time presentation overlay (registry stays the single control plane; ⌘K palette + router pin-agnostic); the v1.4 drag + Alt+↑/↓ reorder applies independently within the pinned group and the rest. Scope is pinning only — the dedicated settings surface stays deferred. Wedge holds: offline · paste-instant · WCAG-AA · zero new runtime/dev deps · `decoder.ts` + its 19 tests untouched. Prior milestone footer below.*
 
 *2026-06-05 after v1.4 milestone — **Milestone v1.4 "Reorderable Tools" COMPLETE, SIGNED OFF & ARCHIVED** (sole phase 16; tag `v1.4` local-only). The app's first personalization feature: user-reorderable sidebar — `toolOrder` overlay over the registry (registry stays the single control plane; ⌘K palette + router order-agnostic), handle-initiated native HTML5 drag + neutral insertion line, Alt+↑/↓ keyboard reorder with `aria-live`, persisted + reconciled (new-tool-append / unknown-drop / de-dupe) + keyboard-reachable reset-to-default; all 7 REORD requirements verified (11/11 must-haves), human-signed-off on the real WKWebView; full suite 668/668, decoder 19/19 untouched, zero new runtime/dev deps, gsd-ui-review WCAG-AA 22/24 (findings fixed), code review 0 critical, security 8/8. Post-ship: Tauri `dragDropEnabled:false` so in-page HTML5 drag works. Archived to `.planning/milestones/v1.4-*`. Prior milestones: v1.3 "More Tools" (Phases 12–15, tag `v1.3`), v1.2 "Release Tooling" (Phases 9–11), v1.1 "Formatters" (Phases 7–8), v1.0 "Distribution" (Phases 1–6). **Next: `/gsd-new-milestone` (or `/gsd-review-backlog`) — no active milestone.***

@@ -1,29 +1,29 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.5
-milestone_name: Pinned Tools
-status: completed
-last_updated: "2026-06-09T08:13:00.000Z"
-last_activity: 2026-06-09 -- Completed quick task 260609-ard: release:changelog + auto-promote Unreleased on bump
+milestone: v1.6
+milestone_name: Licensing
+status: defining_requirements
+last_updated: "2026-06-09T00:00:00.000Z"
+last_activity: 2026-06-09 -- Milestone v1.6 "Licensing" started (defining requirements)
 progress:
-  total_phases: 1
-  completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Current Position
 
-Milestone: **v1.5 "Pinned Tools" — SHIPPED & ARCHIVED 2026-06-07** (single phase). **No active milestone.**
-Phase: —
+Milestone: **v1.6 "Licensing"** — started 2026-06-09.
+Phase: Not started (defining requirements)
 Plan: —
-Status: Between milestones — v1.5 archived (tag `v1.5` local-only); awaiting next milestone selection.
-Last activity: 2026-06-09 -- Completed quick task 260609-ard: `pnpm release:changelog` + auto-promote Unreleased on bump
+Status: Defining requirements
+Last activity: 2026-06-09 — Milestone v1.6 started
 
-**Next:** `/gsd-new-milestone` to start the next cycle, or `/gsd-review-backlog` to promote a parked item (999.1 tool wishlist · 999.2 CI · 999.3 theme settings · 999.4 DevTools CLI · 999.5 Protobuf schema-file). v1.5 detail archived to `.planning/milestones/v1.5-*` (+ `v1.5-phases/`); summary in `.planning/MILESTONES.md`; retrospective in `.planning/RETROSPECTIVE.md`.
+**Goal:** one-time-payment lifetime license — MoR checkout → webhook → Keygen (perpetual, node-locked, maxMachines=1); paste-key one-time activation (fingerprint `HMAC-SHA256(IOPlatformUUID, salt)`); offline Ed25519-verified `machine.lic` (~30-day TTL) thereafter; license key in Keychain (Rust-owned); free tier locks Protobuf hero + theming + ordering/pinning behind a central entitlement gate. Research: `docs/licensing-research.md`.
 
 ### Quick Tasks Completed
 
