@@ -21,10 +21,51 @@
 //   only body — and a missing section — both return "".
 // - CRLF tolerance: a trailing `\r` is stripped per line before matching/collecting
 //   so Windows-authored changelogs (`\r\n`) still match and extract cleanly.
+// - appendUnreleasedEntry (the `release:changelog` write half): appends `- <entry>`
+//   to the END of the `## [Unreleased]` bullet list. ONE leading `- `/`-` on the
+//   raw entry is stripped + the entry trimmed (never produces `- - X`); an empty
+//   entry throws. The sole `- _Nothing yet._` placeholder is REPLACED by the first
+//   real entry (not stacked above). If there is no `## [Unreleased]` section it is
+//   CREATED above the newest `## [x.y.z]` version section (or at EOF if none).
+// - promoteUnreleased (the bump's `## [Unreleased]` -> `## [<version>] - <date>`
+//   cut): renames the Unreleased heading to the dated/versioned one AND inserts a
+//   fresh empty `## [Unreleased]` (placeholder) above it, so the bump commit carries
+//   the notes and the tag message extracts them. A NO-OP (returns the input
+//   UNCHANGED) when there is no `## [Unreleased]` section. The `date` is INJECTED
+//   (still pure — no clock); the driver reads the wall clock and passes it in.
 
 /** True if `line` (already `\r`-stripped) is ANY level-2 `## ` heading. */
 function isAnyHeading(line: string): boolean {
   return line.trim().startsWith("## ");
+}
+
+/**
+ * True if `line` (already `\r`-stripped) is the `## [Unreleased]` heading. The
+ * literal "Unreleased" token is bracket-tolerant (`## [Unreleased]` or
+ * `## Unreleased`) in the same spirit as `isVersionHeading`, but Unreleased is NOT
+ * a version, so it is matched as a literal token — never routed through
+ * `isVersionHeading`.
+ */
+function isUnreleasedHeading(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed.startsWith("## ")) return false;
+  let rest = trimmed.slice(3).trim();
+  if (rest.startsWith("[")) rest = rest.slice(1);
+  if (rest.endsWith("]")) rest = rest.slice(0, -1);
+  return rest.trim() === "Unreleased";
+}
+
+/**
+ * True if `line` (already `\r`-stripped) is a `## [x.y.z]` version heading — ANY
+ * level-2 heading whose text after `## ` starts with `[` then a digit. Used only
+ * to find the newest (first) version section as an insertion point; the exact
+ * version value is irrelevant here (unlike `isVersionHeading`).
+ */
+function isVersionSectionHeading(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed.startsWith("## ")) return false;
+  const rest = trimmed.slice(3).trim();
+  return /^\[\d/.test(rest);
 }
 
 /**
@@ -89,4 +130,144 @@ export function extractChangelogSection(
   }
 
   return body.join("\n").trim();
+}
+
+/** Strip a single leading `- `/`-` and trim; the canonical bullet text. */
+function normalizeEntry(entry: string): string {
+  return entry.replace(/^-\s?/, "").trim();
+}
+
+/**
+ * Append `- <entry>` to the END of the `## [Unreleased]` bullet list, returning
+ * the new changelog text. Pure — no fs, no clock, no deps.
+ *
+ * Rules (mirrors `extractChangelogSection`'s line-array / `\r`-strip approach):
+ * - The entry is normalized: ONE leading `- `/`-` is stripped + trimmed, so a
+ *   user-typed `- Added X` or `-Added X` both become exactly `- Added X` (never
+ *   `- - Added X`). An empty/whitespace-only entry throws.
+ * - When Unreleased holds ONLY the `- _Nothing yet._` placeholder, the first real
+ *   entry REPLACES it (placeholder gone). Otherwise the entry lands after the last
+ *   existing bullet, before the section's trailing blank line / next `## ` heading.
+ * - No `## [Unreleased]` section -> one is CREATED (with the entry) above the
+ *   newest (first) `## [x.y.z]` version section; with no version section either,
+ *   it is appended at EOF.
+ */
+export function appendUnreleasedEntry(
+  changelog: string,
+  entry: string,
+): string {
+  const text = normalizeEntry(entry);
+  if (text === "") throw new Error("changelog entry is empty");
+  const bullet = `- ${text}`;
+
+  // Detect CRLF so a reconstructed/created section matches the file's style.
+  const eol = changelog.includes("\r\n") ? "\r\n" : "\n";
+  const lines = changelog.split("\n").map((line) => line.replace(/\r$/, ""));
+
+  // Find the Unreleased heading.
+  let head = -1;
+  for (let i = 0; i < lines.length; i += 1) {
+    if (isUnreleasedHeading(lines[i])) {
+      head = i;
+      break;
+    }
+  }
+
+  if (head === -1) {
+    // No Unreleased section: build one and insert it above the newest version
+    // section (or at EOF if there is none).
+    const section = ["## [Unreleased]", "", bullet, ""];
+    let insertAt = lines.length;
+    for (let i = 0; i < lines.length; i += 1) {
+      if (isVersionSectionHeading(lines[i])) {
+        insertAt = i;
+        break;
+      }
+    }
+    if (insertAt === lines.length) {
+      // EOF: ensure a blank line separates prior content from the new section.
+      const out = [...lines];
+      while (out.length > 0 && out[out.length - 1].trim() === "") out.pop();
+      if (out.length > 0) out.push("");
+      out.push(...section);
+      return out.join(eol);
+    }
+    const out = [...lines.slice(0, insertAt), ...section, ...lines.slice(insertAt)];
+    return out.join(eol);
+  }
+
+  // Find the end of the Unreleased section (next `## ` heading, or EOF).
+  let end = lines.length;
+  for (let i = head + 1; i < lines.length; i += 1) {
+    if (isAnyHeading(lines[i])) {
+      end = i;
+      break;
+    }
+  }
+
+  // Body = the lines between the heading and the section end. Locate the last
+  // non-blank bullet line; if the only content is the placeholder, replace it.
+  let lastContent = -1;
+  let onlyPlaceholder = true;
+  for (let i = head + 1; i < end; i += 1) {
+    if (lines[i].trim() === "") continue;
+    lastContent = i;
+    if (lines[i].trim() !== "- _Nothing yet._") onlyPlaceholder = false;
+  }
+
+  if (lastContent !== -1 && onlyPlaceholder) {
+    // Replace the placeholder line in place.
+    const out = [...lines];
+    out[lastContent] = bullet;
+    return out.join(eol);
+  }
+
+  if (lastContent === -1) {
+    // Empty Unreleased body: drop the entry right after the heading's blank line.
+    const insertAt = head + 1 < end && lines[head + 1].trim() === "" ? head + 2 : head + 1;
+    const out = [...lines.slice(0, insertAt), bullet, ...lines.slice(insertAt)];
+    return out.join(eol);
+  }
+
+  // Append after the last existing bullet.
+  const out = [...lines.slice(0, lastContent + 1), bullet, ...lines.slice(lastContent + 1)];
+  return out.join(eol);
+}
+
+/**
+ * Promote `## [Unreleased]` to `## [<version>] - <date>` and insert a fresh empty
+ * `## [Unreleased]` (with the `- _Nothing yet._` placeholder) above it, returning
+ * the new changelog text. Pure — `date` is INJECTED (no clock), no fs, no deps.
+ *
+ * - Always a real diff when an Unreleased section exists (heading rename + fresh
+ *   section), even when it held only the placeholder.
+ * - NO-OP returning the input UNCHANGED when there is no `## [Unreleased]` section.
+ * - Round-trips with `extractChangelogSection`: after promotion, the version's
+ *   section body is what had been under Unreleased.
+ */
+export function promoteUnreleased(
+  changelog: string,
+  version: string,
+  date: string,
+): string {
+  const eol = changelog.includes("\r\n") ? "\r\n" : "\n";
+  const lines = changelog.split("\n").map((line) => line.replace(/\r$/, ""));
+
+  let head = -1;
+  for (let i = 0; i < lines.length; i += 1) {
+    if (isUnreleasedHeading(lines[i])) {
+      head = i;
+      break;
+    }
+  }
+  if (head === -1) return changelog; // no-op, unchanged
+
+  const freshSection = ["## [Unreleased]", "", "- _Nothing yet._", ""];
+  const out = [
+    ...lines.slice(0, head),
+    ...freshSection,
+    `## [${version}] - ${date}`,
+    ...lines.slice(head + 1),
+  ];
+  return out.join(eol);
 }
