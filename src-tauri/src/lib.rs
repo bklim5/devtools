@@ -55,7 +55,7 @@ pub fn run() {
             app.handle()
                 .plugin(tauri_plugin_updater::Builder::new().build())?;
 
-            let show_i = MenuItem::with_id(app, "show", "Show DevTools", true, None::<&str>)?;
+            let show_i = MenuItem::with_id(app, "show", "Show TinkerDev", true, None::<&str>)?;
             // "Check for Updates…" (DST-02 / D-11a). The actual check() runs in JS
             // through the platform seam (D-12); this just emits an event the JS shell
             // listens for (Plan 04). Manual check is always available regardless of

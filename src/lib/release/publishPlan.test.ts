@@ -182,7 +182,7 @@ describe("buildPublishPlanView", () => {
       "src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app.tar.gz.sig",
     );
     expect(view.assetUrlExample).toBe(
-      "https://github.com/bklim5/devtools-releases/releases/download/v0.2.2/devtools-app.app.tar.gz",
+      "https://github.com/bklim5/devtools-releases/releases/download/v0.2.2/TinkerDev.app.tar.gz",
     );
   });
 });

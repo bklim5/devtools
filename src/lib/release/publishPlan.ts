@@ -169,7 +169,7 @@ const UNIVERSAL_BUNDLE_MACOS_DIR =
   "src-tauri/target/universal-apple-darwin/release/bundle/macos";
 
 /** The example updater-payload basename (the real one is globbed at publish time). */
-const PAYLOAD_BASENAME = "devtools-app.app.tar.gz";
+const PAYLOAD_BASENAME = "TinkerDev.app.tar.gz";
 
 /**
  * The fully-derived view of one publish — every field flows from the single

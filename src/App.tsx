@@ -199,7 +199,7 @@ function UpdateOptIn({ onChoose }: { onChoose: (v: boolean) => void }) {
         Enable automatic update checks?
       </p>
       <p className="text-[12px] leading-5 text-tx-2">
-        DevTools can check for new versions at launch over the network. You can
+        TinkerDev can check for new versions at launch over the network. You can
         always check manually from the tray menu.
       </p>
       <div className="mt-1 flex items-center gap-2">
