@@ -12,6 +12,7 @@
     "test": "vitest run",
     "lint": "eslint .",
     "release:bump": "tsx scripts/bump-and-tag.mjs",
+    "release:changelog": "tsx scripts/changelog.mjs",
     "release:publish": "tsx scripts/build-and-publish.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
