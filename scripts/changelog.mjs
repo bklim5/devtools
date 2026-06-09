@@ -23,6 +23,7 @@ import process, { stdout, stderr } from "node:process";
 import {
   appendUnreleasedEntry,
   isUnreleasedHeading,
+  UNRELEASED_PLACEHOLDER,
 } from "../src/lib/release/changelog.ts";
 
 const CHANGELOG_PATH = "CHANGELOG.md";
@@ -39,7 +40,7 @@ const MINIMAL_CHANGELOG = [
   "",
   "## [Unreleased]",
   "",
-  "- _Nothing yet._",
+  UNRELEASED_PLACEHOLDER,
   "",
 ].join("\n");
 

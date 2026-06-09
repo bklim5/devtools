@@ -34,6 +34,15 @@
 //   UNCHANGED) when there is no `## [Unreleased]` section. The `date` is INJECTED
 //   (still pure — no clock); the driver reads the wall clock and passes it in.
 
+/**
+ * The empty-Unreleased placeholder bullet. ONE source of truth: `promoteUnreleased`
+ * EMITS it into a fresh section, `appendUnreleasedEntry` DETECTS it to replace it on
+ * the first real entry, and the `release:changelog` driver's bootstrap CHANGELOG uses
+ * it. If emission and detection drifted, the placeholder-replace would silently break
+ * (a real bullet would stack under a stale placeholder), so they share this constant.
+ */
+export const UNRELEASED_PLACEHOLDER = "- _Nothing yet._";
+
 /** True if `line` (already `\r`-stripped) is ANY level-2 `## ` heading. */
 function isAnyHeading(line: string): boolean {
   return line.trim().startsWith("## ");
@@ -212,7 +221,7 @@ export function appendUnreleasedEntry(
   for (let i = head + 1; i < end; i += 1) {
     if (lines[i].trim() === "") continue;
     lastContent = i;
-    if (lines[i].trim() !== "- _Nothing yet._") onlyPlaceholder = false;
+    if (lines[i].trim() !== UNRELEASED_PLACEHOLDER) onlyPlaceholder = false;
   }
 
   if (lastContent !== -1 && onlyPlaceholder) {
@@ -262,7 +271,7 @@ export function promoteUnreleased(
   }
   if (head === -1) return changelog; // no-op, unchanged
 
-  const freshSection = ["## [Unreleased]", "", "- _Nothing yet._", ""];
+  const freshSection = ["## [Unreleased]", "", UNRELEASED_PLACEHOLDER, ""];
   const out = [
     ...lines.slice(0, head),
     ...freshSection,
