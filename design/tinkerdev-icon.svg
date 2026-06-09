@@ -1,26 +1,16 @@
 <svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <radialGradient id="bg" cx="0.5" cy="0.5" r="0.62">
-      <stop offset="0" stop-color="#0d191e"/>
-      <stop offset="0.7" stop-color="#0c0d0e"/>
-      <stop offset="1" stop-color="#0b0b0c"/>
+    <radialGradient id="bg" cx="0.5" cy="0.5" r="0.66">
+      <stop offset="0" stop-color="#0e1a1f"/><stop offset="0.7" stop-color="#0c0d0e"/><stop offset="1" stop-color="#0a0a0b"/>
     </radialGradient>
     <linearGradient id="neon" x1="0.2" y1="0" x2="0.8" y2="1">
-      <stop offset="0" stop-color="#3fe1f1"/>
-      <stop offset="0.55" stop-color="#1bb4ef"/>
-      <stop offset="1" stop-color="#1f8fec"/>
+      <stop offset="0" stop-color="#3fe1f1"/><stop offset="0.55" stop-color="#1bb4ef"/><stop offset="1" stop-color="#1f8fec"/>
     </linearGradient>
     <linearGradient id="chev" x1="0.2" y1="0" x2="0.8" y2="1">
-      <stop offset="0" stop-color="#3fe1f1"/>
-      <stop offset="1" stop-color="#10b2f1"/>
+      <stop offset="0" stop-color="#3fe1f1"/><stop offset="1" stop-color="#10b2f1"/>
     </linearGradient>
   </defs>
-  <rect x="0" y="0" width="1024" height="1024" rx="232" ry="232" fill="url(#bg)"/>
-  <!-- border: less outer padding, concentric corners, sharp (no glow) -->
-  <rect x="92" y="92" width="840" height="840" rx="140" ry="140"
-        fill="none" stroke="url(#neon)" stroke-width="30"/>
-  <!-- chevron: scaled to match, sharp -->
-  <path d="M 432 317 L 616 512 L 432 707"
-        fill="none" stroke="url(#chev)" stroke-width="38"
-        stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="64" y="64" width="896" height="896" rx="200" ry="200" fill="url(#bg)"/>
+  <rect x="92" y="92" width="840" height="840" rx="174" ry="174" fill="none" stroke="url(#neon)" stroke-width="56"/>
+  <path d="M 452 350 L 624 512 L 452 674" fill="none" stroke="url(#chev)" stroke-width="56" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
