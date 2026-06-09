@@ -46,7 +46,7 @@ function isAnyHeading(line: string): boolean {
  * a version, so it is matched as a literal token — never routed through
  * `isVersionHeading`.
  */
-function isUnreleasedHeading(line: string): boolean {
+export function isUnreleasedHeading(line: string): boolean {
   const trimmed = line.trim();
   if (!trimmed.startsWith("## ")) return false;
   let rest = trimmed.slice(3).trim();

@@ -20,7 +20,10 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import process, { stdout, stderr } from "node:process";
 
-import { appendUnreleasedEntry } from "../src/lib/release/changelog.ts";
+import {
+  appendUnreleasedEntry,
+  isUnreleasedHeading,
+} from "../src/lib/release/changelog.ts";
 
 const CHANGELOG_PATH = "CHANGELOG.md";
 const USAGE = 'Usage: pnpm release:changelog "<entry>"';
@@ -60,7 +63,7 @@ function sliceUnreleasedBlock(text) {
   const lines = text.split("\n").map((line) => line.replace(/\r$/, ""));
   let start = -1;
   for (let i = 0; i < lines.length; i += 1) {
-    if (lines[i].trim() === "## [Unreleased]") {
+    if (isUnreleasedHeading(lines[i])) {
       start = i;
       break;
     }
