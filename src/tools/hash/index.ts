@@ -3,7 +3,6 @@
 // without touching registry.ts. Icons/labels/keywords are D-18 discretion.
 import { Hash } from "lucide-react";
 import type { ToolDefinition } from "@/lib/tools/types";
-import HashTool from "./HashTool";
 
 export const hashTool: ToolDefinition = {
   id: "hash",
@@ -12,6 +11,6 @@ export const hashTool: ToolDefinition = {
   category: "crypto",
   keywords: ["hash", "md5", "sha", "sha256", "digest", "checksum"],
   icon: Hash,
-  component: HashTool,
+  component: () => import("./HashTool"),
   enabled: true,
 };

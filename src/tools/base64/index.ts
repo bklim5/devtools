@@ -3,7 +3,6 @@
 // Only the registry-facing `component` changes here; the tool logic lives in
 // Base64Tool.tsx / useBytesConvert.ts / StatusBar.tsx.
 import { Binary } from "lucide-react";
-import Base64Tool from "./Base64Tool";
 import type { ToolDefinition } from "@/lib/tools/types";
 
 export const base64Tool: ToolDefinition = {
@@ -13,6 +12,6 @@ export const base64Tool: ToolDefinition = {
   category: "encoding",
   keywords: ["base64", "hex", "bytes", "encode", "decode"],
   icon: Binary,
-  component: Base64Tool,
+  component: () => import("./Base64Tool"),
   enabled: true,
 };

@@ -3,7 +3,6 @@
 // all auto-derive from it (single control plane, nothing else to wire). Mirrors
 // json-formatter/index.ts. Tool logic lives in XmlFormatterTool.tsx + @/lib/format/xml.
 import { FileCode } from "lucide-react";
-import XmlFormatterTool from "./XmlFormatterTool";
 import type { ToolDefinition } from "@/lib/tools/types";
 
 export const xmlFormatterTool: ToolDefinition = {
@@ -13,6 +12,6 @@ export const xmlFormatterTool: ToolDefinition = {
   category: "formatting",
   keywords: ["xml", "format", "prettify", "minify", "validate"],
   icon: FileCode,
-  component: XmlFormatterTool,
+  component: () => import("./XmlFormatterTool"),
   enabled: true,
 };

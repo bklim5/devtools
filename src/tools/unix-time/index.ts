@@ -3,7 +3,6 @@
 // unixTimeTool is already in registry.ts's TOOLS array (no registry edit needed).
 import { Clock } from "lucide-react";
 import type { ToolDefinition } from "@/lib/tools/types";
-import UnixTimeTool from "./UnixTimeTool";
 
 export const unixTimeTool: ToolDefinition = {
   id: "unix-time",
@@ -12,6 +11,6 @@ export const unixTimeTool: ToolDefinition = {
   category: "time",
   keywords: ["unix", "time", "timestamp", "epoch"],
   icon: Clock,
-  component: UnixTimeTool,
+  component: () => import("./UnixTimeTool"),
   enabled: true,
 };

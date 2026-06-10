@@ -4,7 +4,6 @@
 // Icons/labels/keywords are D-18 discretion.
 import { Fingerprint } from "lucide-react";
 import type { ToolDefinition } from "@/lib/tools/types";
-import UuidUlidTool from "./UuidUlidTool";
 
 export const uuidUlidTool: ToolDefinition = {
   id: "uuid-ulid",
@@ -13,6 +12,6 @@ export const uuidUlidTool: ToolDefinition = {
   category: "generators",
   keywords: ["uuid", "ulid", "guid", "id", "generate", "v4", "v7"],
   icon: Fingerprint,
-  component: UuidUlidTool,
+  component: () => import("./UuidUlidTool"),
   enabled: true,
 };

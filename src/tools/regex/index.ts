@@ -3,7 +3,6 @@
 // #/tools/regex from the TOOLS array (registry = single control plane). Zero new
 // runtime deps; the Regex glyph is verified present in the installed lucide-react@1.17.0.
 import { Regex } from "lucide-react";
-import RegexTool from "./RegexTool";
 import type { ToolDefinition } from "@/lib/tools/types";
 
 export const regexTool: ToolDefinition = {
@@ -21,6 +20,6 @@ export const regexTool: ToolDefinition = {
     "groups",
   ],
   icon: Regex,
-  component: RegexTool,
+  component: () => import("./RegexTool"),
   enabled: true,
 };

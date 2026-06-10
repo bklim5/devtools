@@ -3,7 +3,6 @@
 // registry-facing fields live here — decoder.ts/bytes.ts/types.ts/registry.ts stay
 // untouched (the single control plane derives sidebar/palette/router from this).
 import { Boxes } from "lucide-react";
-import ProtobufDecoder from "./ProtobufDecoder";
 import type { ToolDefinition } from "@/lib/tools/types";
 
 export const protobufDecoderTool: ToolDefinition = {
@@ -13,6 +12,6 @@ export const protobufDecoderTool: ToolDefinition = {
   category: "inspectors",
   keywords: ["protobuf", "proto", "decode", "wire", "bytes"],
   icon: Boxes,
-  component: ProtobufDecoder,
+  component: () => import("./ProtobufDecoder"),
   enabled: true,
 };

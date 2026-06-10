@@ -1,6 +1,6 @@
-import type { ComponentType, ReactElement } from "react";
 import { createHashRouter } from "react-router-dom";
 import { App } from "./App";
+import { ToolRoute } from "./components/ToolRoute";
 import { ENABLED_TOOLS } from "./lib/tools/registry";
 import { StartupRedirect } from "./shell/StartupRedirect";
 
@@ -15,15 +15,13 @@ import { StartupRedirect } from "./shell/StartupRedirect";
 // This replaces the old hardcoded `firstTool` redirect — the opening tool is no
 // longer "first in the registry" but the resolved last-used/hero.
 
-// ToolDefinition.component is `ComponentType | LazyComponent`. Under React 19's
-// stricter JSX types the union can't be rendered as a JSX element directly
-// (a LazyComponent returns a Promise). Narrow to ComponentType at the render
-// site. Phase 2 wires code-split tools through React Router's route-level `lazy`
-// option rather than rendering a LazyComponent inline, so this stays correct.
-function renderTool(component: ComponentType): ReactElement {
-  const Tool = component;
-  return <Tool />;
-}
+// Tool routes render through the element-level <ToolRoute> gate (Phase 18,
+// RESEARCH Pitfall 1). React Router's route-level `lazy` option is deliberately
+// NOT used: the router memoizes lazy() once per route, which would (a) prevent
+// an entitlement flip from swapping upsell↔tool on a mounted route and
+// (b) fetch a locked tool's chunk. ToolRoute gates BEFORE invoking the loader,
+// so a locked tool's chunk is never fetched. The registry stays the single
+// control plane: the route list still derives 1:1 from ENABLED_TOOLS.
 
 // Index/unknown routes resolve the opening tool via the StartupRedirect seam
 // (explicit target > last-used > hero). StartupRedirect itself defensively
@@ -40,7 +38,7 @@ export const router = createHashRouter([
       { index: true, element: startupElement },
       ...ENABLED_TOOLS.map((tool) => ({
         path: `tools/${tool.id}`,
-        element: renderTool(tool.component as ComponentType),
+        element: <ToolRoute tool={tool} />,
       })),
       // Unknown route -> resolved startup tool (last-used / hero).
       { path: "*", element: startupElement },

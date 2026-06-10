@@ -20,7 +20,8 @@ function tool(partial: Partial<ToolDefinition> & { id: string; name: string }): 
     category: "encoding",
     keywords: [],
     icon: Icon,
-    component: Icon,
+    // ToolDefinition.component is lazy-only since ENT-05 lazified the registry.
+    component: () => Promise.resolve({ default: Icon as ComponentType }),
     enabled: true,
     ...partial,
   };

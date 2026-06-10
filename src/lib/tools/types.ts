@@ -35,11 +35,11 @@ export interface ToolDefinition {
   keywords: string[];
   /** Sidebar icon (lucide-react component). */
   icon: ComponentType<{ className?: string }>;
-  /**
-   * The tool UI. Either an eagerly-imported component or a lazy loader.
-   * Lazy is preferred for any tool not on the default startup path.
-   */
-  component: ComponentType | LazyComponent;
+  /** The tool UI as a lazy loader (ENT-05): every entry code-splits into its own
+   *  Vite chunk, and the router's ToolRoute gate only invokes the loader when the
+   *  tool is UNLOCKED — a locked tool's chunk is never fetched, which is what makes
+   *  a future free-build decoder exclusion a real seam. */
+  component: LazyComponent;
   /** Default true. Set false to hide from the registry. */
   enabled?: boolean;
   /** Maturity hint; surfaced in the sidebar/palette as a small badge. */

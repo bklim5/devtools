@@ -3,7 +3,6 @@
 // #/tools/url from the TOOLS array (registry = single control plane). Zero new
 // runtime deps; the Link glyph is verified present in the installed lucide-react.
 import { Link } from "lucide-react";
-import UrlTool from "./UrlTool";
 import type { ToolDefinition } from "@/lib/tools/types";
 
 export const urlTool: ToolDefinition = {
@@ -13,6 +12,6 @@ export const urlTool: ToolDefinition = {
   category: "encoding",
   keywords: ["url", "uri", "encode", "decode", "query", "percent"],
   icon: Link,
-  component: UrlTool,
+  component: () => import("./UrlTool"),
   enabled: true,
 };

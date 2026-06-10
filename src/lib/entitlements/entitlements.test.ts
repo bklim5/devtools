@@ -28,7 +28,8 @@ function makeTool(overrides: Partial<ToolDefinition> = {}): ToolDefinition {
     category: "encoding",
     keywords: [],
     icon: NullComponent as ComponentType<{ className?: string }>,
-    component: NullComponent,
+    // ToolDefinition.component is lazy-only since ENT-05 lazified the registry.
+    component: () => Promise.resolve({ default: NullComponent }),
     ...overrides,
   };
 }

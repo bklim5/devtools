@@ -4,7 +4,6 @@
 // plane). Zero new runtime deps; the Clock glyph is verified present in the
 // installed lucide-react@1.17.0.
 import { Clock } from "lucide-react";
-import CronTool from "./CronTool";
 import type { ToolDefinition } from "@/lib/tools/types";
 
 export const cronTool: ToolDefinition = {
@@ -14,6 +13,6 @@ export const cronTool: ToolDefinition = {
   category: "converters",
   keywords: ["cron", "crontab", "schedule", "next run", "@daily", "expression"],
   icon: Clock,
-  component: CronTool,
+  component: () => import("./CronTool"),
   enabled: true,
 };
