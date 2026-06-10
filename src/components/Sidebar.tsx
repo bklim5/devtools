@@ -35,11 +35,14 @@
 // carries "Reset order" (D-12) and "Unpin all" (D-16/PIN-09). Each change persists
 // immediately via setToolOrder / setPinnedToolIds and survives restart.
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { GripVertical, Pin, PinOff, RotateCcw } from "lucide-react";
+import { GripVertical, Lock, Pin, PinOff, RotateCcw } from "lucide-react";
 import { NavLink } from "react-router-dom";
+import { ENT_ORDERING } from "@/lib/entitlements/entitlements";
 import { ENABLED_TOOLS, getToolById } from "@/lib/tools/registry";
+import { useEntitlements } from "@/shell/useEntitlements";
 import { usePreferences } from "@/shell/usePreferences";
 import { moveToolInOrder, partitionTools, resolveRovingTarget } from "@/shell/toolOrder";
+import { UpsellModal } from "./UpsellPanel";
 
 interface ResetMenu {
   x: number;
@@ -57,9 +60,16 @@ export function Sidebar() {
   // is the registry order with an empty pinned group, so there is no order flash
   // and no spinner needed (D-11/PIN-08).
   const registryIds = ENABLED_TOOLS.map((t) => t.id);
+  // ENT-02/D-26: ordering/pinning gate through the ONE resolved entitlement set.
+  // While pro.ordering is missing the partition renders the registry DEFAULT
+  // (pinned group hidden, custom order reverted) — but the STORED prefs are never
+  // touched, so unlocking restores the arrangement instantly. With `pinned`
+  // forced empty, the pinned group, divider, and "Unpin all" item hide for free.
+  const ents = useEntitlements();
+  const orderingUnlocked = ents.has(ENT_ORDERING);
   const { pinned, unpinned } = partitionTools(
-    preferences.pinnedToolIds,
-    preferences.toolOrder,
+    orderingUnlocked ? preferences.pinnedToolIds : [],
+    orderingUnlocked ? preferences.toolOrder : [],
     registryIds,
   );
   // Membership lookup for per-row pin state. Derived from the RECONCILED pinned
@@ -74,6 +84,13 @@ export function Sidebar() {
   // The flat visible order — pinned then unpinned as ONE continuous sequence. Plain
   // ↑/↓ focus nav traverses this across the divider.
   const visibleIds = useMemo(() => [...pinned, ...unpinned], [pinned, unpinned]);
+
+  // D-28: the upsell modal opened by locked customization affordances (pin click,
+  // Alt+↑/↓, Alt+P, reset) and the D-29 footer row — ONE shared surface. The
+  // feature name is fixed by the UI-SPEC copy contract. UpsellModal handles
+  // Esc/scrim dismiss + focus-return internally (Plan 01).
+  const [upsellOpen, setUpsellOpen] = useState(false);
+  const openOrderingUpsell = useCallback(() => setUpsellOpen(true), []);
 
   // The id currently being dragged, the group it belongs to, and the gap index
   // the drop indicator sits at (0..group.length — N means "between row N-1 and N"
@@ -185,6 +202,13 @@ export function Sidebar() {
   // and announces with the registry NAME (Pitfall 4).
   const togglePin = useCallback(
     (id: string) => {
+      // D-28: locked → the affordance stays visible but invoking it opens the
+      // upsell instead of writing prefs. Returning BEFORE any setter makes prefs
+      // preservation structural (T-18-12).
+      if (!orderingUnlocked) {
+        openOrderingUpsell();
+        return;
+      }
       const tool = getToolById(id);
       if (!tool) return;
       const willPin = !pinnedSet.has(id);
@@ -199,16 +223,26 @@ export function Sidebar() {
       togglePinned(id);
       announce(willPin ? `Pinned ${tool.name}` : `Unpinned ${tool.name}`);
     },
-    [pinnedSet, togglePinned, announce],
+    [orderingUnlocked, openOrderingUpsell, pinnedSet, togglePinned, announce],
   );
 
   // --- Native HTML5 drag (handle-initiated only — D-01/D-02) -----------------
-  const onDragStart = useCallback((e: React.DragEvent, id: string, group: ToolGroup) => {
-    e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/plain", id);
-    setDraggingId(id);
-    setDraggingGroup(group);
-  }, []);
+  const onDragStart = useCallback(
+    (e: React.DragEvent, id: string, group: ToolGroup) => {
+      // D-28: reorder-by-drag is a customization affordance — locked, it opens
+      // the upsell and the drag never starts (no prefs write path exists).
+      if (!orderingUnlocked) {
+        e.preventDefault();
+        openOrderingUpsell();
+        return;
+      }
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", id);
+      setDraggingId(id);
+      setDraggingGroup(group);
+    },
+    [orderingUnlocked, openOrderingUpsell],
+  );
 
   // While dragging over a row, set the insertion line above or below it based on
   // the pointer's vertical position within the row. A drag over a row in the OTHER
@@ -304,6 +338,25 @@ export function Sidebar() {
         return;
       }
 
+      // D-28: locked → every Alt customization chord (pin + reorder) opens the
+      // upsell instead of mutating prefs. Match the PHYSICAL key for Alt+P exactly
+      // like the unlocked path below (macOS Option+P composes to "π" — Pitfall 9).
+      // Plain ↑/↓/Home/End focus nav above stays available locked: it is
+      // navigation, not customization.
+      if (!orderingUnlocked) {
+        if (
+          e.code === "KeyP" ||
+          e.key === "p" ||
+          e.key === "P" ||
+          e.key === "ArrowUp" ||
+          e.key === "ArrowDown"
+        ) {
+          e.preventDefault();
+          openOrderingUpsell();
+        }
+        return;
+      }
+
       // Alt+P pins/unpins the focused tool (D-13/PIN-05). Alt-family only — no
       // plain 'P', matching the sidebar's no-single-key model. Match the PHYSICAL
       // key (`e.code === "KeyP"`): on macOS, Option+P COMPOSES to the character "π",
@@ -345,7 +398,17 @@ export function Sidebar() {
       }
       commitMove(group, id, target, { focus: true });
     },
-    [visibleIds, focusRow, groupOrder, commitMove, announce, togglePin, groupSuffix],
+    [
+      visibleIds,
+      focusRow,
+      orderingUnlocked,
+      openOrderingUpsell,
+      groupOrder,
+      commitMove,
+      announce,
+      togglePin,
+      groupSuffix,
+    ],
   );
 
   // --- Reset order (D-12) + Unpin all (D-16) menu ----------------------------
@@ -414,10 +477,19 @@ export function Sidebar() {
   }, []);
 
   const resetOrder = useCallback(() => {
+    // D-28: the menu item stays reachable (visible affordance), but locked it
+    // opens the upsell instead of clearing the stored order. restoreFocus puts
+    // focus back on the invoking row BEFORE the modal mounts, so the modal's
+    // own focus-return lands there on dismiss.
+    if (!orderingUnlocked) {
+      openOrderingUpsell();
+      closeResetMenu({ restoreFocus: true });
+      return;
+    }
     setToolOrder([]); // clears to default registry order
     announce("Sidebar order reset to default");
     closeResetMenu({ restoreFocus: true });
-  }, [setToolOrder, announce, closeResetMenu]);
+  }, [orderingUnlocked, openOrderingUpsell, setToolOrder, announce, closeResetMenu]);
 
   const unpinAll = useCallback(() => {
     setPinnedToolIds([]); // clears the whole pinned set (PIN-09)
@@ -706,6 +778,16 @@ export function Sidebar() {
             </button>
           ) : null}
         </div>
+      ) : null}
+
+      {/* D-28: the shared upsell modal for locked ordering/pinning affordances.
+          UpsellModal owns Esc/scrim dismiss + focus capture/return (Plan 01). */}
+      {upsellOpen ? (
+        <UpsellModal
+          feature="Tool ordering & pinning"
+          icon={Lock}
+          onClose={() => setUpsellOpen(false)}
+        />
       ) : null}
     </aside>
   );
