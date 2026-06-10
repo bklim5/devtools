@@ -268,3 +268,12 @@ Plans:
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.7: Base64 tool — inline image preview (BACKLOG)
+
+**Goal:** [Captured for future planning] — extend the **existing base64 tool** (not a new tool) with an inline image preview: when decoded bytes sniff as an image (PNG/JPEG/GIF/WebP/SVG via magic bytes), render the image inline below the decoded output. Fits the wedge: paste blob → usable interpretation. **Open questions for promotion:** rendering via data-URI `<img>` (no new deps); SVG safety (sanitize or render rasterized/sandboxed — SVG can carry scripts); size limits for very large payloads; alt-text/a11y treatment (WCAG-AA binding); whether preview shows dimensions/format metadata; copy/save affordance for the rendered image.
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
