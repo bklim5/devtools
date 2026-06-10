@@ -37,7 +37,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { GripVertical, Lock, Pin, PinOff, RotateCcw } from "lucide-react";
 import { NavLink } from "react-router-dom";
-import { ENT_ORDERING } from "@/lib/entitlements/entitlements";
+import { ENT_ORDERING, ENT_THEMING, isToolLocked } from "@/lib/entitlements/entitlements";
 import { ENABLED_TOOLS, getToolById } from "@/lib/tools/registry";
 import { useEntitlements } from "@/shell/useEntitlements";
 import { usePreferences } from "@/shell/usePreferences";
@@ -540,6 +540,10 @@ export function Sidebar() {
       // pinned group is always in pinnedSet — the membership check alone suffices
       // for both groups (no redundant `group === "pinned"` short-circuit needed).
       const isPinned = pinnedSet.has(id);
+      // D-23: tool-level lock through the ONE central predicate. Dormant in
+      // production (no shipped tool carries requiredEntitlements — D-18);
+      // proven by fixture in Sidebar.locked.test.tsx.
+      const locked = isToolLocked(tool, ents);
       const groupLen = group === "pinned" ? pinned.length : unpinned.length;
       return (
         <div
@@ -609,6 +613,18 @@ export function Sidebar() {
                   <span className="min-w-0 truncate text-[13.5px] font-semibold">
                     {tool.name}
                   </span>
+                  {locked ? (
+                    <>
+                      {/* D-23/D-24: neutral status-badge-family glyph INLINE after
+                          the name — NOT in the right control zone (pin right-8 /
+                          grip right-1 own it, RESEARCH Pitfall 7). Accent
+                          forbidden (D-24); no opacity/dimming (ENT-04). */}
+                      <Lock aria-hidden="true" className="h-3 w-3 flex-none text-tx-2" />
+                      {/* D-25: SR-only suffix → accessible name "X — locked".
+                          No aria-live for static lock state. */}
+                      <span className="sr-only"> — locked</span>
+                    </>
+                  ) : null}
                 </>
               )}
             </NavLink>
@@ -693,6 +709,7 @@ export function Sidebar() {
       pinned.length,
       unpinned.length,
       pinnedSet,
+      ents,
       onRowDragOver,
       onDrop,
       onDragStart,
@@ -733,6 +750,21 @@ export function Sidebar() {
           {unpinned.map((id, index) => renderRow(id, index, "unpinned"))}
         </div>
       </nav>
+
+      {/* D-29: standing free-tier "Unlock Pro" entry — quiet, neutral,
+          keyboard-reachable (native button: click/Enter/Space). Bottom-anchored
+          by the flex-1 nav above. Opens the same shared upsell surface (D-19).
+          Future home for Phase 19 key entry + Phase 21 status UI. */}
+      {!ents.has(ENT_ORDERING) || !ents.has(ENT_THEMING) ? (
+        <button
+          type="button"
+          onClick={openOrderingUpsell}
+          className="flex min-h-6 items-center gap-2 rounded-[6px] px-[11px] py-1 text-left text-[13px] text-tx-2 outline-none transition-colors hover:text-tx focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          <Lock aria-hidden="true" className="h-3 w-3 flex-none" />
+          Unlock Pro
+        </button>
+      ) : null}
 
       {/* Reorder / pin announcements for screen readers (D-06). Visually hidden. */}
       <div aria-live="polite" className="sr-only">

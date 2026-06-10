@@ -114,6 +114,12 @@ describe("Sidebar entitlement gate — unlocked (FULL_SET, D-26 baseline)", () =
       expect(getByRole("group", { name: "Pinned tools" })).toBeDefined(),
     );
   });
+
+  it("does NOT render the footer 'Unlock Pro' row under FULL_SET (D-29)", async () => {
+    const { queryByRole } = renderAt("/");
+    await flushPrefsLoad();
+    expect(queryByRole("button", { name: "Unlock Pro" })).toBeNull();
+  });
 });
 
 describe("Sidebar free tier (D-26/D-28)", () => {
@@ -216,6 +222,22 @@ describe("Sidebar free tier (D-26/D-28)", () => {
     // The menu itself closed; the stored order was NOT cleared.
     expect(queryByRole("menu")).toBeNull();
     expect(setSpy).not.toHaveBeenCalled();
+  });
+
+  it("footer 'Unlock Pro' row renders in free tier, is focusable, and opens the modal (D-29)", async () => {
+    const { getByRole } = renderAt("/");
+    await flushPrefsLoad();
+
+    const footer = getByRole("button", { name: "Unlock Pro" });
+    // Keyboard-reachable: a native button, in the Tab order by default.
+    expect(footer.tabIndex).toBe(0);
+
+    fireEvent.click(footer);
+
+    expect(getByRole("dialog")).toBeDefined();
+    expect(
+      getByRole("heading", { name: "Tool ordering & pinning is a Pro feature" }),
+    ).toBeDefined();
   });
 
   it("Esc closes the modal and focus returns to the invoking control", async () => {
