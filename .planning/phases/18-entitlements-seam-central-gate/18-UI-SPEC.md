@@ -1,7 +1,8 @@
 ---
 phase: 18
 slug: entitlements-seam-central-gate
-status: draft
+status: approved
+reviewed_at: 2026-06-10
 shadcn_initialized: false
 preset: none
 created: 2026-06-10
