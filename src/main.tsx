@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { RouterProvider } from "react-router-dom";
 import { router } from "./router";
 import { initPlatform } from "@/lib/platform";
+import { refreshEntitlements } from "@/lib/entitlements/store";
 import "./index.css";
 
 // Kick off resolving the real platform impl (FND-04) early so the lazy
@@ -30,6 +31,14 @@ import "./index.css";
 // in flight; the prefs hooks each await initPlatform() themselves.
 void initPlatform().catch((err) => {
   console.error("[platform] init failed:", err);
+});
+
+// ENT-03: kick off resolving the entitlement set (folds in the persisted D-31
+// override) beside the platform warm-up so it lands before/shortly after first
+// paint. Non-blocking — first paint never waits on it; the store's synchronous
+// environment default already matches the resolved set when no override exists.
+void refreshEntitlements().catch((err) => {
+  console.error("[entitlements] refresh failed:", err);
 });
 
 const rootEl = document.getElementById("root");
