@@ -39,13 +39,14 @@ Last activity: 2026-06-10
 |---|-------------|------|--------|-----------|
 | 260608-avk | Release notes via CHANGELOG.md (pure `extractChangelogSection` + wired both release drivers + multi-line updater banner) | 2026-06-08 | dcbf344f | [260608-avk-plumb-release-notes-through-changelog-md](./quick/260608-avk-plumb-release-notes-through-changelog-md/) |
 | 260609-ard | `pnpm release:changelog "xxx"` edit-only driver (append to Unreleased) + `release:bump` auto-promotes Unreleased → `## [X.Y.Z] - date` (pure `appendUnreleasedEntry`/`promoteUnreleased`; CHANGELOG.md optional in bump ALLOWED_PATHS) | 2026-06-09 | e1a8e32e | [260609-ard-add-pnpm-release-changelog-command-auto-](./quick/260609-ard-add-pnpm-release-changelog-command-auto-/) |
+| 260610-w61 | Protobuf example chips carry per-example `InputEncoding` + chip click sets raw AND explicit override — examples always decode under the matching mode even after a forced mismatched encoding; unit + real-WKWebView e2e prove the flip | 2026-06-10 | 505439e9 + 966fc5d0 | [260610-w61-protobuf-decoder-example-chips-switch-in](./quick/260610-w61-protobuf-decoder-example-chips-switch-in/) |
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-06-09, v1.6 started) · roadmap: .planning/ROADMAP.md · requirements: .planning/REQUIREMENTS.md · research: docs/licensing-research.md
 
 **Core value:** Paste an unknown blob → usable, explorable interpretation in <2s, entirely offline, no mouse.
-**Current focus:** Phase 18 — entitlements-seam-central-gate
+**Current focus:** v1.6 "Licensing" — Phase 18 complete; next: plan Phase 19 (Phase 20 parallel-capable)
 
 ## v1.5 — Pinned Tools (SHIPPED & ARCHIVED, 2026-06-07)
 
