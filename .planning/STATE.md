@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Licensing
 status: roadmap_created
-last_updated: "2026-06-09T00:00:00.000Z"
-last_activity: 2026-06-09 -- v1.6 roadmap created (Phases 18-21); next /gsd-plan-phase 18
+last_updated: "2026-06-10T00:00:00.000Z"
+last_activity: 2026-06-10 -- Phase 18 context gathered (18-CONTEXT.md, incl. D-18 free-tier pivot); next /gsd-plan-phase 18
 progress:
   total_phases: 4
   completed_phases: 0
@@ -18,11 +18,11 @@ progress:
 ## Current Position
 
 Milestone: **v1.6 "Licensing"** — started 2026-06-09, roadmap created 2026-06-09.
-Phase: **18 — Entitlements Seam & Central Gate** (not started)
+Phase: **18 — Entitlements Seam & Central Gate** (context gathered)
 Plan: —
-Status: Roadmap created — ready to plan Phase 18 (`/gsd-plan-phase 18`)
+Status: Context gathered (`18-CONTEXT.md`, D-18..D-32) — ready to plan Phase 18 (`/gsd-plan-phase 18`)
 Progress: [□□□□] 0/4 phases
-Last activity: 2026-06-09 — v1.6 roadmap created (Phases 18–21, 17/17 requirements mapped)
+Last activity: 2026-06-10 — Phase 18 discuss complete. **D-18 FREE-TIER PIVOT: all 11 tools (incl. hero) stay free; Pro = customization (theming + ordering/pinning) + declared home for future power features. Supersedes ENT-04 / ROADMAP Phase 18+21 criteria / PROJECT.md / licensing-research "free tier locks" lines — update those docs before/during planning.** Tool-gating mechanism still built + dev-toggle proven, dormant in production.
 
 **Goal:** one-time-payment lifetime license — MoR checkout → webhook → Keygen (perpetual, node-locked, maxMachines=1); paste-key one-time activation (fingerprint `HMAC-SHA256(IOPlatformUUID, salt)`); offline Ed25519-verified `machine.lic` (~30-day TTL) thereafter; license key in Keychain (Rust-owned); free tier locks Protobuf hero + theming + ordering/pinning behind a central entitlement gate. Research: `docs/licensing-research.md`.
 
