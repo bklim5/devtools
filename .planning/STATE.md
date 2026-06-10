@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Licensing
 status: executing
-last_updated: "2026-06-10T13:46:03.238Z"
-last_activity: 2026-06-10 -- Phase 18 planning complete
+last_updated: "2026-06-10T14:19:58.596Z"
+last_activity: 2026-06-10 -- Plan 18-01 complete (entitlements seam + central gate + UpsellPanel)
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 4
-  completed_plans: 0
-  percent: 0
+  completed_plans: 1
+  percent: 25
 ---
 
 # Project State
@@ -18,11 +18,11 @@ progress:
 ## Current Position
 
 Milestone: **v1.6 "Licensing"** — started 2026-06-09, roadmap created 2026-06-09.
-Phase: **18 — Entitlements Seam & Central Gate** (context gathered)
-Plan: —
-Status: Ready to execute
-Progress: [□□□□] 0/4 phases
-Last activity: 2026-06-10 -- Phase 18 planning complete
+Phase: 18 (entitlements-seam-central-gate) — EXECUTING
+Plan: 2 of 4 (18-01 complete — `feb6ec97`..`f3024ced`)
+Status: Executing Phase 18
+Progress: [□□□□] 0/4 phases · v1.6 plans 1/4
+Last activity: 2026-06-10 -- Plan 18-01 complete (entitlements seam + central gate + UpsellPanel)
 
 **Goal:** one-time-payment lifetime license — MoR checkout → webhook → Keygen (perpetual, node-locked, maxMachines=1); paste-key one-time activation (fingerprint `HMAC-SHA256(IOPlatformUUID, salt)`); offline Ed25519-verified `machine.lic` (~30-day TTL) thereafter; license key in Keychain (Rust-owned); free tier locks Protobuf hero + theming + ordering/pinning behind a central entitlement gate. Research: `docs/licensing-research.md`.
 
@@ -45,7 +45,7 @@ Last activity: 2026-06-10 -- Phase 18 planning complete
 See: .planning/PROJECT.md (updated 2026-06-09, v1.6 started) · roadmap: .planning/ROADMAP.md · requirements: .planning/REQUIREMENTS.md · research: docs/licensing-research.md
 
 **Core value:** Paste an unknown blob → usable, explorable interpretation in <2s, entirely offline, no mouse.
-**Current focus:** v1.6 "Licensing" — Phase 18 (entitlements seam) next.
+**Current focus:** Phase 18 — entitlements-seam-central-gate
 
 ## v1.5 — Pinned Tools (SHIPPED & ARCHIVED, 2026-06-07)
 
@@ -58,6 +58,8 @@ v1.5 complete — Phase 17 (2 plans), archived to `.planning/milestones/v1.5-*` 
 **v1.6 scoped amendments (locked, recorded in PROJECT.md + REQUIREMENTS.md):** "no network at runtime" gains a narrow licensing-only exception — one-time activation + opportunistic ~30-day TTL refresh, never per-launch checks, all tools fully functional offline. Rust crates for licensing (`ed25519-dalek`, `keyring`, HMAC) are expected and allowed; webview runtime deps stay zero.
 
 **v1.6 architecture (locked — `docs/licensing-research.md`, do not re-litigate):** Keygen perpetual + node-locked (`maxMachines=1`); unencrypted Ed25519-signed `machine.lic` verified in Rust (embedded pubkey + fingerprint `HMAC-SHA256(IOPlatformUUID, app-salt)`); license key in macOS Keychain (Rust-owned, never readable from JS); React sees only `license_status`/`activate_license`/`refresh_license`/`deactivate_machine` returning a resolved entitlement set; MoR checkout (Lemon Squeezy default, payout-country pending) → webhook → small backend → Keygen license creation (privileged tokens server-side ONLY); webview gating = UX-gating, not DRM (accepted); OS-portable seams, macOS-only impl; locked tools stay visible with lock badge + upsell panel (never hidden, no opacity-only state).
+
+**Phase 18 plan 01 decisions (2026-06-10):** entitlement vocabulary = `pro.theming` + `pro.ordering` (ONE arrangement entitlement covers reorder+pin+reset, D-26/D-28); reserved `premium?: boolean` DELETED from ToolDefinition (zero call sites) — `requiredEntitlements?: string[]` replaces it; entitlements store's synchronous default = `isTauriEnv() ? FULL_SET : FREE_SET` so pre/post-resolution agree without an override (no startup lock-flash); UpsellModal gained a Tab focus trap beyond plan spec (aria-modal without a trap fails WCAG-AA — codex review). `resolveEntitlements()` in `src/lib/entitlements/resolve.ts` is THE single Phase-21 flip point.
 
 **v1.6 sequencing decisions:** entitlements seam FIRST (pure frontend, free-tier default = everything unlocked until Phase 21 flips it at integration); Keygen Rust integration is the riskiest chunk and carries the key→token-exchange SPIKE; PAY pipeline is external infra, parallel-capable with Phase 19; lifecycle hardening + the 8-case ship-gate matrix close the milestone.
 
