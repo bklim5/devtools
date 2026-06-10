@@ -26,7 +26,7 @@ export function ToolRoute({ tool }: { tool: ToolDefinition }) {
   if (isToolLocked(tool, ents)) {
     return (
       <div className="flex flex-1 items-center justify-center p-8">
-        <UpsellPanel feature={tool.name} icon={tool.icon} headingId="upsell-route-heading" />
+        <UpsellPanel icon={tool.icon} headingId="upsell-route-heading" />
       </div>
     );
   }

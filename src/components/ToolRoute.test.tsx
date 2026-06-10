@@ -59,8 +59,9 @@ describe("ToolRoute locked branch (ENT-01/D-30, T-18-06)", () => {
     expect(
       screen.getByRole("heading", { name: /Thank you for using TinkerDev/ }),
     ).toBeDefined();
-    // D-19: the panel names WHAT is locked (locked tools stay identifiable).
-    expect(screen.getByText("Unlocks: Fixture")).toBeDefined();
+    // D-19 override (walkthrough 2026-06-10): no "Unlocks:" meta line — lock
+    // context comes from the route the user opened.
+    expect(screen.queryByText(/Unlocks:/)).toBeNull();
     expect(loader).toHaveBeenCalledTimes(0);
   });
 

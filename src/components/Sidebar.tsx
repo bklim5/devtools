@@ -86,9 +86,10 @@ export function Sidebar() {
   const visibleIds = useMemo(() => [...pinned, ...unpinned], [pinned, unpinned]);
 
   // D-28: the upsell modal opened by locked customization affordances (pin click,
-  // Alt+↑/↓, Alt+P, reset) and the D-29 footer row — ONE shared surface. The
-  // feature name is fixed by the UI-SPEC copy contract. UpsellModal handles
-  // Esc/scrim dismiss + focus-return internally (Plan 01).
+  // Alt+↑/↓, Alt+P, reset) and the D-29 footer row — ONE shared surface with
+  // fully static copy (D-19 override: lock context comes from the affordance
+  // the user clicked). UpsellModal handles Esc/scrim dismiss + focus-return
+  // internally (Plan 01).
   const [upsellOpen, setUpsellOpen] = useState(false);
   const openOrderingUpsell = useCallback(() => setUpsellOpen(true), []);
 
@@ -815,11 +816,7 @@ export function Sidebar() {
       {/* D-28: the shared upsell modal for locked ordering/pinning affordances.
           UpsellModal owns Esc/scrim dismiss + focus capture/return (Plan 01). */}
       {upsellOpen ? (
-        <UpsellModal
-          feature="Tool ordering & pinning"
-          icon={Lock}
-          onClose={() => setUpsellOpen(false)}
-        />
+        <UpsellModal icon={Lock} onClose={() => setUpsellOpen(false)} />
       ) : null}
     </aside>
   );

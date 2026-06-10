@@ -169,7 +169,7 @@ describe("Sidebar free tier (D-26/D-28)", () => {
   });
 
   it("pin-button click opens the upsell modal and writes nothing (D-28)", async () => {
-    const { getByRole, getByLabelText, getByText } = renderAt("/");
+    const { getByRole, getByLabelText, queryByText } = renderAt("/");
     await flushPrefsLoad();
     const setSpy = vi.spyOn(store, "set");
 
@@ -179,8 +179,9 @@ describe("Sidebar free tier (D-26/D-28)", () => {
     expect(
       getByRole("heading", { name: /Thank you for using TinkerDev/ }),
     ).toBeDefined();
-    // D-19: the modal names WHAT is locked.
-    expect(getByText("Unlocks: Tool ordering & pinning")).toBeDefined();
+    // D-19 override (walkthrough 2026-06-10): no "Unlocks:" meta line — lock
+    // context comes from the affordance the user clicked.
+    expect(queryByText(/Unlocks:/)).toBeNull();
     expect(setSpy).not.toHaveBeenCalled();
   });
 

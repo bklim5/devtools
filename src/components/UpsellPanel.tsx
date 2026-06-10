@@ -4,6 +4,11 @@
 // row). Layout is FINAL from this phase; Phase 19 wires the license-key
 // affordance, Phase 20 swaps in the real checkout link.
 //
+// D-19 override (user decision, walkthrough 2026-06-10): the "Unlocks:
+// {feature}" meta line is REMOVED — lock context comes from the affordance the
+// user clicked, so the panel takes no feature name and the copy is fully
+// static (final trimmed two-paragraph version, user-approved verbatim).
+//
 // WCAG-AA (per 18-UI-SPEC): real heading element, visible focus-visible rings,
 // all buttons Tab-reachable, neutral tokens everywhere — accent appears ONLY on
 // the primary CTA's accent-soft fill + focus rings, never a solid accent fill.
@@ -16,15 +21,13 @@ import { useEffect, useRef, type ComponentType } from "react";
 export const BUY_LICENSE_URL = "https://example.invalid/devtools/buy";
 
 export interface UpsellPanelProps {
-  /** Locked feature display name, e.g. "Theming" or "Tool ordering & pinning". */
-  feature: string;
   /** Feature icon (lucide-react component), rendered neutral beside the heading. */
   icon: ComponentType<{ className?: string }>;
   /** Optional heading id so a wrapping dialog can point aria-labelledby at it. */
   headingId?: string;
 }
 
-export function UpsellPanel({ feature, icon: Icon, headingId }: UpsellPanelProps) {
+export function UpsellPanel({ icon: Icon, headingId }: UpsellPanelProps) {
   return (
     <div className="flex max-w-[420px] flex-col gap-4 rounded-[7px] border border-bd bg-panel p-6">
       <div className="flex items-center gap-2">
@@ -38,25 +41,16 @@ export function UpsellPanel({ feature, icon: Icon, headingId }: UpsellPanelProps
       </div>
       <div className="flex flex-col gap-2 text-[12px] leading-[1.5] text-tx-2">
         <p>
-          TinkerDev is built to make everyday developer tasks faster and easier.
-          Most features are free, because I want it to be genuinely useful in
-          your daily workflow.
+          Most of TinkerDev is free — built to make your everyday dev tasks
+          faster.
         </p>
         <p>
-          If TinkerDev has saved you time, solved a problem, or earned a spot in
-          your toolkit, please consider supporting it with a lifetime license.
-          Your support directly funds ongoing maintenance, bug fixes, and new
+          If TinkerDev has earned a spot in your toolkit, consider supporting
+          it with a lifetime license. You&apos;ll unlock extras like custom
+          themes and tool reordering, and fund ongoing maintenance and new
           features.
         </p>
-        <p>
-          As a thank you, you&apos;ll also unlock premium extras like custom
-          themes, tool reordering, and more to come.
-        </p>
-        <p>Would you like to upgrade to a lifetime license today?</p>
       </div>
-      {/* D-19: the locked feature stays identifiable — a quiet meta line names
-          exactly WHAT this panel unlocks. */}
-      <p className="text-[11px] leading-[1.5] text-tx-2">Unlocks: {feature}</p>
       <div className="flex gap-2">
         <button
           type="button"
@@ -84,7 +78,6 @@ export function UpsellPanel({ feature, icon: Icon, headingId }: UpsellPanelProps
 const MODAL_HEADING_ID = "upsell-heading";
 
 export interface UpsellModalProps {
-  feature: string;
   icon: ComponentType<{ className?: string }>;
   onClose: () => void;
 }
@@ -92,7 +85,7 @@ export interface UpsellModalProps {
 /** Modal wrapper for app-level locks (D-28/D-29 surfaces). Reuses the ⌘K
  *  palette's scrim/dismiss pattern: Esc + scrim-click dismiss, focus moves into
  *  the dialog on mount and returns to the invoking control on unmount. */
-export function UpsellModal({ feature, icon, onClose }: UpsellModalProps) {
+export function UpsellModal({ icon, onClose }: UpsellModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   // Keep the latest onClose visible to the mount-once effect without re-running
   // it (re-running would re-steal and re-return focus on every prop change).
@@ -165,7 +158,7 @@ export function UpsellModal({ feature, icon, onClose }: UpsellModalProps) {
         className="outline-none"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <UpsellPanel feature={feature} icon={icon} headingId={MODAL_HEADING_ID} />
+        <UpsellPanel icon={icon} headingId={MODAL_HEADING_ID} />
       </div>
     </div>
   );

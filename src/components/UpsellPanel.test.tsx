@@ -13,30 +13,29 @@ afterEach(cleanup);
 
 describe("UpsellPanel (card)", () => {
   it("renders the thank-you heading as a real heading element", () => {
-    const { getByRole } = render(<UpsellPanel feature="Theming" icon={Lock} />);
+    const { getByRole } = render(<UpsellPanel icon={Lock} />);
     const heading = getByRole("heading", {
       name: /Thank you for using TinkerDev/,
     });
     expect(heading.tagName).toBe("H2");
   });
 
-  it("renders the body copy with no pricing (D-20) and keeps the locked feature identifiable (D-19)", () => {
-    const { getByText, container } = render(
-      <UpsellPanel feature="Theming" icon={Lock} />,
+  it("renders the final two-paragraph body copy with no pricing (D-20) and no feature meta line (D-19 override)", () => {
+    const { getByText, queryByText, container } = render(
+      <UpsellPanel icon={Lock} />,
     );
+    expect(getByText(/Most of TinkerDev is free/)).toBeDefined();
     expect(
-      getByText(/please consider supporting it with a lifetime license/),
+      getByText(/consider supporting it with a lifetime license/),
     ).toBeDefined();
-    expect(
-      getByText(/Would you like to upgrade to a lifetime license today\?/),
-    ).toBeDefined();
-    // D-19: the panel still names WHAT is locked.
-    expect(getByText("Unlocks: Theming")).toBeDefined();
+    // D-19 override (walkthrough 2026-06-10): NO "Unlocks:" meta line — lock
+    // context comes from the affordance the user clicked.
+    expect(queryByText(/Unlocks:/)).toBeNull();
     expect(container.textContent).not.toMatch(/\$|price/i);
   });
 
   it("renders the 'Buy license' CTA as a Tab-reachable button (stub no-op, D-21)", () => {
-    const { getByRole } = render(<UpsellPanel feature="Theming" icon={Lock} />);
+    const { getByRole } = render(<UpsellPanel icon={Lock} />);
     const buy = getByRole("button", { name: "Buy license" });
     expect(buy.tagName).toBe("BUTTON");
     expect(buy.getAttribute("tabindex")).not.toBe("-1");
@@ -51,7 +50,7 @@ describe("UpsellPanel (card)", () => {
   });
 
   it("renders the inert 'I have a license key' affordance (D-22)", () => {
-    const { getByRole } = render(<UpsellPanel feature="Theming" icon={Lock} />);
+    const { getByRole } = render(<UpsellPanel icon={Lock} />);
     const key = getByRole("button", { name: "I have a license key" });
     expect(key.tagName).toBe("BUTTON");
     expect(key.getAttribute("tabindex")).not.toBe("-1");
@@ -59,7 +58,7 @@ describe("UpsellPanel (card)", () => {
   });
 
   it("gives both CTAs visible focus rings and keeps the lock treatment neutral (no solid accent fill)", () => {
-    const { getByRole } = render(<UpsellPanel feature="Theming" icon={Lock} />);
+    const { getByRole } = render(<UpsellPanel icon={Lock} />);
     const buy = getByRole("button", { name: "Buy license" });
     const key = getByRole("button", { name: "I have a license key" });
     expect(buy.className).toContain("focus-visible:ring-accent");
@@ -71,7 +70,7 @@ describe("UpsellPanel (card)", () => {
   });
 
   it("hides the icon from assistive tech (aria-hidden)", () => {
-    const { container } = render(<UpsellPanel feature="Theming" icon={Lock} />);
+    const { container } = render(<UpsellPanel icon={Lock} />);
     const svg = container.querySelector("svg");
     expect(svg?.getAttribute("aria-hidden")).toBe("true");
   });
@@ -80,7 +79,7 @@ describe("UpsellPanel (card)", () => {
 describe("UpsellModal (dialog wrapper)", () => {
   it("renders role=dialog with aria-modal and aria-labelledby pointing at the panel heading", () => {
     const { getByRole } = render(
-      <UpsellModal feature="Theming" icon={Lock} onClose={() => {}} />,
+      <UpsellModal icon={Lock} onClose={() => {}} />,
     );
     const dialog = getByRole("dialog");
     expect(dialog.getAttribute("aria-modal")).toBe("true");
@@ -94,7 +93,7 @@ describe("UpsellModal (dialog wrapper)", () => {
 
   it("calls onClose on Escape (document-level keydown)", () => {
     const onClose = vi.fn();
-    render(<UpsellModal feature="Theming" icon={Lock} onClose={onClose} />);
+    render(<UpsellModal icon={Lock} onClose={onClose} />);
     fireEvent.keyDown(document, { key: "Escape" });
     expect(onClose).toHaveBeenCalledTimes(1);
   });
@@ -102,7 +101,7 @@ describe("UpsellModal (dialog wrapper)", () => {
   it("calls onClose on scrim click but NOT on clicks inside the dialog", () => {
     const onClose = vi.fn();
     const { getByRole } = render(
-      <UpsellModal feature="Theming" icon={Lock} onClose={onClose} />,
+      <UpsellModal icon={Lock} onClose={onClose} />,
     );
     const dialog = getByRole("dialog");
     const scrim = dialog.parentElement!;
@@ -116,7 +115,7 @@ describe("UpsellModal (dialog wrapper)", () => {
 
   it("traps Tab inside the dialog (wraps at both ends — WCAG-AA modal semantics)", () => {
     const { getByRole } = render(
-      <UpsellModal feature="Theming" icon={Lock} onClose={() => {}} />,
+      <UpsellModal icon={Lock} onClose={() => {}} />,
     );
     const buy = getByRole("button", { name: "Buy license" });
     const key = getByRole("button", { name: "I have a license key" });
@@ -145,7 +144,7 @@ describe("UpsellModal (dialog wrapper)", () => {
     expect(document.activeElement).toBe(invoker);
 
     const { getByRole, unmount } = render(
-      <UpsellModal feature="Theming" icon={Lock} onClose={() => {}} />,
+      <UpsellModal icon={Lock} onClose={() => {}} />,
     );
     expect(document.activeElement).toBe(getByRole("dialog"));
 

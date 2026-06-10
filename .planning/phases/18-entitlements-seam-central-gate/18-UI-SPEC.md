@@ -98,9 +98,9 @@ Text contrast floor: body text uses `text-tx` (#e7e9ee) or `text-tx-2` (#989da7)
 ## Component Contract (phase-specific)
 
 ### UpsellPanel (D-19..D-22 — layout FINAL this phase)
-- ONE shared component, props: `{ feature: string, icon: LucideIcon }`.
+- ONE shared component, props: `{ icon: LucideIcon }` (the `feature` prop was dropped with the D-19 override — final walkthrough 2026-06-10: the panel is fully static; lock context comes from the affordance the user clicked).
 - Surface: `bg-panel` card, `border border-bd`, `rounded-[7px]`, `p-6`, max-width ~420px.
-- Structure top-to-bottom (16px gaps): feature icon (`text-tx-2`, 20px) + heading row → body paragraphs (`text-[12px] text-tx-2`, 8px between paragraphs, no pricing) → "Unlocks: {feature}" meta line (`text-[11px] text-tx-2`, D-19) → CTA row. (Body/heading copy per the Copywriting Contract — walkthrough-revised 2026-06-10.)
+- Structure top-to-bottom (16px gaps): feature icon (`text-tx-2`, 20px) + heading row → body paragraphs (`text-[12px] text-tx-2`, 8px between paragraphs, no pricing) → CTA row. (The "Unlocks: {feature}" meta line was REMOVED — user decision overriding D-19, final walkthrough 2026-06-10. Body/heading copy per the Copywriting Contract.)
 - CTA row: primary "Buy license" `<button>` (UpdateBanner primary family, reads single exported `BUY_LICENSE_URL` constant, stubbed no-op this phase) + secondary "I have a license key" `<button>` (UpdateBanner secondary family: `border-bd bg-input-bg text-tx-2`, inert stub this phase). 8px gap between buttons.
 - Two render surfaces, one component:
   - **Route placement** (D-30): rendered centered in `<main>` in place of a locked tool's UI.
@@ -128,8 +128,8 @@ Text contrast floor: body text uses `text-tx` (#e7e9ee) or `text-tx-2` (#989da7)
 | Primary CTA | "Buy license" (D-21, locked) |
 | Secondary affordance | "I have a license key" (D-22, locked; inert this phase) |
 | UpsellPanel heading | "Thank you for using TinkerDev ❤️" (static — no feature interpolation; walkthrough feedback 2026-06-10, supersedes "{Feature} is a Pro feature") |
-| UpsellPanel body | Four-paragraph TinkerDev thank-you copy (verbatim per walkthrough feedback 2026-06-10): "TinkerDev is built to make everyday developer tasks faster and easier. Most features are free, because I want it to be genuinely useful in your daily workflow." / "If TinkerDev has saved you time, solved a problem, or earned a spot in your toolkit, please consider supporting it with a lifetime license. Your support directly funds ongoing maintenance, bug fixes, and new features." / "As a thank you, you'll also unlock premium extras like custom themes, tool reordering, and more to come." / "Would you like to upgrade to a lifetime license today?" (NO pricing per D-20) |
-| UpsellPanel feature line | "Unlocks: {feature}" — quiet 11px neutral meta line above the CTAs; keeps the locked feature identifiable (D-19) now that the heading is static |
+| UpsellPanel body | FINAL two-paragraph copy (user-approved verbatim, final walkthrough 2026-06-10 — supersedes the earlier four-paragraph version): "Most of TinkerDev is free — built to make your everyday dev tasks faster." / "If TinkerDev has earned a spot in your toolkit, consider supporting it with a lifetime license. You'll unlock extras like custom themes and tool reordering, and fund ongoing maintenance and new features." (NO pricing per D-20) |
+| UpsellPanel feature line | REMOVED — user decision (final walkthrough 2026-06-10) overriding D-19's feature-name surfacing: lock context comes from the affordance the user clicked, so no "Unlocks: {feature}" line and no `feature` prop |
 | Footer row label | "Unlock Pro" (D-29, locked) |
 | SR lock suffix | " — locked" appended to the accessible name (D-25, locked) |
 | DEV palette command | "Toggle free tier (dev)" (D-32, locked — this exact string is the dist-grep tripwire; do not vary it) |
@@ -137,7 +137,7 @@ Text contrast floor: body text uses `text-tx` (#e7e9ee) or `text-tx-2` (#989da7)
 | Error state | not applicable — no network, no user input, no failure surfaces this phase (lazy chunk loads are local-disk; failures are structural build bugs, not user-facing states) |
 | Destructive confirmation | none — no destructive actions this phase |
 
-Feature-name strings passed to the panel: **"Theming"** and **"Tool ordering & pinning"** (ordering+pinning is ONE feature per D-26/D-28 single `pro.ordering` entitlement). Test fixtures may use any name.
+The panel no longer takes a feature-name string (D-19 override above). Entitlement granularity is unchanged: ordering+pinning is ONE feature per D-26/D-28 single `pro.ordering` entitlement.
 
 ---
 
