@@ -433,18 +433,23 @@ const { pinned, unpinned } = partitionTools(
 | A3 | All 11 tool components are default exports (verified for 2 of 11; the eager `import X from` form implies it for the rest) | Code Examples | A named-export tool would need `() => import("./X").then(m => ({ default: m.X }))` — trivial per-file fix at conversion time. |
 | A4 | `Suspense fallback={null}` produces no perceptible blank on local-disk chunk loads in the packaged app | Pattern 5 / Pitfall 8 | If a blank is perceptible on the real WKWebView, add a minimal neutral skeleton — UI-gate verification catches it. |
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+> All three questions were resolved during planning (2026-06-10): the recommendations below were adopted verbatim by the approved plans and 18-UI-SPEC.md. No open questions remain.
 
 1. **Upsell-panel presentation for app-level locks (sidebar affordances / footer row)** — route content replacement is defined (D-30) but the panel's surface when opened FROM the sidebar (modal overlay vs navigating `<main>` to a panel view) is unspecified.
    - What we know: D-19 demands ONE shared component; the palette's dialog styling is the only existing overlay pattern.
    - What's unclear: modal vs in-main placement; focus-return behavior.
    - Recommendation: planner picks one (modal `role="dialog"` reusing palette scrim/dismiss patterns is lowest-risk for WCAG focus management) and bakes it into the plan; layout is final this phase (D-22) so decide once.
+   - **RESOLVED:** Modal, per the recommendation — `UpsellModal` with `role="dialog"` / `aria-modal="true"`, Esc + scrim dismiss, focus-into/focus-return, reusing the palette overlay pattern. Built in Plan 01 Task 3 (18-01-PLAN.md); consumed by the locked sidebar affordances + footer row in Plan 03; contract locked in the approved 18-UI-SPEC.md.
 2. **"Buy license" CTA click behavior while stubbed (D-21)** — constant URL exists but Phase 20 owns the real link; opening external URLs from Tauri needs an opener path not yet in the platform seam.
    - What we know: CTA must render this phase; URL behind one constant.
    - Recommendation: render the button, no-op (or copy-URL) handler with the constant in place; defer browser-open plumbing to Phase 20 (which owns PAY-01's "opens in default browser").
+   - **RESOLVED:** No-op, per the recommendation — the CTA renders and reads the single exported `BUY_LICENSE_URL` constant (stub value) but performs no action this phase; Phase 20 swaps in the real MoR link + opener plumbing. Plan 01 Task 3 (D-21).
 3. **Browser/`vite preview` dev ergonomics under the free default** — criterion 3 makes plain-browser dev show locked ordering/pinning.
    - What we know: criterion is locked; primary dev loop is `tauri dev` (FULL default), so impact is limited to browser-only sessions.
    - Recommendation: accept as-specified; the DEV palette command can't upgrade (downgrade-only), so document that unlocked-UX work happens under `tauri dev` or via `setEntitlementsForTest` in jsdom.
+   - **RESOLVED:** Accepted as-specified, per the recommendation — criterion 3's browser/jsdom FREE default stands; jsdom tests needing unlocked behavior inject `setEntitlementsForTest(FULL_SET)` (the Pitfall-5 audit, executed as Plan 03's test-setup shims), and unlocked-UX dev work happens under `tauri dev` (FULL default).
 
 ## Environment Availability
 
