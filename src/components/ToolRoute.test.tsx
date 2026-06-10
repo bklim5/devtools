@@ -57,8 +57,10 @@ describe("ToolRoute locked branch (ENT-01/D-30, T-18-06)", () => {
     render(<ToolRoute tool={makeTool("locked-free", loader, ["test.locked"])} />);
 
     expect(
-      screen.getByRole("heading", { name: "Fixture is a Pro feature" }),
+      screen.getByRole("heading", { name: /Thank you for using TinkerDev/ }),
     ).toBeDefined();
+    // D-19: the panel names WHAT is locked (locked tools stay identifiable).
+    expect(screen.getByText("Unlocks: Fixture")).toBeDefined();
     expect(loader).toHaveBeenCalledTimes(0);
   });
 
@@ -68,7 +70,7 @@ describe("ToolRoute locked branch (ENT-01/D-30, T-18-06)", () => {
     render(<ToolRoute tool={makeTool("locked-full", loader, ["test.locked"])} />);
 
     expect(
-      screen.getByRole("heading", { name: "Fixture is a Pro feature" }),
+      screen.getByRole("heading", { name: /Thank you for using TinkerDev/ }),
     ).toBeDefined();
     expect(loader).not.toHaveBeenCalled();
   });
@@ -92,7 +94,7 @@ describe("ToolRoute reactive gate (element-level, not route-level lazy)", () => 
     render(<ToolRoute tool={makeTool("flips", loader, ["test.locked"])} />);
 
     expect(
-      screen.getByRole("heading", { name: "Fixture is a Pro feature" }),
+      screen.getByRole("heading", { name: /Thank you for using TinkerDev/ }),
     ).toBeDefined();
     expect(loader).toHaveBeenCalledTimes(0);
 

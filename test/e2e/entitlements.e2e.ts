@@ -19,8 +19,9 @@
 //      row appears (D-29).
 //   3. A locked customization affordance — the REAL macOS Alt+P shape
 //      (Option+P composes to "π": key "π", code "KeyP") — opens the shared
-//      upsell modal ("Tool ordering & pinning is a Pro feature") instead of
-//      pinning (D-28), and Escape dismisses it.
+//      upsell modal (the TinkerDev thank-you panel naming
+//      "Unlocks: Tool ordering & pinning") instead of pinning (D-28), and
+//      Escape dismisses it.
 //   4. Toggling back to full tier restores the seeded custom order + pinned
 //      section instantly — the stored prefs were NEVER deleted while locked
 //      (D-26 prefs preservation; the toggle-back is also the T-18-15 cleanup
@@ -128,12 +129,12 @@ function unlockProFooterPresent(): Promise<boolean> {
 }
 
 // Whether the shared upsell modal is open (the [role="dialog"] carrying the
-// UI-SPEC copy contract heading). Distinguished from the ⌘K palette dialog by
-// the heading text.
+// UI-SPEC copy contract). Distinguished from the ⌘K palette dialog by the
+// D-19 feature line naming WHAT is locked.
 function upsellModalOpen(): Promise<boolean> {
   return browser.execute(() =>
     Array.from(document.querySelectorAll('[role="dialog"]')).some((d) =>
-      (d.textContent ?? "").includes("Tool ordering & pinning is a Pro feature"),
+      (d.textContent ?? "").includes("Unlocks: Tool ordering & pinning"),
     ),
   );
 }
@@ -346,7 +347,7 @@ describe("Entitlements dev toggle (real WKWebView)", () => {
       await browser.waitUntil(async () => upsellModalOpen(), {
         timeout: 5_000,
         timeoutMsg:
-          'expected Alt+P while locked to open the [role="dialog"] upsell modal ("Tool ordering & pinning is a Pro feature")',
+          'expected Alt+P while locked to open the [role="dialog"] upsell modal ("Unlocks: Tool ordering & pinning")',
       });
       assert(
         (await readPinnedOrder()).length === 0,

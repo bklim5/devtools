@@ -33,13 +33,30 @@ export function UpsellPanel({ feature, icon: Icon, headingId }: UpsellPanelProps
           id={headingId}
           className="text-[16px] font-semibold leading-[1.2] text-tx"
         >
-          {feature} is a Pro feature
+          Thank you for using TinkerDev ❤️
         </h2>
       </div>
-      <p className="text-[12px] leading-[1.5] text-tx-2">
-        Unlock {feature} and future power features with a DevTools Pro license —
-        one purchase, yours for life.
-      </p>
+      <div className="flex flex-col gap-2 text-[12px] leading-[1.5] text-tx-2">
+        <p>
+          TinkerDev is built to make everyday developer tasks faster and easier.
+          Most features are free, because I want it to be genuinely useful in
+          your daily workflow.
+        </p>
+        <p>
+          If TinkerDev has saved you time, solved a problem, or earned a spot in
+          your toolkit, please consider supporting it with a lifetime license.
+          Your support directly funds ongoing maintenance, bug fixes, and new
+          features.
+        </p>
+        <p>
+          As a thank you, you&apos;ll also unlock premium extras like custom
+          themes, tool reordering, and more to come.
+        </p>
+        <p>Would you like to upgrade to a lifetime license today?</p>
+      </div>
+      {/* D-19: the locked feature stays identifiable — a quiet meta line names
+          exactly WHAT this panel unlocks. */}
+      <p className="text-[11px] leading-[1.5] text-tx-2">Unlocks: {feature}</p>
       <div className="flex gap-2">
         <button
           type="button"

@@ -12,21 +12,26 @@ import { BUY_LICENSE_URL, UpsellModal, UpsellPanel } from "./UpsellPanel";
 afterEach(cleanup);
 
 describe("UpsellPanel (card)", () => {
-  it("renders the feature heading as a real heading element", () => {
+  it("renders the thank-you heading as a real heading element", () => {
     const { getByRole } = render(<UpsellPanel feature="Theming" icon={Lock} />);
-    const heading = getByRole("heading", { name: "Theming is a Pro feature" });
+    const heading = getByRole("heading", {
+      name: /Thank you for using TinkerDev/,
+    });
     expect(heading.tagName).toBe("H2");
   });
 
-  it("renders the body copy with no pricing (D-20)", () => {
+  it("renders the body copy with no pricing (D-20) and keeps the locked feature identifiable (D-19)", () => {
     const { getByText, container } = render(
       <UpsellPanel feature="Theming" icon={Lock} />,
     );
     expect(
-      getByText(
-        /Unlock Theming and future power features with a DevTools Pro license — one purchase, yours for life\./,
-      ),
+      getByText(/please consider supporting it with a lifetime license/),
     ).toBeDefined();
+    expect(
+      getByText(/Would you like to upgrade to a lifetime license today\?/),
+    ).toBeDefined();
+    // D-19: the panel still names WHAT is locked.
+    expect(getByText("Unlocks: Theming")).toBeDefined();
     expect(container.textContent).not.toMatch(/\$|price/i);
   });
 
@@ -81,7 +86,9 @@ describe("UpsellModal (dialog wrapper)", () => {
     expect(dialog.getAttribute("aria-modal")).toBe("true");
     const labelledBy = dialog.getAttribute("aria-labelledby");
     expect(labelledBy).toBeTruthy();
-    const heading = getByRole("heading", { name: "Theming is a Pro feature" });
+    const heading = getByRole("heading", {
+      name: /Thank you for using TinkerDev/,
+    });
     expect(heading.id).toBe(labelledBy);
   });
 
@@ -100,7 +107,7 @@ describe("UpsellModal (dialog wrapper)", () => {
     const dialog = getByRole("dialog");
     const scrim = dialog.parentElement!;
     // Inside the dialog: stopPropagation keeps the scrim handler silent.
-    fireEvent.mouseDown(getByRole("heading", { name: /Pro feature/ }));
+    fireEvent.mouseDown(getByRole("heading", { name: /TinkerDev/ }));
     expect(onClose).not.toHaveBeenCalled();
     // On the scrim itself (target === currentTarget): dismiss.
     fireEvent.mouseDown(scrim);

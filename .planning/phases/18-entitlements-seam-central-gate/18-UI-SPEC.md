@@ -100,7 +100,7 @@ Text contrast floor: body text uses `text-tx` (#e7e9ee) or `text-tx-2` (#989da7)
 ### UpsellPanel (D-19..D-22 — layout FINAL this phase)
 - ONE shared component, props: `{ feature: string, icon: LucideIcon }`.
 - Surface: `bg-panel` card, `border border-bd`, `rounded-[7px]`, `p-6`, max-width ~420px.
-- Structure top-to-bottom (16px gaps): feature icon (`text-tx-2`, 20px) + heading row → 1–2 line body (`text-[12px] text-tx-2`, no pricing) → CTA row.
+- Structure top-to-bottom (16px gaps): feature icon (`text-tx-2`, 20px) + heading row → body paragraphs (`text-[12px] text-tx-2`, 8px between paragraphs, no pricing) → "Unlocks: {feature}" meta line (`text-[11px] text-tx-2`, D-19) → CTA row. (Body/heading copy per the Copywriting Contract — walkthrough-revised 2026-06-10.)
 - CTA row: primary "Buy license" `<button>` (UpdateBanner primary family, reads single exported `BUY_LICENSE_URL` constant, stubbed no-op this phase) + secondary "I have a license key" `<button>` (UpdateBanner secondary family: `border-bd bg-input-bg text-tx-2`, inert stub this phase). 8px gap between buttons.
 - Two render surfaces, one component:
   - **Route placement** (D-30): rendered centered in `<main>` in place of a locked tool's UI.
@@ -127,8 +127,9 @@ Text contrast floor: body text uses `text-tx` (#e7e9ee) or `text-tx-2` (#989da7)
 |---------|------|
 | Primary CTA | "Buy license" (D-21, locked) |
 | Secondary affordance | "I have a license key" (D-22, locked; inert this phase) |
-| UpsellPanel heading | "{Feature} is a Pro feature" (e.g. "Theming is a Pro feature", "Tool ordering & pinning is a Pro feature") |
-| UpsellPanel body | "Unlock {feature} and future power features with a DevTools Pro license — one purchase, yours for life." (1–2 lines, NO pricing per D-20) |
+| UpsellPanel heading | "Thank you for using TinkerDev ❤️" (static — no feature interpolation; walkthrough feedback 2026-06-10, supersedes "{Feature} is a Pro feature") |
+| UpsellPanel body | Four-paragraph TinkerDev thank-you copy (verbatim per walkthrough feedback 2026-06-10): "TinkerDev is built to make everyday developer tasks faster and easier. Most features are free, because I want it to be genuinely useful in your daily workflow." / "If TinkerDev has saved you time, solved a problem, or earned a spot in your toolkit, please consider supporting it with a lifetime license. Your support directly funds ongoing maintenance, bug fixes, and new features." / "As a thank you, you'll also unlock premium extras like custom themes, tool reordering, and more to come." / "Would you like to upgrade to a lifetime license today?" (NO pricing per D-20) |
+| UpsellPanel feature line | "Unlocks: {feature}" — quiet 11px neutral meta line above the CTAs; keeps the locked feature identifiable (D-19) now that the heading is static |
 | Footer row label | "Unlock Pro" (D-29, locked) |
 | SR lock suffix | " — locked" appended to the accessible name (D-25, locked) |
 | DEV palette command | "Toggle free tier (dev)" (D-32, locked — this exact string is the dist-grep tripwire; do not vary it) |

@@ -169,7 +169,7 @@ describe("Sidebar free tier (D-26/D-28)", () => {
   });
 
   it("pin-button click opens the upsell modal and writes nothing (D-28)", async () => {
-    const { getByRole, getByLabelText } = renderAt("/");
+    const { getByRole, getByLabelText, getByText } = renderAt("/");
     await flushPrefsLoad();
     const setSpy = vi.spyOn(store, "set");
 
@@ -177,8 +177,10 @@ describe("Sidebar free tier (D-26/D-28)", () => {
 
     expect(getByRole("dialog")).toBeDefined();
     expect(
-      getByRole("heading", { name: "Tool ordering & pinning is a Pro feature" }),
+      getByRole("heading", { name: /Thank you for using TinkerDev/ }),
     ).toBeDefined();
+    // D-19: the modal names WHAT is locked.
+    expect(getByText("Unlocks: Tool ordering & pinning")).toBeDefined();
     expect(setSpy).not.toHaveBeenCalled();
   });
 
@@ -236,7 +238,7 @@ describe("Sidebar free tier (D-26/D-28)", () => {
 
     expect(getByRole("dialog")).toBeDefined();
     expect(
-      getByRole("heading", { name: "Tool ordering & pinning is a Pro feature" }),
+      getByRole("heading", { name: /Thank you for using TinkerDev/ }),
     ).toBeDefined();
   });
 
