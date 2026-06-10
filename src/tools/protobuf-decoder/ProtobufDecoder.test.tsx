@@ -170,6 +170,55 @@ describe("ProtobufDecoder", () => {
     );
   });
 
+  it("an example chip click flips a mismatched override to the example's encoding (hex)", () => {
+    const { container } = render(<ProtobufDecoder />);
+    // Seed a hex value first (detected hex) so clicking base64 genuinely FORCES a
+    // mismatched override — on empty input base64 is already the active segment
+    // and the click would clear back to auto-detect instead (codex review).
+    fireEvent.change(input(container), { target: { value: "6869" } });
+    const base64Btn = within(container).getByRole("button", { name: /^base64$/i });
+    expect(base64Btn.getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(base64Btn);
+    expect(base64Btn.getAttribute("aria-pressed")).toBe("true");
+    // Click the "{1:150}" hex example chip → segment flips to hex AND it decodes.
+    fireEvent.click(within(container).getByRole("button", { name: /^\{1:150\}$/ }));
+    const hexBtn = within(container).getByRole("button", { name: /^hex$/i });
+    expect(hexBtn.getAttribute("aria-pressed")).toBe("true");
+    expect(base64Btn.getAttribute("aria-pressed")).toBe("false");
+    expect(container.querySelector("[data-fnum]")).toBeTruthy();
+    expect(container.querySelector("[role='alert']")).toBeNull();
+  });
+
+  it("the decimal example chip flips a forced-hex override to decimal and decodes", () => {
+    const { container } = render(<ProtobufDecoder />);
+    // Force hex.
+    const hexBtn = within(container).getByRole("button", { name: /^hex$/i });
+    fireEvent.click(hexBtn);
+    expect(hexBtn.getAttribute("aria-pressed")).toBe("true");
+    // Click "decimal bytes" → decimal segment flips on, the canonical array decodes.
+    fireEvent.click(within(container).getByRole("button", { name: /^decimal bytes$/i }));
+    const decimalBtn = within(container).getByRole("button", { name: /^decimal$/i });
+    expect(decimalBtn.getAttribute("aria-pressed")).toBe("true");
+    expect(hexBtn.getAttribute("aria-pressed")).toBe("false");
+    expect(input(container).value).toBe("10, 3, 80, 81, 82");
+    expect(container.querySelector("[data-fnum]")).toBeTruthy();
+    expect(container.querySelector("[role='alert']")).toBeNull();
+  });
+
+  it("clicking the active segment after a chip click clears the override back to auto-detect", () => {
+    const { container } = render(<ProtobufDecoder />);
+    // Chip click sets raw + an explicit decimal override.
+    fireEvent.click(within(container).getByRole("button", { name: /^decimal bytes$/i }));
+    const decimalBtn = within(container).getByRole("button", { name: /^decimal$/i });
+    expect(decimalBtn.getAttribute("aria-pressed")).toBe("true");
+    // Clicking the now-active segment clears the override; auto-detect re-derives
+    // decimal for this value, so the segment stays pressed and nothing errors.
+    fireEvent.click(decimalBtn);
+    expect(decimalBtn.getAttribute("aria-pressed")).toBe("true");
+    expect(container.querySelector("[data-fnum]")).toBeTruthy();
+    expect(container.querySelector("[role='alert']")).toBeNull();
+  });
+
   it("the rows/cards toggle calls setTreeStyle and re-renders the tree style (D-07)", () => {
     const { container } = render(<ProtobufDecoder />);
     fireEvent.change(input(container), { target: { value: "089601" } });
