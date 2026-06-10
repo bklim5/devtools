@@ -221,4 +221,73 @@ describe("Protobuf Decoder (real WKWebView)", () => {
       `expected the decimal example chip to fill the textarea with the canonical array, got "${await input.getValue()}"`,
     );
   });
+
+  // Quick 260610-w61: an example chip click also switches the encoding segmented
+  // control to the example's own format, so the example ALWAYS decodes — even when
+  // the user had previously FORCED a mismatched encoding via the segmented control.
+  it("an example chip click flips a forced mismatched encoding to the example's format", async () => {
+    // Navigate to the hero tool via HashRouter (deterministic).
+    await browser.execute(() => {
+      window.location.hash = "#/tools/protobuf-decoder";
+    });
+
+    const input = await $("#protobuf-input");
+    await input.waitForExist({ timeout: 15_000 });
+    await demoPause(1200);
+
+    // 1. Seed a hex value (detected hex) so the base64 click genuinely FORCES a
+    //    mismatched override — on hex-active input, clicking base64 sets the
+    //    override instead of clearing it.
+    await input.click();
+    await input.setValue("6869");
+    await demoPause(1200);
+    const base64Toggle = await $("button=base64");
+    await base64Toggle.click();
+    assert(
+      (await base64Toggle.getAttribute("aria-pressed")) === "true",
+      "expected the base64 segment to be forced active before the example-chip click",
+    );
+    await demoPause(1200);
+
+    // 2. Click the "nested message" hex example chip → the segmented control flips
+    //    to hex (base64 released) AND the example decodes under the matching mode.
+    const nestedChip = await $("button=nested message");
+    await nestedChip.waitForExist({ timeout: 5_000 });
+    await nestedChip.click();
+    await demoPause(1800);
+    const hexToggle = await $("button=hex");
+    assert(
+      (await hexToggle.getAttribute("aria-pressed")) === "true",
+      "expected the hex segment to become active after clicking the hex example chip",
+    );
+    assert(
+      (await base64Toggle.getAttribute("aria-pressed")) === "false",
+      "expected the forced base64 segment to release after the hex example-chip click",
+    );
+    const hexFnum = await $("[data-fnum]");
+    await hexFnum.waitForExist({ timeout: 5_000 });
+    const hexAlert = await $("[role='alert']");
+    assert(
+      !(await hexAlert.isExisting()),
+      "the hex example must decode cleanly after the chip click — no error alert",
+    );
+
+    // 3. Click the "decimal bytes" chip → the segmented control flips to decimal
+    //    and the canonical array decodes (the second user-named flip).
+    const decimalChip = await $("button=decimal bytes");
+    await decimalChip.click();
+    await demoPause(1800);
+    const decimalToggle = await $("button=decimal");
+    assert(
+      (await decimalToggle.getAttribute("aria-pressed")) === "true",
+      "expected the decimal segment to become active after clicking the decimal example chip",
+    );
+    const decimalFnum = await $("[data-fnum]");
+    await decimalFnum.waitForExist({ timeout: 5_000 });
+    const decimalAlert = await $("[role='alert']");
+    assert(
+      !(await decimalAlert.isExisting()),
+      "the decimal example must decode cleanly after the chip click — no error alert",
+    );
+  });
 });
