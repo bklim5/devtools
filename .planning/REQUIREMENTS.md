@@ -18,7 +18,7 @@
 - [x] **ENT-02**: An app-level entitlement map gates non-tool features: theming and tool ordering/pinning.
 - [x] **ENT-03**: Entitlements resolve through one central gate; React receives only the resolved entitlement set (via Rust command inside Tauri; a free-tier default in browser/test environments so jsdom/vite-preview never touch licensing).
 - [x] **ENT-04**: Free tier locks the Protobuf decoder, theming, and ordering/pinning — locked tools stay **visible with a lock badge** in the sidebar/palette and show an unlock/upsell panel in place of the tool UI (not hidden; WCAG-AA, no opacity-only locked state).
-- [ ] **ENT-05**: Registry tool entries load via lazy `component` loaders (converting today's eager imports), making a future free-build decoder code-split exclusion a real seam — `decoder.ts` and its 19 tests untouched.
+- [x] **ENT-05**: Registry tool entries load via lazy `component` loaders (converting today's eager imports), making a future free-build decoder code-split exclusion a real seam — `decoder.ts` and its 19 tests untouched.
 
 ### License Lifecycle (LIC)
 
@@ -71,11 +71,11 @@
 
 | Requirement | Phase | Plan | Status |
 |-------------|-------|------|--------|
-| ENT-01 | Phase 18 | — | Pending |
-| ENT-02 | Phase 18 | — | Pending |
-| ENT-03 | Phase 18 | — | Pending |
-| ENT-04 | Phase 18 | — | Pending |
-| ENT-05 | Phase 18 | — | Pending |
+| ENT-01 | Phase 18 | 18-01, 18-02 | Complete |
+| ENT-02 | Phase 18 | 18-01 | Complete |
+| ENT-03 | Phase 18 | 18-01 | Complete |
+| ENT-04 | Phase 18 | 18-01 | Complete |
+| ENT-05 | Phase 18 | 18-02 | Complete |
 | LIC-01 | Phase 19 | — | Pending |
 | LIC-02 | Phase 19 | — | Pending |
 | LIC-03 | Phase 19 | — | Pending |
