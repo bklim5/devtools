@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Licensing
-status: phase-18-complete
-last_updated: "2026-06-10T21:55:00.000Z"
+status: "Phase 18 signed off — next: plan Phase 19 (License Activation, riskiest chunk + key→token SPIKE); Phase 20 parallel-capable beside it"
+last_updated: "2026-06-10T22:01:40.450Z"
 last_activity: 2026-06-10
 progress:
   total_phases: 7
@@ -18,11 +18,11 @@ progress:
 ## Current Position
 
 Milestone: **v1.6 "Licensing"** — started 2026-06-09, roadmap created 2026-06-09.
-Phase: 18 (entitlements-seam-central-gate) — **COMPLETE** (human sign-off 2026-06-10)
-Plan: 4 of 4 complete (18-01 — `feb6ec97`..`f3024ced`; 18-02 — `2d776d0c`; 18-03 — `a86b5ce5`..`0d4dcedb`; 18-04 — `f64e0f54`, `7e27cad7` + walkthrough-feedback `577180ef`/`6d17468b`/`c1a35263`)
+Phase: **19 — License Activation & Offline Verification** (next: plan)
+Plan: Not started
 Status: Phase 18 signed off — next: plan Phase 19 (License Activation, riskiest chunk + key→token SPIKE); Phase 20 parallel-capable beside it
 Progress: [■□□□] 1/4 phases · v1.6 plans 4/4
-Last activity: 2026-06-10 -- Plan 18-04 complete (phase gate: entitlements e2e 15/15 on the real WKWebView, dist-grep D-32 check, D-18 doc reconciliation, build walkthrough approved; suite 795/795)
+Last activity: 2026-06-10
 
 **Goal:** one-time-payment lifetime license — MoR checkout → webhook → Keygen (perpetual, node-locked, maxMachines=1); paste-key one-time activation (fingerprint `HMAC-SHA256(IOPlatformUUID, salt)`); offline Ed25519-verified `machine.lic` (~30-day TTL) thereafter; license key in Keychain (Rust-owned); free tier keeps all 11 tools — Pro locks customization (theming + ordering/pinning) behind a central entitlement gate (D-18 pivot; tool-gating mechanism ships dormant). Research: `docs/licensing-research.md`.
 

@@ -177,7 +177,7 @@ Phases execute in numeric order. v1.6 runs 18 → 19 → 21 with Phase 20 parall
 | 15. Cron tool | v1.3 | 4/4 | Complete    | 2026-06-04 |
 | 16. Reorderable sidebar tool list | v1.4 | 2/2 | Complete    | 2026-06-05 |
 | 17. Pinned sidebar section | v1.5 | 2/2 | Complete    | 2026-06-07 |
-| 18. Entitlements Seam & Central Gate | v1.6 | 4/4 | Complete   | 2026-06-10 |
+| 18. Entitlements Seam & Central Gate | v1.6 | 4/4 | Complete    | 2026-06-10 |
 | 19. License Activation & Offline Verification | v1.6 | 0/? | Not started | - |
 | 20. Purchase Pipeline | v1.6 | 0/? | Not started | - |
 | 21. License Lifecycle & Ship Gate | v1.6 | 0/? | Not started | - |
@@ -205,7 +205,7 @@ Unsequenced ideas captured for future planning. Promote with `/gsd-review-backlo
 Each candidate must still pass the product wedge: offline/no-network, paste-instant (<2s), keyboard-driven, registry-driven, WCAG-AA, and the build+verify harness.
 
 **Requirements:** TBD (remaining wishlist; Cron/URL/Regex requirements now in `.planning/REQUIREMENTS.md` for v1.3)
-**Plans:** TBD
+**Plans:** 4/4 plans complete
 
 Plans:
 - [ ] TBD (promote remaining wishlist with /gsd-review-backlog when ready)
