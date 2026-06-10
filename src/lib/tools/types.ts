@@ -44,12 +44,10 @@ export interface ToolDefinition {
   enabled?: boolean;
   /** Maturity hint; surfaced in the sidebar/palette as a small badge. */
   status?: "stable" | "experimental";
-  /**
-   * Reserved architectural seam for future paid features. Has **zero UX
-   * manifestation in v1** — no badges, no upsells, no gates. Present only so
-   * the registry can become a licensing control plane later without a refactor.
-   */
-  premium?: boolean;
+  /** Entitlement strings required to USE this tool (ENT-01). Absent/empty = free.
+   *  Locked tools stay visible (lock badge) and route to the upsell panel (D-30).
+   *  Dormant in v1.6 production: no shipped tool carries this field (D-18). */
+  requiredEntitlements?: string[];
   /** Tool-scoped keybindings registered with the command palette. */
   shortcuts?: ToolShortcut[];
 }

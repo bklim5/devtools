@@ -37,6 +37,11 @@ function coerceAutoUpdateCheck(value: unknown): boolean | null {
   return value === true || value === false ? value : null;
 }
 
+/** Untrusted + DOWNGRADE-ONLY (D-31): accept exactly "free"; anything else → null. */
+function coerceEntitlementsOverride(value: unknown): "free" | null {
+  return value === "free" ? "free" : null;
+}
+
 function coerceAccent(value: unknown): string {
   return typeof value === "string" && value.length > 0
     ? value
@@ -116,6 +121,7 @@ export function mergePreferences(stored: unknown): Preferences {
     pinnedToolIds: coercePinnedToolIds(blob.pinnedToolIds),
     protobufTreeStyle: coerceTreeStyle(blob.protobufTreeStyle),
     autoUpdateCheck: coerceAutoUpdateCheck(blob.autoUpdateCheck),
+    entitlementsOverride: coerceEntitlementsOverride(blob.entitlementsOverride),
   };
 }
 

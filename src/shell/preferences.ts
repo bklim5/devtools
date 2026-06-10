@@ -44,6 +44,10 @@ export interface Preferences {
    *  prompt on first launch); true = silent check at launch; false = no automatic
    *  network call ever. A manual check is always available regardless. */
   autoUpdateCheck: boolean | null;
+  /** Dev/test downgrade-only entitlement override (D-31). "free" forces the
+   *  free-tier set through the central gate in ANY build; it can only LOCK,
+   *  never unlock. null = no override (the environment default applies). */
+  entitlementsOverride: "free" | null;
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -55,6 +59,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   pinnedToolIds: [],
   protobufTreeStyle: "cards",
   autoUpdateCheck: null,
+  entitlementsOverride: null,
 };
 
 /** Single namespaced store key holding the whole prefs blob. One key keeps the

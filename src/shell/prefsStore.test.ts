@@ -183,3 +183,47 @@ describe("autoUpdateCheck coercion (D-09)", () => {
     expect(merged.protobufTreeStyle).toBe("rows");
   });
 });
+
+// entitlementsOverride is the dev/test downgrade-only override (D-31), read from
+// the same untrusted on-disk blob (threat T-18-01: hand-edited prefs.json). Only
+// the exact string "free" is honored; EVERYTHING else — including "full" — must
+// coerce to null so no stored value can ever upgrade beyond the environment base.
+describe("entitlementsOverride coercion (D-31, T-18-01 — downgrade-only)", () => {
+  it("preserves the exact string \"free\"", () => {
+    expect(mergePreferences({ entitlementsOverride: "free" }).entitlementsOverride).toBe(
+      "free",
+    );
+  });
+
+  it("coerces \"full\" to null (no stored value can UNLOCK)", () => {
+    expect(
+      mergePreferences({ entitlementsOverride: "full" }).entitlementsOverride,
+    ).toBeNull();
+  });
+
+  it("coerces junk values to null (untrusted hand-edited prefs.json)", () => {
+    expect(mergePreferences({ entitlementsOverride: 123 }).entitlementsOverride).toBeNull();
+    expect(mergePreferences({ entitlementsOverride: {} }).entitlementsOverride).toBeNull();
+    expect(mergePreferences({ entitlementsOverride: true }).entitlementsOverride).toBeNull();
+    expect(
+      mergePreferences({ entitlementsOverride: undefined }).entitlementsOverride,
+    ).toBeNull();
+  });
+
+  it("defaults to null (no override) when absent", () => {
+    expect(mergePreferences({}).entitlementsOverride).toBeNull();
+  });
+
+  it("\"free\" survives a save → load round-trip through the store seam", async () => {
+    await savePreferences({ ...DEFAULT_PREFERENCES, entitlementsOverride: "free" });
+    await expect(loadPreferences()).resolves.toMatchObject({
+      entitlementsOverride: "free",
+    });
+  });
+
+  it("does not regress a sibling field in the same merged blob", () => {
+    const merged = mergePreferences({ entitlementsOverride: "free", toolOrder: ["a"] });
+    expect(merged.entitlementsOverride).toBe("free");
+    expect(merged.toolOrder).toEqual(["a"]);
+  });
+});
