@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Licensing
-status: roadmap_created
-last_updated: "2026-06-10T00:00:00.000Z"
-last_activity: 2026-06-10 -- Phase 18 UI-SPEC approved (18-UI-SPEC.md, 6/6 dimensions); next /gsd-plan-phase 18
+status: executing
+last_updated: "2026-06-10T13:46:03.238Z"
+last_activity: 2026-06-10 -- Phase 18 planning complete
 progress:
-  total_phases: 4
+  total_phases: 7
   completed_phases: 0
-  total_plans: 0
+  total_plans: 4
   completed_plans: 0
   percent: 0
 ---
@@ -20,13 +20,14 @@ progress:
 Milestone: **v1.6 "Licensing"** — started 2026-06-09, roadmap created 2026-06-09.
 Phase: **18 — Entitlements Seam & Central Gate** (context gathered)
 Plan: —
-Status: Context gathered (`18-CONTEXT.md`, D-18..D-32) — ready to plan Phase 18 (`/gsd-plan-phase 18`)
+Status: Ready to execute
 Progress: [□□□□] 0/4 phases
-Last activity: 2026-06-10 — Phase 18 UI-SPEC approved (18-UI-SPEC.md, 6/6 dimensions, checker PASS). Prior: Phase 18 discuss complete. **D-18 FREE-TIER PIVOT: all 11 tools (incl. hero) stay free; Pro = customization (theming + ordering/pinning) + declared home for future power features. Supersedes ENT-04 / ROADMAP Phase 18+21 criteria / PROJECT.md / licensing-research "free tier locks" lines — update those docs before/during planning.** Tool-gating mechanism still built + dev-toggle proven, dormant in production.
+Last activity: 2026-06-10 -- Phase 18 planning complete
 
 **Goal:** one-time-payment lifetime license — MoR checkout → webhook → Keygen (perpetual, node-locked, maxMachines=1); paste-key one-time activation (fingerprint `HMAC-SHA256(IOPlatformUUID, salt)`); offline Ed25519-verified `machine.lic` (~30-day TTL) thereafter; license key in Keychain (Rust-owned); free tier locks Protobuf hero + theming + ordering/pinning behind a central entitlement gate. Research: `docs/licensing-research.md`.
 
 **v1.6 phase structure (ROADMAP.md):**
+
 - **Phase 18 — Entitlements Seam & Central Gate** (ENT-01..05): pure-frontend gating seam, lock badges + upsell panel, lazy registry loaders; in-Tauri default = everything unlocked until Phase 21 flips it.
 - **Phase 19 — License Activation & Offline Verification** (LIC-01/02/03/04/06): Keygen Rust core — activation, fingerprint, Ed25519 offline verify, Keychain, fail-closed. **Riskiest chunk; includes the SPIKE: confirm client-side license-key → license-token exchange against the live Keygen API.**
 - **Phase 20 — Purchase Pipeline** (PAY-01..03): MoR checkout → webhook backend → Keygen license creation → key emailed. External infra; **parallel-capable with Phase 19** (depends only on 18).
