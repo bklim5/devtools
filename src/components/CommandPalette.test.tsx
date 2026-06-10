@@ -15,6 +15,13 @@ import {
 import { createStoreStub } from "@/lib/platform/stub";
 import { makeMemoryPlatform } from "@/shell/testStore";
 import { PREFERENCES_STORE_KEY } from "@/shell/preferences";
+import { FULL_SET } from "@/lib/entitlements/entitlements";
+import {
+  getEntitlementsSnapshot,
+  resetEntitlementsForTest,
+  setEntitlementsForTest,
+} from "@/lib/entitlements/store";
+import { loadPreferences } from "@/shell/prefsStore";
 
 // Spy on useNavigate so Enter's navigation is observable without a real route.
 const navigateSpy = vi.fn();
@@ -29,11 +36,16 @@ beforeEach(() => {
   navigateSpy.mockClear();
   store = createStoreStub();
   setPlatformForTest(makeMemoryPlatform(store));
+  // Pitfall 5: jsdom's environment default is FREE — inject FULL so existing
+  // expectations stay deterministic, and so the dev toggle's FULL→FREE flip is
+  // observable on the snapshot.
+  setEntitlementsForTest(FULL_SET);
 });
 
 afterEach(() => {
   cleanup();
   resetPlatformForTest();
+  resetEntitlementsForTest();
 });
 
 function renderPalette() {
@@ -161,6 +173,22 @@ describe("CommandPalette (⌘K fuzzy + recents + keyboard nav)", () => {
     expect(getByText(/close/i)).toBeDefined();
   });
 
+  it("ArrowUp from the top wraps to the dev command — mixed tool+command flat list, no off-by-one", async () => {
+    const { findByPlaceholderText } = renderPalette();
+    act(() => pressMetaK());
+    const input = await findByPlaceholderText("Search tools…");
+
+    // Empty query → tools then the dev command LAST; wrap-up lands on it.
+    fireEvent.keyDown(input, { key: "ArrowUp" });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    await waitFor(async () => {
+      expect((await loadPreferences()).entitlementsOverride).toBe("free");
+    });
+    // The command never navigates.
+    expect(navigateSpy).not.toHaveBeenCalled();
+  });
+
   it("a tampered recents id that is not a real tool is skipped (T-02-10)", async () => {
     await store.set(PREFERENCES_STORE_KEY, {
       theme: "dark",
@@ -175,6 +203,63 @@ describe("CommandPalette (⌘K fuzzy + recents + keyboard nav)", () => {
     await waitFor(() => {
       const recentLabel = document.body.textContent ?? "";
       expect(recentLabel).not.toContain("etc/passwd");
+    });
+  });
+});
+
+describe("DEV-only 'Toggle free tier (dev)' command (D-31/D-32)", () => {
+  it("appears at the END of the empty-query list", async () => {
+    const { findByPlaceholderText, getAllByRole } = renderPalette();
+    act(() => pressMetaK());
+    await findByPlaceholderText("Search tools…");
+
+    const rows = getAllByRole("button");
+    expect(rows[rows.length - 1].textContent).toContain("Toggle free tier (dev)");
+  });
+
+  it("does NOT appear once a query filters the list (tools only)", async () => {
+    const { findByPlaceholderText, queryByText } = renderPalette();
+    act(() => pressMetaK());
+    const input = await findByPlaceholderText("Search tools…");
+    fireEvent.change(input, { target: { value: "toggle" } });
+
+    await waitFor(() =>
+      expect(queryByText("Toggle free tier (dev)")).toBeNull(),
+    );
+  });
+
+  it("selecting it writes the downgrade-only override, closes, and flips the snapshot live", async () => {
+    const { findByPlaceholderText, findByText, queryByPlaceholderText } =
+      renderPalette();
+    act(() => pressMetaK());
+    await findByPlaceholderText("Search tools…");
+    expect(getEntitlementsSnapshot()).toBe(FULL_SET); // injected in setup
+
+    fireEvent.click(await findByText("Toggle free tier (dev)"));
+
+    // Closes without navigating…
+    await waitFor(() =>
+      expect(queryByPlaceholderText("Search tools…")).toBeNull(),
+    );
+    expect(navigateSpy).not.toHaveBeenCalled();
+    // …writes the override through savePreferences…
+    await waitFor(async () => {
+      expect((await loadPreferences()).entitlementsOverride).toBe("free");
+    });
+    // …and refreshEntitlements() flips the live snapshot (FULL → FREE).
+    await waitFor(() => expect(getEntitlementsSnapshot().size).toBe(0));
+  });
+
+  it("toggling again clears the override (free ⇄ null)", async () => {
+    await store.set(PREFERENCES_STORE_KEY, { entitlementsOverride: "free" });
+    const { findByPlaceholderText, findByText } = renderPalette();
+    act(() => pressMetaK());
+    await findByPlaceholderText("Search tools…");
+
+    fireEvent.click(await findByText("Toggle free tier (dev)"));
+
+    await waitFor(async () => {
+      expect((await loadPreferences()).entitlementsOverride).toBeNull();
     });
   });
 });

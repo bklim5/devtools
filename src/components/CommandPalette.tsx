@@ -10,28 +10,79 @@
 //
 // This file never imports any Tauri package directly — recents/prefs go through
 // the hooks, which route to the platform Store seam.
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentType,
+} from "react";
 import { useNavigate } from "react-router-dom";
+import { Lock } from "lucide-react";
+import { isToolLocked } from "@/lib/entitlements/entitlements";
+import { refreshEntitlements } from "@/lib/entitlements/store";
 import { ENABLED_TOOLS, getToolById } from "@/lib/tools/registry";
 import type { ToolDefinition } from "@/lib/tools/types";
 import { rankTools } from "@/shell/fuzzy";
-import { loadPreferences } from "@/shell/prefsStore";
+import { loadPreferences, savePreferences } from "@/shell/prefsStore";
+import { useEntitlements } from "@/shell/useEntitlements";
+
+/** A selectable palette row: a registry tool OR a non-navigating command
+ *  (RESEARCH Pattern 7 — smallest discriminated-union extension). */
+type PaletteRow =
+  | { kind: "tool"; tool: ToolDefinition }
+  | {
+      kind: "command";
+      id: string;
+      name: string;
+      icon: ComponentType<{ className?: string }>;
+      run: () => void | Promise<void>;
+    };
 
 interface PaletteGroup {
   label: string | null;
-  tools: ToolDefinition[];
+  rows: PaletteRow[];
 }
+
+const toolRow = (tool: ToolDefinition): PaletteRow => ({ kind: "tool", tool });
+
+// D-32: DEV-only — import.meta.env.DEV is statically false in production builds,
+// so this whole branch (including the command STRING) is tree-shaken out.
+// Verified by the Plan 04 dist-grep check. The override is DOWNGRADE-ONLY (D-31):
+// it writes "free"/null through the coercer path; the resolver can never upgrade
+// past the environment base (T-18-10).
+const DEV_COMMANDS: PaletteRow[] = import.meta.env.DEV
+  ? [
+      {
+        kind: "command",
+        id: "dev-toggle-free-tier",
+        name: "Toggle free tier (dev)",
+        icon: Lock,
+        run: async () => {
+          const prefs = await loadPreferences();
+          const next: "free" | null =
+            prefs.entitlementsOverride === "free" ? null : "free";
+          await savePreferences({ ...prefs, entitlementsOverride: next });
+          // Notify ALL gate consumers (Pitfall 3 — prefs hook instances don't
+          // sync; the entitlements store is the one live channel).
+          await refreshEntitlements();
+        },
+      },
+    ]
+  : [];
 
 /**
  * Build the grouped, visible result model.
  * - Non-empty query → a single unlabelled ranked group (rankTools; [] = no match).
  * - Empty query → RECENT (valid recent ids, in order) then ALL TOOLS (the rest in
- *   registry order). Tampered/unknown recent ids are dropped via getToolById
+ *   registry order), then the DEV commands at the very END (D-32 — dev tooling
+ *   never outranks tools). Tampered/unknown recent ids are dropped via getToolById
  *   (threat T-02-10) so they can never render or be navigated to.
  */
 function buildGroups(query: string, recentToolIds: string[]): PaletteGroup[] {
   if (query.trim() !== "") {
-    return [{ label: null, tools: rankTools(query, ENABLED_TOOLS) }];
+    return [{ label: null, rows: rankTools(query, ENABLED_TOOLS).map(toolRow) }];
   }
 
   const recents: ToolDefinition[] = [];
@@ -46,8 +97,9 @@ function buildGroups(query: string, recentToolIds: string[]): PaletteGroup[] {
   const rest = ENABLED_TOOLS.filter((t) => !seen.has(t.id));
 
   const groups: PaletteGroup[] = [];
-  if (recents.length > 0) groups.push({ label: "RECENT", tools: recents });
-  groups.push({ label: "ALL TOOLS", tools: rest });
+  if (recents.length > 0) groups.push({ label: "RECENT", rows: recents.map(toolRow) });
+  groups.push({ label: "ALL TOOLS", rows: rest.map(toolRow) });
+  if (DEV_COMMANDS.length > 0) groups.push({ label: null, rows: DEV_COMMANDS });
   return groups;
 }
 
@@ -101,43 +153,54 @@ export function CommandPalette() {
     if (open) inputRef.current?.focus();
   }, [open]);
 
+  // D-23/D-24: tool rows mirror the sidebar's lock badge through the SAME
+  // central predicate — the one resolved set, no per-feature checks (ENT-01).
+  const ents = useEntitlements();
+
   const groups = useMemo(
     () => buildGroups(query, recentToolIds),
     [query, recentToolIds],
   );
 
-  // Flat, ordered list of selectable tools (the highlight index walks this).
-  const flatTools = useMemo(() => groups.flatMap((g) => g.tools), [groups]);
+  // Flat, ordered list of selectable rows (the highlight index walks this).
+  const flatRows = useMemo(() => groups.flatMap((g) => g.rows), [groups]);
 
   // Clamp the highlight to the current result set at render time (derived — no
   // effect, so a shrinking list can never point past the end).
   const activeIndex =
-    flatTools.length === 0 ? 0 : Math.min(highlight, flatTools.length - 1);
+    flatRows.length === 0 ? 0 : Math.min(highlight, flatRows.length - 1);
 
-  const selectTool = useCallback(
-    (tool: ToolDefinition) => {
-      navigate(`/tools/${tool.id}`); // the route change records the switch (App)
+  const selectRow = useCallback(
+    (row: PaletteRow) => {
+      if (row.kind === "tool") {
+        navigate(`/tools/${row.tool.id}`); // the route change records the switch (App)
+        setOpen(false);
+        return;
+      }
+      // Commands never navigate (D-32): close first, then run — the palette is
+      // gone before any async work lands.
       setOpen(false);
+      void row.run();
     },
     [navigate],
   );
 
   const onListKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (flatTools.length === 0) return;
+      if (flatRows.length === 0) return;
       if (e.key === "ArrowDown") {
         e.preventDefault();
-        setHighlight((activeIndex + 1) % flatTools.length);
+        setHighlight((activeIndex + 1) % flatRows.length);
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
-        setHighlight((activeIndex - 1 + flatTools.length) % flatTools.length);
+        setHighlight((activeIndex - 1 + flatRows.length) % flatRows.length);
       } else if (e.key === "Enter") {
         e.preventDefault();
-        const tool = flatTools[activeIndex];
-        if (tool) selectTool(tool);
+        const row = flatRows[activeIndex];
+        if (row) selectRow(row);
       }
     },
-    [flatTools, activeIndex, selectTool],
+    [flatRows, activeIndex, selectRow],
   );
 
   if (!open) return null;
@@ -173,28 +236,34 @@ export function CommandPalette() {
         </div>
 
         <div className="max-h-[340px] overflow-auto p-2">
-          {flatTools.length === 0 ? (
+          {flatRows.length === 0 ? (
             <div className="px-[10px] py-[9px] text-[14px] text-tx-3">No tools match</div>
           ) : (
             groups.map((group) =>
-              group.tools.length === 0 ? null : (
+              group.rows.length === 0 ? null : (
                 <div key={group.label ?? "results"}>
                   {group.label && (
                     <div className="px-[10px] pb-[5px] pt-[10px] text-[10.5px] font-semibold uppercase tracking-[0.09em] text-tx-3">
                       {group.label}
                     </div>
                   )}
-                  {group.tools.map((tool) => {
+                  {group.rows.map((row) => {
                     flatIndex += 1;
                     const isOn = flatIndex === activeIndex;
-                    const Icon = tool.icon;
                     const idx = flatIndex;
+                    const key = row.kind === "tool" ? row.tool.id : row.id;
+                    const Icon = row.kind === "tool" ? row.tool.icon : row.icon;
+                    const name = row.kind === "tool" ? row.tool.name : row.name;
+                    // D-23: locked TOOL rows get the badge; selection still
+                    // navigates (the route shows the upsell — D-30). Commands
+                    // are never "locked".
+                    const locked = row.kind === "tool" && isToolLocked(row.tool, ents);
                     return (
                       <button
-                        key={tool.id}
+                        key={key}
                         type="button"
                         onMouseEnter={() => setHighlight(idx)}
-                        onClick={() => selectTool(tool)}
+                        onClick={() => selectRow(row)}
                         className={[
                           "flex w-full items-center gap-3 rounded-[8px] px-[10px] py-[9px] text-left",
                           isOn ? "bg-accent-soft text-tx" : "text-tx-2",
@@ -207,8 +276,19 @@ export function CommandPalette() {
                           ].join(" ")}
                         />
                         <span className="flex-1 text-[14px] font-medium text-tx">
-                          {tool.name}
+                          {name}
                         </span>
+                        {locked ? (
+                          <>
+                            {/* D-24: neutral tx-2, aria-hidden — accent forbidden.
+                                D-25: sr-only suffix joins the accessible name. */}
+                            <Lock
+                              aria-hidden="true"
+                              className="h-3 w-3 flex-none text-tx-2"
+                            />
+                            <span className="sr-only"> — locked</span>
+                          </>
+                        ) : null}
                       </button>
                     );
                   })}
