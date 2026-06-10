@@ -217,15 +217,46 @@ describe("DEV-only 'Toggle free tier (dev)' command (D-31/D-32)", () => {
     expect(rows[rows.length - 1].textContent).toContain("Toggle free tier (dev)");
   });
 
-  it("does NOT appear once a query filters the list (tools only)", async () => {
-    const { findByPlaceholderText, queryByText } = renderPalette();
+  // Walkthrough regression (18-04): the command was unreachable by typing —
+  // the query path mapped tools only, so "toggle" showed "No tools match".
+  it("is searchable: query 'toggle' surfaces it, ranked AFTER any tool matches", async () => {
+    const { findByPlaceholderText, findByText, getAllByRole } = renderPalette();
     act(() => pressMetaK());
     const input = await findByPlaceholderText("Search tools…");
     fireEvent.change(input, { target: { value: "toggle" } });
 
-    await waitFor(() =>
-      expect(queryByText("Toggle free tier (dev)")).toBeNull(),
-    );
+    await findByText("Toggle free tier (dev)");
+    const rows = getAllByRole("button");
+    // D-32: dev tooling never outranks tools — always the LAST result row.
+    expect(rows[rows.length - 1].textContent).toContain("Toggle free tier (dev)");
+  });
+
+  it("is searchable by 'free' and runnable from the typed query (keyboard, no navigation)", async () => {
+    const { findByPlaceholderText, findByText } = renderPalette();
+    act(() => pressMetaK());
+    const input = await findByPlaceholderText("Search tools…");
+    fireEvent.change(input, { target: { value: "free" } });
+    await findByText("Toggle free tier (dev)");
+
+    // The command is the LAST row of the filtered list; ArrowUp wraps to it
+    // (and is a no-op landing on it when it is the only match), Enter runs it.
+    fireEvent.keyDown(input, { key: "ArrowUp" });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    await waitFor(async () => {
+      expect((await loadPreferences()).entitlementsOverride).toBe("free");
+    });
+    expect(navigateSpy).not.toHaveBeenCalled();
+  });
+
+  it("a command-only query match never shows 'No tools match'", async () => {
+    const { findByPlaceholderText, findByText, queryByText } = renderPalette();
+    act(() => pressMetaK());
+    const input = await findByPlaceholderText("Search tools…");
+    fireEvent.change(input, { target: { value: "Toggle free tier (dev)" } });
+
+    await findByText("Toggle free tier (dev)");
+    expect(queryByText("No tools match")).toBeNull();
   });
 
   it("selecting it writes the downgrade-only override, closes, and flips the snapshot live", async () => {

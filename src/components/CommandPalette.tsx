@@ -3,7 +3,8 @@
 // Opens on ⌘K / Ctrl+K and Esc closes; it NEVER auto-opens (D-07 — the app boots
 // straight into a tool). An empty query lists RECENT (≤5, most-recent-first) then
 // ALL TOOLS in registry order (D-05); a non-empty query is fuzzy-ranked via the
-// in-house `rankTools` (D-06). A miss shows a quiet "No tools match" row — never
+// in-house `rankTools` (D-06), with name-matching DEV commands appended after the
+// tool matches (D-32). A miss shows a quiet "No tools match" row — never
 // an error (D-07). ↑/↓ move a highlighted index over the visible flat list and
 // Enter navigates to the highlighted tool, records the switch (recents push +
 // last-used), and closes.
@@ -24,7 +25,7 @@ import { isToolLocked } from "@/lib/entitlements/entitlements";
 import { refreshEntitlements } from "@/lib/entitlements/store";
 import { ENABLED_TOOLS, getToolById } from "@/lib/tools/registry";
 import type { ToolDefinition } from "@/lib/tools/types";
-import { rankTools } from "@/shell/fuzzy";
+import { rankTools, subsequenceScore } from "@/shell/fuzzy";
 import { loadPreferences, savePreferences } from "@/shell/prefsStore";
 import { useEntitlements } from "@/shell/useEntitlements";
 
@@ -40,6 +41,8 @@ type PaletteRow =
       run: () => void | Promise<void>;
     };
 
+type CommandRow = Extract<PaletteRow, { kind: "command" }>;
+
 interface PaletteGroup {
   label: string | null;
   rows: PaletteRow[];
@@ -52,7 +55,7 @@ const toolRow = (tool: ToolDefinition): PaletteRow => ({ kind: "tool", tool });
 // Verified by the Plan 04 dist-grep check. The override is DOWNGRADE-ONLY (D-31):
 // it writes "free"/null through the coercer path; the resolver can never upgrade
 // past the environment base (T-18-10).
-const DEV_COMMANDS: PaletteRow[] = import.meta.env.DEV
+const DEV_COMMANDS: CommandRow[] = import.meta.env.DEV
   ? [
       {
         kind: "command",
@@ -74,15 +77,24 @@ const DEV_COMMANDS: PaletteRow[] = import.meta.env.DEV
 
 /**
  * Build the grouped, visible result model.
- * - Non-empty query → a single unlabelled ranked group (rankTools; [] = no match).
+ * - Non-empty query → a single unlabelled ranked group: rankTools over the
+ *   registry, then any DEV command whose NAME matches the same subsequence rule
+ *   appended at the END (D-32 — dev tooling never outranks tools, but it must
+ *   be findable by typing; a command-only match still counts as a match, so
+ *   "No tools match" stays reserved for true misses). [] = no match.
  * - Empty query → RECENT (valid recent ids, in order) then ALL TOOLS (the rest in
- *   registry order), then the DEV commands at the very END (D-32 — dev tooling
- *   never outranks tools). Tampered/unknown recent ids are dropped via getToolById
- *   (threat T-02-10) so they can never render or be navigated to.
+ *   registry order), then the DEV commands at the very END. Tampered/unknown
+ *   recent ids are dropped via getToolById (threat T-02-10) so they can never
+ *   render or be navigated to.
  */
 function buildGroups(query: string, recentToolIds: string[]): PaletteGroup[] {
-  if (query.trim() !== "") {
-    return [{ label: null, rows: rankTools(query, ENABLED_TOOLS).map(toolRow) }];
+  const q = query.trim().toLowerCase();
+  if (q !== "") {
+    const rows: PaletteRow[] = rankTools(query, ENABLED_TOOLS).map(toolRow);
+    for (const cmd of DEV_COMMANDS) {
+      if (subsequenceScore(q, cmd.name.toLowerCase()) !== null) rows.push(cmd);
+    }
+    return [{ label: null, rows }];
   }
 
   const recents: ToolDefinition[] = [];

@@ -27,11 +27,12 @@
 //      (D-26 prefs preservation; the toggle-back is also the T-18-15 cleanup
 //      so no "free" override is left behind on a dev machine).
 //
-// NOTE on selecting the command: a typed query FILTERS COMMANDS OUT (commands
-// append only on the empty query — CommandPalette buildGroups, proven by the
-// "filtered out under query" unit test). So the spec selects it the keyboard
-// way the unit suite proves: ArrowUp on the empty query wraps the highlight to
-// the LAST flat row — the DEV command — then Enter runs it.
+// NOTE on selecting the command: the spec drives the REAL user path found in
+// the 18-04 walkthrough — TYPE "toggle free" into the palette input (commands
+// are searchable by name and append AFTER tool matches; an earlier build
+// filtered them out under any query, which this flow regression-proves),
+// then ArrowUp wraps the highlight to the LAST row — always the DEV command,
+// whether or not tools also matched — and Enter runs it.
 
 import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
@@ -140,10 +141,12 @@ function upsellModalOpen(): Promise<boolean> {
 }
 
 // Open the ⌘K palette and run the DEV "Toggle free tier (dev)" command via the
-// keyboard path: ArrowUp wraps the highlight from row 0 to the LAST flat row
-// (commands append after ALL TOOLS on the empty query), Enter runs it (the
-// palette closes first, then the command persists the downgrade-only override
-// and awaits refreshEntitlements() — D-31/D-32).
+// real user path: TYPE "toggle free" (the 18-04 walkthrough regression — the
+// command must surface under a query), then ArrowUp wraps the highlight to the
+// LAST filtered row (the command appends after any tool matches; a no-op when
+// it is the only match), Enter runs it (the palette closes first, then the
+// command persists the downgrade-only override and awaits
+// refreshEntitlements() — D-31/D-32).
 async function runDevToggle(): Promise<void> {
   // The ⌘K listener lives on window — dispatch the chord there directly.
   await browser.execute(() => {
@@ -159,7 +162,38 @@ async function runDevToggle(): Promise<void> {
   const input = await $('input[aria-label="Search tools"]');
   await input.waitForExist({ timeout: 10_000 });
 
-  // ArrowUp on the empty query → highlight wraps to the last row (the command).
+  // TYPE the query through React's controlled-input contract: the native value
+  // setter + a bubbling "input" event (a bare .value write is swallowed by
+  // React's value tracker and onChange never fires).
+  await browser.execute(() => {
+    const el = document.querySelector(
+      'input[aria-label="Search tools"]',
+    ) as HTMLInputElement | null;
+    if (!el) return;
+    const setter = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      "value",
+    )?.set;
+    setter?.call(el, "toggle free");
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  // The searchable-command regression proof: the typed query SURFACES the row.
+  await browser.waitUntil(
+    async () =>
+      browser.execute(() => {
+        const dialog = document.querySelector('[aria-label="Command palette"]');
+        return Array.from(dialog?.querySelectorAll("button") ?? []).some((b) =>
+          (b.textContent ?? "").includes("Toggle free tier (dev)"),
+        );
+      }),
+    {
+      timeout: 5_000,
+      timeoutMsg:
+        'expected the typed query "toggle free" to surface the "Toggle free tier (dev)" row (18-04 walkthrough regression)',
+    },
+  );
+
+  // ArrowUp wraps the highlight from row 0 to the LAST row — the command.
   await browser.execute(() => {
     document
       .querySelector('input[aria-label="Search tools"]')
@@ -185,7 +219,7 @@ async function runDevToggle(): Promise<void> {
     {
       timeout: 5_000,
       timeoutMsg:
-        'expected ArrowUp on the empty query to highlight the LAST palette row — the "Toggle free tier (dev)" command',
+        'expected ArrowUp on the filtered list to highlight the LAST palette row — the "Toggle free tier (dev)" command',
     },
   );
   await browser.execute(() => {
