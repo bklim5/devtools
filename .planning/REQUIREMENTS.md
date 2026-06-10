@@ -73,9 +73,9 @@
 |-------------|-------|------|--------|
 | ENT-01 | Phase 18 | 18-01, 18-02 | Complete |
 | ENT-02 | Phase 18 | 18-01 | Complete |
-| ENT-03 | Phase 18 | 18-01 | Complete |
-| ENT-04 | Phase 18 | 18-01 | Complete |
-| ENT-05 | Phase 18 | 18-02 | Complete |
+| ENT-03 | Phase 18 | 18-01, 18-04 | Complete |
+| ENT-04 | Phase 18 | 18-01, 18-03, 18-04 | Complete |
+| ENT-05 | Phase 18 | 18-02, 18-04 | Complete |
 | LIC-01 | Phase 19 | — | Pending |
 | LIC-02 | Phase 19 | — | Pending |
 | LIC-03 | Phase 19 | — | Pending |

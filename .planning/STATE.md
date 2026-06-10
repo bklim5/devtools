@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Licensing
-status: executing
-last_updated: "2026-06-10T15:11:37.274Z"
+status: phase-18-complete
+last_updated: "2026-06-10T21:55:00.000Z"
 last_activity: 2026-06-10
 progress:
   total_phases: 7
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 4
-  completed_plans: 3
-  percent: 75
+  completed_plans: 4
+  percent: 100
 ---
 
 # Project State
@@ -18,13 +18,13 @@ progress:
 ## Current Position
 
 Milestone: **v1.6 "Licensing"** — started 2026-06-09, roadmap created 2026-06-09.
-Phase: 18 (entitlements-seam-central-gate) — EXECUTING
-Plan: 4 of 4 (18-01 complete — `feb6ec97`..`f3024ced`; 18-02 complete — `2d776d0c`; 18-03 complete — `a86b5ce5`..`0d4dcedb`)
-Status: Executing Phase 18 — only 18-04 (phase gate + e2e re-proof) remains
-Progress: [□□□□] 0/4 phases · v1.6 plans 3/4
-Last activity: 2026-06-10 -- Plan 18-03 complete (sidebar/palette lock surfaces + DEV free-tier toggle; suite 792/792, e2e 14/14)
+Phase: 18 (entitlements-seam-central-gate) — **COMPLETE** (human sign-off 2026-06-10)
+Plan: 4 of 4 complete (18-01 — `feb6ec97`..`f3024ced`; 18-02 — `2d776d0c`; 18-03 — `a86b5ce5`..`0d4dcedb`; 18-04 — `f64e0f54`, `7e27cad7` + walkthrough-feedback `577180ef`/`6d17468b`/`c1a35263`)
+Status: Phase 18 signed off — next: plan Phase 19 (License Activation, riskiest chunk + key→token SPIKE); Phase 20 parallel-capable beside it
+Progress: [■□□□] 1/4 phases · v1.6 plans 4/4
+Last activity: 2026-06-10 -- Plan 18-04 complete (phase gate: entitlements e2e 15/15 on the real WKWebView, dist-grep D-32 check, D-18 doc reconciliation, build walkthrough approved; suite 795/795)
 
-**Goal:** one-time-payment lifetime license — MoR checkout → webhook → Keygen (perpetual, node-locked, maxMachines=1); paste-key one-time activation (fingerprint `HMAC-SHA256(IOPlatformUUID, salt)`); offline Ed25519-verified `machine.lic` (~30-day TTL) thereafter; license key in Keychain (Rust-owned); free tier locks Protobuf hero + theming + ordering/pinning behind a central entitlement gate. Research: `docs/licensing-research.md`.
+**Goal:** one-time-payment lifetime license — MoR checkout → webhook → Keygen (perpetual, node-locked, maxMachines=1); paste-key one-time activation (fingerprint `HMAC-SHA256(IOPlatformUUID, salt)`); offline Ed25519-verified `machine.lic` (~30-day TTL) thereafter; license key in Keychain (Rust-owned); free tier keeps all 11 tools — Pro locks customization (theming + ordering/pinning) behind a central entitlement gate (D-18 pivot; tool-gating mechanism ships dormant). Research: `docs/licensing-research.md`.
 
 **v1.6 phase structure (ROADMAP.md):**
 
@@ -62,6 +62,8 @@ v1.5 complete — Phase 17 (2 plans), archived to `.planning/milestones/v1.5-*` 
 **Phase 18 plan 01 decisions (2026-06-10):** entitlement vocabulary = `pro.theming` + `pro.ordering` (ONE arrangement entitlement covers reorder+pin+reset, D-26/D-28); reserved `premium?: boolean` DELETED from ToolDefinition (zero call sites) — `requiredEntitlements?: string[]` replaces it; entitlements store's synchronous default = `isTauriEnv() ? FULL_SET : FREE_SET` so pre/post-resolution agree without an override (no startup lock-flash); UpsellModal gained a Tab focus trap beyond plan spec (aria-modal without a trap fails WCAG-AA — codex review). `resolveEntitlements()` in `src/lib/entitlements/resolve.ts` is THE single Phase-21 flip point.
 
 **Phase 18 plan 03 decisions (2026-06-10):** both registry surfaces gated through the ONE central seam — sidebar partition inputs swap on `ents.has(ENT_ORDERING)` (locked = registry-default render, stored toolOrder/pinnedToolIds untouched → instant restore on unlock, D-26); all five customization affordances (pin click, Alt+P physical-KeyP, Alt+↑/↓, drag, Reset order) branch FIRST on lock and open the shared UpsellModal (no write path exists locked — T-18-12 structural); free-tier-only footer "Unlock Pro" row (D-29); dormant lock badge + sr-only "— locked" suffix on sidebar AND palette rows via the same `isToolLocked` (fixture-proven under FULL_SET with an unknown entitlement — D-18; production registry zero diff); palette rows are a `tool | command` discriminated union with the DEV-only "Toggle free tier (dev)" command (module-level under `import.meta.env.DEV`, the exact string is Plan 04's dist-grep tripwire) writing the downgrade-only override then `refreshEntitlements()` — all surfaces flip live. Deferred (codex P3, `deferred-items.md`): stale-hook whole-blob prefs writes can clobber the persisted dev override (pre-existing last-writer-wins prefs trait; live snapshot unaffected).
+
+**Phase 18 plan 04 decisions (2026-06-10, phase gate — human sign-off):** final upsell copy is a static supportive "Thank you for using TinkerDev ❤️" heading + trimmed two-paragraph body, user-approved verbatim, no pricing (D-20 held); **D-19 OVERRIDDEN by user** — the "Unlocks: {feature}" meta line dropped (lock context comes from the affordance invoked; render-unused `feature` prop deleted from UpsellPanel/UpsellModal + callers, heading/aria-labelledby intact); palette DEV commands are now searchable by typed query (same subsequence rule, always ranked AFTER tool matches — D-32 ordering; the prior empty-query-only behavior was a walkthrough-found bug whose e2e workaround had given a false positive — the rewritten e2e drives the real typed-query path); `scripts/check-dev-strip.sh` is the repeatable D-32 dist-grep artifact reused at Phase 21's flip gate (proven 0 against a fresh build); `test/e2e/entitlements.e2e.ts` proves the full locked-UX loop on the real WKWebView (toggle → D-26 default render → D-29 footer → D-28 upsell dialog → restore, T-18-15 cleanup in finally); e2e **15/15** specs, suite **795/795**; docs (REQUIREMENTS/ROADMAP/PROJECT/licensing-research) reconciled to D-18; walkthrough certified the packaged everything-unlocked default as the PRE-licensing baseline (T-18-14).
 
 **Phase 18 plan 02 decisions (2026-06-10):** registry fully lazified (ENT-05) — all 11 entries are `component: () => import(...)`, `ToolDefinition.component` narrowed to `LazyComponent` only; tool routes render through the element-level `<ToolRoute>` gate (locked → UpsellPanel WITHOUT invoking the loader, unlocked → module-cached `React.lazy` keyed by tool.id in `Suspense fallback={null}`); route-level router `lazy` deliberately NOT used (memoized once — would defeat reactive flips AND fetch locked chunks). Build-proven: 11 per-tool Vite chunks, decoder isolated to `ProtobufDecoder-*.js` only (free-build exclusion seam is real). `lazyToolComponent(tool)` is the ONE way to materialize a tool component.
 
