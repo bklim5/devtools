@@ -105,7 +105,14 @@ One-time-payment lifetime license: MoR checkout → webhook → Keygen (perpetua
   2. Theming and tool ordering/pinning gate through the same app-level entitlement map — flipping the resolved set locks/unlocks them with no scattered per-feature checks (one central gate, registry stays the single control plane)
   3. React consumes only a resolved entitlement set (Rust command inside Tauri; deterministic free-tier default in browser/jsdom/vite-preview so tests never touch licensing); the in-Tauri default resolves to everything-unlocked pre-licensing, so shipped behavior is unchanged
   4. All registry tool entries load via lazy `component` loaders and the app behaves identically (paste-instant, full suite green, real-WKWebView e2e green) — a future free-build decoder code-split exclusion is now a real seam, with `decoder.ts` + its 19 tests byte-for-byte untouched
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+- [ ] 18-01-PLAN.md — Entitlements core seam: vocabulary + isToolLocked/gatePreferences, env-split resolver (Tauri→FULL, browser→FREE, D-31 downgrade-only override), snapshot store + useEntitlements, shared UpsellPanel (D-19..D-22)
+- [ ] 18-02-PLAN.md — Lazy registry (11 entries → LazyComponent loaders) + ToolRoute element gate (locked→upsell, no chunk fetch) + per-tool chunk/decoder-isolation proof (ENT-05/D-30)
+- [ ] 18-03-PLAN.md — Lock UX surfaces: sidebar D-26 gating + D-28 locked-affordance upsell + D-29 footer "Unlock Pro" + dormant lock badges (D-23..25); palette badges + DEV-only free-tier toggle (D-32)
+- [ ] 18-04-PLAN.md — D-18 doc reconciliation, real-WKWebView entitlements e2e + full e2e re-proof, dist-grep dev-strip check, phase-boundary build + human walkthrough
+
 **UI hint**: yes
 
 ### Phase 19: License Activation & Offline Verification
@@ -170,7 +177,7 @@ Phases execute in numeric order. v1.6 runs 18 → 19 → 21 with Phase 20 parall
 | 15. Cron tool | v1.3 | 4/4 | Complete    | 2026-06-04 |
 | 16. Reorderable sidebar tool list | v1.4 | 2/2 | Complete    | 2026-06-05 |
 | 17. Pinned sidebar section | v1.5 | 2/2 | Complete    | 2026-06-07 |
-| 18. Entitlements Seam & Central Gate | v1.6 | 0/? | Not started | - |
+| 18. Entitlements Seam & Central Gate | v1.6 | 0/4 | Planned | - |
 | 19. License Activation & Offline Verification | v1.6 | 0/? | Not started | - |
 | 20. Purchase Pipeline | v1.6 | 0/? | Not started | - |
 | 21. License Lifecycle & Ship Gate | v1.6 | 0/? | Not started | - |
