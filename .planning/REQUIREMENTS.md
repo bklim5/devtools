@@ -1,6 +1,6 @@
 # Requirements: v1.6 Licensing
 
-**Milestone goal:** One-time-payment lifetime license that unlocks full functionality — the free tier keeps core tools but locks the Protobuf decoder (hero), theming, and tool ordering/pinning; activation binds the key to one machine with self-serve transfer.
+**Milestone goal:** One-time-payment lifetime license that unlocks full functionality — all 11 tools (including the Protobuf hero) stay free; Pro locks customization — theming and tool ordering/pinning — and is the declared home for future power features (D-18); activation binds the key to one machine with self-serve transfer.
 
 **Source:** Deep research (multi-agent, adversarially verified) + four external review rounds, consolidated in `docs/licensing-research.md` (2026-06-09). Architecture locked via `/gsd-new-milestone` questioning, 2026-06-09.
 
@@ -17,7 +17,7 @@
 - [x] **ENT-01**: `ToolDefinition` supports `requiredEntitlements?: string[]`; tool gating derives from the registry (sidebar, ⌘K palette, and router stay the single control plane — no scattered per-feature checks).
 - [x] **ENT-02**: An app-level entitlement map gates non-tool features: theming and tool ordering/pinning.
 - [x] **ENT-03**: Entitlements resolve through one central gate; React receives only the resolved entitlement set (via Rust command inside Tauri; a free-tier default in browser/test environments so jsdom/vite-preview never touch licensing).
-- [x] **ENT-04**: Free tier locks the Protobuf decoder, theming, and ordering/pinning — locked tools stay **visible with a lock badge** in the sidebar/palette and show an unlock/upsell panel in place of the tool UI (not hidden; WCAG-AA, no opacity-only locked state).
+- [x] **ENT-04**: Free tier locks **theming and tool ordering/pinning** (all 11 tools stay free — D-18 pivot). The tool-gating mechanism (lock badge in sidebar/palette + unlock/upsell panel in place of the tool UI) ships in full but **dormant**: no shipped tool carries `requiredEntitlements`. Locked features stay **visible** (not hidden; WCAG-AA, no opacity-only locked state).
 - [x] **ENT-05**: Registry tool entries load via lazy `component` loaders (converting today's eager imports), making a future free-build decoder code-split exclusion a real seam — `decoder.ts` and its 19 tests untouched.
 
 ### License Lifecycle (LIC)

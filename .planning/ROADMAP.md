@@ -87,7 +87,7 @@ All 9 PIN requirements complete; human-signed-off (full suite 694/694, decoder 1
 
 ### 🚧 v1.6 Licensing (Phases 18–21) — IN PROGRESS
 
-One-time-payment lifetime license: MoR checkout → webhook → Keygen (perpetual, node-locked, `maxMachines=1`); paste-key one-time activation (fingerprint `HMAC-SHA256(IOPlatformUUID, app-salt)`); thereafter fully-offline Ed25519-verified `machine.lic` (~30-day TTL) in Rust; license key in macOS Keychain (Rust-owned); free tier locks the Protobuf hero, theming, and ordering/pinning behind ONE central entitlement gate. Architecture locked in `docs/licensing-research.md`. Webview gating accepted as UX-gating, not DRM. Webview runtime deps stay zero (Rust crates `ed25519-dalek`/`keyring`/HMAC allowed); `decoder.ts` + its 19 tests byte-for-byte untouched.
+One-time-payment lifetime license: MoR checkout → webhook → Keygen (perpetual, node-locked, `maxMachines=1`); paste-key one-time activation (fingerprint `HMAC-SHA256(IOPlatformUUID, app-salt)`); thereafter fully-offline Ed25519-verified `machine.lic` (~30-day TTL) in Rust; license key in macOS Keychain (Rust-owned); free tier keeps all 11 tools; Pro gates customization (theming + ordering/pinning) behind ONE central entitlement gate (D-18 pivot — tool-gating mechanism ships dormant). Architecture locked in `docs/licensing-research.md`. Webview gating accepted as UX-gating, not DRM. Webview runtime deps stay zero (Rust crates `ed25519-dalek`/`keyring`/HMAC allowed); `decoder.ts` + its 19 tests byte-for-byte untouched.
 
 - [ ] **Phase 18: Entitlements Seam & Central Gate** - Pure-frontend entitlement gating (registry + app-level) with lock badges + upsell panel; lazy registry loaders; everything-unlocked in-Tauri default until licensing lands
 - [ ] **Phase 19: License Activation & Offline Verification** - Keygen Rust core: paste-key activation, fingerprint, Ed25519 offline launch verify, Keychain storage, fail-closed; includes the key→token exchange SPIKE
@@ -101,7 +101,7 @@ One-time-payment lifetime license: MoR checkout → webhook → Keygen (perpetua
 **Depends on**: Nothing (pure frontend; first phase of v1.6)
 **Requirements**: ENT-01, ENT-02, ENT-03, ENT-04, ENT-05
 **Success Criteria** (what must be TRUE):
-  1. With a free-tier entitlement set applied (test/dev toggle), the Protobuf decoder stays visible in the sidebar and ⌘K palette with a lock badge, and opening it shows a WCAG-AA unlock/upsell panel in place of the tool UI (never hidden, no opacity-only locked state)
+  1. With a free-tier entitlement set applied via the dev/test toggle, a fixture-locked tool stays visible in the sidebar and ⌘K palette with a neutral lock badge, and opening it shows a WCAG-AA unlock/upsell panel in place of the tool UI (mechanism proven, dormant in production — D-18; never hidden, no opacity-only state)
   2. Theming and tool ordering/pinning gate through the same app-level entitlement map — flipping the resolved set locks/unlocks them with no scattered per-feature checks (one central gate, registry stays the single control plane)
   3. React consumes only a resolved entitlement set (Rust command inside Tauri; deterministic free-tier default in browser/jsdom/vite-preview so tests never touch licensing); the in-Tauri default resolves to everything-unlocked pre-licensing, so shipped behavior is unchanged
   4. All registry tool entries load via lazy `component` loaders and the app behaves identically (paste-instant, full suite green, real-WKWebView e2e green) — a future free-build decoder code-split exclusion is now a real seam, with `decoder.ts` + its 19 tests byte-for-byte untouched
@@ -149,7 +149,7 @@ Plans:
   2. User can self-serve deactivate this Mac from within the app, freeing the seat, and then activate the same key on a new Mac (transfer proven end-to-end)
   3. A license revoked/suspended in Keygen (refund or chargeback) drops entitlements to the free tier at the next TTL refresh — calm messaging, no crash
   4. A keyboard-reachable, WCAG-AA license status UI shows the current state (free / licensed / offline-grace / refresh-needed), the masked key + licensee email from the signed license data, and working refresh + deactivate actions
-  5. The in-Tauri free-tier default flips live (an unlicensed install actually locks the decoder, theming, and ordering/pinning) and all 8 ship-gate matrix cases pass on a fresh `tauri build`: valid first-Mac activation · second Mac rejected · offline launch · corrupted `machine.lic` fails closed · copied `machine.lic` fails on foreign fingerprint · TTL-expired grace→refresh · deactivate/transfer end-to-end · revocation propagates on refresh
+  5. The in-Tauri free-tier default flips live (an unlicensed install actually locks theming and ordering/pinning — all tools stay free, D-18) and all 8 ship-gate matrix cases pass on a fresh `tauri build`: valid first-Mac activation · second Mac rejected · offline launch · corrupted `machine.lic` fails closed · copied `machine.lic` fails on foreign fingerprint · TTL-expired grace→refresh · deactivate/transfer end-to-end · revocation propagates on refresh
 **Plans**: TBD
 **UI hint**: yes
 

@@ -16,7 +16,7 @@ Deep research (multi-agent, adversarially verified) + four external review round
 | Fingerprint | `HMAC-SHA256(IOPlatformUUID, app-specific salt)` — never the raw ID |
 | Payments | **Split stack**: MoR checkout (Lemon Squeezy default, near-tie with Polar/Paddle) → `order_created` webhook → small backend → Keygen license creation. **Privileged Keygen tokens only server-side, never in the app** |
 | Feature gating | Central entitlement gate: `requiredEntitlements?: string[]` on `ToolDefinition` + app-level entitlement map (theming, reorder/pin). React receives only the resolved set via Rust command |
-| Free tier locks | Protobuf decoder (hero), theming, tool ordering/pinning |
+| Free tier locks | Theming + tool ordering/pinning (D-18 pivot 2026-06-10 — all 11 tools incl. the Protobuf hero stay free; original hero-lock recommendation superseded by 18-CONTEXT.md D-18) |
 | Protection level | **Webview gating = UX-gating, not DRM** (accepted). Registry lazified now so a future free-build can code-split the decoder out (decoder.ts untouched) |
 | Portability | OS-portable seams (fingerprint + credential store behind Rust commands); **macOS-only impl this milestone** |
 
