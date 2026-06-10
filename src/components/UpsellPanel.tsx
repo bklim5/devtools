@@ -79,8 +79,11 @@ export function UpsellModal({ feature, icon, onClose }: UpsellModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   // Keep the latest onClose visible to the mount-once effect without re-running
   // it (re-running would re-steal and re-return focus on every prop change).
+  // Synced in an effect, not during render (react-hooks/refs).
   const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     const invoker = document.activeElement;
