@@ -16,6 +16,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { platform } from "@/lib/platform";
 import { CopyButton } from "@/components/CopyButton";
+import { SegmentedControl } from "@/components/SegmentedControl";
 import { StatusBar, type ParseState } from "@/components/StatusBar";
 import { useCopyFeedback } from "@/shell/useCopyFeedback";
 import { generateUlid } from "@/lib/ulid";
@@ -31,6 +32,9 @@ const KINDS: { id: Kind; label: string }[] = [
   { id: "uuid-v7", label: "UUID v7" },
   { id: "ulid", label: "ULID" },
 ];
+
+/** Kind options for the shared SegmentedControl, derived from KINDS. */
+const KIND_OPTIONS = KINDS.map(({ id, label }) => ({ value: id, label }));
 
 const COPY_LABEL: Record<Kind, string> = {
   "uuid-v4": "UUID",
@@ -78,42 +82,6 @@ function GeneratedRow({ id, label }: GeneratedRowProps) {
     >
       <code className="min-w-0 truncate font-mono text-[13px] text-tx">{id}</code>
       <CopyButton value={id} label={label} />
-    </div>
-  );
-}
-
-interface KindToggleProps {
-  value: Kind;
-  onChange: (next: Kind) => void;
-}
-
-function KindToggle({ value, onChange }: KindToggleProps) {
-  return (
-    <div
-      role="group"
-      aria-label="ID kind"
-      className="flex items-center gap-1 rounded-[7px] border border-bd bg-input-bg p-0.5"
-    >
-      {KINDS.map(({ id, label }) => {
-        const active = id === value;
-        return (
-          <button
-            key={id}
-            type="button"
-            onClick={() => onChange(id)}
-            aria-pressed={active}
-            className={[
-              "cursor-pointer rounded-[5px] px-2 py-0.5 text-[11px] font-medium outline-none transition-colors",
-              "focus-visible:ring-2 focus-visible:ring-accent",
-              active
-                ? "border border-accent-line bg-accent-soft text-accent"
-                : "border border-transparent text-tx-2 hover:text-tx",
-            ].join(" ")}
-          >
-            {label}
-          </button>
-        );
-      })}
     </div>
   );
 }
@@ -218,7 +186,12 @@ export default function UuidUlidTool() {
             <span className="text-[12px] font-semibold uppercase tracking-wide text-tx-2">
               Generate
             </span>
-            <KindToggle value={kind} onChange={handleKind} />
+            <SegmentedControl
+              options={KIND_OPTIONS}
+              value={kind}
+              onChange={handleKind}
+              ariaLabel="ID kind"
+            />
             <label
               htmlFor="uuid-ulid-count"
               className="flex items-center gap-1.5 text-[12px] text-tx-2"

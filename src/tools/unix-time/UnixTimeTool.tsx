@@ -4,8 +4,8 @@
 // Forward pane: an editable timestamp field. On every change (paste transforms
 // instantly — no convert button, UX-01) the integer is parsed; empty is the neutral
 // state (no error). The unit (s/ms) is auto-detected by magnitude via classifyUnit
-// unless the user forces an override with the s/ms toggle (mirrors Base64's
-// AlphabetToggle: aria-pressed, active = accent, the project-wide "accent = selected
+// unless the user forces an override with the s/ms toggle (the shared
+// SegmentedControl: aria-pressed, active = accent, the project-wide "accent = selected
 // only" rule). The value is normalised to ms (×1000 for "s") and formatTimestamp
 // renders LOCAL + UTC + ISO rows, each with a VISIBLE focusable CopyButton (UX-02).
 //
@@ -21,6 +21,7 @@
 // CopyButton → platform seam ONLY — never the Tauri clipboard APIs directly.
 import { useEffect, useState } from "react";
 import { CopyButton } from "@/components/CopyButton";
+import { SegmentedControl } from "@/components/SegmentedControl";
 import { StatusBar, type ParseState } from "@/components/StatusBar";
 import {
   classifyUnit,
@@ -31,42 +32,11 @@ import {
 
 type Unit = "s" | "ms";
 
-interface UnitToggleProps {
-  value: Unit;
-  onChange: (next: Unit) => void;
-}
-
-function UnitToggle({ value, onChange }: UnitToggleProps) {
-  const options: Unit[] = ["s", "ms"];
-  return (
-    <div
-      role="group"
-      aria-label="Timestamp unit"
-      className="flex items-center gap-1 rounded-[7px] border border-bd bg-input-bg p-0.5"
-    >
-      {options.map((opt) => {
-        const active = opt === value;
-        return (
-          <button
-            key={opt}
-            type="button"
-            onClick={() => onChange(opt)}
-            aria-pressed={active}
-            className={[
-              "rounded-[5px] px-2 py-0.5 text-[11px] font-medium outline-none transition-colors",
-              "focus-visible:ring-2 focus-visible:ring-accent",
-              active
-                ? "border border-accent-line bg-accent-soft text-accent"
-                : "border border-transparent text-tx-2 hover:text-tx",
-            ].join(" ")}
-          >
-            {opt}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
+/** s/ms unit options for the shared SegmentedControl. */
+const UNIT_OPTIONS = [
+  { value: "s", label: "s" },
+  { value: "ms", label: "ms" },
+] as const;
 
 interface OutputRowProps {
   label: string;
@@ -185,9 +155,11 @@ export default function UnixTimeTool() {
             >
               Unix Timestamp
             </label>
-            <UnitToggle
+            <SegmentedControl
+              options={UNIT_OPTIONS}
               value={activeUnit}
               onChange={(u) => setOverride(u)}
+              ariaLabel="Timestamp unit"
             />
           </div>
           <textarea

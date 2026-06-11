@@ -10,9 +10,9 @@
 import { useState } from "react";
 import { Check, Copy } from "lucide-react";
 import { platform } from "@/lib/platform";
-import type { Base64Alphabet } from "@/lib/bytes";
 import { useCopyFeedback } from "@/shell/useCopyFeedback";
 import { useBytesConvert } from "./useBytesConvert";
+import { SegmentedControl } from "@/components/SegmentedControl";
 import { StatusBar, type ParseState } from "@/components/StatusBar";
 
 interface PaneProps {
@@ -87,42 +87,11 @@ function Pane({ label, value, onChange, error, headerExtra, paneId }: PaneProps)
   );
 }
 
-interface AlphabetToggleProps {
-  value: Base64Alphabet;
-  onChange: (next: Base64Alphabet) => void;
-}
-
-function AlphabetToggle({ value, onChange }: AlphabetToggleProps) {
-  const options: Base64Alphabet[] = ["base64", "base64url"];
-  return (
-    <div
-      role="group"
-      aria-label="Base64 alphabet"
-      className="flex items-center gap-1 rounded-[7px] border border-bd bg-input-bg p-0.5"
-    >
-      {options.map((opt) => {
-        const active = opt === value;
-        return (
-          <button
-            key={opt}
-            type="button"
-            onClick={() => onChange(opt)}
-            aria-pressed={active}
-            className={[
-              "rounded-[5px] px-2 py-0.5 text-[11px] font-medium outline-none transition-colors",
-              "focus-visible:ring-2 focus-visible:ring-accent",
-              active
-                ? "border border-accent-line bg-accent-soft text-accent"
-                : "border border-transparent text-tx-2 hover:text-tx",
-            ].join(" ")}
-          >
-            {opt}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
+/** base64/base64url alphabet options for the shared SegmentedControl. */
+const ALPHABET_OPTIONS = [
+  { value: "base64", label: "base64" },
+  { value: "base64url", label: "base64url" },
+] as const;
 
 export default function Base64Tool() {
   const {
@@ -173,7 +142,14 @@ export default function Base64Tool() {
           value={base64}
           onChange={timed(editBase64)}
           error={errors.base64}
-          headerExtra={<AlphabetToggle value={alphabet} onChange={timed(setAlphabet)} />}
+          headerExtra={
+            <SegmentedControl
+              options={ALPHABET_OPTIONS}
+              value={alphabet}
+              onChange={timed(setAlphabet)}
+              ariaLabel="Base64 alphabet"
+            />
+          }
         />
         <Pane
           paneId="base64-pane-hex"

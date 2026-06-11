@@ -14,6 +14,7 @@
 // → the platform seam ONLY (never the Tauri APIs directly).
 import { useEffect, useMemo, useState } from "react";
 import { CopyButton } from "@/components/CopyButton";
+import { SegmentedControl } from "@/components/SegmentedControl";
 import { StatusBar, type ParseState } from "@/components/StatusBar";
 import { utf8ToBytes } from "@/lib/bytes";
 import { md5Hex, shaHex, type DigestRow, type ShaAlgorithm } from "./hashes";
@@ -24,45 +25,12 @@ const SHA_ALGOS: ShaAlgorithm[] = ["SHA-1", "SHA-256", "SHA-384", "SHA-512"];
 /** All five algorithms, in display order — used to render a STABLE row list every render. */
 const ALL_ALGOS = ["MD5", ...SHA_ALGOS] as const;
 
-interface CasingToggleProps {
-  upper: boolean;
-  onChange: (next: boolean) => void;
-}
-
-function CasingToggle({ upper, onChange }: CasingToggleProps) {
-  const options: { label: string; value: boolean }[] = [
-    { label: "lower", value: false },
-    { label: "UPPER", value: true },
-  ];
-  return (
-    <div
-      role="group"
-      aria-label="Hex casing"
-      className="flex items-center gap-1 rounded-[7px] border border-bd bg-input-bg p-0.5"
-    >
-      {options.map((opt) => {
-        const active = opt.value === upper;
-        return (
-          <button
-            key={opt.label}
-            type="button"
-            onClick={() => onChange(opt.value)}
-            aria-pressed={active}
-            className={[
-              "cursor-pointer rounded-[5px] px-2 py-0.5 text-[11px] font-medium outline-none transition-colors",
-              "focus-visible:ring-2 focus-visible:ring-accent",
-              active
-                ? "border border-accent-line bg-accent-soft text-accent"
-                : "border border-transparent text-tx-2 hover:text-tx",
-            ].join(" ")}
-          >
-            {opt.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
+// Casing toggle options for the shared SegmentedControl (D-13, default lowercase).
+// SegmentedControl is string-valued; the boolean `upper` state maps at the call site.
+const CASING_OPTIONS = [
+  { value: "lower", label: "lower" },
+  { value: "upper", label: "UPPER" },
+] as const;
 
 interface DigestRowViewProps {
   algo: string;
@@ -183,7 +151,12 @@ export default function HashTool() {
             <span className="text-[11px] font-semibold uppercase tracking-wide text-tx-2">
               Digests
             </span>
-            <CasingToggle upper={upper} onChange={setUpper} />
+            <SegmentedControl
+              options={CASING_OPTIONS}
+              value={upper ? "upper" : "lower"}
+              onChange={(v) => setUpper(v === "upper")}
+              ariaLabel="Hex casing"
+            />
           </div>
           <div className="flex min-w-0 flex-col gap-2">
             {orderedRows.map((row) => (
