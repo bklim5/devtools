@@ -110,7 +110,7 @@ young (0.1.x).
   (visual sign-off) **+** `chrome-devtools-mcp` against the byte-identical static bundle for
   deep DOM / a11y / visual-diff automation. The bundle is the same web content WKWebView
   renders, so DOM/a11y findings transfer; only "literally inside WKWebView" is lost.
-- **Decision recorded in** `docs/phase-0-notes.md`.
+- **Decision recorded in** `docs/archive/phase-0-notes.md`.
 
 ### 3.4 Tooling summary
 

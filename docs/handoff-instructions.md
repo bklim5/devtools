@@ -104,7 +104,7 @@ If you find yourself hard-coding a width inside a tool component, stop and lift 
 2. Initialize the project at this directory's root (`devtools-handoff/` becomes the project root; rename to `devtools/` if you prefer).
 3. Set up Tailwind, `react-router` (`HashRouter`), vitest.
 4. Copy `scaffold/src/lib/` → `src/lib/` unchanged. Run vitest. **Confirm 19 tests pass.** Treat a regression as a blocker.
-5. **Distribution spike**: produce an unsigned test build on macOS *and* Windows. Surface code-signing surprises early. Document findings in `docs/phase-0-notes.md`.
+5. **Distribution spike**: produce an unsigned test build on macOS *and* Windows. Surface code-signing surprises early. Document findings in `docs/archive/phase-0-notes.md`.
 6. Render a blank dark window matching `design/DevTools Mockup.html`'s `--win` / `--bg-app` colors.
 
 **Exit criteria for Phase 0:** blank window renders on both target OSes from one repo, lib tests green on both, distribution spike documented.
@@ -140,7 +140,7 @@ devtools/                              ← this directory, renamed
 ├── README.md
 ├── docs/
 │   ├── design-and-plan.md
-│   └── phase-0-notes.md               ← you will create this
+│   └── archive/phase-0-notes.md       ← you will create this
 ├── design/                            ← reference only, do not modify
 │   ├── DevTools Mockup.html
 │   ├── devtools-ui.jsx

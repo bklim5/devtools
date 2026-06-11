@@ -31,7 +31,7 @@ After the first productive session you should have:
 - A real Tauri 2 + Vite + React + TS project initialized at this directory's root.
 - `src/lib/` populated from `scaffold/src/lib/`, with **19 vitest cases passing** on first run.
 - A blank dark window rendering on both macOS and Windows.
-- A signed-test distribution spike done on both OSes, with findings written to `docs/phase-0-notes.md`.
+- A signed-test distribution spike done on both OSes, with findings written to `docs/archive/phase-0-notes.md`.
 
 If any of those is missing or red, treat it as the next session's first priority.
 
