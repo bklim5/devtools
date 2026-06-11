@@ -33,6 +33,11 @@
 //   the notes and the tag message extracts them. A NO-OP (returns the input
 //   UNCHANGED) when there is no `## [Unreleased]` section. The `date` is INJECTED
 //   (still pure — no clock); the driver reads the wall clock and passes it in.
+// - parseChangelogArgs (the `release:changelog` CLI grammar): no tokens (or only
+//   whitespace) -> query mode; otherwise an append with an opt-in `--commit` flag
+//   accepted at ANY position. `--commit` with an empty entry and ANY other
+//   `--`-leading token both THROW with usage — a typo'd flag must never be
+//   silently logged as changelog text.
 
 /**
  * The empty-Unreleased placeholder bullet. ONE source of truth: `promoteUnreleased`
@@ -279,4 +284,73 @@ export function promoteUnreleased(
     ...lines.slice(head + 1),
   ];
   return out.join(eol);
+}
+
+/**
+ * The one usage line for the `release:changelog` CLI. Lives in the pure module so
+ * the parser's throws and the driver's query-mode print share a single source of
+ * truth.
+ */
+export const CHANGELOG_USAGE =
+  'Usage: pnpm release:changelog "<entry>" [--commit]';
+
+/** The parsed `release:changelog` CLI grammar (discriminated on `mode`). */
+export type ChangelogArgs =
+  | { mode: "query" }
+  | { mode: "append"; entry: string; commit: boolean };
+
+/**
+ * Parse the `release:changelog` argv slice (the caller slices the process
+ * arguments and passes them in — this stays pure and never reads the argv
+ * global itself). Mirrors `parseBumpArgs`' throw-with-usage idiom.
+ *
+ * - No tokens (or only whitespace tokens) and no `--commit` -> `{ mode: "query" }`
+ *   (preserves the no-arg query behavior).
+ * - Otherwise `--commit` is extracted from ANY position (duplicates tolerated)
+ *   and the remaining tokens join with single spaces into the entry.
+ * - THROWS (message carries the usage line) when `--commit` is present but the
+ *   remaining entry is empty/whitespace (commit needs an entry), or when any
+ *   token's own first two chars are `--` and it is not exactly `--commit` — a
+ *   typo'd flag (`--comit`, `--dry-run`) must never be silently logged as
+ *   changelog text. A quoted entry merely CONTAINING `--` is one token that does
+ *   not start with `--`, so it passes.
+ */
+export function parseChangelogArgs(argv: string[]): ChangelogArgs {
+  let commit = false;
+  const rest: string[] = [];
+
+  for (const token of argv) {
+    if (token === "--commit") {
+      commit = true;
+      continue;
+    }
+    if (token.startsWith("--")) {
+      throw new Error(
+        `Unexpected flag: ${JSON.stringify(token)}. ${CHANGELOG_USAGE}`,
+      );
+    }
+    rest.push(token);
+  }
+
+  const entry = rest.join(" ").trim();
+  if (entry === "") {
+    if (commit) {
+      throw new Error(`--commit requires an entry. ${CHANGELOG_USAGE}`);
+    }
+    return { mode: "query" };
+  }
+  return { mode: "append", entry, commit };
+}
+
+/**
+ * The `docs(changelog): <entry>` commit subject for the opt-in `--commit` step.
+ * The entry is normalized by the SAME rule as `appendUnreleasedEntry` (ONE
+ * leading `- `/`-` stripped + trimmed), so the commit subject matches the bullet
+ * text exactly. Throws on an empty/whitespace-only entry (mirrors
+ * `appendUnreleasedEntry`).
+ */
+export function changelogCommitMessage(entry: string): string {
+  const text = normalizeEntry(entry);
+  if (text === "") throw new Error("changelog entry is empty");
+  return `docs(changelog): ${text}`;
 }

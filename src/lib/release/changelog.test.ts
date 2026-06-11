@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   appendUnreleasedEntry,
+  changelogCommitMessage,
   extractChangelogSection,
+  parseChangelogArgs,
   promoteUnreleased,
 } from "./changelog";
 
@@ -248,5 +250,93 @@ describe("promoteUnreleased", () => {
     expect(promoteUnreleased(MULTI_BULLET, "0.4.0", "2026-06-09")).toBe(
       promoteUnreleased(MULTI_BULLET, "0.4.0", "2026-06-09"),
     );
+  });
+});
+
+describe("parseChangelogArgs", () => {
+  it("parses an entry with a trailing --commit", () => {
+    expect(parseChangelogArgs(["fix x", "--commit"])).toEqual({
+      mode: "append",
+      entry: "fix x",
+      commit: true,
+    });
+  });
+
+  it("parses an entry with a leading --commit (flag accepted at any position)", () => {
+    expect(parseChangelogArgs(["--commit", "fix x"])).toEqual({
+      mode: "append",
+      entry: "fix x",
+      commit: true,
+    });
+  });
+
+  it("joins multiple unquoted tokens with single spaces, commit false", () => {
+    expect(parseChangelogArgs(["fix", "x"])).toEqual({
+      mode: "append",
+      entry: "fix x",
+      commit: false,
+    });
+  });
+
+  it("returns query mode for an empty argv", () => {
+    expect(parseChangelogArgs([])).toEqual({ mode: "query" });
+  });
+
+  it("returns query mode for whitespace-only tokens (matches the old trim-to-empty path)", () => {
+    expect(parseChangelogArgs(["   "])).toEqual({ mode: "query" });
+  });
+
+  it("throws with usage when --commit has no entry (commit needs an entry)", () => {
+    expect(() => parseChangelogArgs(["--commit"])).toThrow(/Usage:/);
+  });
+
+  it("throws with usage when --commit has only a whitespace entry", () => {
+    expect(() => parseChangelogArgs(["--commit", "   "])).toThrow(/Usage:/);
+  });
+
+  it("throws on a typo'd flag instead of logging it as changelog text", () => {
+    expect(() => parseChangelogArgs(["--comit", "fix x"])).toThrow(/Usage:/);
+  });
+
+  it("throws on any unknown --flag (e.g. --dry-run)", () => {
+    expect(() => parseChangelogArgs(["fix x", "--dry-run"])).toThrow(/Usage:/);
+  });
+
+  it("allows an entry token CONTAINING -- (only ---leading tokens are flags)", () => {
+    expect(parseChangelogArgs(["add --dry-run flag"])).toEqual({
+      mode: "append",
+      entry: "add --dry-run flag",
+      commit: false,
+    });
+  });
+
+  it("tolerates a duplicate --commit", () => {
+    expect(parseChangelogArgs(["--commit", "--commit", "fix"])).toEqual({
+      mode: "append",
+      entry: "fix",
+      commit: true,
+    });
+  });
+});
+
+describe("changelogCommitMessage", () => {
+  it("prefixes a plain entry with docs(changelog):", () => {
+    expect(changelogCommitMessage("Added X")).toBe("docs(changelog): Added X");
+  });
+
+  it("strips ONE leading \"- \" so the subject matches the bullet text", () => {
+    expect(changelogCommitMessage("- Added X")).toBe("docs(changelog): Added X");
+  });
+
+  it("trims whitespace padding", () => {
+    expect(changelogCommitMessage("  Added X  ")).toBe("docs(changelog): Added X");
+  });
+
+  it("throws on an empty entry", () => {
+    expect(() => changelogCommitMessage("")).toThrow(/empty/);
+  });
+
+  it("throws on a whitespace-only entry", () => {
+    expect(() => changelogCommitMessage("   ")).toThrow(/empty/);
   });
 });
