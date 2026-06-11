@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Licensing
 status: "Phase 18 signed off — next: plan Phase 19 (License Activation, riskiest chunk + key→token SPIKE); Phase 20 parallel-capable beside it"
-last_updated: "2026-06-11T09:12:00.000Z"
+last_updated: "2026-06-11T09:35:00.000Z"
 last_activity: 2026-06-11
 progress:
   total_phases: 7
@@ -43,6 +43,7 @@ Last activity: 2026-06-11
 | 260611-awo | `pnpm release:changelog "xxx" --commit` opt-in flag: pure `parseChangelogArgs`/`changelogCommitMessage` grammar (typo'd flags throw, `--commit` w/o entry throws) + driver pathspec-commits ONLY CHANGELOG.md (`docs(changelog): <entry>`) so `release:bump` clean-tree preflight passes; default stays edit-only | 2026-06-11 | fc46ef67 + b51f2ed0 | [260611-awo-release-changelog-commit-flag-opt-in-own](./quick/260611-awo-release-changelog-commit-flag-opt-in-own/) |
 | 260611-dl1 | Harness batch 1/4: e2e-spike.sh `preflight()` kills orphan devtools-app + clears :4445/:1420 LISTEN holders (TERM→KILL→fail-loud; `PREFLIGHT_ONLY=1` dry-run) so a green e2e run provably ran CURRENT code; eslint joins the lefthook unit gate (tsc+vitest+lint); .gitignore deduped, stale __logs__ purged, 3 stale docs → docs/archive/ with refs updated | 2026-06-11 | 02a76acf + fbaa2333 + 4aff0de8 | [260611-dl1-harness-e2e-spike-orphan-port-preflight-](./quick/260611-dl1-harness-e2e-spike-orphan-port-preflight-/) |
 | 260611-dww | Harness batch 2/4: regex/url/cron migrated to the ONE shared CopyButton (call sites pass the bare noun — shared prepends `Copy ` so aria-labels stay byte-identical; -96 lines), dead `src/tools/_placeholder/` deleted, `docs/HARNESS.md` e2e-gate runbook (ports/env/preflight/session/WebKit quirks/DMG flake); full gate 816/816 + tsc + eslint; real-WKWebView e2e deferred to batch 3's full run | 2026-06-11 | acba7c24 + 3ff4ee97 + 94d8cf99 | [260611-dww-shared-copybutton-in-regex-url-cron-dele](./quick/260611-dww-shared-copybutton-in-regex-url-cron-dele/) |
+| 260611-e5k | Harness batch 3/4: `test/e2e/helpers.ts` extracted (assert/dispatchKey/dispatchAltP/navigateToTool/saveScreenshot/readOrder/readPinnedOrder/focusRow) with the 3 WebKit lessons as helper doc comments; ALL 15 specs migrated (pure refactor, log lines + screenshots byte-identical; -336 duplicated spec lines, net -181); full real-WKWebView e2e 15/15 specs / 20 tests green — batch-2 CopyButton deferred verification DISCHARGED (regex/url/cron Copy aria-labels proven on WKWebView) | 2026-06-11 | e68a5c68 + 409d6785 | [260611-e5k-extract-test-e2e-helpers-ts-and-migrate-](./quick/260611-e5k-extract-test-e2e-helpers-ts-and-migrate-/) |
 
 ## Project Reference
 
