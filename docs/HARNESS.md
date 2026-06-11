@@ -11,8 +11,10 @@ Operational runbook for the real-WKWebView e2e gate. Facts sourced from
      exclude it, so :4445 never binds outside this gate.
   2. Polls `127.0.0.1:4445` until the embedded WebDriver server accepts connections.
   3. Runs `pnpm e2e` (WDIO against `wdio.conf.ts`).
-  4. ALWAYS tears down via an EXIT/INT/TERM trap that kills the whole `tauri dev`
-     process group (vite + Rust app child). Exit code = WDIO's exit code.
+  4. Tears down via an EXIT/INT/TERM trap. With `setsid` available, `tauri dev`
+     runs in its own process group and the whole tree (vite + Rust app child) is
+     killed; without it, only the `tauri dev` PID is killed — the preflight on the
+     next run reaps any leftovers. Exit code = WDIO's exit code.
 - **Ports:**
 
   | Port | What | Notes |
@@ -25,7 +27,7 @@ Operational runbook for the real-WKWebView e2e gate. Facts sourced from
   | Var | Default | Effect |
   |---|---|---|
   | `MAX_WAIT` | 180 (s) | bound on the WebDriver-server startup poll |
-  | `E2E_DEMO` | unset | `=1` → slow-motion pauses in specs for watching a run live; inert (no-op) otherwise |
+  | `E2E_DEMO` | unset | `=1` → slow-motion pauses in specs that opt in (currently `protobuf-decoder.e2e.ts`) for watching a run live; inert (no-op) otherwise |
   | `PREFLIGHT_ONLY` | unset | `=1` → run preflight then exit 0 (dry-run, no tauri launch) |
 
 - **Logs:** tauri dev output → `test/e2e/__logs__/tauri-dev.log` (tailed on failure).
