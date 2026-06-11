@@ -15,9 +15,7 @@
 // through the platform clipboard seam ONLY (never @tauri-apps). Layout-agnostic:
 // responsive Tailwind, min-w-0, no fixed widths.
 import { useMemo, useState } from "react";
-import { Check, Copy } from "lucide-react";
-import { platform } from "@/lib/platform";
-import { useCopyFeedback } from "@/shell/useCopyFeedback";
+import { CopyButton } from "@/components/CopyButton";
 import { SegmentedControl } from "@/components/SegmentedControl";
 import {
   parseUrl,
@@ -29,35 +27,6 @@ import {
 
 type Mode = "parse" | "encode";
 type Scope = "component" | "full";
-
-/** A small visible, focusable copy button (no hover gate, D-07/11). */
-function CopyButton({ value, label }: { value: string; label: string }) {
-  const [copied, confirmCopy] = useCopyFeedback();
-  function handleCopy() {
-    void platform.clipboard.writeText(value);
-    confirmCopy();
-  }
-  return (
-    <button
-      type="button"
-      onClick={handleCopy}
-      aria-label={label}
-      className={[
-        "flex shrink-0 items-center gap-1.5 rounded-[7px] border bg-input-bg px-2 py-1 text-[11.5px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent",
-        copied
-          ? "border-accent-line text-accent"
-          : "border-bd text-tx-2 hover:border-bd-2 hover:text-tx",
-      ].join(" ")}
-    >
-      {copied ? (
-        <Check className="h-3.5 w-3.5" aria-hidden="true" />
-      ) : (
-        <Copy className="h-3.5 w-3.5" aria-hidden="true" />
-      )}
-      <span>{copied ? "Copied" : "Copy"}</span>
-    </button>
-  );
-}
 
 /** A monospace value, or a muted em-dash placeholder when empty (D-09/12). */
 function Value({ value }: { value: string }) {
@@ -133,7 +102,7 @@ function ParseMode() {
                   <span className="min-w-0 flex-1">
                     <Value value={value} />
                   </span>
-                  <CopyButton value={value} label={`Copy ${label}`} />
+                  <CopyButton value={value} label={label} className="shrink-0" />
                 </div>
               );
             })}
@@ -164,7 +133,8 @@ function ParseMode() {
                     </span>
                     <CopyButton
                       value={row.value}
-                      label={`Copy query value ${row.key}`}
+                      label={`query value ${row.key}`}
+                      className="shrink-0"
                     />
                   </div>
                 ))}
@@ -206,7 +176,7 @@ function OutputPane({
           {label}
         </span>
         {!errored ? (
-          <CopyButton value={result.value} label={`Copy ${label}`} />
+          <CopyButton value={result.value} label={label} className="shrink-0" />
         ) : null}
       </div>
       <div

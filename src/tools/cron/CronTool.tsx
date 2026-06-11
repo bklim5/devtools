@@ -12,34 +12,9 @@
 // Tauri APIs directly). DoS (T-15-10): analyzeCron is bounded by the Plan-02
 // CANDIDATE_DAY_CAP, so the synchronous useMemo can never hang.
 import { useMemo, useState } from "react";
-import { platform } from "@/lib/platform";
-import { useCopyFeedback } from "@/shell/useCopyFeedback";
+import { CopyButton } from "@/components/CopyButton";
 import { analyzeCron } from "@/lib/cron/cron";
 import { relativeTime } from "@/lib/timeFormat";
-
-/** A visible, focusable copy button (no hover gate — CLAUDE.md). Writes through the seam. */
-function CopyButton({ value, label }: { value: string; label: string }) {
-  const [copied, confirmCopy] = useCopyFeedback();
-  function handleCopy() {
-    void platform.clipboard.writeText(value);
-    confirmCopy();
-  }
-  return (
-    <button
-      type="button"
-      onClick={handleCopy}
-      aria-label={label}
-      className={[
-        "flex shrink-0 items-center gap-1 rounded-[6px] border bg-input-bg px-1.5 py-0.5 text-[11px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent",
-        copied
-          ? "border-accent-line text-accent"
-          : "border-bd text-tx-2 hover:border-bd-2 hover:text-tx",
-      ].join(" ")}
-    >
-      {copied ? "Copied" : "Copy"}
-    </button>
-  );
-}
 
 const LABEL_CLASS =
   "text-[12px] font-semibold uppercase tracking-wide text-tx-2";
@@ -112,7 +87,8 @@ export default function CronTool() {
               <span className={LABEL_CLASS}>Description</span>
               <CopyButton
                 value={result.description}
-                label="Copy description"
+                label="description"
+                className="shrink-0"
               />
             </div>
             <h2 className="text-[16px] font-semibold leading-[1.3] text-tx">
@@ -169,7 +145,11 @@ export default function CronTool() {
                       {relativeTime(run.date.getTime(), now)}
                     </span>
                   </div>
-                  <CopyButton value={run.label} label={`Copy run ${i + 1}`} />
+                  <CopyButton
+                    value={run.label}
+                    label={`run ${i + 1}`}
+                    className="shrink-0"
+                  />
                 </div>
               ))}
             </div>

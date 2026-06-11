@@ -25,8 +25,7 @@
 // alias, so Vite's import.meta.url worker detection bundles it). Layout-agnostic:
 // responsive Tailwind, min-w-0, no fixed widths.
 import { useEffect, useMemo, useRef, useState } from "react";
-import { platform } from "@/lib/platform";
-import { useCopyFeedback } from "@/shell/useCopyFeedback";
+import { CopyButton } from "@/components/CopyButton";
 import {
   COMMON_PATTERNS,
   type RegexMatch,
@@ -76,30 +75,6 @@ function makeWorker(): Worker {
   return new Worker(new URL("../../lib/regex/worker.ts", import.meta.url), {
     type: "module",
   });
-}
-
-/** A visible, focusable copy button (no hover gate, D-08). Writes through the seam. */
-function CopyButton({ value, label }: { value: string; label: string }) {
-  const [copied, confirmCopy] = useCopyFeedback();
-  function handleCopy() {
-    void platform.clipboard.writeText(value);
-    confirmCopy();
-  }
-  return (
-    <button
-      type="button"
-      onClick={handleCopy}
-      aria-label={label}
-      className={[
-        "flex shrink-0 items-center gap-1 rounded-[6px] border bg-input-bg px-1.5 py-0.5 text-[11px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent",
-        copied
-          ? "border-accent-line text-accent"
-          : "border-bd text-tx-2 hover:border-bd-2 hover:text-tx",
-      ].join(" ")}
-    >
-      {copied ? "Copied" : "Copy"}
-    </button>
-  );
 }
 
 /**
@@ -481,7 +456,11 @@ export default function RegexTool() {
                               <span className="min-w-0 flex-1 break-all font-mono text-[12px] text-tx">
                                 {g}
                               </span>
-                              <CopyButton value={g} label={`Copy group ${gi + 1}`} />
+                              <CopyButton
+                                value={g}
+                                label={`group ${gi + 1}`}
+                                className="shrink-0"
+                              />
                             </>
                           )}
                         </div>
@@ -508,7 +487,8 @@ export default function RegexTool() {
                               </span>
                               <CopyButton
                                 value={val}
-                                label={`Copy group ${name}`}
+                                label={`group ${name}`}
+                                className="shrink-0"
                               />
                             </>
                           )}
@@ -557,7 +537,11 @@ export default function RegexTool() {
                   Result
                 </span>
                 {"replaced" in view && view.replaced !== undefined ? (
-                  <CopyButton value={view.replaced} label="Copy result" />
+                  <CopyButton
+                    value={view.replaced}
+                    label="result"
+                    className="shrink-0"
+                  />
                 ) : null}
               </div>
               <p className="text-[11px] text-tx-3">
