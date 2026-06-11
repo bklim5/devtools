@@ -23,7 +23,9 @@
 // line (NOT the accent colour — D-03/accent = selected-only) marks the drop slot.
 // Drag + Alt+↑/↓ reorder run INDEPENDENTLY within each group (`draggingGroup`,
 // per-group clamp) — a tool never crosses the pinned↔unpinned boundary by
-// dragging; membership changes via pin/unpin only (PIN-06).
+// dragging; membership changes via pin/unpin only (PIN-06). The drag state +
+// handlers live in useSidebarDragDrop.ts; the reset / "Unpin all" menu's
+// open/close/dismiss logic + JSX live in SidebarResetMenu.tsx.
 // Keyboard (all bound on the ROW): plain ↑/↓ move FOCUS to the previous/next
 // visible row, traversing pinned then unpinned as one continuous sequence across
 // the divider (focus only, clamp at the ends); Home/End focus the
@@ -35,22 +37,16 @@
 // carries "Reset order" (D-12) and "Unpin all" (D-16/PIN-09). Each change persists
 // immediately via setToolOrder / setPinnedToolIds and survives restart.
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { GripVertical, Lock, Pin, PinOff, RotateCcw } from "lucide-react";
+import { GripVertical, Lock, Pin } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { ENT_ORDERING, ENT_THEMING, isToolLocked } from "@/lib/entitlements/entitlements";
 import { ENABLED_TOOLS, getToolById } from "@/lib/tools/registry";
 import { useEntitlements } from "@/shell/useEntitlements";
 import { usePreferences } from "@/shell/usePreferences";
 import { moveToolInOrder, partitionTools, resolveRovingTarget } from "@/shell/toolOrder";
+import { SidebarResetMenu, useSidebarResetMenu } from "./SidebarResetMenu";
+import { useSidebarDragDrop, type ToolGroup } from "./useSidebarDragDrop";
 import { UpsellModal } from "./UpsellPanel";
-
-interface ResetMenu {
-  x: number;
-  y: number;
-}
-
-/** Which group a drag/keyboard reorder is scoped to (PIN-06 — no cross-boundary). */
-type ToolGroup = "pinned" | "unpinned";
 
 export function Sidebar() {
   const { preferences, setToolOrder, setPinnedToolIds, togglePinned } = usePreferences();
@@ -93,16 +89,8 @@ export function Sidebar() {
   const [upsellOpen, setUpsellOpen] = useState(false);
   const openOrderingUpsell = useCallback(() => setUpsellOpen(true), []);
 
-  // The id currently being dragged, the group it belongs to, and the gap index
-  // the drop indicator sits at (0..group.length — N means "between row N-1 and N"
-  // WITHIN that group). null when idle.
-  const [draggingId, setDraggingId] = useState<string | null>(null);
-  const [draggingGroup, setDraggingGroup] = useState<ToolGroup | null>(null);
-  const [dropIndex, setDropIndex] = useState<number | null>(null);
   // The aria-live announcement text (D-06). Re-set on every successful move/toggle.
   const [announcement, setAnnouncement] = useState("");
-  // The right-click context menu (D-12/D-16), positioned at the cursor.
-  const [resetMenu, setResetMenu] = useState<ResetMenu | null>(null);
   // The <nav> element — a stable focus anchor for menu dismissal when the saved
   // return-focus element is no longer connected (WR-02 fallback).
   const navRef = useRef<HTMLElement | null>(null);
@@ -228,88 +216,19 @@ export function Sidebar() {
   );
 
   // --- Native HTML5 drag (handle-initiated only — D-01/D-02) -----------------
-  const onDragStart = useCallback(
-    (e: React.DragEvent, id: string, group: ToolGroup) => {
-      // D-28: reorder-by-drag is a customization affordance — locked, it opens
-      // the upsell and the drag never starts (no prefs write path exists).
-      if (!orderingUnlocked) {
-        e.preventDefault();
-        openOrderingUpsell();
-        return;
-      }
-      e.dataTransfer.effectAllowed = "move";
-      e.dataTransfer.setData("text/plain", id);
-      setDraggingId(id);
-      setDraggingGroup(group);
-    },
-    [orderingUnlocked, openOrderingUpsell],
-  );
-
-  // While dragging over a row, set the insertion line above or below it based on
-  // the pointer's vertical position within the row. A drag over a row in the OTHER
-  // group is ignored — the indicator stays in the active group (PIN-06).
-  const onRowDragOver = useCallback(
-    (e: React.DragEvent, index: number, group: ToolGroup) => {
-      if (!draggingId || group !== draggingGroup) return;
-      e.preventDefault();
-      // Stop the event reaching the nav-level handler so a drag genuinely over a
-      // row never gets overridden by the end-of-list zone.
-      e.stopPropagation();
-      e.dataTransfer.dropEffect = "move";
-      const rect = e.currentTarget.getBoundingClientRect();
-      const after = e.clientY - rect.top > rect.height / 2;
-      setDropIndex(after ? index + 1 : index);
-    },
-    [draggingId, draggingGroup],
-  );
-
-  // Dragging into the empty area below the last row parks the drop slot at the end
-  // of the ACTIVE group (dropIndex = that group's length), so the trailing
-  // insertion line shows and the drop commits to the bottom of that group only.
-  const onNavDragOver = useCallback(
-    (e: React.DragEvent) => {
-      if (!draggingId || !draggingGroup) return;
-      e.preventDefault();
-      e.dataTransfer.dropEffect = "move";
-      setDropIndex(groupOrder(draggingGroup).length);
-    },
-    [draggingId, draggingGroup, groupOrder],
-  );
-
-  const onDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      const id = draggingId ?? e.dataTransfer.getData("text/plain");
-      const group = draggingGroup;
-      if (id && group && dropIndex !== null) {
-        const order = groupOrder(group);
-        // dropIndex is a GAP index captured against the CURRENT group order. If the
-        // dragged id is no longer in that order (e.g. an external sync mutated the
-        // overlay mid-drag), bail cleanly rather than land one slot off.
-        const from = order.indexOf(id);
-        if (from === -1) {
-          setDraggingId(null);
-          setDraggingGroup(null);
-          setDropIndex(null);
-          return;
-        }
-        // The gap is past the dragged item's own slot → account for its removal so
-        // it lands where the line shows.
-        const target = from < dropIndex ? dropIndex - 1 : dropIndex;
-        if (target !== from) commitMove(group, id, target);
-      }
-      setDraggingId(null);
-      setDraggingGroup(null);
-      setDropIndex(null);
-    },
-    [draggingId, draggingGroup, dropIndex, groupOrder, commitMove],
-  );
-
-  const onDragEnd = useCallback(() => {
-    setDraggingId(null);
-    setDraggingGroup(null);
-    setDropIndex(null);
-  }, []);
+  // The drag state machine + five handlers live in useSidebarDragDrop.ts: the
+  // locked path (T-18-12), per-group scoping (PIN-06), and the gap-index drop
+  // math moved there verbatim. Persistence + announce stay here via commitMove.
+  const {
+    draggingId,
+    draggingGroup,
+    dropIndex,
+    onDragStart,
+    onRowDragOver,
+    onNavDragOver,
+    onDrop,
+    onDragEnd,
+  } = useSidebarDragDrop({ orderingUnlocked, openOrderingUpsell, groupOrder, commitMove });
 
   // --- Row keyboard model: plain ↑/↓/Home/End focus nav, Alt+↑/↓ reorder,
   //     Alt+P toggle (D-04/D-13/PIN-05/PIN-06). Bound on the NavLink row (every row
@@ -413,69 +332,17 @@ export function Sidebar() {
   );
 
   // --- Reset order (D-12) + Unpin all (D-16) menu ----------------------------
-  // The first menu item, focused when the menu opens so it is operable by keyboard
-  // (WCAG 2.1.1), and the element to return focus to on dismiss.
-  const resetItemRef = useRef<HTMLButtonElement | null>(null);
-  const menuReturnFocusRef = useRef<HTMLElement | null>(null);
-
-  const openResetMenu = useCallback((x: number, y: number) => {
-    // Remember where focus was so Escape / dismiss can restore it sensibly.
-    menuReturnFocusRef.current =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    setResetMenu({ x, y });
-  }, []);
-
-  const openResetMenuFromMouse = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      openResetMenu(e.clientX, e.clientY);
-    },
-    [openResetMenu],
-  );
-
-  // Keyboard entry point (WCAG 2.1.1): Shift+F10 / the ContextMenu key opens the
-  // menu — the standard context-menu chord — anchored near the focused row so it
-  // appears where the user is looking, not at the cursor.
-  const openResetMenuFromKeyboard = useCallback(
-    (e: React.KeyboardEvent) => {
-      const isContextChord =
-        e.key === "ContextMenu" || (e.shiftKey && e.key === "F10");
-      if (!isContextChord) return;
-      e.preventDefault();
-      const anchor =
-        e.target instanceof HTMLElement ? e.target.getBoundingClientRect() : null;
-      const x = anchor ? Math.round(anchor.left + anchor.width / 2) : 0;
-      const y = anchor ? Math.round(anchor.bottom) : 0;
-      openResetMenu(x, y);
-    },
-    [openResetMenu],
-  );
-
-  const closeResetMenu = useCallback((opts?: { restoreFocus?: boolean }) => {
-    setResetMenu(null);
-    if (opts?.restoreFocus) {
-      // The saved element (typically a grip handle) may have been detached or
-      // re-keyed between open and close — calling .focus() on a disconnected node
-      // is a no-op that silently strands focus on <body>. A right-click open also
-      // captures document.activeElement as <body> (a right-click does not focus the
-      // row), which IS connected — restoring to it would strand keyboard focus on
-      // <body> just the same. Only restore to a still-connected, genuinely focusable
-      // element (not <body>, tabIndex >= 0); otherwise fall back to a stable anchor
-      // (the <nav>, then any live grip) so keyboard users are never left adrift.
-      const el = menuReturnFocusRef.current;
-      const usable = el && el.isConnected && el !== document.body && el.tabIndex >= 0;
-      if (usable) {
-        el.focus();
-      } else {
-        const fallback =
-          navRef.current ??
-          [...rowRefs.current.values()].find((r) => r?.isConnected) ??
-          null;
-        fallback?.focus();
-      }
-    }
-    menuReturnFocusRef.current = null;
-  }, []);
+  // Open/close/focus-restore/dismiss logic + the menu JSX live in
+  // SidebarResetMenu.tsx (it gets navRef/rowRefs for the WR-02 focus-fallback
+  // chain). The ACTIONS below stay here — they own the prefs setters, announce,
+  // and the upsell branch — and are passed to the menu as props.
+  const {
+    resetMenu,
+    resetItemRef,
+    openResetMenuFromMouse,
+    openResetMenuFromKeyboard,
+    closeResetMenu,
+  } = useSidebarResetMenu({ navRef, rowRefs });
 
   const resetOrder = useCallback(() => {
     // D-28: the menu item stays reachable (visible affordance), but locked it
@@ -497,36 +364,6 @@ export function Sidebar() {
     announce("All tools unpinned");
     closeResetMenu({ restoreFocus: true });
   }, [setPinnedToolIds, announce, closeResetMenu]);
-
-  // Move focus to the first menu item when the menu opens, so an open menu is
-  // fully keyboard-operable (not a focus trap — Escape / click-away still dismiss).
-  useLayoutEffect(() => {
-    if (resetMenu) resetItemRef.current?.focus();
-  }, [resetMenu]);
-
-  // Dismiss the menu on click-away or Escape (no focus trap). Escape returns focus
-  // to the element the menu was opened from.
-  useEffect(() => {
-    if (!resetMenu) return;
-    const onDocClick = () => closeResetMenu();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeResetMenu({ restoreFocus: true });
-    };
-    // Defer attaching the click-away listener by one tick. Today the only open
-    // paths are right-click and keyboard, but if a future caller ever opens the
-    // menu from a click/pointerup handler, the SAME gesture's click could bubble
-    // to document in this tick and immediately self-close the menu. The timeout-0
-    // lets the opening gesture finish before the listener is live.
-    const clickListenerId = window.setTimeout(() => {
-      document.addEventListener("click", onDocClick);
-    }, 0);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      window.clearTimeout(clickListenerId);
-      document.removeEventListener("click", onDocClick);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [resetMenu, closeResetMenu]);
 
   // Render a single tool row, shared by BOTH groups. The `group` arg routes drag +
   // keyboard reorder to the right array/setter (PIN-06) and `index` is the row's
@@ -775,42 +612,13 @@ export function Sidebar() {
       {/* Right-click menu (D-12 Reset order + D-16 Unpin all). Dismiss on
           click-away / Escape. */}
       {resetMenu ? (
-        <div
-          role="menu"
-          aria-label="Sidebar order"
-          className="fixed z-50 min-w-[160px] rounded-[8px] border border-bd bg-panel py-1 shadow-lg"
-          style={{ left: resetMenu.x, top: resetMenu.y }}
-          // Keep clicks inside from bubbling to the document click-away handler.
-          onClick={(e) => e.stopPropagation()}
-        >
-          <button
-            type="button"
-            role="menuitem"
-            ref={resetItemRef}
-            onClick={resetOrder}
-            // Use plain `focus:` (not only `focus-visible:`) so the item reads as
-            // active when the menu is opened by KEYBOARD and we move focus here
-            // programmatically (a programmatic .focus() does not set :focus-visible).
-            // Neutral hover/focus tint — accent stays selected-only.
-            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12.5px] text-tx-2 outline-none transition-colors hover:bg-[rgba(255,255,255,0.05)] hover:text-tx focus:bg-[rgba(255,255,255,0.05)] focus:text-tx"
-          >
-            <RotateCcw className="h-[14px] w-[14px] flex-none" />
-            Reset order
-          </button>
-          {/* "Unpin all" — second item, shown only when the reconciled pinned group
-              is non-empty (Pitfall 5/D-16/PIN-09); clears the whole set. */}
-          {pinned.length > 0 ? (
-            <button
-              type="button"
-              role="menuitem"
-              onClick={unpinAll}
-              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12.5px] text-tx-2 outline-none transition-colors hover:bg-[rgba(255,255,255,0.05)] hover:text-tx focus:bg-[rgba(255,255,255,0.05)] focus:text-tx"
-            >
-              <PinOff className="h-[14px] w-[14px] flex-none" />
-              Unpin all
-            </button>
-          ) : null}
-        </div>
+        <SidebarResetMenu
+          menu={resetMenu}
+          resetItemRef={resetItemRef}
+          onResetOrder={resetOrder}
+          onUnpinAll={unpinAll}
+          showUnpinAll={pinned.length > 0}
+        />
       ) : null}
 
       {/* D-28: the shared upsell modal for locked ordering/pinning affordances.
