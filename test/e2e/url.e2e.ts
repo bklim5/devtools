@@ -18,26 +18,16 @@
 // full encode distinction (encodeURIComponent vs encodeURI of "/") is visible —
 // only the real WKWebView truly proves these native-API paths.
 
-import { mkdirSync } from "node:fs";
-import { resolve } from "node:path";
-
-const SCREENSHOT_DIR = resolve(process.cwd(), "test/e2e/__screenshots__");
-const SCREENSHOT_PATH = resolve(SCREENSHOT_DIR, "url-wkwebview.png");
+import { assert, navigateToTool, saveScreenshot } from "./helpers";
 
 const ANCHOR =
   "https://user:pass@api.example.com:8080/v1/users?tag=a&tag=b&q=hello%20world&empty=#section";
-
-function assert(cond: boolean, message: string): asserts cond {
-  if (!cond) throw new Error(message);
-}
 
 describe("URL tool (real WKWebView)", () => {
   it("parses the anchor URL, surfaces the relative-URL error, and shows the component-vs-full distinction", async () => {
     // Navigate to the URL tool via HashRouter (deterministic regardless of the
     // startup-resolved tool).
-    await browser.execute(() => {
-      window.location.hash = "#/tools/url";
-    });
+    await navigateToTool("url");
 
     const parseInput = await $("#url-parse-input");
     await parseInput.waitForExist({ timeout: 15_000 });
@@ -51,9 +41,10 @@ describe("URL tool (real WKWebView)", () => {
     const hostCopy = await $('button[aria-label="Copy host"]');
     await hostCopy.waitForExist({ timeout: 5_000 });
 
-    // Read the rendered row text in a single round-trip (no chained stale
-    // element handles) — find each readout/query row by its copy button's
-    // aria-label and return the containing row's textContent.
+    // Read the rendered row text in a single round-trip (the stale-handle
+    // lesson THIS spec discovered — now documented in helpers.ts) — find each
+    // readout/query row by its copy button's aria-label and return the
+    // containing row's textContent.
     function rowTextByCopyLabel(label: string): string | null {
       const btn = document.querySelector(`button[aria-label="${label}"]`);
       const row = btn?.closest("[data-readout-row],[data-query-row]");
@@ -134,8 +125,6 @@ describe("URL tool (real WKWebView)", () => {
     );
 
     // 4. Screenshot the real WKWebView (the HRN-02 artifact for this tool).
-    mkdirSync(SCREENSHOT_DIR, { recursive: true });
-    await browser.saveScreenshot(SCREENSHOT_PATH);
-    console.log(`[url] saved real-WKWebView screenshot to ${SCREENSHOT_PATH}`);
+    await saveScreenshot("url", "url-wkwebview.png");
   });
 });

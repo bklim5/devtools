@@ -16,24 +16,14 @@
 // Stable selectors: #protobuf-input (ProtobufDecoder.tsx), #update-banner /
 // #update-dismiss (UpdateBanner.tsx via App.tsx).
 
-import { mkdirSync } from "node:fs";
-import { resolve } from "node:path";
-
-const SCREENSHOT_DIR = resolve(process.cwd(), "test/e2e/__screenshots__");
-const SCREENSHOT_PATH = resolve(SCREENSHOT_DIR, "update-wkwebview.png");
-
-function assert(cond: boolean, message: string): asserts cond {
-  if (!cond) throw new Error(message);
-}
+import { assert, navigateToTool, saveScreenshot } from "./helpers";
 
 describe("Updater UX banner (real WKWebView)", () => {
   it("launches non-blank with the updater plugins, then shows a keyboard-dismissible banner", async () => {
     // 1. The app reaches the hero tool and renders its input — proving startup
     // survives the updater + process plugins and the launch opt-in/check wiring
     // with no blank/crashed window.
-    await browser.execute(() => {
-      window.location.hash = "#/tools/protobuf-decoder";
-    });
+    await navigateToTool("protobuf-decoder");
     const protoInput = await $("#protobuf-input");
     await protoInput.waitForExist({ timeout: 15_000 });
     assert(
@@ -98,8 +88,6 @@ describe("Updater UX banner (real WKWebView)", () => {
     );
 
     // 4. Screenshot the real WKWebView (the HRN-02 artifact for this spec).
-    mkdirSync(SCREENSHOT_DIR, { recursive: true });
-    await browser.saveScreenshot(SCREENSHOT_PATH);
-    console.log(`[update] saved real-WKWebView screenshot to ${SCREENSHOT_PATH}`);
+    await saveScreenshot("update", "update-wkwebview.png");
   });
 });

@@ -14,27 +14,17 @@
 // precedent: production-only bugs only surface on the real WKWebView). MD5 (js-md5,
 // sync) would still render, so asserting the SHA-256 row is the true secure-context check.
 
-import { mkdirSync } from "node:fs";
-import { resolve } from "node:path";
-
-const SCREENSHOT_DIR = resolve(process.cwd(), "test/e2e/__screenshots__");
-const SCREENSHOT_PATH = resolve(SCREENSHOT_DIR, "hash-wkwebview.png");
+import { assert, navigateToTool, saveScreenshot } from "./helpers";
 
 // Known-good vectors for "abc".
 const MD5_ABC = "900150983cd24fb0d6963f7d28e17f72";
 const SHA256_ABC_PREFIX = "ba7816bf8f01cfea";
 
-function assert(cond: boolean, message: string): asserts cond {
-  if (!cond) throw new Error(message);
-}
-
 describe("Hash tool (real WKWebView)", () => {
   it("renders MD5 + SHA-256 digests instantly on paste (secure-context Web Crypto check)", async () => {
     // Navigate to the Hash tool via HashRouter (deterministic regardless of the
     // startup-resolved tool).
-    await browser.execute(() => {
-      window.location.hash = "#/tools/hash";
-    });
+    await navigateToTool("hash");
 
     const input = await $("#hash-input");
     await input.waitForExist({ timeout: 15_000 });
@@ -71,8 +61,6 @@ describe("Hash tool (real WKWebView)", () => {
     );
 
     // 4. Screenshot the real WKWebView (the HRN-02 artifact for this tool).
-    mkdirSync(SCREENSHOT_DIR, { recursive: true });
-    await browser.saveScreenshot(SCREENSHOT_PATH);
-    console.log(`[hash] saved real-WKWebView screenshot to ${SCREENSHOT_PATH}`);
+    await saveScreenshot("hash", "hash-wkwebview.png");
   });
 });

@@ -25,19 +25,13 @@
 // watchdog is therefore covered by RegexTool's logic + the unit layer, not driven
 // by a naturally-catastrophic regex at this gate (it cannot be, on this engine).
 
-import { mkdirSync } from "node:fs";
-import { resolve } from "node:path";
-
-const SCREENSHOT_DIR = resolve(process.cwd(), "test/e2e/__screenshots__");
-const SCREENSHOT_PATH = resolve(SCREENSHOT_DIR, "regex-wkwebview.png");
+import { navigateToTool, saveScreenshot } from "./helpers";
 
 describe("Regex tester (real WKWebView)", () => {
   it("renders live matches from the off-thread worker and stays responsive across rapid pattern changes", async () => {
     // Navigate to the Regex tool via HashRouter (deterministic regardless of the
     // startup-resolved tool).
-    await browser.execute(() => {
-      window.location.hash = "#/tools/regex";
-    });
+    await navigateToTool("regex");
 
     const patternInput = await $("#regex-pattern");
     await patternInput.waitForExist({ timeout: 15_000 });
@@ -174,8 +168,6 @@ describe("Regex tester (real WKWebView)", () => {
     );
 
     // 4. Screenshot the real WKWebView (the HRN-02 artifact for this tool).
-    mkdirSync(SCREENSHOT_DIR, { recursive: true });
-    await browser.saveScreenshot(SCREENSHOT_PATH);
-    console.log(`[regex] saved real-WKWebView screenshot to ${SCREENSHOT_PATH}`);
+    await saveScreenshot("regex", "regex-wkwebview.png");
   });
 });

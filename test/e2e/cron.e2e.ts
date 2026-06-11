@@ -16,29 +16,18 @@
 // "never" state does NOT throw/freeze the view (the assertion completing is the
 // proof) and that an invalid expression surfaces an inline alert with no run rows.
 
-import { mkdirSync } from "node:fs";
-import { resolve } from "node:path";
-
-const SCREENSHOT_DIR = resolve(process.cwd(), "test/e2e/__screenshots__");
-const SCREENSHOT_PATH = resolve(SCREENSHOT_DIR, "cron-wkwebview.png");
-
-function assert(cond: boolean, message: string): asserts cond {
-  if (!cond) throw new Error(message);
-}
+import { assert, navigateToTool, saveScreenshot } from "./helpers";
 
 describe("Cron tool (real WKWebView)", () => {
   it("renders scheduled 24-hour runs, the zone caption, @reboot, the calm never state, and the invalid error", async () => {
     // Navigate to the Cron tool via HashRouter (deterministic regardless of the
     // startup-resolved tool).
-    await browser.execute(() => {
-      window.location.hash = "#/tools/cron";
-    });
+    await navigateToTool("cron");
 
     const input = await $("#cron-expression");
     await input.waitForExist({ timeout: 15_000 });
 
-    // Single round-trips for reading DOM (WebKit's embedded WebDriver goes stale on
-    // chained element handles — the url.e2e.ts lesson).
+    // Single round-trips for reading DOM — see the stale-handle lesson in helpers.ts.
     const runRowCount = () =>
       browser.execute(() => document.querySelectorAll("[data-run-row]").length);
     const headingText = () =>
@@ -139,8 +128,6 @@ describe("Cron tool (real WKWebView)", () => {
     );
 
     // 6. Screenshot the real WKWebView (the HRN-02 artifact for this tool).
-    mkdirSync(SCREENSHOT_DIR, { recursive: true });
-    await browser.saveScreenshot(SCREENSHOT_PATH);
-    console.log(`[cron] saved real-WKWebView screenshot to ${SCREENSHOT_PATH}`);
+    await saveScreenshot("cron", "cron-wkwebview.png");
   });
 });

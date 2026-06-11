@@ -15,15 +15,7 @@
 // groups-as-error (no white-screen), a focusable per-node + copy-all-as-JSON, and
 // the status bar — none of which jsdom can verify visually.
 
-import { mkdirSync } from "node:fs";
-import { resolve } from "node:path";
-
-const SCREENSHOT_DIR = resolve(process.cwd(), "test/e2e/__screenshots__");
-const SCREENSHOT_PATH = resolve(SCREENSHOT_DIR, "protobuf-decoder-wkwebview.png");
-
-function assert(cond: boolean, message: string): asserts cond {
-  if (!cond) throw new Error(message);
-}
+import { assert, navigateToTool, saveScreenshot } from "./helpers";
 
 // Slow-motion for watching the run on the real app: set E2E_DEMO=1. Inert (no-op)
 // in normal gate runs, so the committed gate stays fast.
@@ -34,9 +26,7 @@ async function demoPause(ms: number): Promise<void> {
 describe("Protobuf Decoder (real WKWebView)", () => {
   it("decodes on paste, shows chips + neutral #N, overrides per node, copies, and never crashes", async () => {
     // Navigate to the hero tool via HashRouter (deterministic).
-    await browser.execute(() => {
-      window.location.hash = "#/tools/protobuf-decoder";
-    });
+    await navigateToTool("protobuf-decoder");
 
     const input = await $("#protobuf-input");
     await input.waitForExist({ timeout: 15_000 });
@@ -141,9 +131,7 @@ describe("Protobuf Decoder (real WKWebView)", () => {
     await demoPause(1500);
 
     // 9. Screenshot the real WKWebView (the HRN-02 artifact for this tool).
-    mkdirSync(SCREENSHOT_DIR, { recursive: true });
-    await browser.saveScreenshot(SCREENSHOT_PATH);
-    console.log(`[protobuf] saved real-WKWebView screenshot to ${SCREENSHOT_PATH}`);
+    await saveScreenshot("protobuf", "protobuf-decoder-wkwebview.png");
   });
 
   // Phase 12 (12-02): the decimal byte-array input mode (PRO-08/PRO-09). A comma
@@ -152,9 +140,7 @@ describe("Protobuf Decoder (real WKWebView)", () => {
   // offending value (NOT a base64 error) without crashing.
   it("auto-detects decimal input, shows a named range error, and loads the decimal example", async () => {
     // Navigate to the hero tool via HashRouter (deterministic).
-    await browser.execute(() => {
-      window.location.hash = "#/tools/protobuf-decoder";
-    });
+    await navigateToTool("protobuf-decoder");
 
     const input = await $("#protobuf-input");
     await input.waitForExist({ timeout: 15_000 });
@@ -230,9 +216,7 @@ describe("Protobuf Decoder (real WKWebView)", () => {
   // typed decimal after a hex chip).
   it("an example chip click flips a forced mismatched encoding to the example's format", async () => {
     // Navigate to the hero tool via HashRouter (deterministic).
-    await browser.execute(() => {
-      window.location.hash = "#/tools/protobuf-decoder";
-    });
+    await navigateToTool("protobuf-decoder");
 
     const input = await $("#protobuf-input");
     await input.waitForExist({ timeout: 15_000 });

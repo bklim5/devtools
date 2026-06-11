@@ -12,23 +12,13 @@
 // shared timeFormat lib (Intl/Date in the real WKWebView, not jsdom — RESEARCH A2)
 // and (2) a VISIBLE focusable copy button (UX-02, the hover-only-copy gate).
 
-import { mkdirSync } from "node:fs";
-import { resolve } from "node:path";
-
-const SCREENSHOT_DIR = resolve(process.cwd(), "test/e2e/__screenshots__");
-const SCREENSHOT_PATH = resolve(SCREENSHOT_DIR, "unix-time-wkwebview.png");
-
-function assert(cond: boolean, message: string): asserts cond {
-  if (!cond) throw new Error(message);
-}
+import { assert, navigateToTool, saveScreenshot } from "./helpers";
 
 describe("Unix Time tool (real WKWebView)", () => {
   it("renders an ms-precise ISO instantly on paste and exposes focusable copy", async () => {
     // Navigate to the Unix Time tool via HashRouter (deterministic regardless of the
     // startup-resolved tool).
-    await browser.execute(() => {
-      window.location.hash = "#/tools/unix-time";
-    });
+    await navigateToTool("unix-time");
 
     const input = await $("#unix-time-input");
     await input.waitForExist({ timeout: 15_000 });
@@ -54,8 +44,6 @@ describe("Unix Time tool (real WKWebView)", () => {
     );
 
     // 3. Screenshot the real WKWebView (the HRN-02 artifact for this tool).
-    mkdirSync(SCREENSHOT_DIR, { recursive: true });
-    await browser.saveScreenshot(SCREENSHOT_PATH);
-    console.log(`[unix-time] saved real-WKWebView screenshot to ${SCREENSHOT_PATH}`);
+    await saveScreenshot("unix-time", "unix-time-wkwebview.png");
   });
 });

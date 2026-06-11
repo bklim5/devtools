@@ -13,26 +13,16 @@
 // context those APIs would be undefined and the on-open id would be empty — this gate
 // fails loudly, the way production-only bugs only surface on the real WKWebView.
 
-import { mkdirSync } from "node:fs";
-import { resolve } from "node:path";
-
-const SCREENSHOT_DIR = resolve(process.cwd(), "test/e2e/__screenshots__");
-const SCREENSHOT_PATH = resolve(SCREENSHOT_DIR, "uuid-ulid-wkwebview.png");
+import { assert, navigateToTool, saveScreenshot } from "./helpers";
 
 // Canonical ULID spec vector → decoded timestamp 2016-07-30T23:54:10.259Z.
 const ULID = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
-
-function assert(cond: boolean, message: string): asserts cond {
-  if (!cond) throw new Error(message);
-}
 
 describe("UUID / ULID tool (real WKWebView)", () => {
   it("generates on open, regenerates on Generate, and decodes a pasted ULID (secure-context crypto check)", async () => {
     // Navigate to the UUID/ULID tool via HashRouter (deterministic regardless of the
     // startup-resolved tool).
-    await browser.execute(() => {
-      window.location.hash = "#/tools/uuid-ulid";
-    });
+    await navigateToTool("uuid-ulid");
 
     const firstRow = await $("[data-generated-id]");
     await firstRow.waitForExist({ timeout: 15_000 });
@@ -80,8 +70,6 @@ describe("UUID / ULID tool (real WKWebView)", () => {
     );
 
     // 5. Screenshot the real WKWebView (the HRN-02 artifact for this tool).
-    mkdirSync(SCREENSHOT_DIR, { recursive: true });
-    await browser.saveScreenshot(SCREENSHOT_PATH);
-    console.log(`[uuid-ulid] saved real-WKWebView screenshot to ${SCREENSHOT_PATH}`);
+    await saveScreenshot("uuid-ulid", "uuid-ulid-wkwebview.png");
   });
 });

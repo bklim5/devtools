@@ -13,23 +13,13 @@
 // the exact native/fallback split fixed in src/lib/bytes.ts. Only the real webview
 // exercises that path, so this spec is where that fix is truly proven.
 
-import { mkdirSync } from "node:fs";
-import { resolve } from "node:path";
-
-const SCREENSHOT_DIR = resolve(process.cwd(), "test/e2e/__screenshots__");
-const SCREENSHOT_PATH = resolve(SCREENSHOT_DIR, "base64-wkwebview.png");
-
-function assert(cond: boolean, message: string): asserts cond {
-  if (!cond) throw new Error(message);
-}
+import { assert, navigateToTool, saveScreenshot } from "./helpers";
 
 describe("Base64/Hex/Bytes tool (real WKWebView)", () => {
   it("derives panes, clears on error, drops base64url padding, and exposes focusable copy", async () => {
     // Navigate to the Base64 tool via HashRouter (deterministic regardless of the
     // startup-resolved tool).
-    await browser.execute(() => {
-      window.location.hash = "#/tools/base64";
-    });
+    await navigateToTool("base64");
 
     const text = await $("#base64-pane-text");
     await text.waitForExist({ timeout: 15_000 });
@@ -81,8 +71,6 @@ describe("Base64/Hex/Bytes tool (real WKWebView)", () => {
     );
 
     // 5. Screenshot the real WKWebView (the HRN-02 artifact for this tool).
-    mkdirSync(SCREENSHOT_DIR, { recursive: true });
-    await browser.saveScreenshot(SCREENSHOT_PATH);
-    console.log(`[base64] saved real-WKWebView screenshot to ${SCREENSHOT_PATH}`);
+    await saveScreenshot("base64", "base64-wkwebview.png");
   });
 });

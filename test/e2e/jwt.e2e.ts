@@ -12,11 +12,7 @@
 // pretty-print of the payload in the real WKWebView (bytes.ts native base64url path,
 // not jsdom) and (2) a VISIBLE focusable copy button (UX-02, the hover-only-copy gate).
 
-import { mkdirSync } from "node:fs";
-import { resolve } from "node:path";
-
-const SCREENSHOT_DIR = resolve(process.cwd(), "test/e2e/__screenshots__");
-const SCREENSHOT_PATH = resolve(SCREENSHOT_DIR, "jwt-wkwebview.png");
+import { assert, navigateToTool, saveScreenshot } from "./helpers";
 
 // A standard HS256 token: header {alg:HS256,typ:JWT}, payload {sub:1234567890,name:John Doe,iat:1516239022}.
 const SAMPLE_JWT =
@@ -24,17 +20,11 @@ const SAMPLE_JWT =
   ".eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ" +
   ".SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
 
-function assert(cond: boolean, message: string): asserts cond {
-  if (!cond) throw new Error(message);
-}
-
 describe("JWT tool (real WKWebView)", () => {
   it("decodes the payload instantly on paste and exposes focusable copy", async () => {
     // Navigate to the JWT tool via HashRouter (deterministic regardless of the
     // startup-resolved tool).
-    await browser.execute(() => {
-      window.location.hash = "#/tools/jwt";
-    });
+    await navigateToTool("jwt");
 
     const input = await $("#jwt-input");
     await input.waitForExist({ timeout: 15_000 });
@@ -60,8 +50,6 @@ describe("JWT tool (real WKWebView)", () => {
     );
 
     // 3. Screenshot the real WKWebView (the HRN-02 artifact for this tool).
-    mkdirSync(SCREENSHOT_DIR, { recursive: true });
-    await browser.saveScreenshot(SCREENSHOT_PATH);
-    console.log(`[jwt] saved real-WKWebView screenshot to ${SCREENSHOT_PATH}`);
+    await saveScreenshot("jwt", "jwt-wkwebview.png");
   });
 });

@@ -12,22 +12,12 @@
 // SyntaxError message shape differs from Node's V8, so the line:col error mapping
 // in src/lib/format/json.ts is only truly proven on the real webview.
 
-import { mkdirSync } from "node:fs";
-import { resolve } from "node:path";
-
-const SCREENSHOT_DIR = resolve(process.cwd(), "test/e2e/__screenshots__");
-const SCREENSHOT_PATH = resolve(SCREENSHOT_DIR, "json-formatter-wkwebview.png");
-
-function assert(cond: boolean, message: string): asserts cond {
-  if (!cond) throw new Error(message);
-}
+import { assert, navigateToTool, saveScreenshot } from "./helpers";
 
 describe("JSON formatter tool (real WKWebView)", () => {
   it("prettifies on paste, clears + errors on invalid, exposes focusable copy", async () => {
     // Navigate to the JSON formatter via HashRouter (deterministic).
-    await browser.execute(() => {
-      window.location.hash = "#/tools/json-formatter";
-    });
+    await navigateToTool("json-formatter");
 
     const input = await $("#json-input");
     await input.waitForExist({ timeout: 15_000 });
@@ -63,8 +53,6 @@ describe("JSON formatter tool (real WKWebView)", () => {
     );
 
     // 4. Screenshot the real WKWebView (the HRN-02 artifact for this tool).
-    mkdirSync(SCREENSHOT_DIR, { recursive: true });
-    await browser.saveScreenshot(SCREENSHOT_PATH);
-    console.log(`[json-formatter] saved real-WKWebView screenshot to ${SCREENSHOT_PATH}`);
+    await saveScreenshot("json-formatter", "json-formatter-wkwebview.png");
   });
 });

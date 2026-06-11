@@ -12,22 +12,12 @@
 // native DOMParser/XMLSerializer path (well-formedness + parsererror surfacing)
 // works on JavaScriptCore, whose behavior can differ from jsdom's.
 
-import { mkdirSync } from "node:fs";
-import { resolve } from "node:path";
-
-const SCREENSHOT_DIR = resolve(process.cwd(), "test/e2e/__screenshots__");
-const SCREENSHOT_PATH = resolve(SCREENSHOT_DIR, "xml-formatter-wkwebview.png");
-
-function assert(cond: boolean, message: string): asserts cond {
-  if (!cond) throw new Error(message);
-}
+import { assert, navigateToTool, saveScreenshot } from "./helpers";
 
 describe("XML formatter tool (real WKWebView)", () => {
   it("prettifies on paste, clears + errors on invalid, exposes focusable copy", async () => {
     // Navigate to the XML formatter via HashRouter (deterministic).
-    await browser.execute(() => {
-      window.location.hash = "#/tools/xml-formatter";
-    });
+    await navigateToTool("xml-formatter");
 
     const input = await $("#xml-input");
     await input.waitForExist({ timeout: 15_000 });
@@ -71,8 +61,6 @@ describe("XML formatter tool (real WKWebView)", () => {
     );
 
     // 4. Screenshot the real WKWebView (the HRN-02 artifact for this tool).
-    mkdirSync(SCREENSHOT_DIR, { recursive: true });
-    await browser.saveScreenshot(SCREENSHOT_PATH);
-    console.log(`[xml-formatter] saved real-WKWebView screenshot to ${SCREENSHOT_PATH}`);
+    await saveScreenshot("xml-formatter", "xml-formatter-wkwebview.png");
   });
 });

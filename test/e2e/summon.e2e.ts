@@ -20,24 +20,14 @@
 // Stable selectors: #protobuf-input (ProtobufDecoder.tsx), #base64-pane-text
 // (Base64Tool.tsx) — the same ids the protobuf/base64 specs drive.
 
-import { mkdirSync } from "node:fs";
-import { resolve } from "node:path";
-
-const SCREENSHOT_DIR = resolve(process.cwd(), "test/e2e/__screenshots__");
-const SCREENSHOT_PATH = resolve(SCREENSHOT_DIR, "summon-wkwebview.png");
-
-function assert(cond: boolean, message: string): asserts cond {
-  if (!cond) throw new Error(message);
-}
+import { assert, navigateToTool, saveScreenshot } from "./helpers";
 
 describe("Summon wiring + HashRouter deep-link (real WKWebView)", () => {
   it("launches non-blank with the new plugins + summon registered, and deep-links via the hash route", async () => {
     // 1. The app reaches the hero tool and renders its input — proving startup
     // survives the new Rust plugins and window-state `visible:false` with no
     // blank/crashed window (summon is no longer auto-registered, G-05-1).
-    await browser.execute(() => {
-      window.location.hash = "#/tools/protobuf-decoder";
-    });
+    await navigateToTool("protobuf-decoder");
     const protoInput = await $("#protobuf-input");
     await protoInput.waitForExist({ timeout: 15_000 });
     assert(
@@ -48,9 +38,7 @@ describe("Summon wiring + HashRouter deep-link (real WKWebView)", () => {
 
     // 2. The HashRouter deep-link path works (the route the summon's guarded
     // deepLink would reuse): set #/tools/base64 and assert the Base64 tool renders.
-    await browser.execute(() => {
-      window.location.hash = "#/tools/base64";
-    });
+    await navigateToTool("base64");
     const b64Input = await $("#base64-pane-text");
     await b64Input.waitForExist({ timeout: 15_000 });
     assert(
@@ -59,8 +47,6 @@ describe("Summon wiring + HashRouter deep-link (real WKWebView)", () => {
     );
 
     // 3. Screenshot the real WKWebView (the HRN-02 artifact for this spec).
-    mkdirSync(SCREENSHOT_DIR, { recursive: true });
-    await browser.saveScreenshot(SCREENSHOT_PATH);
-    console.log(`[summon] saved real-WKWebView screenshot to ${SCREENSHOT_PATH}`);
+    await saveScreenshot("summon", "summon-wkwebview.png");
   });
 });
