@@ -20,89 +20,20 @@
 //   4. A PLAIN click on a row body navigates to /tools/{id} and does NOT start a
 //      drag (REORD-02) — click-to-navigate is preserved alongside the handle.
 
-import { mkdirSync } from "node:fs";
-import { resolve } from "node:path";
-
-const SCREENSHOT_DIR = resolve(process.cwd(), "test/e2e/__screenshots__");
-const SCREENSHOT_PATH = resolve(SCREENSHOT_DIR, "sidebar-wkwebview.png");
-const PINNED_SCREENSHOT_PATH = resolve(SCREENSHOT_DIR, "sidebar-pinned-wkwebview.png");
-
-function assert(cond: boolean, message: string): asserts cond {
-  if (!cond) throw new Error(message);
-}
-
-// Read the visible sidebar order from the grip handles' aria-labels
-// ("Reorder {name}" -> "{name}"), in DOM order. A single round-trip (WebKit's
-// embedded WebDriver goes stale on chained element handles — the url.e2e lesson).
-function readOrder(): Promise<string[]> {
-  return browser.execute(() =>
-    Array.from(document.querySelectorAll('button[aria-label^="Reorder "]')).map(
-      (b) => (b.getAttribute("aria-label") ?? "").replace(/^Reorder /, ""),
-    ),
-  );
-}
-
-// Drive a keydown via a bubbling KeyboardEvent dispatched on the focused element.
-// WHY not browser.keys()/the W3C Actions API: macOS WebKit's embedded WebDriver
-// (605.1.15) does NOT deliver the Alt modifier on synthesized key actions — the
-// keydown arrives with altKey:false, so an altKey-guarded handler (correctly)
-// ignores it (RESEARCH.md:499). React attaches its listeners at the document root
-// via native bubbling, so a dispatched bubbling KeyboardEvent on the focused
-// element fires the real onKeyDown — the SAME app code path, with the real
-// altKey/e.key the handler reads.
-//
-// The focused element is the ROW (the NavLink <a>), which owns the whole keyboard
-// model (plain ↑/↓ + Home/End focus nav, Alt+↑/↓ reorder, Alt+P pin). The grip is
-// pointer-only (tabIndex -1, aria-hidden) and no longer carries key handlers.
-function dispatchKey(key: string, altKey: boolean): Promise<void> {
-  return browser.execute(
-    (k: string, alt: boolean) => {
-      const el = document.activeElement as HTMLElement | null;
-      el?.dispatchEvent(
-        new KeyboardEvent("keydown", {
-          key: k,
-          altKey: alt,
-          bubbles: true,
-          cancelable: true,
-        }),
-      );
-    },
-    key,
-    altKey,
-  );
-}
-
-// Alt+P on the focused ROW — the pin/unpin chord (D-13/PIN-05). A bubbling
-// KeyboardEvent (same rationale as dispatchKey: WebKit WebDriver drops Alt on
-// synthesized key actions). Dispatches the REAL macOS shape: on macOS Option+P
-// COMPOSES to "π", so the keydown carries `key: "π"` (NOT "p") and `code: "KeyP"`,
-// with altKey true. This is the exact event the handler sees on the real WKWebView;
-// it FAILS an `e.key`-only pin check and PASSES the `e.code === "KeyP"` fix.
-function dispatchAltP(): Promise<void> {
-  return browser.execute(() => {
-    document.activeElement?.dispatchEvent(
-      new KeyboardEvent("keydown", {
-        key: "π",
-        code: "KeyP",
-        altKey: true,
-        bubbles: true,
-        cancelable: true,
-      }),
-    );
-  });
-}
-
-// The pinned group's tool names (the handles inside the [role=group][aria-label=
-// "Pinned tools"] wrapper). Empty when no group is rendered (zero pinned, PIN-03).
-function readPinnedOrder(): Promise<string[]> {
-  return browser.execute(() => {
-    const grp = document.querySelector('[role="group"][aria-label="Pinned tools"]');
-    if (!grp) return [];
-    return Array.from(grp.querySelectorAll('button[aria-label^="Reorder "]')).map(
-      (b) => (b.getAttribute("aria-label") ?? "").replace(/^Reorder /, ""),
-    );
-  });
-}
+// Shared with entitlements.e2e.ts (and friends): assert, the bubbling
+// dispatchKey/dispatchAltP Alt-chord helpers (the WebKit Alt-drop +
+// Option-compose lessons), and the single-round-trip sidebar readers — see the
+// doc comments in helpers.ts for the full WHY behind each.
+import {
+  assert,
+  dispatchAltP,
+  dispatchKey,
+  focusRow,
+  navigateToTool,
+  readOrder,
+  readPinnedOrder,
+  saveScreenshot,
+} from "./helpers";
 
 // The unpinned group's tool names (the [role=group][aria-label="Tools"] wrapper).
 function readUnpinnedOrder(): Promise<string[]> {
@@ -142,25 +73,6 @@ function readLiveRegion(): Promise<string> {
   });
 }
 
-// Focus the ROW (the NavLink <a>) for the named tool, so the next dispatchKey
-// targets the element that now owns the keyboard model. The row is located via its
-// grip's stable `aria-label="Reorder {name}"` (the grip is pointer-only chrome but
-// still the per-row marker), then `.closest()` up to the row wrapper and down to
-// the <a>. Returns true if the row <a> received focus.
-function focusRow(name: string): Promise<boolean> {
-  return browser.execute((n: string) => {
-    const grip = Array.from(
-      document.querySelectorAll('button[aria-label^="Reorder "]'),
-    ).find((b) => b.getAttribute("aria-label") === `Reorder ${n}`);
-    // The row wrapper is the nearest ancestor that also contains the NavLink <a>.
-    const link = grip?.closest("div")?.querySelector("a") as
-      | HTMLAnchorElement
-      | null;
-    link?.focus();
-    return document.activeElement === link;
-  }, name);
-}
-
 describe("Reorderable sidebar (real WKWebView)", () => {
   // Start from a clean (zero-pinned) set, the same way the pinned-section block
   // establishes clean state. Without this, a pin left by a prior run (or the
@@ -171,9 +83,7 @@ describe("Reorderable sidebar (real WKWebView)", () => {
   // pins via the same Shift+F10 -> "Unpin all" gesture the pinned-section block uses.
   beforeEach(async () => {
     // Land on a deterministic tool so the shell + sidebar are mounted.
-    await browser.execute(() => {
-      window.location.hash = "#/tools/protobuf-decoder";
-    });
+    await navigateToTool("protobuf-decoder");
     const firstHandle = await $('button[aria-label^="Reorder "]');
     await firstHandle.waitForExist({ timeout: 15_000 });
 
@@ -201,9 +111,7 @@ describe("Reorderable sidebar (real WKWebView)", () => {
 
   it("renders the order overlay, Alt+ArrowDown reorders+persists, announces the move, and a plain click still navigates", async () => {
     // Land on a deterministic tool so the shell + sidebar are mounted.
-    await browser.execute(() => {
-      window.location.hash = "#/tools/protobuf-decoder";
-    });
+    await navigateToTool("protobuf-decoder");
 
     // Wait for the sidebar handles to exist (the overlay rendered).
     const firstHandle = await $('button[aria-label^="Reorder "]');
@@ -226,9 +134,8 @@ describe("Reorderable sidebar (real WKWebView)", () => {
       "the first tool ROW did not accept keyboard focus — not keyboard-reachable?",
     );
 
-    // The Alt chord is driven by the module-level dispatchKey helper — a bubbling
-    // KeyboardEvent, NOT browser.keys()/the Actions API (macOS WebKit's embedded
-    // WebDriver drops the Alt modifier on synthesized key actions; RESEARCH.md:499).
+    // Alt chords go via the shared dispatchKey — see the WebKit Alt-drop lesson
+    // in helpers.ts.
 
     // 2a. PLAIN ArrowDown (no Alt) is now roving FOCUS nav (the new model): it moves
     //    focus to the next row but must NEVER reorder. Assert the order is unchanged
@@ -283,9 +190,7 @@ describe("Reorderable sidebar (real WKWebView)", () => {
     // 4. PERSISTS ACROSS RELOAD (REORD-05): reload the webview entirely; the
     //    custom order must survive (written through the platform store seam).
     await browser.refresh();
-    await browser.execute(() => {
-      window.location.hash = "#/tools/protobuf-decoder";
-    });
+    await navigateToTool("protobuf-decoder");
     const afterReloadHandle = await $('button[aria-label^="Reorder "]');
     await afterReloadHandle.waitForExist({ timeout: 15_000 });
     await browser.waitUntil(
@@ -328,9 +233,7 @@ describe("Reorderable sidebar (real WKWebView)", () => {
     );
 
     // 6. Screenshot the real WKWebView (the HRN-02 artifact for this spec).
-    mkdirSync(SCREENSHOT_DIR, { recursive: true });
-    await browser.saveScreenshot(SCREENSHOT_PATH);
-    console.log(`[sidebar] saved real-WKWebView screenshot to ${SCREENSHOT_PATH}`);
+    await saveScreenshot("sidebar", "sidebar-wkwebview.png");
   });
 });
 
@@ -344,16 +247,14 @@ describe("Reorderable sidebar (real WKWebView)", () => {
 //   5. A pin PERSISTS through the platform store seam (prefs.json) across a webview
 //      reload — the persistence path runs only in the packaged runtime.
 //
-// Every Alt chord is driven by the module-level dispatchKey bubbling-KeyboardEvent
-// helper — NOT browser.keys()/the Actions API (WebKit WebDriver drops Alt;
-// RESEARCH.md:499). Native POINTER drag + the hover-only pin reveal are
-// manual-walkthrough items at the phase gate (WebDriver can't synth native drag).
+// Every Alt chord is driven by the shared dispatchKey bubbling-KeyboardEvent
+// helper (see the WebKit Alt-drop lesson in helpers.ts). Native POINTER drag +
+// the hover-only pin reveal are manual-walkthrough items at the phase gate
+// (WebDriver can't synth native drag).
 describe("Pinned sidebar section (real WKWebView)", () => {
   it("Alt+P pins/unpins (group membership + aria-live), per-group Alt+arrow stays in-group, Unpin all clears, and a pin persists across reload", async () => {
     // Land on a deterministic tool so the shell + sidebar are mounted.
-    await browser.execute(() => {
-      window.location.hash = "#/tools/protobuf-decoder";
-    });
+    await navigateToTool("protobuf-decoder");
     const firstHandle = await $('button[aria-label^="Reorder "]');
     await firstHandle.waitForExist({ timeout: 15_000 });
 
@@ -442,17 +343,13 @@ describe("Pinned sidebar section (real WKWebView)", () => {
     }
 
     // Screenshot the pinned state (artifact).
-    mkdirSync(SCREENSHOT_DIR, { recursive: true });
-    await browser.saveScreenshot(PINNED_SCREENSHOT_PATH);
-    console.log(`[sidebar] saved pinned-state screenshot to ${PINNED_SCREENSHOT_PATH}`);
+    await saveScreenshot("sidebar", "sidebar-pinned-wkwebview.png", "pinned-state");
 
     // 5. PERSISTS ACROSS RELOAD (PIN-07): with "${targetName}" still pinned, reload
     //    the webview entirely; the pinned group + that tool must survive (written
     //    through the platform store seam — packaged-runtime-only path).
     await browser.refresh();
-    await browser.execute(() => {
-      window.location.hash = "#/tools/protobuf-decoder";
-    });
+    await navigateToTool("protobuf-decoder");
     const reloadHandle = await $('button[aria-label^="Reorder "]');
     await reloadHandle.waitForExist({ timeout: 15_000 });
     await browser.waitUntil(
@@ -536,9 +433,7 @@ describe("Pinned sidebar section (real WKWebView)", () => {
 describe("Sidebar keyboard model (real WKWebView)", () => {
   // Land clean (zero pinned) so the flat order is deterministic.
   beforeEach(async () => {
-    await browser.execute(() => {
-      window.location.hash = "#/tools/protobuf-decoder";
-    });
+    await navigateToTool("protobuf-decoder");
     const firstHandle = await $('button[aria-label^="Reorder "]');
     await firstHandle.waitForExist({ timeout: 15_000 });
     const startPinned = await readPinnedOrder();

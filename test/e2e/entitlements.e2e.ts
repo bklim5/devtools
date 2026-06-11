@@ -34,89 +34,21 @@
 // then ArrowUp wraps the highlight to the LAST row — always the DEV command,
 // whether or not tools also matched — and Enter runs it.
 
-import { mkdirSync } from "node:fs";
-import { resolve } from "node:path";
-
-const SCREENSHOT_DIR = resolve(process.cwd(), "test/e2e/__screenshots__");
-const LOCKED_SCREENSHOT_PATH = resolve(SCREENSHOT_DIR, "entitlements-locked-upsell.png");
-const RESTORED_SCREENSHOT_PATH = resolve(SCREENSHOT_DIR, "entitlements-restored.png");
-
-function assert(cond: boolean, message: string): asserts cond {
-  if (!cond) throw new Error(message);
-}
-
-// Read the visible sidebar order from the grip handles' aria-labels — a single
-// round-trip (WebKit's embedded WebDriver goes stale on chained element handles).
-function readOrder(): Promise<string[]> {
-  return browser.execute(() =>
-    Array.from(document.querySelectorAll('button[aria-label^="Reorder "]')).map(
-      (b) => (b.getAttribute("aria-label") ?? "").replace(/^Reorder /, ""),
-    ),
-  );
-}
-
-// The pinned group's tool names ([] when the group is not rendered).
-function readPinnedOrder(): Promise<string[]> {
-  return browser.execute(() => {
-    const grp = document.querySelector('[role="group"][aria-label="Pinned tools"]');
-    if (!grp) return [];
-    return Array.from(grp.querySelectorAll('button[aria-label^="Reorder "]')).map(
-      (b) => (b.getAttribute("aria-label") ?? "").replace(/^Reorder /, ""),
-    );
-  });
-}
-
-// Bubbling-KeyboardEvent key dispatch on the focused element — NOT
-// browser.keys()/the Actions API (macOS WebKit's embedded WebDriver drops the
-// Alt modifier on synthesized key actions; the sidebar.e2e lesson).
-function dispatchKey(key: string, altKey: boolean): Promise<void> {
-  return browser.execute(
-    (k: string, alt: boolean) => {
-      const el = document.activeElement as HTMLElement | null;
-      el?.dispatchEvent(
-        new KeyboardEvent("keydown", {
-          key: k,
-          altKey: alt,
-          bubbles: true,
-          cancelable: true,
-        }),
-      );
-    },
-    key,
-    altKey,
-  );
-}
-
-// Alt+P with the REAL macOS composed shape: Option+P arrives as key "π" (NOT
-// "p") with code "KeyP" and altKey true — fails an `e.key`-only check, passes
-// the `e.code === "KeyP"` handler (D-17). While ordering is LOCKED this chord
-// must open the upsell modal instead of pinning (D-28).
-function dispatchAltP(): Promise<void> {
-  return browser.execute(() => {
-    document.activeElement?.dispatchEvent(
-      new KeyboardEvent("keydown", {
-        key: "π",
-        code: "KeyP",
-        altKey: true,
-        bubbles: true,
-        cancelable: true,
-      }),
-    );
-  });
-}
-
-// Focus the ROW (NavLink <a>) for the named tool (located via its grip's
-// stable aria-label, the per-row marker). Returns true if the <a> got focus.
-function focusRow(name: string): Promise<boolean> {
-  return browser.execute((n: string) => {
-    const grip = Array.from(
-      document.querySelectorAll('button[aria-label^="Reorder "]'),
-    ).find((b) => b.getAttribute("aria-label") === `Reorder ${n}`);
-    const link = grip?.closest("div")?.querySelector("a") as HTMLAnchorElement | null;
-    link?.focus();
-    return document.activeElement === link;
-  }, name);
-}
+// Shared with sidebar.e2e.ts: assert, the bubbling dispatchKey/dispatchAltP
+// Alt-chord helpers (WebKit drops Alt on synthesized key actions; Option+P
+// composes to "π" — while ordering is LOCKED that chord must open the upsell
+// modal instead of pinning, D-28), and the single-round-trip sidebar readers —
+// see the doc comments in helpers.ts for the full WHY behind each.
+import {
+  assert,
+  dispatchAltP,
+  dispatchKey,
+  focusRow,
+  navigateToTool,
+  readOrder,
+  readPinnedOrder,
+  saveScreenshot,
+} from "./helpers";
 
 // Whether the D-29 free-tier footer "Unlock Pro" button is rendered — the
 // stable free-vs-full tier probe (present in free tier only).
@@ -290,9 +222,7 @@ async function resetArrangement(): Promise<void> {
 describe("Entitlements dev toggle (real WKWebView)", () => {
   it("locks the sidebar UX (default order, hidden pinned, footer row, Alt+P upsell modal) and toggle-back restores the preserved arrangement", async () => {
     // Land on a deterministic tool so the shell + sidebar are mounted.
-    await browser.execute(() => {
-      window.location.hash = "#/tools/protobuf-decoder";
-    });
+    await navigateToTool("protobuf-decoder");
     const firstHandle = await $('button[aria-label^="Reorder "]');
     await firstHandle.waitForExist({ timeout: 15_000 });
 
@@ -390,9 +320,7 @@ describe("Entitlements dev toggle (real WKWebView)", () => {
       );
 
       // Screenshot the locked state with the modal up (the gate artifact).
-      mkdirSync(SCREENSHOT_DIR, { recursive: true });
-      await browser.saveScreenshot(LOCKED_SCREENSHOT_PATH);
-      console.log(`[entitlements] saved locked-upsell screenshot to ${LOCKED_SCREENSHOT_PATH}`);
+      await saveScreenshot("entitlements", "entitlements-locked-upsell.png", "locked-upsell");
 
       // (d) Escape dismisses the modal (document-level listener — bubble it
       //     from the focused element inside the dialog).
@@ -433,8 +361,7 @@ describe("Entitlements dev toggle (real WKWebView)", () => {
       `expected the seeded custom arrangement to restore on unlock, got ${JSON.stringify(restoredOrder)} (expected ${JSON.stringify(customOrder)})`,
     );
 
-    await browser.saveScreenshot(RESTORED_SCREENSHOT_PATH);
-    console.log(`[entitlements] saved restored-state screenshot to ${RESTORED_SCREENSHOT_PATH}`);
+    await saveScreenshot("entitlements", "entitlements-restored.png", "restored-state");
 
     // Leave the machine the way we found it (clean order + no pins) so the
     // other sidebar specs start deterministic.
