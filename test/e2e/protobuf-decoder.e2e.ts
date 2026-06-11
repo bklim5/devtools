@@ -222,9 +222,12 @@ describe("Protobuf Decoder (real WKWebView)", () => {
     );
   });
 
-  // Quick 260610-w61: an example chip click also switches the encoding segmented
-  // control to the example's own format, so the example ALWAYS decodes — even when
-  // the user had previously FORCED a mismatched encoding via the segmented control.
+  // Quick 260610-w61 (+ follow-up fix): an example chip click CLEARS the encoding
+  // override back to auto-detect, which resolves the example's own format
+  // (EXAMPLES-detection contract) — so the example always decodes even after a
+  // forced mismatched encoding, AND typed input afterwards re-detects normally
+  // (the original explicit-override version left a sticky encoding that broke
+  // typed decimal after a hex chip).
   it("an example chip click flips a forced mismatched encoding to the example's format", async () => {
     // Navigate to the hero tool via HashRouter (deterministic).
     await browser.execute(() => {
@@ -272,12 +275,30 @@ describe("Protobuf Decoder (real WKWebView)", () => {
       "the hex example must decode cleanly after the chip click — no error alert",
     );
 
-    // 3. Click the "decimal bytes" chip → the segmented control flips to decimal
+    // 3. Regression (follow-up fix): TYPE a decimal array after the hex chip —
+    //    the chip must not leave a sticky override, so auto-detect re-activates
+    //    the decimal segment and the typed input decodes (was: stuck forced-hex
+    //    → "Hex must have an even number of digits").
+    await input.setValue("10, 3, 50, 51, 52");
+    await demoPause(1800);
+    const decimalToggle = await $("button=decimal");
+    assert(
+      (await decimalToggle.getAttribute("aria-pressed")) === "true",
+      "typed decimal after a hex example chip must re-activate the decimal segment (stale-override regression)",
+    );
+    const typedFnum = await $("[data-fnum]");
+    await typedFnum.waitForExist({ timeout: 5_000 });
+    const typedAlert = await $("[role='alert']");
+    assert(
+      !(await typedAlert.isExisting()),
+      "typed decimal after a hex example chip must decode cleanly — no stale forced-hex error",
+    );
+
+    // 4. Click the "decimal bytes" chip → the segmented control flips to decimal
     //    and the canonical array decodes (the second user-named flip).
     const decimalChip = await $("button=decimal bytes");
     await decimalChip.click();
     await demoPause(1800);
-    const decimalToggle = await $("button=decimal");
     assert(
       (await decimalToggle.getAttribute("aria-pressed")) === "true",
       "expected the decimal segment to become active after clicking the decimal example chip",

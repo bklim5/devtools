@@ -18,6 +18,8 @@ import {
 import { createStoreStub } from "@/lib/platform/stub";
 import { noopWindow, noopNativeShortcut, noopUpdater, noopEvents } from "@/shell/testStore";
 import ProtobufDecoder from "./ProtobufDecoder";
+import { EXAMPLES } from "./examples";
+import { detectEncoding } from "./detectEncoding";
 
 let writeText: ReturnType<typeof vi.fn<(text: string) => Promise<void>>>;
 
@@ -170,7 +172,16 @@ describe("ProtobufDecoder", () => {
     );
   });
 
-  it("an example chip click flips a mismatched override to the example's encoding (hex)", () => {
+  it("EXAMPLES-detection contract: every example value auto-detects to its declared encoding", () => {
+    // Chip clicks clear the override to auto-detect (no forced encoding), so the
+    // chips only stay deterministic if detectEncoding resolves each example's
+    // value to its declared `encoding`. This locks that contract test-time.
+    for (const ex of EXAMPLES) {
+      expect(detectEncoding(ex.value), `example "${ex.label}"`).toBe(ex.encoding);
+    }
+  });
+
+  it("an example chip click clears a stale forced override — auto-detect flips to hex", () => {
     const { container } = render(<ProtobufDecoder />);
     // Seed a hex value first (detected hex) so clicking base64 genuinely FORCES a
     // mismatched override — on empty input base64 is already the active segment
@@ -180,7 +191,8 @@ describe("ProtobufDecoder", () => {
     expect(base64Btn.getAttribute("aria-pressed")).toBe("false");
     fireEvent.click(base64Btn);
     expect(base64Btn.getAttribute("aria-pressed")).toBe("true");
-    // Click the "{1:150}" hex example chip → segment flips to hex AND it decodes.
+    // Click the "{1:150}" hex example chip → the override is CLEARED, auto-detect
+    // resolves hex (EXAMPLES contract), the segment flips, and it decodes.
     fireEvent.click(within(container).getByRole("button", { name: /^\{1:150\}$/ }));
     const hexBtn = within(container).getByRole("button", { name: /^hex$/i });
     expect(hexBtn.getAttribute("aria-pressed")).toBe("true");
@@ -189,13 +201,14 @@ describe("ProtobufDecoder", () => {
     expect(container.querySelector("[role='alert']")).toBeNull();
   });
 
-  it("the decimal example chip flips a forced-hex override to decimal and decodes", () => {
+  it("the decimal example chip clears a forced-hex override — auto-detect flips to decimal", () => {
     const { container } = render(<ProtobufDecoder />);
     // Force hex.
     const hexBtn = within(container).getByRole("button", { name: /^hex$/i });
     fireEvent.click(hexBtn);
     expect(hexBtn.getAttribute("aria-pressed")).toBe("true");
-    // Click "decimal bytes" → decimal segment flips on, the canonical array decodes.
+    // Click "decimal bytes" → override cleared, auto-detect routes the comma
+    // array to decimal, the segment flips, and the canonical array decodes.
     fireEvent.click(within(container).getByRole("button", { name: /^decimal bytes$/i }));
     const decimalBtn = within(container).getByRole("button", { name: /^decimal$/i });
     expect(decimalBtn.getAttribute("aria-pressed")).toBe("true");
@@ -205,15 +218,39 @@ describe("ProtobufDecoder", () => {
     expect(container.querySelector("[role='alert']")).toBeNull();
   });
 
-  it("clicking the active segment after a chip click clears the override back to auto-detect", () => {
+  it("segment clicks still force + click-active-clears after a chip click (sticky force unchanged)", () => {
     const { container } = render(<ProtobufDecoder />);
-    // Chip click sets raw + an explicit decimal override.
+    // Chip click → decimal auto-detected (no override stored).
     fireEvent.click(within(container).getByRole("button", { name: /^decimal bytes$/i }));
     const decimalBtn = within(container).getByRole("button", { name: /^decimal$/i });
+    const hexBtn = within(container).getByRole("button", { name: /^hex$/i });
     expect(decimalBtn.getAttribute("aria-pressed")).toBe("true");
-    // Clicking the now-active segment clears the override; auto-detect re-derives
-    // decimal for this value, so the segment stays pressed and nothing errors.
-    fireEvent.click(decimalBtn);
+    // Segment click still FORCES a sticky override post-chip.
+    fireEvent.click(hexBtn);
+    expect(hexBtn.getAttribute("aria-pressed")).toBe("true");
+    expect(decimalBtn.getAttribute("aria-pressed")).toBe("false");
+    // Clicking the active segment clears the override → auto-detect re-derives
+    // decimal for this value, and nothing errors.
+    fireEvent.click(hexBtn);
+    expect(decimalBtn.getAttribute("aria-pressed")).toBe("true");
+    expect(container.querySelector("[data-fnum]")).toBeTruthy();
+    expect(container.querySelector("[role='alert']")).toBeNull();
+  });
+
+  it("typing decimal input after a hex example chip re-activates decimal (stale-override regression)", () => {
+    const { container } = render(<ProtobufDecoder />);
+    const decimalBtn = within(container).getByRole("button", { name: /^decimal$/i });
+    // User repro: type decimal first — auto-detects decimal.
+    fireEvent.change(input(container), { target: { value: "10,3,50,51,52" } });
+    expect(decimalBtn.getAttribute("aria-pressed")).toBe("true");
+    // Click the "nested message" hex chip — hex activates and decodes.
+    fireEvent.click(within(container).getByRole("button", { name: /^nested message$/i }));
+    expect(
+      within(container).getByRole("button", { name: /^hex$/i }).getAttribute("aria-pressed"),
+    ).toBe("true");
+    // Type decimal AGAIN — the chip must not have left a sticky hex override
+    // (was: forced-hex → "Hex must have an even number of digits").
+    fireEvent.change(input(container), { target: { value: "10,3,50,51,52" } });
     expect(decimalBtn.getAttribute("aria-pressed")).toBe("true");
     expect(container.querySelector("[data-fnum]")).toBeTruthy();
     expect(container.querySelector("[role='alert']")).toBeNull();
