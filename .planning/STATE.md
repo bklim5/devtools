@@ -55,6 +55,10 @@ v1.5 complete — Phase 17 (2 plans), archived to `.planning/milestones/v1.5-*` 
 
 ## Accumulated Context
 
+### Pending Todos
+
+- **Gate command palette as Pro feature** (`2026-06-11-gate-command-palette-as-pro-feature.md`) — add a palette entitlement to the Phase 18 seam; fold into Phase 21 planning (dev-toggle escape hatch + e2e palette-nav fallout noted in the todo).
+
 **Inherited binding wedge (every phase):** offline/no-network · paste-instant (<2s) · keyboard-driven · registry-driven single control plane · HashRouter only · WCAG-AA (keyboard path + `aria-live` mandatory, not optional) · layout-agnostic · **zero new runtime AND dev dependencies in the webview** · **`src/lib/protobuf/decoder.ts` + its 19 tests stay byte-for-byte untouched**. UI features add the **real-WKWebView UI gate**.
 
 **v1.6 scoped amendments (locked, recorded in PROJECT.md + REQUIREMENTS.md):** "no network at runtime" gains a narrow licensing-only exception — one-time activation + opportunistic ~30-day TTL refresh, never per-launch checks, all tools fully functional offline. Rust crates for licensing (`ed25519-dalek`, `keyring`, HMAC) are expected and allowed; webview runtime deps stay zero.
