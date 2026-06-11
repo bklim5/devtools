@@ -1,6 +1,7 @@
 # Pre-commit UNIT gate (D-07 / HRN-03) — runs on every `git commit`.
 # Enforces the mechanical half of the per-task Definition of Done so no commit
-# lands with broken types or failing tests, regardless of agent discipline.
+# lands with broken types, lint errors, or failing tests, regardless of agent
+# discipline.
 #
 # Install / refresh the git hook:  pnpm lefthook install
 # (the `lefthook` package + the `prepare: lefthook install` script are already in
@@ -19,3 +20,5 @@ pre-commit:
       run: pnpm tsc --noEmit
     test:
       run: pnpm vitest run
+    lint:
+      run: pnpm lint
