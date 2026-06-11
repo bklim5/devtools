@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Licensing
 status: "Phase 18 signed off — next: plan Phase 19 (License Activation, riskiest chunk + key→token SPIKE); Phase 20 parallel-capable beside it"
-last_updated: "2026-06-10T22:01:40.450Z"
-last_activity: 2026-06-10
+last_updated: "2026-06-11T08:59:02.000Z"
+last_activity: 2026-06-11
 progress:
   total_phases: 7
   completed_phases: 1
@@ -22,7 +22,7 @@ Phase: **19 — License Activation & Offline Verification** (next: plan)
 Plan: Not started
 Status: Phase 18 signed off — next: plan Phase 19 (License Activation, riskiest chunk + key→token SPIKE); Phase 20 parallel-capable beside it
 Progress: [■□□□] 1/4 phases · v1.6 plans 4/4
-Last activity: 2026-06-10
+Last activity: 2026-06-11
 
 **Goal:** one-time-payment lifetime license — MoR checkout → webhook → Keygen (perpetual, node-locked, maxMachines=1); paste-key one-time activation (fingerprint `HMAC-SHA256(IOPlatformUUID, salt)`); offline Ed25519-verified `machine.lic` (~30-day TTL) thereafter; license key in Keychain (Rust-owned); free tier keeps all 11 tools — Pro locks customization (theming + ordering/pinning) behind a central entitlement gate (D-18 pivot; tool-gating mechanism ships dormant). Research: `docs/licensing-research.md`.
 
@@ -41,6 +41,7 @@ Last activity: 2026-06-10
 | 260609-ard | `pnpm release:changelog "xxx"` edit-only driver (append to Unreleased) + `release:bump` auto-promotes Unreleased → `## [X.Y.Z] - date` (pure `appendUnreleasedEntry`/`promoteUnreleased`; CHANGELOG.md optional in bump ALLOWED_PATHS) | 2026-06-09 | e1a8e32e | [260609-ard-add-pnpm-release-changelog-command-auto-](./quick/260609-ard-add-pnpm-release-changelog-command-auto-/) |
 | 260610-w61 | Protobuf example chips switch the input encoding: chip click sets raw + clears the override to auto-detect (follow-up fix — the original explicit override was sticky and broke typed decimal after a hex chip); per-example `encoding` locked by an EXAMPLES-detection contract test; unit + real-WKWebView e2e prove the flip AND type-after-chip re-detection | 2026-06-10 | 505439e9 + 966fc5d0 + b3b1676b | [260610-w61-protobuf-decoder-example-chips-switch-in](./quick/260610-w61-protobuf-decoder-example-chips-switch-in/) |
 | 260611-awo | `pnpm release:changelog "xxx" --commit` opt-in flag: pure `parseChangelogArgs`/`changelogCommitMessage` grammar (typo'd flags throw, `--commit` w/o entry throws) + driver pathspec-commits ONLY CHANGELOG.md (`docs(changelog): <entry>`) so `release:bump` clean-tree preflight passes; default stays edit-only | 2026-06-11 | fc46ef67 + b51f2ed0 | [260611-awo-release-changelog-commit-flag-opt-in-own](./quick/260611-awo-release-changelog-commit-flag-opt-in-own/) |
+| 260611-dl1 | Harness batch 1/4: e2e-spike.sh `preflight()` kills orphan devtools-app + clears :4445/:1420 LISTEN holders (TERM→KILL→fail-loud; `PREFLIGHT_ONLY=1` dry-run) so a green e2e run provably ran CURRENT code; eslint joins the lefthook unit gate (tsc+vitest+lint); .gitignore deduped, stale __logs__ purged, 3 stale docs → docs/archive/ with refs updated | 2026-06-11 | 02a76acf + fbaa2333 + 4aff0de8 | [260611-dl1-harness-e2e-spike-orphan-port-preflight-](./quick/260611-dl1-harness-e2e-spike-orphan-port-preflight-/) |
 
 ## Project Reference
 
