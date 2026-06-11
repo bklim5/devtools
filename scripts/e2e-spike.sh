@@ -13,7 +13,9 @@
 #      EXIT so no orphan dev-server / Rust child / :4445 listener leaks
 #
 # Usage:  bash scripts/e2e-spike.sh
-# Env:    TAURI_WEBDRIVER_PORT (default 4445), MAX_WAIT (default 180s)
+# Env:    TAURI_WEBDRIVER_PORT (default 4445), MAX_WAIT (default 180s),
+#         PREFLIGHT_ONLY=1 (run the orphan/port preflight, then exit 0 without
+#         launching tauri — dry-run for verifying the preflight itself)
 #
 # Exit code is the WDIO run's exit code (0 = spike passed). If the WebDriver
 # server never comes up within MAX_WAIT, it exits non-zero so the gate fails loud.
@@ -21,6 +23,7 @@
 set -uo pipefail
 
 PORT="${TAURI_WEBDRIVER_PORT:-4445}"
+VITE_PORT=1420 # fixed by tauri.conf.json devUrl — tauri dev always needs this exact port
 HOST="127.0.0.1" # localhost only — never 0.0.0.0 (threat T-01-11)
 MAX_WAIT="${MAX_WAIT:-180}"
 
@@ -44,6 +47,99 @@ cleanup() {
   exit "$code"
 }
 trap cleanup EXIT INT TERM
+
+# --- Preflight: kill orphans + free ports BEFORE launching --------------------
+# Rationale: the Tauri single-instance plugin means an orphan devtools-app blocks
+# a proper relaunch even when ports look free; worse, an orphan holding :4445
+# makes the nc -z poll below succeed instantly, so WDIO would run against the
+# STALE app and a green run would prove nothing about the current code.
+# Orphan dev/e2e app PIDs. `pgrep -f devtools-app` matches only the dev binary
+# name (src-tauri/Cargo.toml) — the production app is TinkerDev, so a user's
+# installed app can never match. Exclude $$ defensively.
+orphan_pids() {
+  pgrep -f devtools-app 2>/dev/null | grep -vx "$$" || true
+}
+
+preflight() {
+  local found=0 pid waited port
+
+  # 1) Kill orphan dev/e2e app processes (TERM first; KILL escalation below).
+  for pid in $(orphan_pids); do
+    found=1
+    echo "[spike] preflight: killing orphan devtools-app (pid $pid)…"
+    kill "$pid" 2>/dev/null || true
+  done
+  # Bounded re-poll: escalate to KILL after ~5s; fail loud if one survives even
+  # that — the single-instance plugin means launching over it can never work.
+  waited=0
+  while [[ -n "$(orphan_pids)" ]]; do
+    if (( waited == 5 )); then
+      for pid in $(orphan_pids); do
+        echo "[spike] preflight: orphan devtools-app (pid $pid) survived TERM — sending KILL…"
+        kill -9 "$pid" 2>/dev/null || true
+      done
+    elif (( waited >= 10 )); then
+      echo "[spike] ERROR: orphan devtools-app (pid $(orphan_pids | head -n 1)) survived KILL — refusing to launch."
+      exit 1
+    fi
+    sleep 1
+    waited=$((waited + 1))
+  done
+
+  # 2) Anything still LISTENING on the harness ports (`lsof -ti` → bare PIDs, one
+  #    per line; -sTCP:LISTEN so we never kill a mere client connection).
+  for port in "$PORT" "$VITE_PORT"; do
+    for pid in $(lsof -ti tcp:"$port" -sTCP:LISTEN 2>/dev/null || true); do
+      [[ "$pid" == "$$" ]] && continue
+      found=1
+      echo "[spike] preflight: killing pid $pid holding :${port}…"
+      kill "$pid" 2>/dev/null || true
+    done
+  done
+
+  # 3) Poll bounded (~10s) until both ports are free; escalate to KILL halfway,
+  #    and fail loud on an unkillable foreign holder — never launch over it.
+  waited=0
+  while :; do
+    local busy=""
+    for port in "$PORT" "$VITE_PORT"; do
+      if lsof -ti tcp:"$port" -sTCP:LISTEN >/dev/null 2>&1; then
+        busy="$port"
+        break
+      fi
+    done
+    [[ -z "$busy" ]] && break
+    if (( waited >= 10 )); then
+      local holder
+      holder="$(lsof -ti tcp:"$busy" -sTCP:LISTEN 2>/dev/null | head -n 1)"
+      echo "[spike] ERROR: port :${busy} still held by pid ${holder:-unknown} after preflight — refusing to launch."
+      exit 1
+    fi
+    if (( waited == 5 )); then
+      for pid in $(lsof -ti tcp:"$busy" -sTCP:LISTEN 2>/dev/null || true); do
+        [[ "$pid" == "$$" ]] && continue
+        echo "[spike] preflight: pid $pid still holds :${busy} — sending KILL…"
+        kill -9 "$pid" 2>/dev/null || true
+      done
+    fi
+    sleep 1
+    waited=$((waited + 1))
+  done
+
+  if (( found == 0 )); then
+    echo "[spike] preflight: no orphans, ports ${PORT}/${VITE_PORT} free."
+  else
+    echo "[spike] preflight: cleared orphans; ports ${PORT}/${VITE_PORT} free."
+  fi
+}
+
+preflight
+
+# Dry-run escape hatch (see Env above): verify the preflight without launching.
+if [[ "${PREFLIGHT_ONLY:-0}" == "1" ]]; then
+  echo "[spike] PREFLIGHT_ONLY=1 — skipping tauri launch."
+  exit 0
+fi
 
 # The WebDriver server only exists when the `webdriver` Cargo feature is enabled
 # (the plugin is an optional dep — see src-tauri/Cargo.toml). `pnpm tauri:dev:e2e`
