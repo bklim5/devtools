@@ -12,6 +12,7 @@ release body (falling back to the bare tag when a section is absent).
 ## [Unreleased]
 
 - Sidebar update
+- Sidebar update
 
 ## [0.3.0] - 2026-06-08
 
