@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Licensing
-status: "Phase 18 signed off — next: plan Phase 19 (License Activation, riskiest chunk + key→token SPIKE); Phase 20 parallel-capable beside it"
-last_updated: "2026-06-11T09:35:00.000Z"
-last_activity: 2026-06-11
+status: executing
+last_updated: "2026-06-12T15:18:29.883Z"
+last_activity: 2026-06-12 -- Phase 19 plan 01 executed (CE bring-up + D-42 SPIKE)
 progress:
-  total_phases: 7
+  total_phases: 8
   completed_phases: 1
-  total_plans: 4
-  completed_plans: 4
-  percent: 100
+  total_plans: 8
+  completed_plans: 5
+  percent: 63
 ---
 
 # Project State
@@ -18,11 +18,11 @@ progress:
 ## Current Position
 
 Milestone: **v1.6 "Licensing"** — started 2026-06-09, roadmap created 2026-06-09.
-Phase: **19 — License Activation & Offline Verification** (next: execute)
-Plan: 4 plans, 4 sequential waves (19-01 CE bring-up + blocking D-42 SPIKE → 19-02 pure Rust license core → 19-03 HTTP client + commands + platform seam → 19-04 activation UX + e2e + human checkpoint). Research HIGH-confidence (SPIKE pre-answered at source: license principal CANNOT mint tokens → Keychain stores raw key); plan-checker passed after doc-only fixes; VALIDATION.md nyquist_compliant approved
-Status: Phase 19 planned — next: /gsd-execute-phase 19; Phase 20 parallel-capable beside it
-Progress: [■□□□] 1/4 phases · v1.6 plans 4/8
-Last activity: 2026-06-12 - Phase 19 planned (4 plans, verification passed)
+Phase: 19 (license-activation-offline-verification) — EXECUTING
+Plan: 2 of 4
+Status: Executing Phase 19 — plan 01 complete (D-42 SPIKE passed; gate for plans 02/03/04 open)
+Progress: [■□□□] 1/4 phases · v1.6 plans 5/8
+Last activity: 2026-06-12 — Phase 19 plan 01 executed: local Keygen CE live + D-42 SPIKE recorded (token denial 403 → Keychain stores the raw key; seat-limit code MACHINE_LIMIT_EXCEEDED verbatim)
 
 **Goal:** one-time-payment lifetime license — MoR checkout → webhook → Keygen (perpetual, node-locked, maxMachines=1); paste-key one-time activation (fingerprint `HMAC-SHA256(IOPlatformUUID, salt)`); offline Ed25519-verified `machine.lic` (~30-day TTL) thereafter; license key in Keychain (Rust-owned); free tier keeps all 11 tools — Pro locks customization (theming + ordering/pinning) behind a central entitlement gate (D-18 pivot; tool-gating mechanism ships dormant). Research: `docs/licensing-research.md`.
 
@@ -52,7 +52,7 @@ Last activity: 2026-06-12 - Phase 19 planned (4 plans, verification passed)
 See: .planning/PROJECT.md (updated 2026-06-09, v1.6 started) · roadmap: .planning/ROADMAP.md · requirements: .planning/REQUIREMENTS.md · research: docs/licensing-research.md
 
 **Core value:** Paste an unknown blob → usable, explorable interpretation in <2s, entirely offline, no mouse.
-**Current focus:** v1.6 "Licensing" — Phase 18 complete; next: plan Phase 19 (Phase 20 parallel-capable)
+**Current focus:** Phase 19 — license-activation-offline-verification
 
 ## v1.5 — Pinned Tools (SHIPPED & ARCHIVED, 2026-06-07)
 
@@ -77,6 +77,8 @@ v1.5 complete — Phase 17 (2 plans), archived to `.planning/milestones/v1.5-*` 
 **Phase 18 plan 04 decisions (2026-06-10, phase gate — human sign-off):** final upsell copy is a static supportive "Thank you for using TinkerDev ❤️" heading + trimmed two-paragraph body, user-approved verbatim, no pricing (D-20 held); **D-19 OVERRIDDEN by user** — the "Unlocks: {feature}" meta line dropped (lock context comes from the affordance invoked; render-unused `feature` prop deleted from UpsellPanel/UpsellModal + callers, heading/aria-labelledby intact); palette DEV commands are now searchable by typed query (same subsequence rule, always ranked AFTER tool matches — D-32 ordering; the prior empty-query-only behavior was a walkthrough-found bug whose e2e workaround had given a false positive — the rewritten e2e drives the real typed-query path); `scripts/check-dev-strip.sh` is the repeatable D-32 dist-grep artifact reused at Phase 21's flip gate (proven 0 against a fresh build); `test/e2e/entitlements.e2e.ts` proves the full locked-UX loop on the real WKWebView (toggle → D-26 default render → D-29 footer → D-28 upsell dialog → restore, T-18-15 cleanup in finally); e2e **15/15** specs, suite **795/795**; docs (REQUIREMENTS/ROADMAP/PROJECT/licensing-research) reconciled to D-18; walkthrough certified the packaged everything-unlocked default as the PRE-licensing baseline (T-18-14).
 
 **Phase 18 plan 02 decisions (2026-06-10):** registry fully lazified (ENT-05) — all 11 entries are `component: () => import(...)`, `ToolDefinition.component` narrowed to `LazyComponent` only; tool routes render through the element-level `<ToolRoute>` gate (locked → UpsellPanel WITHOUT invoking the loader, unlocked → module-cached `React.lazy` keyed by tool.id in `Suspense fallback={null}`); route-level router `lazy` deliberately NOT used (memoized once — would defeat reactive flips AND fetch locked chunks). Build-proven: 11 per-tool Vite chunks, decoder isolated to `ProtobufDecoder-*.js` only (free-build exclusion seam is real). `lazyToolComponent(tool)` is the ONE way to materialize a tool component.
+
+**Phase 19 plan 01 decisions (2026-06-12, D-42 SPIKE — gate passed):** key→token exchange DENIED live (403, body has NO `code` field) — **Keychain stores the RAW license key** (research-doc open item CLOSED); seat-limit error code confirmed verbatim **`MACHINE_LIMIT_EXCEEDED`** (A1) — Plan 03 maps on this exact string; validate-key codes observed live: `NO_MACHINE` (pre-activation, valid:false = EXPECTED), `VALID`, `FINGERPRINT_SCOPE_MISMATCH`; deactivate works with key auth alone (204 — LIC-07 primitive). CE host strategy: `KEYGEN_HOST=localhost` + explicit **`KEYGEN_DOMAIN=localhost`** (single-label host derives nil `Keygen::DOMAIN` → boot crash; no /etc/hosts needed); accounts#show doesn't route on single-label hosts → pubkey extracted via rails runner; CE's `meta.keys.ed25519` is base64-of-HEX, fixture normalized to base64-of-raw-32-bytes. Fixtures for Plan 02: `src-tauri/fixtures/ce-machine.lic` (synthetic fingerprint, byte-verbatim) + `ce-ed25519-pubkey.b64`. Plan 04 walkthrough must `bootstrap.sh mint_license` a FRESH license (spike seat bound to a synthetic fingerprint). Local CE: `scripts/keygen-ce/` (compose without profiles — Docker 20.10.7/Compose 2.0.0-beta.3; TLS via extracted Caddy CA, never -k; metrics: 2 tasks, 10 files, ~25 min).
 
 **v1.6 sequencing decisions:** entitlements seam FIRST (pure frontend, free-tier default = everything unlocked until Phase 21 flips it at integration); Keygen Rust integration is the riskiest chunk and carries the key→token-exchange SPIKE; PAY pipeline is external infra, parallel-capable with Phase 19; lifecycle hardening + the 8-case ship-gate matrix close the milestone.
 
