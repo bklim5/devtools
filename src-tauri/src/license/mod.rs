@@ -10,6 +10,7 @@
 pub mod config;
 pub mod fingerprint;
 pub mod keychain;
+pub mod keygen_client;
 pub mod store;
 pub mod verify;
 
