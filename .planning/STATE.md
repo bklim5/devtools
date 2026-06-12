@@ -19,10 +19,10 @@ progress:
 
 Milestone: **v1.6 "Licensing"** — started 2026-06-09, roadmap created 2026-06-09.
 Phase: **19 — License Activation & Offline Verification** (next: plan)
-Plan: Not started
-Status: Phase 18 signed off — next: plan Phase 19 (License Activation, riskiest chunk + key→token SPIKE); Phase 20 parallel-capable beside it
+Plan: Not started — context gathered 2026-06-12 (`.planning/phases/19-license-activation-offline-verification/19-CONTEXT.md`, D-33..D-45: activation form in upsell panel, self-hosted Keygen CE via local Docker, SPIKE-first blocking, fail-closed silent + footer hint)
+Status: Phase 19 context captured — next: /gsd-plan-phase 19; Phase 20 parallel-capable beside it
 Progress: [■□□□] 1/4 phases · v1.6 plans 4/4
-Last activity: 2026-06-11
+Last activity: 2026-06-12 - Phase 19 context gathered
 
 **Goal:** one-time-payment lifetime license — MoR checkout → webhook → Keygen (perpetual, node-locked, maxMachines=1); paste-key one-time activation (fingerprint `HMAC-SHA256(IOPlatformUUID, salt)`); offline Ed25519-verified `machine.lic` (~30-day TTL) thereafter; license key in Keychain (Rust-owned); free tier keeps all 11 tools — Pro locks customization (theming + ordering/pinning) behind a central entitlement gate (D-18 pivot; tool-gating mechanism ships dormant). Research: `docs/licensing-research.md`.
 
