@@ -45,3 +45,4 @@ skills-lock.json
 scripts/keygen-ce/.env
 scripts/keygen-ce/caddy-root.crt
 !scripts/keygen-ce/.env.example
+scripts/keygen-ce/spike-transcript.log
