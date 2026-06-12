@@ -18,11 +18,11 @@ progress:
 ## Current Position
 
 Milestone: **v1.6 "Licensing"** — started 2026-06-09, roadmap created 2026-06-09.
-Phase: **19 — License Activation & Offline Verification** (next: plan)
-Plan: Not started — context gathered 2026-06-12 (`.planning/phases/19-license-activation-offline-verification/19-CONTEXT.md`, D-33..D-45: activation form in upsell panel, self-hosted Keygen CE via local Docker, SPIKE-first blocking, fail-closed silent + footer hint)
-Status: Phase 19 context captured — next: /gsd-plan-phase 19; Phase 20 parallel-capable beside it
-Progress: [■□□□] 1/4 phases · v1.6 plans 4/4
-Last activity: 2026-06-12 - Phase 19 context gathered
+Phase: **19 — License Activation & Offline Verification** (next: execute)
+Plan: 4 plans, 4 sequential waves (19-01 CE bring-up + blocking D-42 SPIKE → 19-02 pure Rust license core → 19-03 HTTP client + commands + platform seam → 19-04 activation UX + e2e + human checkpoint). Research HIGH-confidence (SPIKE pre-answered at source: license principal CANNOT mint tokens → Keychain stores raw key); plan-checker passed after doc-only fixes; VALIDATION.md nyquist_compliant approved
+Status: Phase 19 planned — next: /gsd-execute-phase 19; Phase 20 parallel-capable beside it
+Progress: [■□□□] 1/4 phases · v1.6 plans 4/8
+Last activity: 2026-06-12 - Phase 19 planned (4 plans, verification passed)
 
 **Goal:** one-time-payment lifetime license — MoR checkout → webhook → Keygen (perpetual, node-locked, maxMachines=1); paste-key one-time activation (fingerprint `HMAC-SHA256(IOPlatformUUID, salt)`); offline Ed25519-verified `machine.lic` (~30-day TTL) thereafter; license key in Keychain (Rust-owned); free tier keeps all 11 tools — Pro locks customization (theming + ordering/pinning) behind a central entitlement gate (D-18 pivot; tool-gating mechanism ships dormant). Research: `docs/licensing-research.md`.
 
