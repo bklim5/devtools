@@ -39,7 +39,10 @@ import {
   type FormEvent,
 } from "react";
 import { platform, type LicenseErrorCode } from "@/lib/platform";
-import { refreshEntitlements } from "@/lib/entitlements/store";
+import {
+  clearEntitlementsOverride,
+  refreshEntitlements,
+} from "@/lib/entitlements/store";
 import { refreshLicenseUi } from "@/lib/license/licenseUi";
 import { useLicenseUi } from "@/shell/useLicenseUi";
 
@@ -50,10 +53,12 @@ export const BUY_LICENSE_URL = "https://example.invalid/devtools/buy";
 /** Locked error copy (D-36/D-37/D-38; 19-CONTEXT) keyed on the typed codes the
  *  Rust commands reject with — Rust never sends prose. Calm tone throughout;
  *  seatLimit names the resolution path (D-36 — support link deferred to Phase
- *  21); offline vs serviceUnreachable are DISTINCT messages (D-38). */
+ *  21); offline vs serviceUnreachable are DISTINCT messages (D-38).
+ *  Walkthrough 2026-06-12 (user decision, overrides the D-36/D-44 drafts):
+ *  "device", never "Mac" — the copy must survive the cross-platform future. */
 const ERROR_COPY: Record<LicenseErrorCode, string> = {
   seatLimit:
-    "This key is already active on another Mac. Deactivate it on the other Mac first, then activate here.",
+    "This key is already active on another device. Deactivate it on the other device first, then activate here.",
   offline: "You're offline — connect and try again.",
   serviceUnreachable:
     "Can't reach the licensing service — try again shortly.",
@@ -144,6 +149,11 @@ export function UpsellPanel({
       // Empty + stored key => activate(null): Rust reuses the Keychain key
       // (stored-key reactivation — the raw key never round-trips through JS).
       await platform.license.activate(trimmed || null);
+      // Walkthrough 2026-06-12 (user decision): a SUCCESSFUL activation clears
+      // the persisted D-31 dev free-tier override BEFORE the entitlement
+      // refresh, so the Pro unlock is visible immediately behind the panel.
+      // The override stays downgrade-only everywhere else.
+      await clearEntitlementsOverride();
       // D-35: refresh BOTH snapshots so the unlock is live behind the panel —
       // no restart. refreshEntitlements is the proven D-32 live-flip path.
       await refreshLicenseUi();
@@ -152,8 +162,10 @@ export function UpsellPanel({
       setActivated(true);
     } catch (err) {
       // D-37: every error renders inline below the field; the field keeps its
-      // value for correction (we never clear it on failure).
+      // value for correction (we never clear it on failure) — and focus is
+      // restored to it so keyboard/SR users land exactly where the fix goes.
       setError(toErrorCode(err));
+      inputRef.current?.focus();
     } finally {
       setPending(false);
     }
@@ -167,6 +179,11 @@ export function UpsellPanel({
   // ONE aria-live region carries the in-flight status AND the inline error
   // (D-34/D-37) — a single calm line under the field, no spinner chrome.
   const statusLine = pending ? "Activating…" : error ? ERROR_COPY[error] : "";
+  // Saved-key affordance (19-UI-REVIEW fix 3): a PERSISTENT helper line — a
+  // placeholder alone is not a label (WCAG 3.3.2) and vanishes on typing. The
+  // line shows whenever the empty-submit-uses-saved-key behavior applies.
+  const storedKeyHintId = `${inputId}-stored-key-hint`;
+  const showStoredKeyHint = hasStoredKey && !value;
   const keyForm = (
     <form className="flex flex-col gap-2" onSubmit={onSubmit}>
       <label htmlFor={inputId} className="text-[12px] text-tx-2">
@@ -181,14 +198,26 @@ export function UpsellPanel({
         spellCheck={false}
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        disabled={pending}
-        placeholder={
-          hasStoredKey
-            ? "Your saved key will be used — paste a new key to replace it"
-            : undefined
-        }
-        className="w-full rounded-[7px] border border-bd bg-input-bg px-2.5 py-1.5 font-mono text-[12px] text-tx outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent"
+        // readOnly, NOT disabled (19-UI-REVIEW fix 2): disabling the focused
+        // element drops keyboard focus to <body> mid-activation; readOnly
+        // freezes edits while keeping focus (the submit button is disabled,
+        // and submit() re-entry is guarded on `pending`).
+        readOnly={pending}
+        placeholder={hasStoredKey ? "Your saved key will be used" : undefined}
+        aria-describedby={showStoredKeyHint ? storedKeyHintId : undefined}
+        // placeholder:text-tx-3 — #868b95 on bg-input-bg #0d0f13 ≈ 5.6:1 (AA);
+        // the WebKit default placeholder gray was unverified (19-UI-REVIEW).
+        className="w-full rounded-[7px] border border-bd bg-input-bg px-2.5 py-1.5 font-mono text-[12px] text-tx outline-none transition-colors placeholder:text-tx-3 focus-visible:ring-2 focus-visible:ring-accent"
       />
+      {showStoredKeyHint ? (
+        <p
+          id={storedKeyHintId}
+          className="text-[12px] leading-[1.5] text-tx-2"
+        >
+          Leave the field empty to use your saved key, or paste a new one to
+          replace it.
+        </p>
+      ) : null}
       <div className="flex gap-2">
         <button type="submit" disabled={pending} className={PRIMARY_BTN_CLASS}>
           Activate
@@ -215,7 +244,7 @@ export function UpsellPanel({
           </h2>
         </div>
         <div className={BODY_CLASS}>
-          <p>This Mac is activated. Your Pro features are unlocked.</p>
+          <p>This device is activated. Your Pro features are unlocked.</p>
         </div>
         <div className="flex gap-2">
           <button
@@ -376,8 +405,12 @@ export function UpsellModal({ icon, onClose }: UpsellModalProps) {
   }, []);
 
   return (
+    // z-[60] (19-UI-REVIEW fix 1): the shell's bottom-right overlay stack
+    // (App.tsx — update consent/banner/status) sits at z-50; the aria-modal
+    // scrim must cover it so no interactive dialog floats clickable outside
+    // this trap while the modal claims the background is inert.
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-scrim"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-scrim"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}

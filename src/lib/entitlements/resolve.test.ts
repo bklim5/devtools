@@ -11,6 +11,7 @@ import { PREFERENCES_STORE_KEY } from "@/shell/preferences";
 import { FREE_SET, FULL_SET } from "./entitlements";
 import { isTauriEnv, resolveEntitlements } from "./resolve";
 import {
+  clearEntitlementsOverride,
   getEntitlementsSnapshot,
   refreshEntitlements,
   resetEntitlementsForTest,
@@ -129,6 +130,20 @@ describe("entitlements snapshot store", () => {
     expect(calls).toBe(1);
 
     unsubscribe();
+  });
+
+  it("clearEntitlementsOverride removes a persisted 'free' override so the next refresh upgrades (activation-success path)", async () => {
+    // The walkthrough-2026-06-12 decision: successful activation is the ONE
+    // event allowed to clear the D-31 dev override (downgrade-only otherwise).
+    setTauriEnv();
+    await seedStoredPrefs({ entitlementsOverride: "free" });
+    await refreshEntitlements();
+    expect(getEntitlementsSnapshot()).toBe(FREE_SET);
+
+    await clearEntitlementsOverride();
+    await refreshEntitlements();
+    expect(getEntitlementsSnapshot()).toBe(FULL_SET);
+    await expect(resolveEntitlements()).resolves.toBe(FULL_SET);
   });
 
   it("unsubscribe stops notifications", () => {

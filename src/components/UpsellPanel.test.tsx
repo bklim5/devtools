@@ -23,6 +23,8 @@ import {
 } from "@/lib/license/licenseUi";
 import { makeMemoryPlatform, noopLicense } from "@/shell/testStore";
 import { refreshEntitlements } from "@/lib/entitlements/store";
+import { createStoreStub } from "@/lib/platform/stub";
+import { PREFERENCES_STORE_KEY } from "@/shell/preferences";
 
 // Spy seam for the D-35 success path: UpsellPanel must call the REAL
 // refreshEntitlements (the proven live-flip path) — the mock wraps the actual
@@ -112,6 +114,10 @@ describe("UpsellModal (dialog wrapper)", () => {
     );
     const dialog = getByRole("dialog");
     expect(dialog.getAttribute("aria-modal")).toBe("true");
+    // 19-UI-REVIEW fix 1: the scrim must stack ABOVE the shell's z-50
+    // bottom-right overlays (update consent/banner) so nothing interactive
+    // floats clickable outside the aria-modal trap.
+    expect(dialog.parentElement?.className).toContain("z-[60]");
     const labelledBy = dialog.getAttribute("aria-labelledby");
     expect(labelledBy).toBeTruthy();
     const heading = getByRole("heading", {
@@ -242,6 +248,10 @@ describe("UpsellPanel activation form (D-33/D-34/D-39)", () => {
     }) as HTMLButtonElement;
     expect(submit.disabled).toBe(true);
     expect(liveRegion(utils).textContent).toContain("Activating");
+    // 19-UI-REVIEW fix 2: the input is readOnly, NOT disabled, while pending —
+    // disabling the focused element would drop keyboard focus to <body>.
+    expect(input.readOnly).toBe(true);
+    expect(input.disabled).toBe(false);
   });
 
   it("whitespace-only input never calls activate; a padded key is trimmed before send (D-39)", async () => {
@@ -285,6 +295,36 @@ describe("UpsellPanel activation success (D-35)", () => {
     fireEvent.click(utils.getByRole("button", { name: "Done" }));
     expect(onDismiss).toHaveBeenCalledTimes(1);
   });
+
+  it("clears the persisted D-31 free-tier override on success so Pro unlocks live (walkthrough 2026-06-12)", async () => {
+    // Seed a persisted dev override, then activate successfully — the panel
+    // must clear it BEFORE refreshing entitlements (only success clears it).
+    const store = createStoreStub();
+    await store.set(PREFERENCES_STORE_KEY, { entitlementsOverride: "free" });
+    setPlatformForTest({
+      ...makeMemoryPlatform(store),
+      license: {
+        ...noopLicense,
+        activate: () => Promise.resolve(LICENSED),
+        status: () => Promise.resolve(LICENSED),
+      },
+    });
+    const utils = render(<UpsellPanel icon={Lock} />);
+    const input = revealForm(utils);
+    fireEvent.change(input, { target: { value: "KEY-OK" } });
+    fireEvent.click(utils.getByRole("button", { name: "Activate" }));
+
+    await waitFor(() =>
+      expect(
+        utils.getByRole("heading", { name: /Licensed — thank you/ }),
+      ).toBeDefined(),
+    );
+    const blob = (await store.get(PREFERENCES_STORE_KEY)) as {
+      entitlementsOverride?: unknown;
+    };
+    expect(blob.entitlementsOverride).toBeNull();
+    expect(refreshEntitlements).toHaveBeenCalled();
+  });
 });
 
 describe("UpsellPanel activation errors (D-36/D-37/D-38)", () => {
@@ -300,10 +340,12 @@ describe("UpsellPanel activation errors (D-36/D-37/D-38)", () => {
     fireEvent.click(utils.getByRole("button", { name: "Activate" }));
 
     await waitFor(() =>
-      expect(liveRegion(utils).textContent).toContain("other Mac"),
+      expect(liveRegion(utils).textContent).toContain("other device"),
     );
-    // D-37: the field RETAINS its value for correction.
+    // D-37: the field RETAINS its value for correction — and focus is restored
+    // to it (19-UI-REVIEW fix 2) so the user lands where the fix goes.
     expect(input.value).toBe("KEY-SEAT");
+    expect(document.activeElement).toBe(input);
   });
 
   it("offline and serviceUnreachable render two DIFFERENT messages (D-38)", async () => {
@@ -372,9 +414,15 @@ describe("UpsellPanel license-problem state (D-44)", () => {
     const input = utils.getByRole("textbox", {
       name: "License key",
     }) as HTMLInputElement;
-    // The saved-key affordance is the placeholder, never the key itself.
+    // The saved-key affordance names the saved key, never the key itself —
+    // and a PERSISTENT helper line backs the placeholder (19-UI-REVIEW fix 3:
+    // placeholders are not labels per WCAG 3.3.2), wired via aria-describedby.
     expect(input.placeholder).toContain("saved key");
     expect(input.value).toBe("");
+    const hint = utils.getByText(/Leave the field empty to use your saved key/);
+    expect(input.getAttribute("aria-describedby")).toBe(hint.id);
+    // The input's placeholder carries an explicit AA-contrast color class.
+    expect(input.className).toContain("placeholder:text-tx-3");
 
     fireEvent.click(utils.getByRole("button", { name: "Activate" }));
     await waitFor(() => expect(activate).toHaveBeenCalledWith(null));

@@ -6,6 +6,7 @@
 // main.tsx) folds in the persisted D-31 override and, post-Phase-21, the real
 // licensed set; it notifies subscribers only when the set actually changes.
 
+import { loadPreferences, savePreferences } from "@/shell/prefsStore";
 import { FREE_SET, FULL_SET, type EntitlementSet } from "./entitlements";
 import { isTauriEnv, resolveEntitlements } from "./resolve";
 
@@ -46,6 +47,18 @@ export async function refreshEntitlements(): Promise<void> {
   if (setsEqual(next, current)) return;
   current = next;
   notify();
+}
+
+/** Clear the persisted D-31 dev free-tier override (walkthrough 2026-06-12
+ *  user decision): a SUCCESSFUL license activation is the ONE event allowed to
+ *  remove it, so the Pro unlock is immediately visible behind the panel. The
+ *  override stays downgrade-only everywhere else (T-18-10 unchanged — this
+ *  never writes anything but null). Callers run it BEFORE refreshEntitlements
+ *  so the next resolve sees the cleared prefs. */
+export async function clearEntitlementsOverride(): Promise<void> {
+  const prefs = await loadPreferences();
+  if (prefs.entitlementsOverride === null) return; // nothing persisted — no write
+  await savePreferences({ ...prefs, entitlementsOverride: null });
 }
 
 /** True under vitest or a dev build — never in a production bundle. Same guard
