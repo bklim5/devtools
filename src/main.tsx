@@ -4,6 +4,7 @@ import { RouterProvider } from "react-router-dom";
 import { router } from "./router";
 import { initPlatform } from "@/lib/platform";
 import { refreshEntitlements } from "@/lib/entitlements/store";
+import { refreshLicenseUi } from "@/lib/license/licenseUi";
 import "./index.css";
 
 // Kick off resolving the real platform impl (FND-04) early so the lazy
@@ -39,6 +40,16 @@ void initPlatform().catch((err) => {
 // environment default already matches the resolved set when no override exists.
 void refreshEntitlements().catch((err) => {
   console.error("[entitlements] refresh failed:", err);
+});
+
+// LIC-06/D-43: one startup license-status refresh so the footer hint can show
+// a "needs attention" state without any panel visit. This is a LOCAL file read
+// + Ed25519 verify only — no network at launch, ever (D-45; the v1.6 amendment
+// forbids launch-time network — the phase's only network call is the
+// user-initiated activate inside the panel). Non-blocking: first paint never
+// waits on it.
+void refreshLicenseUi().catch((err) => {
+  console.error("[license] status refresh failed:", err);
 });
 
 const rootEl = document.getElementById("root");
