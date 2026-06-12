@@ -1,0 +1,97 @@
+# Local Keygen CE bring-up for Phase 19 (D-40).
+#
+# Adapted from the official keygen-sh/keygen-api compose.yaml with two changes:
+#   1. NO compose profile keys anywhere — the installed Compose (2.0.0-beta.3)
+#      handles profiles unreliably (research Pitfall 8). The `setup` one-shot is a
+#      plain service that must NEVER be listed in `up` commands; run it explicitly:
+#        docker compose -f scripts/keygen-ce/compose.yaml run --rm setup
+#   2. Only caddy publishes host ports (80/443 — CE-only; the e2e gate owns
+#      1420/4445). postgres/redis/web stay on the compose network.
+#
+# Secrets live in a sibling `.env` (gitignored — D-41). Generate it from
+# `.env.example`.
+
+services:
+  setup:
+    image: keygen/api:latest
+    environment:
+      DATABASE_URL: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
+      DISABLE_DATABASE_ENVIRONMENT_CHECK: 1
+    env_file:
+      - .env
+    command: >
+      sh -c "
+        until pg_isready -h postgres -U ${POSTGRES_USER}; do
+          echo 'Waiting for PostgreSQL...'
+          sleep 1
+        done
+        bundle exec rails keygen:setup
+      "
+    depends_on: [ postgres ]
+    tty: true
+    stdin_open: true
+
+  postgres:
+    image: postgres:17.5
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres:/var/lib/postgresql/data
+
+  redis:
+    image: redis
+    volumes:
+      - redis:/data
+
+  web:
+    image: keygen/api:latest
+    command: "web"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
+    volumes:
+      - keygen:/etc/keygen
+    depends_on:
+      - postgres
+      - redis
+
+  worker:
+    image: keygen/api:latest
+    command: "worker"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
+    volumes:
+      - keygen:/etc/keygen
+    depends_on:
+      - postgres
+      - redis
+
+  caddy:
+    image: caddy:latest
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    env_file:
+      - .env
+    environment:
+      CADDY_HOSTS: "${CADDY_HOSTS:-$KEYGEN_HOST}"
+    command: ["caddy", "run", "--config", "/etc/caddy/Caddyfile"]
+    depends_on:
+      - web
+
+volumes:
+  keygen:
+  postgres:
+  redis:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,4 @@
+{$CADDY_HOSTS} {
+	tls {$CADDY_ACME_EMAIL:internal}
+	reverse_proxy web:3000
+}
