@@ -125,7 +125,13 @@ Plans:
   3. After activation, launching with networking disabled still resolves licensed entitlements — Rust verifies the `machine.lic` Ed25519 signature with the embedded public key and checks the fingerprint, with zero network calls
   4. A corrupt, tampered, or foreign-machine `machine.lic` fails closed to the free tier — no crash, calm status messaging, re-activation offered
   5. The license key lives only in the macOS Keychain (Rust-owned, `keyring` crate) — never readable from JS, never in the Tauri store or app-data files; the SPIKE outcome on client-side license-key → license-token exchange against the live Keygen API is recorded (store a scoped token instead of the raw key if confirmed)
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+- [ ] 19-01-PLAN.md — Local Keygen CE bring-up (Docker compose + bootstrap) + the blocking D-42 SPIKE: lifecycle proven live, key→token denial + seat-limit payloads recorded in 19-SPIKE-OUTCOME.md, real machine.lic + pubkey fixtures committed
+- [ ] 19-02-PLAN.md — Pure Rust license core: per-env consts (D-40/D-41), HMAC fingerprint, fail-closed Ed25519 machine.lic verify (TDD, 9+ fixture cases incl. real-CE cross-validation), atomic store, trait-mocked Keychain, pure-local status path
+- [ ] 19-03-PLAN.md — Keygen HTTP client (validate→activate→checkout, D-38 offline/unreachable split, dev-only CA trust) + activation state machine + the 4 Tauri commands + platform-seam exposure with deterministic browser/test stubs
+- [ ] 19-04-PLAN.md — Activation UX in the shared upsell panel (D-33..D-39, D-44 problem state via Rust-side stored-key reactivation), D-43 footer attention, real-WKWebView e2e, phase-boundary build + human walkthrough vs live CE + gsd-ui-review
 **UI hint**: yes
 
 ### Phase 20: Purchase Pipeline
