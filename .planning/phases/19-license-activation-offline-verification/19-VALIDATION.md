@@ -1,8 +1,8 @@
 ---
 phase: 19
 slug: license-activation-offline-verification
-status: draft
-nyquist_compliant: false
+status: ready
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-06-12
 ---
@@ -40,16 +40,19 @@ created: 2026-06-12
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| TBD by planner | 01 | 1 | D-42 SPIKE | T-19-xx | CE lifecycle proven; token-denial recorded in 19-SPIKE-OUTCOME.md | scripted runbook (manual) | — (not CI) | ❌ W0 | ⬜ pending |
-| TBD by planner | 02 | — | LIC-01 | T-19-xx | Fingerprint = HMAC-SHA256(IOPlatformUUID, salt) in Rust only | cargo unit | `cargo test --manifest-path src-tauri/Cargo.toml license::` | ❌ W0 | ⬜ pending |
-| TBD by planner | 02 | — | LIC-03 | T-19-xx | Valid lic + matching fingerprint → licensed, zero network | cargo unit (fixture certs) | `cargo test ... verify` | ❌ W0 | ⬜ pending |
-| TBD by planner | 02 | — | LIC-04 | T-19-xx | Key only in Keychain; no command payload carries key material | cargo unit (keychain trait mock) + grep assertion | `cargo test` + grep | ❌ W0 | ⬜ pending |
-| TBD by planner | 02 | — | LIC-06 | T-19-xx | Corrupt/tampered/foreign/wrong-alg → typed fail-closed errors → free tier | cargo unit (7 fixture cases) | `cargo test` | ❌ W0 | ⬜ pending |
-| TBD by planner | 03 | — | LIC-01 (UX) | — | D-33/34/35 inline form, aria-live status, live unlock | vitest (platform stub) + e2e | `pnpm vitest run src/` | ❌ W0 | ⬜ pending |
-| TBD by planner | 03 | — | LIC-02 (UX) | — | Seat-limit → D-36 calm message naming resolution path | vitest (stubbed error code); live vs CE in walkthrough | `pnpm vitest run` | ❌ W0 | ⬜ pending |
-| TBD by planner | 03 | — | LIC-06 (UX) | — | D-43 footer hint + D-44 panel problem-state per error code | vitest + e2e (seed bad machine.lic) | `pnpm vitest run` + e2e spec | ❌ W0 | ⬜ pending |
+| 19-01-T1 | 01 | 1 | D-40 CE bring-up | T-19-xx | CE up w/ TLS; secrets gitignored (grep acceptance) | scripted (curl health) | curl health check vs CE TLS | ❌ W0 | ⬜ pending |
+| 19-01-T2 | 01 | 1 | D-42 SPIKE, LIC-02 probe | T-19-xx | Lifecycle proven; token-denial + MACHINE_LIMIT_EXCEEDED payload recorded in 19-SPIKE-OUTCOME.md; real fixtures minted | scripted runbook + greps | fixture + SPIKE-OUTCOME greps | ❌ W0 | ⬜ pending |
+| 19-02-T1 | 02 | 2 | LIC-01 | T-19-xx | Fingerprint = HMAC-SHA256(IOPlatformUUID, salt) in Rust only; cargo test joins lefthook pre-push | cargo unit | `cargo test --manifest-path src-tauri/Cargo.toml license::` | ❌ W0 | ⬜ pending |
+| 19-02-T2 | 02 | 2 | LIC-03, LIC-06 | T-19-xx | Valid lic + matching fp → licensed zero-network; 9 fail-closed cases (corrupt/tampered/foreign/wrong-alg) → typed errors → free tier | cargo unit (fixture certs incl. real CE cross-validation) | `cargo test ... verify` | ❌ W0 | ⬜ pending |
+| 19-02-T3 | 02 | 2 | LIC-04 | T-19-xx | Key only via Keychain trait; atomic lic store; no payload carries key material | cargo unit (keychain trait mock) + grep | `cargo test` + tsc | ❌ W0 | ⬜ pending |
+| 19-03-T1 | 03 | 3 | LIC-01, LIC-02 | T-19-xx | HTTP client exact endpoints; D-38 offline/unreachable split; dev-only CA trust `#[cfg(debug_assertions)]` | cargo unit | `cargo test` + `cargo build` | ❌ W0 | ⬜ pending |
+| 19-03-T2 | 03 | 3 | LIC-01, D-45 | T-19-xx | Activation state machine; `license_status` pure-local (no `.await` on client calls) | cargo unit | `cargo test` | ❌ W0 | ⬜ pending |
+| 19-03-T3 | 03 | 3 | LIC-04 | T-19-xx | 4 Tauri commands via platform seam; browser stubs so vitest never touches Tauri | vitest + tsc | `tsc --noEmit` + `pnpm vitest run src/lib/platform/` | ❌ W0 | ⬜ pending |
+| 19-04-T1 | 04 | 4 | LIC-01/02 (UX) | — | D-33/34/35 inline form + aria-live + live unlock; D-36/37/38 error copy | vitest (platform stub) | tsc + vitest (UpsellPanel + licenseUi) | ❌ W0 | ⬜ pending |
+| 19-04-T2 | 04 | 4 | LIC-06 (UX), LIC-03 | — | D-43 footer hint + D-44 panel problem-state; e2e seeds bad machine.lic | vitest + real-WKWebView e2e | tsc + vitest + `scripts/e2e-spike.sh` | ❌ W0 | ⬜ pending |
+| 19-04-T3 | 04 | 4 | phase gate | — | build + walkthrough vs live CE + offline-launch proof + Keychain check | checkpoint:human-verify | check-dev-strip + bundle ls (manual rest) | ❌ W0 | ⬜ pending |
 
-*Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky. Task IDs filled by planner.*
+*Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky.*
 
 ---
 
@@ -76,11 +79,11 @@ created: 2026-06-12
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 60s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references (TDD lands tests green with impl per lefthook constraint)
+- [x] No watch-mode flags
+- [x] Feedback latency < 60s (exception: 19-04-T2 full e2e ~10 min — mandated by binding harness; tsc+vitest run first)
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** approved 2026-06-12 (plan-checker dimension-8 sweep: PASS, zero sampling gaps)

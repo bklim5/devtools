@@ -600,17 +600,20 @@ Not applicable — greenfield feature phase (no rename/refactor/migration). Omit
 | A8 | `thiserror` 2.x current | Standard Stack | Trivial — check at impl |
 | A9 | X-Forwarded-Proto plain-HTTP fallback works against force_ssl | TLS strategy option 3 | Not recommended anyway; options 1/2 are verified-safe |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Exact `MACHINE_LIMIT_EXCEEDED` error payload shape from CE** (A1)
    - What we know: validation message verified in source; Keygen serializes validation errors as JSON:API errors with a `code`.
    - What's unclear: exact `code` string and HTTP status (expect 422).
    - Recommendation: SPIKE explicitly triggers a second-machine activation and records the full error JSON — it's ship-gate case 2 anyway.
+   - **RESOLVED:** Plan 19-01 Task 2 triggers the second-machine activation and records the verbatim error JSON in 19-SPIKE-OUTCOME.md; Plan 19-03 maps the recorded code.
 2. **Whether to add `cargo test` to the lefthook gate this phase**
    - What we know: gate is tsc+vitest+eslint; this is the first substantive-Rust phase.
    - Recommendation: planner decides; minimum bar = `cargo test` in each Rust task's DoD + the phase-boundary build. Adding to lefthook costs commit latency (cold cargo builds) — consider `cargo test --quiet` with warm target dir, or a pre-push hook instead.
+   - **RESOLVED:** Plan 19-02 Task 1 wires `cargo test` as a lefthook pre-PUSH hook (not pre-commit) and keeps it in every Rust task's DoD.
 3. **Where the SPIKE outcome is recorded**
    - Recommendation: a short `19-SPIKE-OUTCOME.md` in the phase dir (key→token denial confirmation + exact error payloads + CE pubkey extraction transcript), referenced by STATE.md — satisfies the "SPIKE outcome recorded" success criterion.
+   - **RESOLVED:** Plan 19-01 creates `19-SPIKE-OUTCOME.md` exactly as recommended.
 
 ## Environment Availability
 
