@@ -2,7 +2,7 @@
 // backed stub the seam already uses (createStoreStub). Tests inject it via
 // setPlatformForTest so prefs/recents round-trip through the REAL seam without
 // importing @tauri-apps. Reuses the stub — does NOT hand-roll a new one.
-import { createStoreStub } from "@/lib/platform/stub";
+import { createLicenseStub, createStoreStub } from "@/lib/platform/stub";
 import type { Platform, Store } from "@/lib/platform";
 
 /** Shared no-op native caps for test Platform stubs (NAT-01). A single source of
@@ -38,6 +38,11 @@ export const noopEvents: Platform["events"] = {
   onMenuCheckUpdates: async () => () => {},
 };
 
+/** Shared deterministic license arm for test Platform stubs (LIC-01..04):
+ *  the same notActivated/serviceUnreachable stub the browser fallback uses,
+ *  so jsdom tests never touch licensing or the network. */
+export const noopLicense: Platform["license"] = createLicenseStub();
+
 export function makeMemoryPlatform(store: Store = createStoreStub()): Platform {
   return {
     clipboard: { writeText: async () => {}, readText: async () => "" },
@@ -46,5 +51,6 @@ export function makeMemoryPlatform(store: Store = createStoreStub()): Platform {
     nativeShortcut: noopNativeShortcut,
     updater: noopUpdater,
     events: noopEvents,
+    license: noopLicense,
   };
 }

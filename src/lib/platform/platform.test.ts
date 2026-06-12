@@ -41,6 +41,15 @@ describe("platform seam", () => {
       events: {
         onMenuCheckUpdates: vi.fn().mockResolvedValue(() => {}),
       },
+      license: {
+        status: vi.fn().mockResolvedValue({
+          state: "notActivated",
+          hasStoredKey: false,
+        }),
+        activate: vi.fn(),
+        refresh: vi.fn(),
+        deactivate: vi.fn(),
+      },
     };
     setPlatformForTest(stub);
 
@@ -137,6 +146,15 @@ describe("platform seam — native capabilities (NAT-01)", () => {
       events: {
         onMenuCheckUpdates: vi.fn().mockResolvedValue(() => {}),
       },
+      license: {
+        status: vi.fn().mockResolvedValue({
+          state: "notActivated",
+          hasStoredKey: false,
+        }),
+        activate: vi.fn(),
+        refresh: vi.fn(),
+        deactivate: vi.fn(),
+      },
     };
     setPlatformForTest(stub);
 
@@ -192,10 +210,73 @@ describe("platform seam — auto-updater (DST-02)", () => {
       events: {
         onMenuCheckUpdates: vi.fn().mockResolvedValue(() => {}),
       },
+      license: {
+        status: vi.fn().mockResolvedValue({
+          state: "notActivated",
+          hasStoredKey: false,
+        }),
+        activate: vi.fn(),
+        refresh: vi.fn(),
+        deactivate: vi.fn(),
+      },
     };
     setPlatformForTest(stub);
 
     await expect(platform.updater.check()).resolves.toMatchObject({ version: "0.3.0" });
     expect(checkUpdate).toHaveBeenCalledTimes(1);
+  });
+});
+
+// LIC-01..04: the seam's license capability. Outside Tauri the arms MUST be
+// deterministic — status is always notActivated and mutations reject with the
+// same `{ code }` shape the real Rust commands serialize, never a network call
+// (the ENT-03 mirror) — and the `platform` accessor MUST forward the capability
+// to the active impl so Plan 04's UI tests can inject a custom license stub.
+describe("platform seam — license (LIC-01..04)", () => {
+  it("browser fallback license.status resolves notActivated deterministically (Test 12)", async () => {
+    setPlatformForTest(browserPlatform);
+    await expect(platform.license.status()).resolves.toEqual({
+      state: "notActivated",
+      hasStoredKey: false,
+    });
+  });
+
+  it("browser fallback license mutations reject with the serviceUnreachable code (Test 13)", async () => {
+    setPlatformForTest(browserPlatform);
+    await expect(platform.license.activate("x")).rejects.toEqual({
+      code: "serviceUnreachable",
+    });
+    await expect(platform.license.refresh()).rejects.toEqual({
+      code: "serviceUnreachable",
+    });
+    await expect(platform.license.deactivate()).rejects.toEqual({
+      code: "serviceUnreachable",
+    });
+  });
+
+  it("accessor routes license through an injected custom stub (Test 14)", async () => {
+    const status = vi.fn().mockResolvedValue({
+      state: "licensed",
+      expiry: null,
+      entitlements: ["pro.theming"],
+    });
+    const activate = vi.fn().mockResolvedValue({
+      state: "licensed",
+      expiry: null,
+      entitlements: [],
+    });
+    const stub: Platform = {
+      ...browserPlatform,
+      license: { status, activate, refresh: vi.fn(), deactivate: vi.fn() },
+    };
+    setPlatformForTest(stub);
+
+    await expect(platform.license.status()).resolves.toMatchObject({
+      state: "licensed",
+      entitlements: ["pro.theming"],
+    });
+    await platform.license.activate("KEY-1");
+    expect(status).toHaveBeenCalledTimes(1);
+    expect(activate).toHaveBeenCalledWith("KEY-1");
   });
 });

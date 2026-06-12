@@ -21,7 +21,8 @@ import {
 import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { listen } from "@tauri-apps/api/event";
-import type { Platform } from "./index";
+import { invoke } from "@tauri-apps/api/core";
+import type { LicenseStatusPayload, Platform } from "./index";
 import type { Store } from "./stub";
 import {
   initialDownloadProgress,
@@ -111,5 +112,15 @@ export const tauriPlatform: Platform = {
   events: {
     onMenuCheckUpdates: (handler) =>
       listen("menu://check-updates", () => handler()),
+  },
+  // LIC-01..04: the locked 4-command surface, reached ONLY through this seam.
+  // Tauri rejects command errors with the serialized `{ code }` object — pass
+  // rejections through untransformed (the webview copy layer in Plan 04 maps
+  // codes to messages). Key material flows IN via activate(key) and never out.
+  license: {
+    status: () => invoke<LicenseStatusPayload>("license_status"),
+    activate: (key) => invoke<LicenseStatusPayload>("activate_license", { key }),
+    refresh: () => invoke<LicenseStatusPayload>("refresh_license"),
+    deactivate: () => invoke<LicenseStatusPayload>("deactivate_machine"),
   },
 };

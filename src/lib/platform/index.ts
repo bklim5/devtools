@@ -21,6 +21,35 @@ export interface UpdateInfo {
   date: string | null;
 }
 
+/** Problem kinds for a stored-but-unusable machine.lic — mirrors the Rust
+ *  serde contract pinned in src-tauri/src/license/mod.rs (LIC-06). */
+export type LicenseProblem =
+  | "corrupt"
+  | "tampered"
+  | "foreignMachine"
+  | "unsupportedAlg";
+
+/** License status union — EXACT mirror of the serde-pinned camelCase JSON the
+ *  Rust commands return (do not invent fields; `hasStoredKey` is the ONLY
+ *  Keychain-derived value JS ever sees — LIC-04/T-19-10). */
+export type LicenseStatusPayload =
+  | { state: "notActivated"; hasStoredKey: boolean }
+  | { state: "licensed"; expiry: string | null; entitlements: string[] }
+  | { state: "problem"; problem: LicenseProblem; hasStoredKey: boolean };
+
+/** Typed license error codes. Tauri rejects command errors with the serialized
+ *  `{ code: LicenseErrorCode }` object — the webview copy layer (Plan 04) maps
+ *  these to messages; Rust never sends prose (D-36/D-37/D-38). */
+export type LicenseErrorCode =
+  | "seatLimit"
+  | "offline"
+  | "serviceUnreachable"
+  | "invalidKey"
+  | "suspended"
+  | "activationFailed"
+  | "noStoredKey"
+  | "licenseProblem";
+
 export interface Platform {
   clipboard: {
     writeText(text: string): Promise<void>;
@@ -56,6 +85,22 @@ export interface Platform {
    *  unsubscribe fn. No-op (never fires) in the browser fallback. */
   events: {
     onMenuCheckUpdates(handler: () => void): Promise<() => void>;
+  };
+  /** Licensing (LIC-01..04). The webview reaches the 4 Rust commands ONLY
+   *  through this capability; key material never returns to JS. Rejections
+   *  carry the serialized `{ code: LicenseErrorCode }` object untransformed.
+   *  Browser/test arms are deterministic: status -> notActivated, mutations
+   *  reject serviceUnreachable — never a network call (ENT-03 mirror). */
+  license: {
+    /** Pure-local status (file read + Ed25519 verify) — never network (D-45). */
+    status(): Promise<LicenseStatusPayload>;
+    /** One-time online activation — the phase's ONLY network call. `null` key
+     *  => Rust uses the Keychain-stored key (D-44, LIC-04-safe). */
+    activate(key: string | null): Promise<LicenseStatusPayload>;
+    /** TTL refresh primitive — callable; UI wiring is Phase 21. */
+    refresh(): Promise<LicenseStatusPayload>;
+    /** Seat-transfer primitive — callable-but-unwired this phase. */
+    deactivate(): Promise<LicenseStatusPayload>;
   };
 }
 
@@ -103,6 +148,9 @@ export const platform: Platform = {
   },
   get events() {
     return active.events;
+  },
+  get license() {
+    return active.license;
   },
 };
 

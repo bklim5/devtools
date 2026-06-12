@@ -11,13 +11,7 @@ import {
   setPlatformForTest,
   type Platform,
 } from "@/lib/platform";
-import { createStoreStub } from "@/lib/platform/stub";
-import {
-  noopWindow,
-  noopNativeShortcut,
-  noopUpdater,
-  noopEvents,
-} from "@/shell/testStore";
+import { makeMemoryPlatform } from "@/shell/testStore";
 import XmlFormatterTool from "./XmlFormatterTool";
 import { xmlFormatterTool } from "./index";
 import { jsonFormatterTool } from "@/tools/json-formatter";
@@ -29,12 +23,8 @@ let writeText: ReturnType<typeof vi.fn<(text: string) => Promise<void>>>;
 beforeEach(() => {
   writeText = vi.fn<(text: string) => Promise<void>>(async () => {});
   const p: Platform = {
+    ...makeMemoryPlatform(),
     clipboard: { writeText, readText: async () => "" },
-    store: createStoreStub(),
-    window: noopWindow,
-    nativeShortcut: noopNativeShortcut,
-    updater: noopUpdater,
-    events: noopEvents,
   };
   setPlatformForTest(p);
 });

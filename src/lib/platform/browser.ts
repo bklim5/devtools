@@ -5,7 +5,7 @@
 // lives ONLY in tauri.ts, reached via a dynamic import from index.ts.
 
 import type { Platform } from "./index";
-import { createStoreStub, type Store } from "./stub";
+import { createLicenseStub, createStoreStub, type Store } from "./stub";
 
 /** Namespace persisted keys so the app's prefs never collide with anything else
  *  sharing the origin's localStorage (e.g. under `vite preview`). */
@@ -93,4 +93,8 @@ export const browserPlatform: Platform = {
       return () => {};
     },
   },
+  // Licensing is Tauri-only (LIC-01..04): outside Tauri the deterministic stub
+  // resolves notActivated / rejects serviceUnreachable — never a network call
+  // (ENT-03 mirror). This file must NOT import @tauri-apps/*.
+  license: createLicenseStub(),
 };

@@ -4,6 +4,8 @@
 // in-memory Map remains the seam used by tests via setPlatformForTest. Lives in
 // its own module so every impl shares one stub without duplicating it.
 
+import type { Platform } from "./index";
+
 export interface Store {
   get(key: string): Promise<unknown>;
   set(key: string, value: unknown): Promise<void>;
@@ -20,5 +22,24 @@ export function createStoreStub(): Store {
       map.set(key, value);
       return Promise.resolve();
     },
+  };
+}
+
+/** Deterministic license arm for every non-Tauri environment (LIC-01..04,
+ *  ENT-03 mirror): licensing is a Tauri-only capability, so jsdom/vite-preview
+ *  NEVER touch it — status always resolves "not activated" and any mutation
+ *  rejects with the same `{ code }` shape the real Tauri commands reject with.
+ *  No network, no conditionals. */
+export function createLicenseStub(): Platform["license"] {
+  const reject = () =>
+    // Same rejection shape as a serialized Rust LicenseError — callers handle
+    // one contract in both environments (intentionally not an Error instance).
+    Promise.reject({ code: "serviceUnreachable" as const });
+  return {
+    status: () =>
+      Promise.resolve({ state: "notActivated" as const, hasStoredKey: false }),
+    activate: reject,
+    refresh: reject,
+    deactivate: reject,
   };
 }
