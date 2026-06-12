@@ -57,6 +57,28 @@ pub fn run() {
             app.handle()
                 .plugin(tauri_plugin_updater::Builder::new().build())?;
 
+            // License manager (Phase 19, LIC-01..04): real impls composed once —
+            // app-data cert store, macOS Keychain, Keygen client — behind the
+            // managed LicenseState the 4 license commands borrow. The machine
+            // fingerprint is computed ONCE here; a failure maps to the empty
+            // sentinel (resolve_status fails closed to a Problem on any existing
+            // machine.lic and activate refuses to run) — never a startup panic.
+            let fingerprint = license::fingerprint::machine_fingerprint().unwrap_or_else(|e| {
+                eprintln!("license: machine fingerprint unavailable: {e}");
+                String::new()
+            });
+            let mgr = license::LicenseManager::new(
+                Box::new(license::store::AppDataLicStore::new(
+                    app.path().app_data_dir()?,
+                )),
+                Box::new(license::keychain::MacKeychain),
+                license::keygen_client::KeygenClient::new(),
+                fingerprint,
+            );
+            app.manage(license::commands::LicenseState(
+                tauri::async_runtime::Mutex::new(mgr),
+            ));
+
             let show_i = MenuItem::with_id(app, "show", "Show TinkerDev", true, None::<&str>)?;
             // "Check for Updates…" (DST-02 / D-11a). The actual check() runs in JS
             // through the platform seam (D-12); this just emits an event the JS shell
@@ -121,6 +143,14 @@ pub fn run() {
     let builder = builder.plugin(tauri_plugin_webdriver::init());
 
     builder
+        // The locked 4-command licensing surface (Phase 19). App-defined
+        // commands registered via generate_handler! need no capability entries.
+        .invoke_handler(tauri::generate_handler![
+            license::commands::license_status,
+            license::commands::activate_license,
+            license::commands::refresh_license,
+            license::commands::deactivate_machine
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
