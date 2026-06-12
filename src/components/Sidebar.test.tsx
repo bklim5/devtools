@@ -20,12 +20,16 @@ import {
   setEntitlementsForTest,
 } from "@/lib/entitlements/store";
 import {
+  resetLicenseUiForTest,
+  setLicenseUiForTest,
+} from "@/lib/license/licenseUi";
+import {
   setPlatformForTest,
   resetPlatformForTest,
   type Store,
 } from "@/lib/platform";
 import { createStoreStub } from "@/lib/platform/stub";
-import { makeMemoryPlatform } from "@/shell/testStore";
+import { makeMemoryPlatform, noopLicense } from "@/shell/testStore";
 import { PREFERENCES_STORE_KEY } from "@/shell/preferences";
 
 let store: Store;
@@ -42,6 +46,7 @@ afterEach(() => {
   cleanup();
   resetPlatformForTest();
   resetEntitlementsForTest();
+  resetLicenseUiForTest();
 });
 
 function renderAt(path: string) {
@@ -256,5 +261,64 @@ describe("Sidebar free tier (D-26/D-28)", () => {
 
     await waitFor(() => expect(queryByRole("dialog")).toBeNull());
     expect(document.activeElement).toBe(pinButton);
+  });
+});
+
+describe("Sidebar license attention footer (D-43)", () => {
+  it("renders 'License needs attention' under FULL_SET when the license has a problem, and opens the shared modal", async () => {
+    // FULL_SET on purpose: a Phase-19 release build has everything unlocked —
+    // the attention surface must NOT depend on the free-tier flip.
+    const PROBLEM = {
+      state: "problem",
+      problem: "corrupt",
+      hasStoredKey: false,
+    } as const;
+    // The panel re-queries status on mount — the injected stub must agree with
+    // the seeded snapshot or the async refresh would flip the state mid-test.
+    setPlatformForTest({
+      ...makeMemoryPlatform(store),
+      license: { ...noopLicense, status: () => Promise.resolve(PROBLEM) },
+    });
+    setLicenseUiForTest(PROBLEM);
+    const { getByRole, queryByRole } = renderAt("/");
+    await flushPrefsLoad();
+
+    const footer = getByRole("button", { name: "License needs attention" });
+    expect(footer.tabIndex).toBe(0);
+    // The Unlock Pro label is REPLACED, not duplicated — one footer row.
+    expect(queryByRole("button", { name: "Unlock Pro" })).toBeNull();
+    // No red alarm styling — D-43 is a hint, not an interruption.
+    expect(footer.className).not.toContain("text-bad");
+
+    fireEvent.click(footer);
+
+    // The shared modal opens; the panel inside renders the D-44 problem state.
+    expect(getByRole("dialog")).toBeDefined();
+    expect(
+      getByRole("heading", { name: /couldn't be verified/ }),
+    ).toBeDefined();
+  });
+
+  it("keeps the footer absent under FULL_SET for notActivated AND licensed states", async () => {
+    // notActivated is the default snapshot.
+    const first = renderAt("/");
+    await flushPrefsLoad();
+    expect(
+      first.queryByRole("button", { name: /Unlock Pro|needs attention/ }),
+    ).toBeNull();
+    first.unmount();
+
+    act(() =>
+      setLicenseUiForTest({
+        state: "licensed",
+        expiry: null,
+        entitlements: [],
+      }),
+    );
+    const second = renderAt("/");
+    await flushPrefsLoad();
+    expect(
+      second.queryByRole("button", { name: /Unlock Pro|needs attention/ }),
+    ).toBeNull();
   });
 });

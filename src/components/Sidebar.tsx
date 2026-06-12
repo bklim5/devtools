@@ -42,6 +42,7 @@ import { NavLink } from "react-router-dom";
 import { ENT_ORDERING, ENT_THEMING, isToolLocked } from "@/lib/entitlements/entitlements";
 import { ENABLED_TOOLS, getToolById } from "@/lib/tools/registry";
 import { useEntitlements } from "@/shell/useEntitlements";
+import { useLicenseUi } from "@/shell/useLicenseUi";
 import { usePreferences } from "@/shell/usePreferences";
 import { moveToolInOrder, partitionTools, resolveRovingTarget } from "@/shell/toolOrder";
 import { SidebarResetMenu, useSidebarResetMenu } from "./SidebarResetMenu";
@@ -63,6 +64,11 @@ export function Sidebar() {
   // forced empty, the pinned group, divider, and "Unpin all" item hide for free.
   const ents = useEntitlements();
   const orderingUnlocked = ents.has(ENT_ORDERING);
+  // D-43: a corrupt/tampered/foreign machine.lic surfaces ONLY as this quiet
+  // footer hint (no launch interruption) — independent of entitlements, since a
+  // Phase-19 release build has everything unlocked yet must still surface the
+  // problem. Details live in the panel's D-44 problem state.
+  const licenseAttention = useLicenseUi().state === "problem";
   const { pinned, unpinned } = partitionTools(
     orderingUnlocked ? preferences.pinnedToolIds : [],
     orderingUnlocked ? preferences.toolOrder : [],
@@ -592,15 +598,18 @@ export function Sidebar() {
       {/* D-29: standing free-tier "Unlock Pro" entry — quiet, neutral,
           keyboard-reachable (native button: click/Enter/Space). Bottom-anchored
           by the flex-1 nav above. Opens the same shared upsell surface (D-19).
-          Future home for Phase 19 key entry + Phase 21 status UI. */}
-      {!ents.has(ENT_ORDERING) || !ents.has(ENT_THEMING) ? (
+          D-43 (Phase 19): when the stored license file fails verification the
+          SAME row becomes the calm "License needs attention" hint — neutral
+          tokens, no red alarm styling (a hint, not an interruption); the panel
+          behind it renders the D-44 problem state. Phase 21 adds status UI. */}
+      {licenseAttention || !ents.has(ENT_ORDERING) || !ents.has(ENT_THEMING) ? (
         <button
           type="button"
           onClick={openOrderingUpsell}
           className="flex min-h-6 items-center gap-2 rounded-[6px] px-[11px] py-1 text-left text-[13px] text-tx-2 outline-none transition-colors hover:text-tx focus-visible:ring-2 focus-visible:ring-accent"
         >
           <Lock aria-hidden="true" className="h-3 w-3 flex-none" />
-          Unlock Pro
+          {licenseAttention ? "License needs attention" : "Unlock Pro"}
         </button>
       ) : null}
 

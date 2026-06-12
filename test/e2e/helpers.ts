@@ -104,6 +104,111 @@ export function dispatchAltP(): Promise<void> {
   });
 }
 
+// --- Entitlements dev toggle (shared by entitlements + license specs) --------
+
+// Open the ⌘K palette and run the DEV "Toggle free tier (dev)" command via the
+// real user path: TYPE "toggle free" (the 18-04 walkthrough regression — the
+// command must surface under a query), then ArrowUp wraps the highlight to the
+// LAST filtered row (the command appends after any tool matches; a no-op when
+// it is the only match), Enter runs it (the palette closes first, then the
+// command persists the downgrade-only override and awaits
+// refreshEntitlements() — D-31/D-32).
+export async function runDevToggle(): Promise<void> {
+  // The ⌘K listener lives on window — dispatch the chord there directly.
+  await browser.execute(() => {
+    window.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "k",
+        metaKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+  });
+  const input = await $('input[aria-label="Search tools"]');
+  await input.waitForExist({ timeout: 10_000 });
+
+  // TYPE the query through React's controlled-input contract: the native value
+  // setter + a bubbling "input" event (a bare .value write is swallowed by
+  // React's value tracker and onChange never fires).
+  await browser.execute(() => {
+    const el = document.querySelector(
+      'input[aria-label="Search tools"]',
+    ) as HTMLInputElement | null;
+    if (!el) return;
+    const setter = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      "value",
+    )?.set;
+    setter?.call(el, "toggle free");
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  // The searchable-command regression proof: the typed query SURFACES the row.
+  await browser.waitUntil(
+    async () =>
+      browser.execute(() => {
+        const dialog = document.querySelector('[aria-label="Command palette"]');
+        return Array.from(dialog?.querySelectorAll("button") ?? []).some((b) =>
+          (b.textContent ?? "").includes("Toggle free tier (dev)"),
+        );
+      }),
+    {
+      timeout: 5_000,
+      timeoutMsg:
+        'expected the typed query "toggle free" to surface the "Toggle free tier (dev)" row (18-04 walkthrough regression)',
+    },
+  );
+
+  // ArrowUp wraps the highlight from row 0 to the LAST row — the command.
+  await browser.execute(() => {
+    document
+      .querySelector('input[aria-label="Search tools"]')
+      ?.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "ArrowUp",
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+  });
+  // Fail loud if the highlighted row is NOT the dev command (Enter would
+  // otherwise navigate to a tool and corrupt the rest of the spec).
+  await browser.waitUntil(
+    async () =>
+      browser.execute(() => {
+        const dialog = document.querySelector('[aria-label="Command palette"]');
+        const on = Array.from(dialog?.querySelectorAll("button") ?? []).find((b) =>
+          b.className.includes("bg-accent-soft"),
+        );
+        return (on?.textContent ?? "").includes("Toggle free tier (dev)");
+      }),
+    {
+      timeout: 5_000,
+      timeoutMsg:
+        'expected ArrowUp on the filtered list to highlight the LAST palette row — the "Toggle free tier (dev)" command',
+    },
+  );
+  await browser.execute(() => {
+    document
+      .querySelector('input[aria-label="Search tools"]')
+      ?.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+  });
+  // The palette closes before the async run lands.
+  await browser.waitUntil(
+    async () =>
+      browser.execute(
+        () => document.querySelector('input[aria-label="Search tools"]') === null,
+      ),
+    { timeout: 5_000, timeoutMsg: "palette did not close after running the dev toggle" },
+  );
+}
+
 // --- Sidebar DOM readers (WebKit lesson 3) ----------------------------------
 
 // LESSON 3 — stale chained element handles.
