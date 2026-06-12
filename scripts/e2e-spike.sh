@@ -97,6 +97,17 @@ preflight() {
     done
   done
 
+  # 2.5) Delete the dev license Keychain item (local-CE keys only — the
+  #    production app id differs). Every `cargo` rebuild changes the dev
+  #    binary's ad-hoc signature, so a leftover item makes any Keychain read
+  #    (e.g. the D-44 problem state's has_stored_key) raise an interactive
+  #    macOS authorization prompt the e2e can never click — license.e2e then
+  #    times out (walkthrough 2026-06-12). Re-activating in the app recreates it.
+  if security find-generic-password -s com.tinkerdev.app.license >/dev/null 2>&1; then
+    echo "[spike] preflight: deleting dev license Keychain item (avoids the rebuild auth prompt)…"
+    security delete-generic-password -s com.tinkerdev.app.license >/dev/null 2>&1 || true
+  fi
+
   # 3) Poll bounded (~10s) until both ports are free; escalate to KILL halfway,
   #    and fail loud on an unkillable foreign holder — never launch over it.
   waited=0

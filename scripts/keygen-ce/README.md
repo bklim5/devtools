@@ -38,6 +38,19 @@ curl --cacert scripts/keygen-ce/caddy-root.crt https://localhost/v1/health -i
 
 Then `./scripts/keygen-ce/bootstrap.sh` to create product/policy/license.
 
+## Running the app against CE
+
+```bash
+DEVTOOLS_KEYGEN_CA="$PWD/scripts/keygen-ce/caddy-root.crt" pnpm tauri dev
+```
+
+**The CA path must be ABSOLUTE** (`$PWD/...`). `tauri dev` runs the app binary
+with cwd `src-tauri/`, so a repo-relative `scripts/keygen-ce/caddy-root.crt`
+misses, logs a `DEVTOOLS_KEYGEN_CA ... unusable (No such file or directory)`
+warning, and silently falls back to default roots — every activate then fails
+as `serviceUnreachable`. (The dev build retries relative paths one level up as
+a safety net, but don't rely on it.)
+
 ## Teardown
 
 ```bash

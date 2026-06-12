@@ -304,7 +304,19 @@ fn build_http_client() -> reqwest::Client {
     #[cfg(debug_assertions)]
     let builder = match std::env::var("DEVTOOLS_KEYGEN_CA") {
         Ok(path) => {
+            // Dev-only QoL: `tauri dev` runs the app process with cwd
+            // src-tauri/, so a repo-root-relative path (scripts/keygen-ce/...)
+            // misses and silently falls back to default roots — retry one
+            // level up before giving up. Absolute paths are still the
+            // documented invocation (scripts/keygen-ce/README.md).
             let cert = std::fs::read(&path)
+                .or_else(|e| {
+                    if std::path::Path::new(&path).is_relative() {
+                        std::fs::read(std::path::Path::new("..").join(&path))
+                    } else {
+                        Err(e)
+                    }
+                })
                 .map_err(|e| e.to_string())
                 .and_then(|pem| {
                     reqwest::Certificate::from_pem(&pem).map_err(|e| e.to_string())
@@ -327,9 +339,10 @@ fn build_http_client() -> reqwest::Client {
         .expect("static reqwest client configuration must build")
 }
 
-/// Machine display name for `POST /machines`: the hostname, or "Mac" when the
-/// `hostname` binary is unavailable/garbled (the name is cosmetic — the
-/// fingerprint is the identity).
+/// Machine display name for `POST /machines`: the hostname, or "Device" when
+/// the `hostname` binary is unavailable/garbled (the name is cosmetic — the
+/// fingerprint is the identity; "device" wording per the 2026-06-12 user
+/// decision, cross-platform future).
 fn machine_name() -> String {
     std::process::Command::new("hostname")
         .output()
@@ -337,7 +350,7 @@ fn machine_name() -> String {
         .and_then(|o| String::from_utf8(o.stdout).ok())
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty())
-        .unwrap_or_else(|| "Mac".to_string())
+        .unwrap_or_else(|| "Device".to_string())
 }
 
 impl KeygenClient {
