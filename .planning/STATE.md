@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Licensing
 status: executing
-last_updated: "2026-06-12T15:18:29.883Z"
-last_activity: 2026-06-12 -- Phase 19 plan 01 executed (CE bring-up + D-42 SPIKE)
+last_updated: "2026-06-12T15:32:50.365Z"
+last_activity: 2026-06-12 -- Phase 19 plan 02 executed (pure Rust license core, 24 cargo tests)
 progress:
   total_phases: 8
   completed_phases: 1
   total_plans: 8
-  completed_plans: 5
-  percent: 63
+  completed_plans: 6
+  percent: 75
 ---
 
 # Project State
@@ -19,10 +19,10 @@ progress:
 
 Milestone: **v1.6 "Licensing"** — started 2026-06-09, roadmap created 2026-06-09.
 Phase: 19 (license-activation-offline-verification) — EXECUTING
-Plan: 2 of 4
-Status: Executing Phase 19 — plan 01 complete (D-42 SPIKE passed; gate for plans 02/03/04 open)
-Progress: [■□□□] 1/4 phases · v1.6 plans 5/8
-Last activity: 2026-06-12 — Phase 19 plan 01 executed: local Keygen CE live + D-42 SPIKE recorded (token denial 403 → Keychain stores the raw key; seat-limit code MACHINE_LIMIT_EXCEEDED verbatim)
+Plan: 3 of 4
+Status: Executing Phase 19 — plans 01-02 complete (Rust license core green; 03 commands/seam + 04 UX/gate remain)
+Progress: [■□□□] 1/4 phases · v1.6 plans 6/8
+Last activity: 2026-06-12 — Phase 19 plan 02 executed: pure Rust license core (fail-closed Ed25519 machine.lic verify incl. real-CE cross-validation, HMAC fingerprint + committed APP_SALT, atomic store, trait-mocked Keychain, pinned LicenseStatusPayload JSON contract; 24 cargo tests, lefthook pre-push cargo-test gate)
 
 **Goal:** one-time-payment lifetime license — MoR checkout → webhook → Keygen (perpetual, node-locked, maxMachines=1); paste-key one-time activation (fingerprint `HMAC-SHA256(IOPlatformUUID, salt)`); offline Ed25519-verified `machine.lic` (~30-day TTL) thereafter; license key in Keychain (Rust-owned); free tier keeps all 11 tools — Pro locks customization (theming + ordering/pinning) behind a central entitlement gate (D-18 pivot; tool-gating mechanism ships dormant). Research: `docs/licensing-research.md`.
 
@@ -79,6 +79,8 @@ v1.5 complete — Phase 17 (2 plans), archived to `.planning/milestones/v1.5-*` 
 **Phase 18 plan 02 decisions (2026-06-10):** registry fully lazified (ENT-05) — all 11 entries are `component: () => import(...)`, `ToolDefinition.component` narrowed to `LazyComponent` only; tool routes render through the element-level `<ToolRoute>` gate (locked → UpsellPanel WITHOUT invoking the loader, unlocked → module-cached `React.lazy` keyed by tool.id in `Suspense fallback={null}`); route-level router `lazy` deliberately NOT used (memoized once — would defeat reactive flips AND fetch locked chunks). Build-proven: 11 per-tool Vite chunks, decoder isolated to `ProtobufDecoder-*.js` only (free-build exclusion seam is real). `lazyToolComponent(tool)` is the ONE way to materialize a tool component.
 
 **Phase 19 plan 01 decisions (2026-06-12, D-42 SPIKE — gate passed):** key→token exchange DENIED live (403, body has NO `code` field) — **Keychain stores the RAW license key** (research-doc open item CLOSED); seat-limit error code confirmed verbatim **`MACHINE_LIMIT_EXCEEDED`** (A1) — Plan 03 maps on this exact string; validate-key codes observed live: `NO_MACHINE` (pre-activation, valid:false = EXPECTED), `VALID`, `FINGERPRINT_SCOPE_MISMATCH`; deactivate works with key auth alone (204 — LIC-07 primitive). CE host strategy: `KEYGEN_HOST=localhost` + explicit **`KEYGEN_DOMAIN=localhost`** (single-label host derives nil `Keygen::DOMAIN` → boot crash; no /etc/hosts needed); accounts#show doesn't route on single-label hosts → pubkey extracted via rails runner; CE's `meta.keys.ed25519` is base64-of-HEX, fixture normalized to base64-of-raw-32-bytes. Fixtures for Plan 02: `src-tauri/fixtures/ce-machine.lic` (synthetic fingerprint, byte-verbatim) + `ce-ed25519-pubkey.b64`. Plan 04 walkthrough must `bootstrap.sh mint_license` a FRESH license (spike seat bound to a synthetic fingerprint). Local CE: `scripts/keygen-ce/` (compose without profiles — Docker 20.10.7/Compose 2.0.0-beta.3; TLS via extracted Caddy CA, never -k; metrics: 2 tasks, 10 files, ~25 min).
+
+**Phase 19 plan 02 decisions (2026-06-12, Rust license core):** `src-tauri/src/license/` landed pure (zero I/O in verify, zero Tauri types) with 24 cargo tests — fail-closed Ed25519 verify (`verify_strict` over literal `"machine/"+enc`, exact `"base64+ed25519"` alg gate, typed Corrupt|UnsupportedAlg|Tampered|ForeignMachine), real-CE fixture cross-validated against the real pubkey; **APP_SALT generated once and committed** (`e14f0d16…e45c75` — NEVER change post-release, orphans every activation, A5); fingerprint normalization locked to ioreg's verbatim uppercase hyphenated UUID; Keychain service = `com.tinkerdev.app.license` behind a `KeychainAccess` trait (tests never touch the real Keychain — Pitfall 5); `LicenseStatusPayload` camelCase JSON contract serde-pinned for Plans 03/04 (`{"state":"problem","problem":"foreignMachine","hasStoredKey":false}` shape; `has_stored_key` is the ONLY Keychain-derived value JS sees, lazy + fail-soft); expiry surfaced verbatim, NOT enforced (Phase 21, A6); `cargo test` joined lefthook as a pre-PUSH gate; module carries a documented temporary `#![allow(dead_code)]` — Plan 03 removes it when wiring commands; LIC-01/03/04/06 checkmarks deferred to the implementing plans 03/04 (Plan 01 precedent).
 
 **v1.6 sequencing decisions:** entitlements seam FIRST (pure frontend, free-tier default = everything unlocked until Phase 21 flips it at integration); Keygen Rust integration is the riskiest chunk and carries the key→token-exchange SPIKE; PAY pipeline is external infra, parallel-capable with Phase 19; lifecycle hardening + the 8-case ship-gate matrix close the milestone.
 
