@@ -22,3 +22,13 @@ pre-commit:
       run: pnpm vitest run
     lint:
       run: pnpm lint
+
+# Rust licensing-core gate (Phase 19, research Open Question 2 decision):
+# `cargo test` runs on pre-PUSH, not pre-commit, to keep commit latency sane
+# (a cold cargo build would dominate every commit). Per-task DoD still runs
+# `cargo test --manifest-path src-tauri/Cargo.toml` explicitly for Rust tasks.
+pre-push:
+  commands:
+    cargo-test:
+      run: cargo test --quiet --manifest-path src-tauri/Cargo.toml
+

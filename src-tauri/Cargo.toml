@@ -40,6 +40,28 @@ tauri-plugin-store = "2.4.3"
 # freshly-installed bundle. Desktop-wide (NOT target-gated) — relaunch is needed
 # on every desktop target. Gated at runtime by `process:allow-restart`.
 tauri-plugin-process = "2.3.1"
+# Licensing core (Phase 19, LIC-01/03/04/06). Versions are research-locked — do
+# NOT bump majors:
+# - ed25519-dalek 2.2: VerifyingKey/verify_strict API (the Keygen example repo's
+#   1.0 API does not compile against current crates — port logic, not code).
+# - keyring 3.6 pinned, NOT 4.x: v4 (2026-05) is a month-old rewrite around
+#   keyring-core with explicit store init; its own README warns existing apps
+#   off it (research Pitfall 6). The `apple-native` feature is REQUIRED — v3
+#   without it has NO macOS store and entries fail at runtime.
+# - hmac 0.12 + sha2 0.10: shares ed25519-dalek's sha2 ^0.10 tree (one sha2).
+ed25519-dalek = "2.2"
+keyring = { version = "3.6", features = ["apple-native"] }
+hmac = "0.12"
+sha2 = "0.10"
+base64 = "0.22"
+hex = "0.4"
+thiserror = "2"
+
+[dev-dependencies]
+# Fixture keypair generation for license verify tests (rand_core 0.6-compatible
+# OsRng — ed25519-dalek 2.x's rand_core feature expects the 0.6 line).
+ed25519-dalek = { version = "2.2", features = ["rand_core"] }
+rand = "0.8"
 
 [features]
 # Enabled only for the e2e UI gate (`--features webdriver`); off in release.
