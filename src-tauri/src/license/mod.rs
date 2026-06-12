@@ -130,6 +130,13 @@ pub struct LicenseManager<C: LicenseApi> {
     keychain: Box<dyn KeychainAccess + Send + Sync>,
     client: C,
     fingerprint: String,
+    /// Per-process cache of "is a key stored?". Every Keychain read can raise
+    /// the macOS authorization prompt when the binary's signature changed
+    /// (each dev rebuild; dev vs release), and status is queried on every
+    /// panel open + footer refresh — uncached, a problem-state session prompts
+    /// repeatedly (walkthrough 2026-06-12). Read at most once per launch, then
+    /// maintained by this manager's own writes (it is the app's only writer).
+    stored_key_flag: Option<bool>,
 }
 
 impl<C: LicenseApi> LicenseManager<C> {
@@ -144,6 +151,7 @@ impl<C: LicenseApi> LicenseManager<C> {
             keychain,
             client,
             fingerprint,
+            stored_key_flag: None,
         }
     }
 
@@ -155,7 +163,7 @@ impl<C: LicenseApi> LicenseManager<C> {
     /// `has_stored_key` is computed lazily, ONLY for the NotActivated/Problem
     /// variants — a licensed launch never touches the Keychain (avoids the
     /// Pitfall 5 dev-build prompt on every start).
-    pub fn resolve_status(&self) -> LicenseStatusPayload {
+    pub fn resolve_status(&mut self) -> LicenseStatusPayload {
         let Some(cert) = self.store.read() else {
             return LicenseStatusPayload::NotActivated {
                 has_stored_key: self.has_stored_key(),
@@ -259,6 +267,7 @@ impl<C: LicenseApi> LicenseManager<C> {
         self.keychain
             .delete_key()
             .map_err(|_| LicenseError::ActivationFailed)?;
+        self.stored_key_flag = Some(false);
         Ok(LicenseStatusPayload::NotActivated {
             has_stored_key: false,
         })
@@ -283,6 +292,7 @@ impl<C: LicenseApi> LicenseManager<C> {
             self.keychain
                 .set_key(key)
                 .map_err(|_| LicenseError::ActivationFailed)?;
+            self.stored_key_flag = Some(true);
         }
         Ok(LicenseStatusPayload::Licensed {
             expiry: data.expiry,
@@ -290,18 +300,27 @@ impl<C: LicenseApi> LicenseManager<C> {
         })
     }
 
-    fn stored_key(&self) -> Result<String, LicenseError> {
-        self.keychain
-            .get_key()
-            .map_err(|_| LicenseError::NoStoredKey)?
+    fn stored_key(&mut self) -> Result<String, LicenseError> {
+        let read = self.keychain.get_key();
+        // A definitive read is also a cache fill — error leaves the cache as-is.
+        if let Ok(present) = read.as_ref().map(Option::is_some) {
+            self.stored_key_flag = Some(present);
+        }
+        read.map_err(|_| LicenseError::NoStoredKey)?
             .ok_or(LicenseError::NoStoredKey)
     }
 
     /// Fail-soft FOR THIS BOOLEAN ONLY: a Keychain read error maps to `false`
     /// (the verify path itself stays fail-closed). The key string never
-    /// crosses this boundary — only its presence.
-    fn has_stored_key(&self) -> bool {
-        matches!(self.keychain.get_key(), Ok(Some(_)))
+    /// crosses this boundary — only its presence. Cached per process (see
+    /// `stored_key_flag`) — a denied/errored read stays `false` until relaunch.
+    fn has_stored_key(&mut self) -> bool {
+        if let Some(cached) = self.stored_key_flag {
+            return cached;
+        }
+        let present = matches!(self.keychain.get_key(), Ok(Some(_)));
+        self.stored_key_flag = Some(present);
+        present
     }
 }
 
@@ -349,6 +368,25 @@ mod tests {
         }
         fn delete_key(&self) -> Result<(), KeychainError> {
             Ok(())
+        }
+    }
+
+    /// Counting wrapper proving the per-process Keychain-read cache: every
+    /// uncached read is a potential macOS auth prompt (walkthrough 2026-06-12).
+    struct CountingKeychain {
+        inner: MockKeychain,
+        reads: Arc<Mutex<usize>>,
+    }
+    impl KeychainAccess for CountingKeychain {
+        fn get_key(&self) -> Result<Option<String>, KeychainError> {
+            *self.reads.lock().unwrap() += 1;
+            self.inner.get_key()
+        }
+        fn set_key(&self, key: &str) -> Result<(), KeychainError> {
+            self.inner.set_key(key)
+        }
+        fn delete_key(&self) -> Result<(), KeychainError> {
+            self.inner.delete_key()
         }
     }
 
@@ -441,6 +479,59 @@ mod tests {
                 has_stored_key: false,
             }
         );
+    }
+
+    #[test]
+    fn resolve_status_reads_the_keychain_at_most_once_per_process() {
+        // The prompt-flood regression (walkthrough 2026-06-12): every status
+        // query in a NotActivated/Problem session must NOT re-read the
+        // Keychain — each read can raise the macOS authorization prompt.
+        let reads = Arc::new(Mutex::new(0));
+        let mut mgr = LicenseManager::new(
+            Box::new(MockStore(None)),
+            Box::new(CountingKeychain {
+                inner: MockKeychain::WithKey,
+                reads: Arc::clone(&reads),
+            }),
+            NoNetwork,
+            REAL_FP.to_string(),
+        );
+        for _ in 0..3 {
+            assert_eq!(
+                mgr.resolve_status(),
+                LicenseStatusPayload::NotActivated {
+                    has_stored_key: true
+                }
+            );
+        }
+        assert_eq!(*reads.lock().unwrap(), 1);
+    }
+
+    #[test]
+    fn persisting_a_key_fills_the_cache_so_status_never_reads_the_keychain() {
+        // After an activation stored the key, a later Problem status must
+        // report has_stored_key=true from the manager's own write — zero
+        // Keychain reads (zero prompts).
+        let reads = Arc::new(Mutex::new(0));
+        let mut mgr = LicenseManager::new(
+            Box::new(MockStore(Some("garbage"))),
+            Box::new(CountingKeychain {
+                inner: MockKeychain::WithKey,
+                reads: Arc::clone(&reads),
+            }),
+            NoNetwork,
+            REAL_FP.to_string(),
+        );
+        mgr.verify_then_persist(REAL_CERT, Some("KEY-AAAA-BBBB"))
+            .expect("real cert must verify and persist");
+        assert_eq!(
+            mgr.resolve_status(),
+            LicenseStatusPayload::Problem {
+                problem: ProblemKind::Corrupt,
+                has_stored_key: true,
+            }
+        );
+        assert_eq!(*reads.lock().unwrap(), 0);
     }
 
     #[test]
