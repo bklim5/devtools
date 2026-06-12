@@ -31,7 +31,7 @@ decisions:
 metrics:
   duration: "~75 min (automated portion)"
   completed: "2026-06-11"
-  tasks: "2/3 auto complete; Task 3 human-verify pending"
+  tasks: "3/3 complete; Task 3 human drag walkthrough approved 2026-06-12 (pinned/unpinned reorder, end-zone drop, no cross-boundary, reload persistence, 4 migrated toggles)"
   files: 7
 ---
 
