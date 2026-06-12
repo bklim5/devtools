@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Licensing
 status: executing
-last_updated: "2026-06-12T15:54:22.403Z"
-last_activity: 2026-06-12 -- Phase 19 plan 03 executed (Keygen client + activation state machine + 4 commands + platform.license seam)
+last_updated: "2026-06-12T21:09:57.056Z"
+last_activity: 2026-06-12
 progress:
   total_phases: 8
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 8
-  completed_plans: 7
-  percent: 88
+  completed_plans: 8
+  percent: 100
 ---
 
 # Project State
@@ -18,11 +18,11 @@ progress:
 ## Current Position
 
 Milestone: **v1.6 "Licensing"** — started 2026-06-09, roadmap created 2026-06-09.
-Phase: 19 (license-activation-offline-verification) — EXECUTING
-Plan: 4 of 4
-Status: Executing Phase 19 — plans 01-03 complete (activation pipeline live behind platform.license; 04 UX + phase gate remains)
-Progress: [■□□□] 1/4 phases · v1.6 plans 7/8
-Last activity: 2026-06-12 — Phase 19 plan 03 executed: Keygen HTTP client (rustls-only, pure code-branching parsers, verbatim MACHINE_LIMIT_EXCEEDED→seatLimit, D-38 offline/serviceUnreachable classified in Rust) + activation state machine (D-39 trim-only, D-44 stored-key path, idempotent VALID→checkout, write-after-verify — no partial-success) + the locked 4 Tauri commands + platform.license seam with deterministic stubs (48 cargo + 821 vitest green; LIC-04 marked complete)
+Phase: 20 (purchase-pipeline) — NOT STARTED (next up)
+Plan: Not started
+Status: Phase 19 COMPLETE (verified 5/5, human-approved walkthrough vs live CE) — next: Phase 20 Purchase Pipeline or Phase 21
+Progress: [■■□□] 2/4 phases · v1.6 plans 8/8
+Last activity: 2026-06-12 — Phase 19 executed end-to-end and verified: CE SPIKE (key→token DENIED → raw key in Keychain), pure-Rust fail-closed license core, 4-command surface + platform.license seam, activation UX with live entitlement unlock; walkthrough approved, UI audit 22/24, review 0 critical
 
 **Goal:** one-time-payment lifetime license — MoR checkout → webhook → Keygen (perpetual, node-locked, maxMachines=1); paste-key one-time activation (fingerprint `HMAC-SHA256(IOPlatformUUID, salt)`); offline Ed25519-verified `machine.lic` (~30-day TTL) thereafter; license key in Keychain (Rust-owned); free tier keeps all 11 tools — Pro locks customization (theming + ordering/pinning) behind a central entitlement gate (D-18 pivot; tool-gating mechanism ships dormant). Research: `docs/licensing-research.md`.
 

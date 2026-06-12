@@ -90,7 +90,7 @@ All 9 PIN requirements complete; human-signed-off (full suite 694/694, decoder 1
 One-time-payment lifetime license: MoR checkout → webhook → Keygen (perpetual, node-locked, `maxMachines=1`); paste-key one-time activation (fingerprint `HMAC-SHA256(IOPlatformUUID, app-salt)`); thereafter fully-offline Ed25519-verified `machine.lic` (~30-day TTL) in Rust; license key in macOS Keychain (Rust-owned); free tier keeps all 11 tools; Pro gates customization (theming + ordering/pinning) behind ONE central entitlement gate (D-18 pivot — tool-gating mechanism ships dormant). Architecture locked in `docs/licensing-research.md`. Webview gating accepted as UX-gating, not DRM. Webview runtime deps stay zero (Rust crates `ed25519-dalek`/`keyring`/HMAC allowed); `decoder.ts` + its 19 tests byte-for-byte untouched.
 
 - [x] **Phase 18: Entitlements Seam & Central Gate** - Pure-frontend entitlement gating (registry + app-level) with lock badges + upsell panel; lazy registry loaders; everything-unlocked in-Tauri default until licensing lands (completed 2026-06-10)
-- [ ] **Phase 19: License Activation & Offline Verification** - Keygen Rust core: paste-key activation, fingerprint, Ed25519 offline launch verify, Keychain storage, fail-closed; includes the key→token exchange SPIKE
+- [x] **Phase 19: License Activation & Offline Verification** - Keygen Rust core: paste-key activation, fingerprint, Ed25519 offline launch verify, Keychain storage, fail-closed; includes the key→token exchange SPIKE (completed 2026-06-12)
 - [ ] **Phase 20: Purchase Pipeline** - MoR checkout (Lemon Squeezy default) → webhook backend → Keygen license creation → key emailed; privileged tokens server-side only (parallel-capable with Phase 19)
 - [ ] **Phase 21: License Lifecycle & Ship Gate** - TTL refresh + offline grace, self-serve transfer, revocation propagation, license status UI; flip the free-tier default live; full 8-case ship-gate matrix
 
@@ -184,7 +184,7 @@ Phases execute in numeric order. v1.6 runs 18 → 19 → 21 with Phase 20 parall
 | 16. Reorderable sidebar tool list | v1.4 | 2/2 | Complete    | 2026-06-05 |
 | 17. Pinned sidebar section | v1.5 | 2/2 | Complete    | 2026-06-07 |
 | 18. Entitlements Seam & Central Gate | v1.6 | 4/4 | Complete    | 2026-06-10 |
-| 19. License Activation & Offline Verification | v1.6 | 4/4 | In Progress | - |
+| 19. License Activation & Offline Verification | v1.6 | 4/4 | Complete    | 2026-06-12 |
 | 20. Purchase Pipeline | v1.6 | 0/? | Not started | - |
 | 21. License Lifecycle & Ship Gate | v1.6 | 0/? | Not started | - |
 

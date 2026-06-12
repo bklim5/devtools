@@ -22,12 +22,12 @@
 
 ### License Lifecycle (LIC)
 
-- [ ] **LIC-01**: User can paste a license key in-app to activate; activation is a one-time online step that binds the key to this machine (fingerprint = `HMAC-SHA256(IOPlatformUUID, app-salt)`, computed in Rust).
-- [ ] **LIC-02**: Activation enforces the seat limit server-side — activating on a second Mac is rejected with a clear, calm error naming the resolution path (deactivate the other machine).
-- [ ] **LIC-03**: After activation, every launch verifies the license **fully offline**: Rust verifies the Ed25519 signature of the cached `machine.lic` with the embedded public key and checks the machine fingerprint — no network call.
+- [x] **LIC-01**: User can paste a license key in-app to activate; activation is a one-time online step that binds the key to this machine (fingerprint = `HMAC-SHA256(IOPlatformUUID, app-salt)`, computed in Rust).
+- [x] **LIC-02**: Activation enforces the seat limit server-side — activating on a second Mac is rejected with a clear, calm error naming the resolution path (deactivate the other machine).
+- [x] **LIC-03**: After activation, every launch verifies the license **fully offline**: Rust verifies the Ed25519 signature of the cached `machine.lic` with the embedded public key and checks the machine fingerprint — no network call.
 - [x] **LIC-04**: The license key is stored in the macOS Keychain, Rust-owned, used only for TTL refresh and deactivation — never readable from JS, never in the Tauri store or app-data files.
 - [ ] **LIC-05**: The cached license carries a ~30-day TTL; the app refreshes it opportunistically (background, online-only-when-available) with a generous offline grace — never a hard per-launch network check.
-- [ ] **LIC-06**: A corrupt, tampered, or foreign-machine `machine.lic` fails closed to the free tier — no crash, calm status messaging, re-activation offered.
+- [x] **LIC-06**: A corrupt, tampered, or foreign-machine `machine.lic` fails closed to the free tier — no crash, calm status messaging, re-activation offered.
 - [ ] **LIC-07**: User can self-serve deactivate this machine from within the app, freeing the seat to activate on a new Mac (transfer).
 - [ ] **LIC-08**: A revoked/suspended license (refund or chargeback handled in Keygen) propagates to the app at the next TTL refresh — entitlements drop to free tier.
 - [ ] **LIC-09**: A license status UI shows the current state (free / licensed / offline-grace / refresh-needed), masked key + licensee email from the signed license data, and refresh + deactivate actions — keyboard-reachable, WCAG-AA.
@@ -76,12 +76,12 @@
 | ENT-03 | Phase 18 | 18-01, 18-04 | Complete |
 | ENT-04 | Phase 18 | 18-01, 18-03, 18-04 | Complete |
 | ENT-05 | Phase 18 | 18-02, 18-04 | Complete |
-| LIC-01 | Phase 19 | — | Pending |
-| LIC-02 | Phase 19 | — | Pending |
-| LIC-03 | Phase 19 | — | Pending |
+| LIC-01 | Phase 19 | 19-03, 19-04 | Complete |
+| LIC-02 | Phase 19 | 19-03, 19-04 | Complete |
+| LIC-03 | Phase 19 | 19-02, 19-04 | Complete |
 | LIC-04 | Phase 19 | 19-02, 19-03 | Complete |
 | LIC-05 | Phase 21 | — | Pending |
-| LIC-06 | Phase 19 | — | Pending |
+| LIC-06 | Phase 19 | 19-02, 19-04 | Complete |
 | LIC-07 | Phase 21 | — | Pending |
 | LIC-08 | Phase 21 | — | Pending |
 | LIC-09 | Phase 21 | — | Pending |
