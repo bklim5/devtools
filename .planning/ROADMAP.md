@@ -290,3 +290,16 @@ Plans:
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.8: Windows port of the license stack (BACKLOG)
+
+**Goal:** [Captured for future planning] — make the Phase-19 license stack run on Windows when the deferred Windows milestone lands. The seams are already OS-portable (PROJECT.md); two swappable arms are macOS-only today:
+1. **Key storage:** `keyring` crate is pinned with `features = ["apple-native"]` only — add a cfg-gated `windows-native` feature (Windows Credential Manager). Same `Entry::new(service, user)` API. Behavioral deltas to encode in the threat register: **no per-binary ACL prompts on Windows** (the macOS prompt-flood fix still applies but is moot) and **weaker isolation** — any same-user process can read generic credentials (key alone is still useless without the matching server-side fingerprint binding); ~2.5KB credential blob limit (fine).
+2. **Fingerprint:** `fingerprint.rs` shells out to `ioreg`/`IOPlatformUUID` — add a `#[cfg(target_os = "windows")]` source arm reading registry `HKLM\SOFTWARE\Microsoft\Cryptography\MachineGuid` (same stability class; reinstall regenerates it → seat transfer needed, same as a Mac logic-board swap). HMAC wrapper + T-19-11 privacy invariant carry over unchanged.
+
+Everything else already ports: machine.lic via Tauri app-data dir, pure-Rust Ed25519 verify/store/state machine, `hostname` exists on Windows, UX copy already says "device" (2026-06-12 decision). **Open questions for promotion:** keyring 3.6→4.x migration timing; Linux secret-service arm in the same pass; whether the e2e keychain pre-clean needs a Windows `cmdkey` equivalent.
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
