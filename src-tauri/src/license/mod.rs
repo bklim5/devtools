@@ -9,3 +9,4 @@
 
 pub mod config;
 pub mod fingerprint;
+pub mod verify;
