@@ -11,7 +11,22 @@ import {
   parsePublishArgs,
   renderPublishPlan,
   renderPublishRecovery,
+  universalMachoPath,
 } from "./publishPlan";
+
+describe("universalMachoPath", () => {
+  it("derives bundle name from productName and inner binary from the cargo binary name", () => {
+    expect(universalMachoPath("TinkerDev", "devtools-app")).toBe(
+      "src-tauri/target/universal-apple-darwin/release/bundle/macos/TinkerDev.app/Contents/MacOS/devtools-app",
+    );
+  });
+
+  it("a product rename moves ONLY the .app segment (rename-proof regression guard)", () => {
+    expect(universalMachoPath("Renamed", "devtools-app")).toBe(
+      "src-tauri/target/universal-apple-darwin/release/bundle/macos/Renamed.app/Contents/MacOS/devtools-app",
+    );
+  });
+});
 
 describe("parsePublishArgs", () => {
   it("defaults dryRun to false for no args", () => {
@@ -171,7 +186,7 @@ describe("assertVersionMatches", () => {
 
 describe("buildPublishPlanView", () => {
   it("derives every field from the single version", () => {
-    const view = buildPublishPlanView("0.2.2");
+    const view = buildPublishPlanView("0.2.2", "TinkerDev");
     expect(view.version).toBe("0.2.2");
     expect(view.tag).toBe("v0.2.2");
     expect(view.releasesRepo).toBe("bklim5/devtools-releases");
@@ -179,7 +194,7 @@ describe("buildPublishPlanView", () => {
       "src-tauri/target/universal-apple-darwin/release/bundle/macos",
     );
     expect(view.sigGlob).toBe(
-      "src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app.tar.gz.sig",
+      "src-tauri/target/universal-apple-darwin/release/bundle/macos/TinkerDev.app.tar.gz.sig",
     );
     expect(view.assetUrlExample).toBe(
       "https://github.com/bklim5/devtools-releases/releases/download/v0.2.2/TinkerDev.app.tar.gz",
@@ -189,7 +204,7 @@ describe("buildPublishPlanView", () => {
 
 describe("renderPublishPlan", () => {
   it("contains the version, target repo, dual-key note, and assets-first/manifest-last intent", () => {
-    const out = renderPublishPlan(buildPublishPlanView("0.2.2"));
+    const out = renderPublishPlan(buildPublishPlanView("0.2.2", "TinkerDev"));
     expect(out).toContain("0.2.2");
     expect(out).toContain("bklim5/devtools-releases");
     expect(out).toContain("darwin-aarch64");
@@ -199,19 +214,19 @@ describe("renderPublishPlan", () => {
   });
 
   it("contains the universal bundle path", () => {
-    const out = renderPublishPlan(buildPublishPlanView("0.2.2"));
+    const out = renderPublishPlan(buildPublishPlanView("0.2.2", "TinkerDev"));
     expect(out).toContain("target/universal-apple-darwin/release/bundle/macos");
   });
 
   it("explicitly notes that --dry-run does NOT build", () => {
-    const out = renderPublishPlan(buildPublishPlanView("0.2.2")).toLowerCase();
+    const out = renderPublishPlan(buildPublishPlanView("0.2.2", "TinkerDev")).toLowerCase();
     expect(out.includes("no build") || out.includes("does not build")).toBe(
       true,
     );
   });
 
   it("is a pure string builder — identical output across calls, no throw", () => {
-    const view = buildPublishPlanView("0.2.2");
+    const view = buildPublishPlanView("0.2.2", "TinkerDev");
     expect(renderPublishPlan(view)).toBe(renderPublishPlan(view));
     expect(typeof renderPublishPlan(view)).toBe("string");
   });
@@ -219,13 +234,13 @@ describe("renderPublishPlan", () => {
 
 describe("renderPublishRecovery", () => {
   it("returns a copy-pasteable next-steps string", () => {
-    const out = renderPublishRecovery(buildPublishPlanView("0.2.2"));
+    const out = renderPublishRecovery(buildPublishPlanView("0.2.2", "TinkerDev"));
     expect(typeof out).toBe("string");
     expect(out.length).toBeGreaterThan(0);
   });
 
   it("never auto-rolls-back the remote release (revert-by-republish ethos)", () => {
-    const out = renderPublishRecovery(buildPublishPlanView("0.2.2"));
+    const out = renderPublishRecovery(buildPublishPlanView("0.2.2", "TinkerDev"));
     expect(out).not.toContain("git reset --hard");
   });
 });

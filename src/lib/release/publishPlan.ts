@@ -168,13 +168,25 @@ export function hasAppleEnv(env: ProcessEnv): boolean {
 const UNIVERSAL_BUNDLE_MACOS_DIR =
   "src-tauri/target/universal-apple-darwin/release/bundle/macos";
 
-/** The example updater-payload basename (the real one is globbed at publish time). */
-const PAYLOAD_BASENAME = "TinkerDev.app.tar.gz";
+/**
+ * The universal Mach-O binary path for the lipo both-arch assert. Pure — the
+ * driver derives `productName` from tauri.conf.json (the `.app` bundle name
+ * follows it) and `mainBinaryName` from the Cargo binary name (the inner binary
+ * keeps the crate name regardless of productName), so a product rename can't
+ * silently point the check at a stale bundle again (the TinkerDev-rename bug:
+ * a hardcoded `devtools-app.app/...` path "verified" a stale old-name bundle).
+ */
+export function universalMachoPath(
+  productName: string,
+  mainBinaryName: string,
+): string {
+  return `${UNIVERSAL_BUNDLE_MACOS_DIR}/${productName}.app/Contents/MacOS/${mainBinaryName}`;
+}
 
 /**
  * The fully-derived view of one publish — every field flows from the single
- * `version`, so the dry-run plan, the glob, and the URL can't drift (mirrors the
- * Phase 10 BumpPlan shape).
+ * `version` + `productName`, so the dry-run plan, the glob, and the URL can't
+ * drift (mirrors the Phase 10 BumpPlan shape).
  */
 export interface PublishPlanView {
   version: string;
@@ -187,16 +199,22 @@ export interface PublishPlanView {
 
 /**
  * Build the publish-plan view from the single `version` (the version the build
- * used, read from the manifests by the driver). Pure — no I/O, no clock.
+ * used, read from the manifests by the driver) + `productName` (read from
+ * tauri.conf.json by the driver — never hardcoded here, so a rename can't
+ * stale-drift the glob/URL). The sig glob is product-pinned (not `*`) so a
+ * stale old-name `.sig` can never be the single match. Pure — no I/O, no clock.
  */
-export function buildPublishPlanView(version: string): PublishPlanView {
+export function buildPublishPlanView(
+  version: string,
+  productName: string,
+): PublishPlanView {
   return {
     version,
     tag: `v${version}`,
     releasesRepo: RELEASES_REPO,
     universalBundleDir: UNIVERSAL_BUNDLE_MACOS_DIR,
-    sigGlob: `${UNIVERSAL_BUNDLE_MACOS_DIR}/*.app.tar.gz.sig`,
-    assetUrlExample: buildAssetUrl(version, PAYLOAD_BASENAME),
+    sigGlob: `${UNIVERSAL_BUNDLE_MACOS_DIR}/${productName}.app.tar.gz.sig`,
+    assetUrlExample: buildAssetUrl(version, `${productName}.app.tar.gz`),
   };
 }
 

@@ -62,6 +62,7 @@ import {
   hasSigningEnv,
   hasAppleEnv,
   buildPublishPlanView,
+  universalMachoPath,
   renderPublishPlan,
   renderPublishRecovery,
 } from "../src/lib/release/publishPlan.ts";
@@ -71,8 +72,28 @@ const UNIVERSAL_MACOS_DIR =
   "src-tauri/target/universal-apple-darwin/release/bundle/macos";
 const UNIVERSAL_DMG_DIR =
   "src-tauri/target/universal-apple-darwin/release/bundle/dmg";
-const UNIVERSAL_MACHO =
-  "src-tauri/target/universal-apple-darwin/release/bundle/macos/devtools-app.app/Contents/MacOS/devtools-app";
+/**
+ * Both naming inputs are DERIVED, never hardcoded (the TinkerDev-rename bug:
+ * a hardcoded `devtools-app.app/...` lipo path kept "verifying" the stale
+ * old-name bundle, then failed outright once the leftovers were cleaned):
+ *  - `.app` bundle name follows `productName` in tauri.conf.json
+ *  - inner binary name follows the Cargo binary/crate name (NOT productName)
+ */
+function readProductName() {
+  return JSON.parse(readFileSync("src-tauri/tauri.conf.json", "utf8"))
+    .productName;
+}
+
+function readMainBinaryName() {
+  const conf = JSON.parse(readFileSync("src-tauri/tauri.conf.json", "utf8"));
+  if (conf.mainBinaryName) return conf.mainBinaryName;
+  const cargo = readFileSync("src-tauri/Cargo.toml", "utf8");
+  const m = cargo.match(/^name\s*=\s*"([^"]+)"/m);
+  if (!m) {
+    abort("Could not derive the binary name from src-tauri/Cargo.toml");
+  }
+  return m[1];
+}
 const LATEST_JSON_ENDPOINT =
   "https://github.com/bklim5/devtools-releases/releases/latest/download/latest.json";
 
@@ -261,8 +282,9 @@ function publish(view, version, { x86Present }) {
     "universal-apple-darwin",
   ]);
 
-  // 4. lipo both-arch assert (REL-05, T-11-12).
-  const archs = run("lipo", ["-archs", UNIVERSAL_MACHO]).stdout;
+  // 4. lipo both-arch assert (REL-05, T-11-12) — path derived, never hardcoded.
+  const machoPath = universalMachoPath(readProductName(), readMainBinaryName());
+  const archs = run("lipo", ["-archs", machoPath]).stdout;
   if (!parseLipoArchs(archs)) {
     abort(
       `lipo -archs reported ${JSON.stringify(archs)} — the binary is NOT universal (need both x86_64 + arm64). Refusing to publish a single-arch build.`,
@@ -270,8 +292,10 @@ function publish(view, version, { x86Present }) {
   }
   log(`\nlipo both-arch verified: ${archs}`);
 
-  // 5. Fresh-.sig single-match glob (REL-06, T-11-07).
-  const sigs = globSync(`${UNIVERSAL_MACOS_DIR}/*.app.tar.gz.sig`);
+  // 5. Fresh-.sig single-match glob (REL-06, T-11-07) — product-pinned via the
+  //    view (stale old-name sigs can never be the match; step 2 still clears
+  //    ALL *.app.tar.gz.sig so leftovers don't linger either way).
+  const sigs = globSync(view.sigGlob);
   const sigPath = assertSingleSig(sigs);
   const signature = readFileSync(sigPath, "utf8").trim();
   log(`Fresh signature: ${sigPath}`);
@@ -365,9 +389,10 @@ function main() {
   }
   const { dryRun } = args;
 
-  // 2. Read the current version and build the plan view from it.
+  // 2. Read the current version and build the plan view from it (productName
+  //    derived from tauri.conf.json — rename-proof).
   const version = readCurrentVersion();
-  const view = buildPublishPlanView(version);
+  const view = buildPublishPlanView(version, readProductName());
 
   // 3. Read-only preflights (ALL before any irreversible action — REL-11).
   const { x86Present } = preflights(view);
