@@ -17,11 +17,39 @@ import { Resend } from "resend";
 
 const WEBHOOK_PATH = "/webhooks/lemonsqueezy";
 
-/** Read the request stream to a UTF-8 string — the RAW bytes, before any parse. */
-function readRawBody(req: IncomingMessage): Promise<string> {
+/** LS order payloads are tiny; cap the unauthenticated body to bound DoS memory. */
+export const MAX_WEBHOOK_BYTES = 512 * 1024;
+
+/** Raised by readRawBody when the body exceeds the cap (⇒ 413, before any work). */
+export class PayloadTooLargeError extends Error {
+  constructor(maxBytes: number) {
+    super(`Request body exceeds ${maxBytes} bytes`);
+    this.name = "PayloadTooLargeError";
+  }
+}
+
+/**
+ * Read the request stream to a UTF-8 string — the RAW bytes, before any parse.
+ * Tracks cumulative length and rejects with PayloadTooLargeError once it exceeds
+ * `maxBytes` (destroying the stream), so an unauthenticated caller can't buffer
+ * unbounded memory before the signature check.
+ */
+export function readRawBody(
+  req: IncomingMessage,
+  maxBytes = MAX_WEBHOOK_BYTES,
+): Promise<string> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
-    req.on("data", (chunk: Buffer) => chunks.push(chunk));
+    let total = 0;
+    req.on("data", (chunk: Buffer) => {
+      total += chunk.length;
+      if (total > maxBytes) {
+        req.destroy();
+        reject(new PayloadTooLargeError(maxBytes));
+        return;
+      }
+      chunks.push(chunk);
+    });
     req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
     req.on("error", reject);
   });
@@ -51,8 +79,19 @@ export function startServer() {
 
     if (req.method === "POST" && req.url === WEBHOOK_PATH) {
       // Capture the RAW body BEFORE any JSON.parse so the signature verifies over
-      // the exact bytes LS signed (Pitfall 5 / T-20-10).
-      const rawBody = await readRawBody(req);
+      // the exact bytes LS signed (Pitfall 5 / T-20-10). Cap the size first so an
+      // unauthenticated caller can't exhaust memory before we verify.
+      let rawBody: string;
+      try {
+        rawBody = await readRawBody(req);
+      } catch (err) {
+        if (err instanceof PayloadTooLargeError) {
+          res.writeHead(413, { "Content-Type": "application/json" });
+          res.end('{"error":"payload too large"}');
+          return;
+        }
+        throw err;
+      }
       const signatureHeader = headerValue(req, "x-signature");
 
       const result = await fulfill(
