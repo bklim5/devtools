@@ -13,6 +13,7 @@ import { loadConfig } from "./config.ts";
 import { createKeygenClient } from "./keygen.ts";
 import { sendKeyEmail } from "./email.ts";
 import { fulfill, defaultParse, makeVerify } from "./fulfill.ts";
+import { createKeyedMutex } from "./lock.ts";
 import { Resend } from "resend";
 
 const WEBHOOK_PATH = "/webhooks/lemonsqueezy";
@@ -65,6 +66,8 @@ export function startServer() {
   });
   const resend = new Resend(config.resendApiKey);
   const verify = makeVerify(config.lsWebhookSecret);
+  // One per-order mutex shared across all requests (single-instance, D-47).
+  const mutex = createKeyedMutex();
 
   const server = createServer((req: IncomingMessage, res: ServerResponse) => {
     void handle(req, res);
@@ -105,6 +108,7 @@ export function startServer() {
           email: (to, key) => sendKeyEmail(resend, { from: config.emailFrom }, to, key),
           alert: (message) => console.error("[ALERT]", message),
           log: (event, fields) => console.log(JSON.stringify({ event, ...fields })),
+          withLock: mutex.withLock,
         },
       );
       res.writeHead(result.status, { "Content-Type": "application/json" });

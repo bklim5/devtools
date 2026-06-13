@@ -36,6 +36,11 @@ export interface FulfillDeps {
   alert(message: string): void;
   /** Structured logger (defaults to console). */
   log?(event: string, fields?: Record<string, unknown>): void;
+  /**
+   * Serialize the search→create→email→mark critical section per orderId to close
+   * the idempotency TOCTOU (single-instance, D-47). Defaults to a pass-through.
+   */
+  withLock?<T>(key: string, fn: () => Promise<T>): Promise<T>;
 }
 
 function ok(body = '{"ok":true}'): FulfillResult {
@@ -66,52 +71,57 @@ export async function fulfill(
   }
 
   const { orderId, customerEmail } = event;
+  const withLock = deps.withLock ?? ((_key, fn) => fn());
 
-  // 3. Idempotency (D-58): if a license exists, only skip when it was ALSO emailed.
-  // A license that exists but never emailed (create succeeded, email failed last
-  // try) must be re-emailed — otherwise the buyer pays and never gets the key.
-  const existing = await deps.search(orderId);
-  let licenseId: string;
-  let key: string;
-  if (existing) {
-    if (existing.attributes.metadata?.emailed === true) {
-      log("webhook.idempotent_skip", { orderId });
-      return ok();
+  // Serialize the search→create→email→mark section per orderId so two concurrent
+  // deliveries can't both search()->null and double-mint (idempotency TOCTOU, D-47).
+  return await withLock(orderId, async (): Promise<FulfillResult> => {
+    // 3. Idempotency (D-58): if a license exists, only skip when it was ALSO emailed.
+    // A license that exists but never emailed (create succeeded, email failed last
+    // try) must be re-emailed — otherwise the buyer pays and never gets the key.
+    const existing = await deps.search(orderId);
+    let licenseId: string;
+    let key: string;
+    if (existing) {
+      if (existing.attributes.metadata?.emailed === true) {
+        log("webhook.idempotent_skip", { orderId });
+        return ok();
+      }
+      licenseId = existing.id;
+      key = existing.attributes.key;
+      log("webhook.resume_unsent_email", { orderId });
+    } else {
+      // 4. Create the license. Failure ⇒ 5xx so LS retries (D-59).
+      try {
+        const created = await deps.create(orderId);
+        licenseId = created.id;
+        key = created.key;
+      } catch (err) {
+        log("webhook.create_failed", { orderId, error: String(err) });
+        return { status: 500, body: '{"error":"license creation failed"}' };
+      }
     }
-    licenseId = existing.id;
-    key = existing.attributes.key;
-    log("webhook.resume_unsent_email", { orderId });
-  } else {
-    // 4. Create the license. Failure ⇒ 5xx so LS retries (D-59).
+
+    // 5. Email the key. Failure ⇒ alert + 5xx so LS retries (D-59/D-72).
     try {
-      const created = await deps.create(orderId);
-      licenseId = created.id;
-      key = created.key;
+      await deps.email(customerEmail, key);
     } catch (err) {
-      log("webhook.create_failed", { orderId, error: String(err) });
-      return { status: 500, body: '{"error":"license creation failed"}' };
+      deps.alert(`Key email failed for order ${orderId}: ${String(err)}`);
+      log("webhook.email_failed", { orderId, error: String(err) });
+      return { status: 500, body: '{"error":"email delivery failed"}' };
     }
-  }
 
-  // 5. Email the key. Failure ⇒ alert + 5xx so LS retries (D-59/D-72).
-  try {
-    await deps.email(customerEmail, key);
-  } catch (err) {
-    deps.alert(`Key email failed for order ${orderId}: ${String(err)}`);
-    log("webhook.email_failed", { orderId, error: String(err) });
-    return { status: 500, body: '{"error":"email delivery failed"}' };
-  }
+    // 6. Mark emailed so a future retry idempotent-skips. Best-effort: the email
+    // already went out, so a failure here must NOT 5xx (that would double-email).
+    try {
+      await deps.markEmailed(licenseId, orderId);
+    } catch (err) {
+      log("webhook.mark_emailed_failed", { orderId, error: String(err) });
+    }
 
-  // 6. Mark emailed so a future retry idempotent-skips. Best-effort: the email
-  // already went out, so a failure here must NOT 5xx (that would double-email).
-  try {
-    await deps.markEmailed(licenseId, orderId);
-  } catch (err) {
-    log("webhook.mark_emailed_failed", { orderId, error: String(err) });
-  }
-
-  log("webhook.fulfilled", { orderId });
-  return ok();
+    log("webhook.fulfilled", { orderId });
+    return ok();
+  });
 }
 
 /** Default `parse`/`verify` wiring for production callers. */
