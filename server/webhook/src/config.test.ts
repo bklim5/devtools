@@ -4,7 +4,7 @@ import { loadConfig } from "./config.ts";
 /** A complete, valid env bag we can selectively override per test. */
 function validEnv(overrides: Record<string, string> = {}): NodeJS.ProcessEnv {
   return {
-    KEYGEN_HOST: "localhost",
+    KEYGEN_BASE_URL: "http://localhost:3000",
     KEYGEN_ACCOUNT_ID: "acct_1",
     KEYGEN_ADMIN_TOKEN: "admin-token",
     KEYGEN_POLICY_ID: "policy_1",
@@ -35,5 +35,18 @@ describe("loadConfig required() trimming", () => {
     const env = validEnv();
     delete env.KEYGEN_ACCOUNT_ID;
     expect(() => loadConfig(env)).toThrow(/KEYGEN_ACCOUNT_ID/);
+  });
+});
+
+describe("loadConfig keygenBaseUrl", () => {
+  it("reads KEYGEN_BASE_URL as a full origin (scheme+host+port)", () => {
+    const config = loadConfig(validEnv({ KEYGEN_BASE_URL: "http://web:3000" }));
+    expect(config.keygenBaseUrl).toBe("http://web:3000");
+  });
+
+  it("throws when KEYGEN_BASE_URL is missing", () => {
+    const env = validEnv();
+    delete env.KEYGEN_BASE_URL;
+    expect(() => loadConfig(env)).toThrow(/KEYGEN_BASE_URL/);
   });
 });

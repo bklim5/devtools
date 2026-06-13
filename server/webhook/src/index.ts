@@ -30,7 +30,7 @@ function readRawBody(req: IncomingMessage): Promise<string> {
 export function startServer() {
   const config = loadConfig();
   const keygen = createKeygenClient({
-    host: config.keygenHost,
+    baseUrl: config.keygenBaseUrl,
     accountId: config.keygenAccountId,
     adminToken: config.keygenAdminToken,
     policyId: config.keygenPolicyId,

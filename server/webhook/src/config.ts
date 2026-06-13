@@ -4,8 +4,8 @@
 // var-named error so a misconfigured VPS fails loud at boot, not mid-fulfillment.
 
 export interface Config {
-  /** Keygen CE host the backend reaches over localhost (D-55). */
-  readonly keygenHost: string;
+  /** Keygen CE origin the backend reaches over localhost (full URL incl. scheme+port, D-55). */
+  readonly keygenBaseUrl: string;
   readonly keygenAccountId: string;
   /** Privileged admin token — server-side ONLY (D-55/T-20-06). */
   readonly keygenAdminToken: string;
@@ -31,7 +31,7 @@ function required(env: NodeJS.ProcessEnv, name: string): string {
 /** Build + validate the Config from an env bag (defaults to process.env). */
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   return {
-    keygenHost: required(env, "KEYGEN_HOST"),
+    keygenBaseUrl: required(env, "KEYGEN_BASE_URL"),
     keygenAccountId: required(env, "KEYGEN_ACCOUNT_ID"),
     keygenAdminToken: required(env, "KEYGEN_ADMIN_TOKEN"),
     keygenPolicyId: required(env, "KEYGEN_POLICY_ID"),

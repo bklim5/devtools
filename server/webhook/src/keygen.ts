@@ -11,7 +11,8 @@
 const JSON_API = "application/vnd.api+json";
 
 export interface KeygenConfig {
-  readonly host: string;
+  /** Full CE origin incl. scheme+port (e.g. http://localhost:3000) — no hardcoded https (D-55). */
+  readonly baseUrl: string;
   readonly accountId: string;
   readonly adminToken: string;
   readonly policyId: string;
@@ -40,7 +41,7 @@ export function createKeygenClient(
   config: KeygenConfig,
   fetchImpl: FetchLike = fetch,
 ): KeygenClient {
-  const base = `https://${config.host}/v1/accounts/${config.accountId}`;
+  const base = `${config.baseUrl.replace(/\/$/, "")}/v1/accounts/${config.accountId}`;
   const authHeaders = {
     Authorization: `Bearer ${config.adminToken}`,
     Accept: JSON_API,

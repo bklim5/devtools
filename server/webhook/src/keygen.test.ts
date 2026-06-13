@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { createKeygenClient, type KeygenConfig } from "./keygen.ts";
 
 const config: KeygenConfig = {
-  host: "localhost",
+  baseUrl: "http://localhost:3000",
   accountId: "acct_1",
   adminToken: "admin-token-xyz",
   policyId: "policy_42",
@@ -25,7 +25,7 @@ describe("createKeygenClient.searchByOrderId (D-58 idempotency)", () => {
 
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toContain(
-      "https://localhost/v1/accounts/acct_1/licenses?metadata[orderId]=",
+      "http://localhost:3000/v1/accounts/acct_1/licenses?metadata[orderId]=",
     );
     expect(url).toContain(encodeURIComponent("order 1/x"));
     expect(init.method).toBe("GET");
@@ -60,7 +60,7 @@ describe("createKeygenClient.createLicense (D-58 metadata + D-54 policy rel)", (
     expect(key).toBe("KEY-XYZ");
 
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe("https://localhost/v1/accounts/acct_1/licenses");
+    expect(url).toBe("http://localhost:3000/v1/accounts/acct_1/licenses");
     expect(init.method).toBe("POST");
     expect(init.headers["Content-Type"]).toBe("application/vnd.api+json");
     const sent = JSON.parse(init.body);
