@@ -1,0 +1,65 @@
+// Resend plain-text license-key email (D-64/D-66).
+//
+// The buyer receives the raw license key plus 3-line activation steps and the
+// releases download link. Resend resolves with `{ data, error }` rather than
+// throwing on an API error, so we surface `error` as a thrown Error — letting
+// the orchestrator 5xx + alert (D-59/D-72) on a failed send.
+
+const SUBJECT = "Your TinkerDev license key";
+const DOWNLOAD_URL = "https://github.com/bklim5/devtools-releases/releases/latest";
+
+/** Minimal slice of the Resend client we depend on (injectable for tests). */
+export interface EmailSender {
+  emails: {
+    send(payload: {
+      from: string;
+      to: string[];
+      subject: string;
+      text: string;
+    }): Promise<{ error: { message: string } | null }>;
+  };
+}
+
+export interface EmailConfig {
+  readonly from: string;
+}
+
+/** D-66 plain-text body: key + 3 activation steps + download link + reply-for-help. */
+export function buildKeyEmailText(licenseKey: string): string {
+  return [
+    `Thank you for buying TinkerDev! Here is your license key:`,
+    ``,
+    `    ${licenseKey}`,
+    ``,
+    `To activate:`,
+    `  1. Open TinkerDev`,
+    `  2. Click "Unlock Pro"`,
+    `  3. Paste the key above and click Activate`,
+    ``,
+    `Download the latest version:`,
+    `  ${DOWNLOAD_URL}`,
+    ``,
+    `Just reply to this email if you need any help.`,
+  ].join("\n");
+}
+
+/**
+ * Send the key email. Throws if Resend reports an error so the orchestrator can
+ * 5xx + alert (D-59/D-72).
+ */
+export async function sendKeyEmail(
+  client: EmailSender,
+  config: EmailConfig,
+  to: string,
+  licenseKey: string,
+): Promise<void> {
+  const { error } = await client.emails.send({
+    from: config.from,
+    to: [to],
+    subject: SUBJECT,
+    text: buildKeyEmailText(licenseKey),
+  });
+  if (error) {
+    throw new Error(`Resend send failed: ${error.message}`);
+  }
+}
