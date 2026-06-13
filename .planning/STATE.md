@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Licensing
 status: executing
-last_updated: "2026-06-13T19:12:00.000Z"
-last_activity: 2026-06-13 -- Phase 20 plan 01 complete (Buy wiring + D-52 constant split)
+last_updated: "2026-06-13T19:21:00.000Z"
+last_activity: 2026-06-13 -- Phase 20 plan 02 complete (webhook backend: LS verify + Keygen create + Resend email; D-56 gate wired)
 progress:
   total_phases: 10
   completed_phases: 2
   total_plans: 11
-  completed_plans: 9
-  percent: 82
+  completed_plans: 10
+  percent: 91
 ---
 
 # Project State
@@ -19,10 +19,10 @@ progress:
 
 Milestone: **v1.6 "Licensing"** — started 2026-06-09, roadmap created 2026-06-09.
 Phase: 20 (Purchase Pipeline) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3 (20-01 + 20-02 done; 20-03 production CE bring-up remains, NOT autonomous)
 Status: Executing Phase 20
-Progress: [■■□□] 2/4 phases · v1.6 plans 9/9 (20-01 done)
-Last activity: 2026-06-13 -- Phase 20 plan 01 complete (Buy wiring + D-52 constant split)
+Progress: [■■□□] 2/4 phases · v1.6 plans 10/10 (20-01 + 20-02 done)
+Last activity: 2026-06-13 -- Phase 20 plan 02 complete (webhook backend: LS verify + Keygen create + Resend email; D-56 gate wired)
 
 **Goal:** one-time-payment lifetime license — MoR checkout → webhook → Keygen (perpetual, node-locked, maxMachines=1); paste-key one-time activation (fingerprint `HMAC-SHA256(IOPlatformUUID, salt)`); offline Ed25519-verified `machine.lic` (~30-day TTL) thereafter; license key in Keychain (Rust-owned); free tier keeps all 11 tools — Pro locks customization (theming + ordering/pinning) behind a central entitlement gate (D-18 pivot; tool-gating mechanism ships dormant). Research: `docs/licensing-research.md`.
 
@@ -86,6 +86,8 @@ v1.5 complete — Phase 17 (2 plans), archived to `.planning/milestones/v1.5-*` 
 **Phase 19 plan 03 decisions (2026-06-12, online half + commands + seam):** Keygen client landed as PURE parsers (canned-JSON cargo tests, zero sockets) + thin async transport — branching ALWAYS on HTTP status + JSON:API `code`, never detail/title prose; seat-limit from BOTH paths (`FINGERPRINT_SCOPE_MISMATCH` + 422 `MACHINE_LIMIT_EXCEEDED`) → the single typed `seatLimit`; D-38 classified in Rust (NetworkUnreachable/NetworkDown/HostUnreachable→`offline`, everything else incl. ambiguous→`serviceUnreachable`, A4 residual live-proven in Plan 04). `LicenseError` serializes `{"code":"camelCase"}` (8 codes) — the webview copy layer keys on these. **Machine identifier on Keygen machine routes = the URL-safe fingerprint** (the VALID idempotent path has no machine UUID; refresh/deactivate reuse it). Activation persists ONLY after the checkout cert passes local Ed25519 verify (write-after-verify, no partial-success — T-19-15/18, test-pinned). `LicenseApi` is a generic trait slot (async-fn-in-trait is dyn-incompatible — manager<C: LicenseApi>); commands sit behind `tauri::async_runtime::Mutex`; `license_status` async but provably network-free (D-45). Startup fingerprint failure → empty-string sentinel (fail-closed Problem; activate refuses before network). reqwest 0.13 feature is `rustls` (0.12's `rustls-tls` renamed); dev CA trust (`DEVTOOLS_KEYGEN_CA`) double-gated under `cfg(debug_assertions)`. Webview: `platform.license` + `LicenseStatusPayload`/`LicenseErrorCode` TS mirror; non-Tauri arms deterministic via `createLicenseStub` (status→notActivated, mutations reject `serviceUnreachable`); 13 test Platform literals now spread `makeMemoryPlatform()` (keeps src/tools/ license-free). **LIC-04 checked off** (fully delivered, no later plan carries it); LIC-01/02 defer to Plan 04's UX halves.
 
 **Phase 20 plan 01 decisions (2026-06-13, Buy wiring + D-52 constant split):** the app-side change is done — an `opener` capability mirrors the license-capability shape across the platform seam (`index.ts` interface + `get opener()` proxy, `tauri.ts` the SOLE `@tauri-apps/plugin-opener` importer, `browser.ts` deterministic no-op that never navigates jsdom). Installed `@tauri-apps/plugin-opener` (npm 2.5.4 + crate "2") + `tauri_plugin_opener::init()` — the FIRST new webview runtime dep, the explicit **D-67** exception; `opener:allow-open-url` scoped **https-only** (`{ url: "https://*" }`, T-20-01). Buy CTA now calls `platform.opener.openUrl("https://tinkerdev.io/buy")` — **D-68** own-domain redirect (store/MoR change never forces an app release), best-effort/calm (logs, never throws); D-21 stub tests rewritten to assert the seam call + no in-app navigation. **config.rs D-52:** `KEYGEN_HOST`/`KEYGEN_ACCOUNT_ID`/`KEYGEN_ED25519_PUBKEY_B64` cfg(debug_assertions)-split (dev=local CE, release=`license.tinkerdev.io` + `PROD_*_PLACEHOLDER` sentinels D-51); **APP_SALT stays single + byte-identical (A5)**; a `#[cfg(not(debug_assertions))]` tripwire test FAILS `cargo test --release` while placeholders remain (Plan 03's gate — `setup.sh` mints real values then re-runs green); default debug `cargo test` stays 3/3. `check-dev-strip.sh` extended with `check_prod_constants` (release-binary `license.tinkerdev.io`-present grep). Shared `noopOpener` added to `makeMemoryPlatform`/test literals (Rule-3 blocking fix). Unit suite **841/841**, tsc clean. **Carried to Plan 03:** fill the two config.rs prod placeholders, run `cargo test --release` green, run `check-dev-strip.sh` with `CHECK_PROD_BINARY`. **PAY-01 Validated (Plan 20-01).**
+
+**Phase 20 plan 02 decisions (2026-06-13, webhook backend — PAY-02/PAY-03):** `server/webhook/` Node/TS backend landed unit-complete (30 tests, all mocked I/O, zero live calls). `mor.ts` is the ONE Lemon-Squeezy swap seam (D-61) → neutral `OrderEvent` union; `verify.ts` HMAC-SHA256 over the RAW body + length-guarded `crypto.timingSafeEqual` (D-60, T-20-09/T-20-10 — re-serialized-JSON failure pinned); `keygen.ts` searches `metadata[orderId]` before create (D-58 idempotency, Keygen as the single source of truth — no second datastore) and POSTs the JSON:API license (policy rel → D-54 inherited `pro.theming`/`pro.ordering`, `metadata.orderId`), non-2xx throws → 5xx (D-59); `email.ts` Resend plain-text key + 3 activation steps + releases link (D-66), re-throws Resend `{error}` so fulfill 5xx + alert (D-72); `fulfill.ts` orchestrates verify(401)→ignore(200)→invalid(400)→idempotent-skip(200)→create→email→200, NEVER 2xx after a side-effect failure (LS auto-retries); `index.ts` built-in-`http` server, `GET /health` + `POST /webhooks/lemonsqueezy` capturing the RAW body before any parse (Pitfall 5). **D-56 gate genuinely wired:** lefthook typecheck COMMAND now also runs `tsc --noEmit -p server/webhook/tsconfig.json` (PROVEN to catch a server-only type error the old root-only command missed) + eslint `files:["server/**/*.ts"]` node-globals block. **Structural decisions:** `server/webhook` is a pnpm WORKSPACE MEMBER (not a root dep) so `resend@6.12.4` is the webhook package's dep and never enters the app/webview manifest (zero-webview-runtime-deps wedge holds — resend is backend-only, never imported by `src/`); the optional root tsconfig project reference was DROPPED (a composite ref forces `noEmit:false` → TS6310, broke `tsc --noEmit`; the explicit `-p` gate command is the required D-56 mechanism regardless). Added `@types/node@22` (devDep) + `allowImportingTsExtensions` to the server tsconfig (Rule-3 blocking fixes). Secrets template-only: real `.env` gitignored, `.env.example` placeholders, no hardcoded token. Full suite **871/871** (+30), root+server tsc + lint clean; `decoder.ts` + its 19 tests untouched. **PAY-02/PAY-03 Done (Plan 20-02).** **Carried to Plan 03:** confirm the real LS test-mode payload field paths (`data.id`, `data.attributes.user_email`, A5) in the D-63 e2e; stand up prod CE + policy + Caddy; fill `server/webhook/.env`; live purchase→license→email round-trip.
 
 **v1.6 sequencing decisions:** entitlements seam FIRST (pure frontend, free-tier default = everything unlocked until Phase 21 flips it at integration); Keygen Rust integration is the riskiest chunk and carries the key→token-exchange SPIKE; PAY pipeline is external infra, parallel-capable with Phase 19; lifecycle hardening + the 8-case ship-gate matrix close the milestone.
 

@@ -147,7 +147,7 @@ Plans:
 
 Plans:
 - [x] 20-01-PLAN.md — Buy-CTA opener seam (https-scoped) + UpsellPanel wiring + config.rs cfg(debug_assertions) prod/dev constant switch + dist-grep + Buy e2e (PAY-01, D-52/D-67/D-68; autonomous, wave 1) ✓ 2026-06-13 (PAY-01 Validated; e2e wave-merge gate blocked by a pre-existing shared dev-toggle flake — deferred-items.md)
-- [ ] 20-02-PLAN.md — TypeScript/Node webhook backend: LS order_created signature verify + Keygen idempotent license create (metadata.orderId, pro.theming/pro.ordering) + Resend key email; TDD, joins the vitest/tsc/eslint gate (PAY-02/PAY-03; autonomous, wave 1)
+- [x] 20-02-PLAN.md — TypeScript/Node webhook backend: LS order_created signature verify + Keygen idempotent license create (metadata.orderId, pro.theming/pro.ordering) + Resend key email; TDD, joins the vitest/tsc/eslint gate (PAY-02/PAY-03; autonomous, wave 1)
 - [ ] 20-03-PLAN.md — Production CE bring-up: committed infra/keygen/ (real-ACME Caddy + webhook container + swap + idempotent setup) + human RUNBOOK (VPS/DNS/LS/Resend/secrets) + real prod constants + live D-63 purchase + grep-clean (PAY-01/02/03; NOT autonomous, wave 2)
 **UI hint**: yes
 
@@ -190,7 +190,7 @@ Phases execute in numeric order. v1.6 runs 18 → 19 → 21 with Phase 20 parall
 | 17. Pinned sidebar section | v1.5 | 2/2 | Complete    | 2026-06-07 |
 | 18. Entitlements Seam & Central Gate | v1.6 | 4/4 | Complete    | 2026-06-10 |
 | 19. License Activation & Offline Verification | v1.6 | 4/4 | Complete    | 2026-06-12 |
-| 20. Purchase Pipeline | v1.6 | 1/3 | In progress | PAY-01 |
+| 20. Purchase Pipeline | v1.6 | 2/3 | In progress | PAY-01/02/03 |
 | 21. License Lifecycle & Ship Gate | v1.6 | 0/? | Not started | - |
 
 ## Backlog

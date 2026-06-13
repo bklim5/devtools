@@ -35,8 +35,8 @@
 ### Purchase Pipeline (PAY)
 
 - [x] **PAY-01**: User can buy a lifetime license through a merchant-of-record checkout (one-time payment; Lemon Squeezy default pending a seller payout-country check); an in-app "Buy license" affordance opens the purchase page in the default browser.
-- [ ] **PAY-02**: A purchase-completed webhook triggers a small backend that creates the Keygen license (perpetual, node-locked, `maxMachines=1`, entitlements embedded in the signed key); privileged Keygen tokens exist **only** server-side — never in the app bundle.
-- [ ] **PAY-03**: The buyer receives the license key by email automatically after purchase.
+- [x] **PAY-02**: A purchase-completed webhook triggers a small backend that creates the Keygen license (perpetual, node-locked, `maxMachines=1`, entitlements embedded in the signed key); privileged Keygen tokens exist **only** server-side — never in the app bundle.
+- [x] **PAY-03**: The buyer receives the license key by email automatically after purchase.
 
 ---
 
@@ -86,5 +86,5 @@
 | LIC-08 | Phase 21 | — | Pending |
 | LIC-09 | Phase 21 | — | Pending |
 | PAY-01 | Phase 20 | 20-01 | Done |
-| PAY-02 | Phase 20 | — | Pending |
-| PAY-03 | Phase 20 | — | Pending |
+| PAY-02 | Phase 20 | 20-02 | Done |
+| PAY-03 | Phase 20 | 20-02 | Done |
