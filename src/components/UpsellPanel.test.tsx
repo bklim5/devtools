@@ -65,19 +65,46 @@ describe("UpsellPanel (card)", () => {
     expect(container.textContent).not.toMatch(/\$|price/i);
   });
 
-  it("renders the 'Buy license' CTA as a Tab-reachable button (stub no-op, D-21)", () => {
+  it("renders the 'Buy license' CTA as a Tab-reachable button that opens the checkout via the opener seam (PAY-01/D-67)", async () => {
+    // The CTA opens https://tinkerdev.io/buy through platform.opener.openUrl —
+    // NOT by navigating the in-app document. Inject a spy opener arm and assert
+    // the seam is reached exactly once with the https URL, and that the in-app
+    // location is unchanged (the seam, not the route, is what fires).
+    const openUrl = vi.fn().mockResolvedValue(undefined);
+    setPlatformForTest({ ...makeMemoryPlatform(), opener: { openUrl } });
+    const hrefBefore = window.location.href;
+
     const { getByRole } = render(<UpsellPanel icon={Lock} />);
     const buy = getByRole("button", { name: "Buy license" });
     expect(buy.tagName).toBe("BUTTON");
     expect(buy.getAttribute("tabindex")).not.toBe("-1");
-    // Stub: clicking must not navigate or throw (no-op this phase).
+
     fireEvent.click(buy);
-    expect(window.location.href).not.toContain(BUY_LICENSE_URL);
+
+    await waitFor(() =>
+      expect(openUrl).toHaveBeenCalledWith("https://tinkerdev.io/buy"),
+    );
+    expect(openUrl).toHaveBeenCalledTimes(1);
+    // No in-page navigation: the OS browser opens, the route never changes.
+    expect(window.location.href).toBe(hrefBefore);
   });
 
-  it("exports BUY_LICENSE_URL as a single stub constant", () => {
-    expect(typeof BUY_LICENSE_URL).toBe("string");
-    expect(BUY_LICENSE_URL.length).toBeGreaterThan(0);
+  it("exports BUY_LICENSE_URL as the single https checkout constant (D-68)", () => {
+    expect(BUY_LICENSE_URL).toBe("https://tinkerdev.io/buy");
+    expect(BUY_LICENSE_URL.startsWith("https://")).toBe(true);
+  });
+
+  it("clicking Buy must not throw even if the opener rejects (best-effort, calm)", () => {
+    setPlatformForTest({
+      ...makeMemoryPlatform(),
+      opener: { openUrl: vi.fn().mockRejectedValue(new Error("nope")) },
+    });
+    const { getByRole } = render(<UpsellPanel icon={Lock} />);
+    // The handler swallows the rejection (logged, never surfaced) — clicking is
+    // safe; the synchronous click dispatch must not throw.
+    expect(() =>
+      fireEvent.click(getByRole("button", { name: "Buy license" })),
+    ).not.toThrow();
   });
 
   it("renders the inert 'I have a license key' affordance (D-22)", () => {

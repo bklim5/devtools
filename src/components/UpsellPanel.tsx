@@ -46,9 +46,10 @@ import {
 import { refreshLicenseUi } from "@/lib/license/licenseUi";
 import { useLicenseUi } from "@/shell/useLicenseUi";
 
-/** Stub — Phase 20 swaps in the real MoR checkout link. The CTA is a no-op
- *  until then (D-21): ONE constant so the swap is a single edit. */
-export const BUY_LICENSE_URL = "https://example.invalid/devtools/buy";
+/** D-68: the own-domain redirect the user controls (Cloudflare/Caddy) forwards
+ *  to the live MoR checkout. ONE https constant so a store/MoR change never
+ *  requires an app release; the Buy CTA opens it via the platform opener seam. */
+export const BUY_LICENSE_URL = "https://tinkerdev.io/buy";
 
 /** Locked error copy (D-36/D-37/D-38; 19-CONTEXT) keyed on the typed codes the
  *  Rust commands reject with — Rust never sends prose. Calm tone throughout;
@@ -311,9 +312,14 @@ export function UpsellPanel({
           <button
             type="button"
             onClick={() => {
-              // D-21 stub: the CTA reads the single URL constant but stays a
-              // no-op this phase — Phase 20 wires the real checkout open.
-              void BUY_LICENSE_URL;
+              // PAY-01/D-67: open the checkout in the OS default browser via the
+              // platform opener seam (https-only, capability-scoped). Best-effort:
+              // a failed open is calm — log, never throw at the user. Outside
+              // Tauri the seam is a no-op (never navigates jsdom/vite-preview).
+              const open = platform.opener.openUrl(BUY_LICENSE_URL);
+              void open.catch((err) =>
+                console.error("[buy] open failed:", err),
+              );
             }}
             className="cursor-pointer rounded-[7px] border border-accent-line bg-accent-soft px-3 py-1 text-[12px] text-accent outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent"
           >

@@ -257,6 +257,28 @@ describe("platform seam — license (LIC-01..04)", () => {
     });
   });
 
+  it("browser fallback opener.openUrl resolves without navigating (Test 14b, PAY-01/D-67)", async () => {
+    // Opening external URLs is Tauri-only: the browser/test arm is a deterministic
+    // no-op that NEVER navigates jsdom — mirrors the license-arm determinism.
+    setPlatformForTest(browserPlatform);
+    const hrefBefore =
+      typeof window !== "undefined" ? window.location.href : undefined;
+    await expect(
+      platform.opener.openUrl("https://tinkerdev.io/buy"),
+    ).resolves.toBeUndefined();
+    if (typeof window !== "undefined") {
+      expect(window.location.href).toBe(hrefBefore);
+    }
+  });
+
+  it("accessor routes opener through an injected custom stub (Test 14c)", async () => {
+    const openUrl = vi.fn().mockResolvedValue(undefined);
+    const stub: Platform = { ...browserPlatform, opener: { openUrl } };
+    setPlatformForTest(stub);
+    await platform.opener.openUrl("https://x.example/");
+    expect(openUrl).toHaveBeenCalledWith("https://x.example/");
+  });
+
   it("accessor routes license through an injected custom stub (Test 14)", async () => {
     const status = vi.fn().mockResolvedValue({
       state: "licensed",
