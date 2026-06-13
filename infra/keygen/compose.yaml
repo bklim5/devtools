@@ -1,0 +1,133 @@
+# Production Keygen CE stack for Phase 20 (D-46 "full prod now", D-50).
+#
+# Adapted from scripts/keygen-ce/compose.yaml (the proven Phase-19 LOCAL shape)
+# with the production deltas:
+#   1. A `webhook` service (the Plan-02 server/webhook backend) built from
+#      infra/keygen/webhook.Dockerfile, reaching keygen-web over the compose
+#      network (localhost-equivalent) so the privileged admin token NEVER crosses
+#      the public internet (D-55). It publishes NO host ports — Caddy fronts it.
+#   2. Caddy uses REAL ACME for license.tinkerdev.io (see Caddyfile) — NOT
+#      `tls internal` (Pitfall 3: release builds compile out the custom-CA path,
+#      so a self-signed prod cert fails every activation).
+#   3. Redis is pinned to `maxmemory-policy noeviction` (Pitfall 7) so Sidekiq
+#      jobs (machine-file checkout, etc.) never silently drop under pressure.
+#
+# As in Phase 19: NO compose profile keys anywhere — the box's Compose handles
+# them unreliably (Pitfall 8). The `setup` one-shot is a plain
+# service that must NEVER be listed in `up`; run it explicitly ONCE:
+#     docker compose -f infra/keygen/compose.yaml run --rm setup
+#
+# Secrets live in a sibling `.env` (gitignored — D-41/D-50). Generate it from
+# `.env.example` on the box; the webhook reads server/webhook/.env (also on the
+# box, gitignored). See RUNBOOK.md for the ordered bring-up.
+
+services:
+  setup:
+    image: keygen/api:latest
+    environment:
+      DATABASE_URL: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
+      DISABLE_DATABASE_ENVIRONMENT_CHECK: 1
+    env_file:
+      - .env
+    command: >
+      sh -c "
+        until pg_isready -h postgres -U ${POSTGRES_USER}; do
+          echo 'Waiting for PostgreSQL...'
+          sleep 1
+        done
+        bundle exec rails keygen:setup
+      "
+    depends_on: [ postgres ]
+    tty: true
+    stdin_open: true
+
+  postgres:
+    image: postgres:17.5
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres:/var/lib/postgresql/data
+
+  redis:
+    image: redis
+    restart: unless-stopped
+    # Pitfall 7: Keygen's Sidekiq workers require noeviction so background jobs
+    # (machine-file checkout, etc.) are never dropped under memory pressure.
+    command: ["redis-server", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redis:/data
+
+  web:
+    image: keygen/api:latest
+    restart: unless-stopped
+    command: "web"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
+    volumes:
+      - keygen:/etc/keygen
+    depends_on:
+      - postgres
+      - redis
+
+  worker:
+    image: keygen/api:latest
+    restart: unless-stopped
+    command: "worker"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
+    volumes:
+      - keygen:/etc/keygen
+    depends_on:
+      - postgres
+      - redis
+
+  # Plan-02 purchase webhook (LS order_created -> Keygen CE license -> Resend).
+  # Built from the repo's server/webhook; reaches CE at http://web:3000 over the
+  # compose network (D-55) — the admin token in server/webhook/.env stays on the
+  # box. NO published ports: Caddy proxies /webhooks/* to it (see Caddyfile).
+  webhook:
+    build:
+      context: ../../server/webhook
+      dockerfile: ../../infra/keygen/webhook.Dockerfile
+    restart: unless-stopped
+    env_file:
+      # On-box gitignored webhook secrets (admin token, LS secret, Resend key).
+      # KEYGEN_BASE_URL must be http://web:3000 — the internal CE origin (D-55).
+      - ../../server/webhook/.env
+    depends_on:
+      - web
+
+  caddy:
+    image: caddy:latest
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    env_file:
+      - .env
+    environment:
+      # Real ACME host + email drive automatic Let's Encrypt (Pitfall 3).
+      CADDY_HOSTS: "${CADDY_HOSTS:-$KEYGEN_HOST}"
+      CADDY_ACME_EMAIL: "${CADDY_ACME_EMAIL}"
+    command: ["caddy", "run", "--config", "/etc/caddy/Caddyfile"]
+    depends_on:
+      - web
+      - webhook
+
+volumes:
+  keygen:
+  postgres:
+  redis:
+  caddy_data:
+  caddy_config:

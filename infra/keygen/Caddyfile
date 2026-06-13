@@ -1,0 +1,31 @@
+# Production reverse proxy for license.tinkerdev.io (Pitfall 3 — REAL ACME).
+#
+# NO self-signed / internal-CA block here: release-build activations trust ONLY
+# the OS root store (keygen_client.rs gates the custom-CA path behind
+# #[cfg(debug_assertions)]), so a self-signed prod cert would fail every
+# activation. With no `tls` directive at all, Caddy provisions a publicly-trusted
+# Let's Encrypt cert automatically (Pitfall 3) — this
+# requires ports 80 + 443 open and the A-record license.tinkerdev.io -> VPS IP
+# live BEFORE the first Caddy boot (HTTP-01 challenge). See RUNBOOK.md.
+#
+# CADDY_HOSTS (= KEYGEN_HOST = license.tinkerdev.io) and CADDY_ACME_EMAIL come
+# from the gitignored .env.
+
+{
+	# ACME account email for Let's Encrypt registration + expiry notices.
+	email {$CADDY_ACME_EMAIL}
+}
+
+{$CADDY_HOSTS} {
+	# Purchase webhook (Plan-02 backend). Only the signed /webhooks/* route is
+	# public; everything else the webhook does (the privileged admin-token calls
+	# to CE) happens over the compose network, never proxied (D-55).
+	# Webhook binds PORT=8787 (server/webhook config default).
+	reverse_proxy /webhooks/* webhook:8787
+
+	# Webhook health endpoint for UptimeRobot (D-72).
+	reverse_proxy /health webhook:8787
+
+	# Everything else -> Keygen CE web (the licensing API).
+	reverse_proxy web:3000
+}

@@ -53,3 +53,11 @@ scripts/keygen-ce/spike-transcript.log
 server/webhook/.env
 !server/webhook/.env.example
 server/webhook/*.tsbuildinfo
+
+# Production Keygen CE stack (D-41/D-50) — real CE secrets (SECRET_KEY_BASE,
+# ENCRYPTION_*) + any provisioned certs stay local/on-box only; the .env.example
+# TEMPLATE is committed (re-included; the global `.env.*` pattern above would
+# otherwise swallow it).
+infra/keygen/.env
+infra/keygen/*.crt
+!infra/keygen/.env.example
