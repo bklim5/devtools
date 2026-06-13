@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Licensing
 status: executing
-last_updated: "2026-06-12T21:09:57.056Z"
-last_activity: 2026-06-12
+last_updated: "2026-06-13T19:12:00.000Z"
+last_activity: 2026-06-13 -- Phase 20 plan 01 complete (Buy wiring + D-52 constant split)
 progress:
-  total_phases: 8
+  total_phases: 10
   completed_phases: 2
-  total_plans: 8
-  completed_plans: 8
-  percent: 100
+  total_plans: 11
+  completed_plans: 9
+  percent: 82
 ---
 
 # Project State
@@ -18,11 +18,11 @@ progress:
 ## Current Position
 
 Milestone: **v1.6 "Licensing"** — started 2026-06-09, roadmap created 2026-06-09.
-Phase: 20 (purchase-pipeline) — NOT STARTED (next up)
-Plan: Not started
-Status: Phase 19 COMPLETE (verified 5/5, human-approved walkthrough vs live CE) — next: Phase 20 Purchase Pipeline or Phase 21
-Progress: [■■□□] 2/4 phases · v1.6 plans 8/8
-Last activity: 2026-06-12 — Phase 19 executed end-to-end and verified: CE SPIKE (key→token DENIED → raw key in Keychain), pure-Rust fail-closed license core, 4-command surface + platform.license seam, activation UX with live entitlement unlock; walkthrough approved, UI audit 22/24, review 0 critical
+Phase: 20 (Purchase Pipeline) — EXECUTING
+Plan: 2 of 3
+Status: Executing Phase 20
+Progress: [■■□□] 2/4 phases · v1.6 plans 9/9 (20-01 done)
+Last activity: 2026-06-13 -- Phase 20 plan 01 complete (Buy wiring + D-52 constant split)
 
 **Goal:** one-time-payment lifetime license — MoR checkout → webhook → Keygen (perpetual, node-locked, maxMachines=1); paste-key one-time activation (fingerprint `HMAC-SHA256(IOPlatformUUID, salt)`); offline Ed25519-verified `machine.lic` (~30-day TTL) thereafter; license key in Keychain (Rust-owned); free tier keeps all 11 tools — Pro locks customization (theming + ordering/pinning) behind a central entitlement gate (D-18 pivot; tool-gating mechanism ships dormant). Research: `docs/licensing-research.md`.
 
@@ -52,7 +52,7 @@ Last activity: 2026-06-12 — Phase 19 executed end-to-end and verified: CE SPIK
 See: .planning/PROJECT.md (updated 2026-06-09, v1.6 started) · roadmap: .planning/ROADMAP.md · requirements: .planning/REQUIREMENTS.md · research: docs/licensing-research.md
 
 **Core value:** Paste an unknown blob → usable, explorable interpretation in <2s, entirely offline, no mouse.
-**Current focus:** Phase 19 — license-activation-offline-verification
+**Current focus:** Phase 20 — Purchase Pipeline
 
 ## v1.5 — Pinned Tools (SHIPPED & ARCHIVED, 2026-06-07)
 
@@ -63,6 +63,7 @@ v1.5 complete — Phase 17 (2 plans), archived to `.planning/milestones/v1.5-*` 
 ### Pending Todos
 
 - **Gate command palette as Pro feature** (`2026-06-11-gate-command-palette-as-pro-feature.md`) — add a palette entitlement to the Phase 18 seam; fold into Phase 21 planning (dev-toggle escape hatch + e2e palette-nav fallout noted in the todo).
+- **Shared ⌘K dev-toggle → entitlement-refresh e2e is broken on the real WKWebView** (`.planning/phases/20-purchase-pipeline/deferred-items.md`) — the UNMODIFIED `entitlements.e2e.ts` fails first/identically ("expected the free-tier Unlock Pro footer after the dev toggle"), cascading into `license-buy.e2e.ts` (new) + `license.e2e.ts` + `sidebar.e2e.ts`. Pre-existing/out-of-scope for 20-01 (opener seam + config split untouched the entitlement path; 13 non-license specs pass; PAY-01 unit-proven). Fold a deterministic prefs/override reset into the e2e preflight at the Phase 20/21 hardening pass. See [[license-walkthrough-state-pollutes-e2e]].
 
 **Inherited binding wedge (every phase):** offline/no-network · paste-instant (<2s) · keyboard-driven · registry-driven single control plane · HashRouter only · WCAG-AA (keyboard path + `aria-live` mandatory, not optional) · layout-agnostic · **zero new runtime AND dev dependencies in the webview** · **`src/lib/protobuf/decoder.ts` + its 19 tests stay byte-for-byte untouched**. UI features add the **real-WKWebView UI gate**.
 
@@ -83,6 +84,8 @@ v1.5 complete — Phase 17 (2 plans), archived to `.planning/milestones/v1.5-*` 
 **Phase 19 plan 02 decisions (2026-06-12, Rust license core):** `src-tauri/src/license/` landed pure (zero I/O in verify, zero Tauri types) with 24 cargo tests — fail-closed Ed25519 verify (`verify_strict` over literal `"machine/"+enc`, exact `"base64+ed25519"` alg gate, typed Corrupt|UnsupportedAlg|Tampered|ForeignMachine), real-CE fixture cross-validated against the real pubkey; **APP_SALT generated once and committed** (`e14f0d16…e45c75` — NEVER change post-release, orphans every activation, A5); fingerprint normalization locked to ioreg's verbatim uppercase hyphenated UUID; Keychain service = `com.tinkerdev.app.license` behind a `KeychainAccess` trait (tests never touch the real Keychain — Pitfall 5); `LicenseStatusPayload` camelCase JSON contract serde-pinned for Plans 03/04 (`{"state":"problem","problem":"foreignMachine","hasStoredKey":false}` shape; `has_stored_key` is the ONLY Keychain-derived value JS sees, lazy + fail-soft); expiry surfaced verbatim, NOT enforced (Phase 21, A6); `cargo test` joined lefthook as a pre-PUSH gate; module carries a documented temporary `#![allow(dead_code)]` — Plan 03 removes it when wiring commands; LIC-01/03/04/06 checkmarks deferred to the implementing plans 03/04 (Plan 01 precedent).
 
 **Phase 19 plan 03 decisions (2026-06-12, online half + commands + seam):** Keygen client landed as PURE parsers (canned-JSON cargo tests, zero sockets) + thin async transport — branching ALWAYS on HTTP status + JSON:API `code`, never detail/title prose; seat-limit from BOTH paths (`FINGERPRINT_SCOPE_MISMATCH` + 422 `MACHINE_LIMIT_EXCEEDED`) → the single typed `seatLimit`; D-38 classified in Rust (NetworkUnreachable/NetworkDown/HostUnreachable→`offline`, everything else incl. ambiguous→`serviceUnreachable`, A4 residual live-proven in Plan 04). `LicenseError` serializes `{"code":"camelCase"}` (8 codes) — the webview copy layer keys on these. **Machine identifier on Keygen machine routes = the URL-safe fingerprint** (the VALID idempotent path has no machine UUID; refresh/deactivate reuse it). Activation persists ONLY after the checkout cert passes local Ed25519 verify (write-after-verify, no partial-success — T-19-15/18, test-pinned). `LicenseApi` is a generic trait slot (async-fn-in-trait is dyn-incompatible — manager<C: LicenseApi>); commands sit behind `tauri::async_runtime::Mutex`; `license_status` async but provably network-free (D-45). Startup fingerprint failure → empty-string sentinel (fail-closed Problem; activate refuses before network). reqwest 0.13 feature is `rustls` (0.12's `rustls-tls` renamed); dev CA trust (`DEVTOOLS_KEYGEN_CA`) double-gated under `cfg(debug_assertions)`. Webview: `platform.license` + `LicenseStatusPayload`/`LicenseErrorCode` TS mirror; non-Tauri arms deterministic via `createLicenseStub` (status→notActivated, mutations reject `serviceUnreachable`); 13 test Platform literals now spread `makeMemoryPlatform()` (keeps src/tools/ license-free). **LIC-04 checked off** (fully delivered, no later plan carries it); LIC-01/02 defer to Plan 04's UX halves.
+
+**Phase 20 plan 01 decisions (2026-06-13, Buy wiring + D-52 constant split):** the app-side change is done — an `opener` capability mirrors the license-capability shape across the platform seam (`index.ts` interface + `get opener()` proxy, `tauri.ts` the SOLE `@tauri-apps/plugin-opener` importer, `browser.ts` deterministic no-op that never navigates jsdom). Installed `@tauri-apps/plugin-opener` (npm 2.5.4 + crate "2") + `tauri_plugin_opener::init()` — the FIRST new webview runtime dep, the explicit **D-67** exception; `opener:allow-open-url` scoped **https-only** (`{ url: "https://*" }`, T-20-01). Buy CTA now calls `platform.opener.openUrl("https://tinkerdev.io/buy")` — **D-68** own-domain redirect (store/MoR change never forces an app release), best-effort/calm (logs, never throws); D-21 stub tests rewritten to assert the seam call + no in-app navigation. **config.rs D-52:** `KEYGEN_HOST`/`KEYGEN_ACCOUNT_ID`/`KEYGEN_ED25519_PUBKEY_B64` cfg(debug_assertions)-split (dev=local CE, release=`license.tinkerdev.io` + `PROD_*_PLACEHOLDER` sentinels D-51); **APP_SALT stays single + byte-identical (A5)**; a `#[cfg(not(debug_assertions))]` tripwire test FAILS `cargo test --release` while placeholders remain (Plan 03's gate — `setup.sh` mints real values then re-runs green); default debug `cargo test` stays 3/3. `check-dev-strip.sh` extended with `check_prod_constants` (release-binary `license.tinkerdev.io`-present grep). Shared `noopOpener` added to `makeMemoryPlatform`/test literals (Rule-3 blocking fix). Unit suite **841/841**, tsc clean. **Carried to Plan 03:** fill the two config.rs prod placeholders, run `cargo test --release` green, run `check-dev-strip.sh` with `CHECK_PROD_BINARY`. **PAY-01 Validated (Plan 20-01).**
 
 **v1.6 sequencing decisions:** entitlements seam FIRST (pure frontend, free-tier default = everything unlocked until Phase 21 flips it at integration); Keygen Rust integration is the riskiest chunk and carries the key→token-exchange SPIKE; PAY pipeline is external infra, parallel-capable with Phase 19; lifecycle hardening + the 8-case ship-gate matrix close the milestone.
 
