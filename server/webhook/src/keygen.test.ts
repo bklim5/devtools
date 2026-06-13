@@ -33,8 +33,11 @@ describe("createKeygenClient.searchByOrderId (D-58 idempotency)", () => {
     expect(init.headers.Accept).toBe("application/vnd.api+json");
   });
 
-  it("returns the existing license when data[] is non-empty", async () => {
-    const license = { id: "lic_1", attributes: { key: "ABC-123" } };
+  it("returns the existing license when data[] has an exact metadata.orderId match", async () => {
+    const license = {
+      id: "lic_1",
+      attributes: { key: "ABC-123", metadata: { orderId: "order_1" } },
+    };
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, { data: [license] }));
     const client = createKeygenClient(config, fetchMock);
 
@@ -47,17 +50,28 @@ describe("createKeygenClient.searchByOrderId (D-58 idempotency)", () => {
 
     expect(await client.searchByOrderId("order_1")).toBeNull();
   });
+
+  it("returns null when no entry's metadata.orderId matches (never blind data[0])", async () => {
+    const other = {
+      id: "lic_2",
+      attributes: { key: "ZZZ", metadata: { orderId: "different_order" } },
+    };
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, { data: [other] }));
+    const client = createKeygenClient(config, fetchMock);
+
+    expect(await client.searchByOrderId("order_1")).toBeNull();
+  });
 });
 
 describe("createKeygenClient.createLicense (D-58 metadata + D-54 policy rel)", () => {
-  it("POSTs the JSON:API body (type licenses, attributes.metadata.orderId, relationships.policy) and returns the key", async () => {
+  it("POSTs the JSON:API body (type licenses, attributes.metadata.orderId, relationships.policy) and returns {id,key}", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       jsonResponse(201, { data: { id: "lic_9", attributes: { key: "KEY-XYZ" } } }),
     );
     const client = createKeygenClient(config, fetchMock);
 
-    const key = await client.createLicense("order_77");
-    expect(key).toBe("KEY-XYZ");
+    const created = await client.createLicense("order_77");
+    expect(created).toEqual({ id: "lic_9", key: "KEY-XYZ" });
 
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("http://localhost:3000/v1/accounts/acct_1/licenses");
@@ -85,6 +99,30 @@ describe("createKeygenClient.createLicense (D-58 metadata + D-54 policy rel)", (
     );
     const client = createKeygenClient(config, fetchMock);
 
-    await expect(client.createLicense("order_1")).rejects.toThrow(/no license key/);
+    await expect(client.createLicense("order_1")).rejects.toThrow(/no license id\/key/);
+  });
+});
+
+describe("createKeygenClient.markEmailed", () => {
+  it("PATCHes /licenses/:id with metadata { orderId, emailed: true }", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, { data: {} }));
+    const client = createKeygenClient(config, fetchMock);
+
+    await client.markEmailed("lic_9", "order_77");
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("http://localhost:3000/v1/accounts/acct_1/licenses/lic_9");
+    expect(init.method).toBe("PATCH");
+    expect(init.headers["Content-Type"]).toBe("application/vnd.api+json");
+    const sent = JSON.parse(init.body);
+    expect(sent.data.type).toBe("licenses");
+    expect(sent.data.attributes.metadata).toEqual({ orderId: "order_77", emailed: true });
+  });
+
+  it("throws on a non-2xx PATCH response", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(422, { errors: [] }));
+    const client = createKeygenClient(config, fetchMock);
+
+    await expect(client.markEmailed("lic_9", "order_77")).rejects.toThrow(/422/);
   });
 });

@@ -21,14 +21,16 @@ export interface KeygenConfig {
 /** Minimal JSON:API license resource shape we consume. */
 export interface KeygenLicense {
   id: string;
-  attributes: { key: string; metadata?: { orderId?: string } };
+  attributes: { key: string; metadata?: { orderId?: string; emailed?: boolean } };
 }
 
 export interface KeygenClient {
-  /** D-58: existing license for this orderId, or null. */
+  /** D-58: existing license for this exact orderId, or null. */
   searchByOrderId(orderId: string): Promise<KeygenLicense | null>;
-  /** Create a license stamped with metadata.orderId; returns the license key. Throws on non-2xx (D-59). */
-  createLicense(orderId: string): Promise<string>;
+  /** Create a license stamped with metadata.orderId; returns its id + key. Throws on non-2xx (D-59). */
+  createLicense(orderId: string): Promise<{ id: string; key: string }>;
+  /** Mark a license as emailed (Keygen replaces metadata, so re-send orderId). Throws on non-2xx. */
+  markEmailed(licenseId: string, orderId: string): Promise<void>;
 }
 
 type FetchLike = typeof fetch;
@@ -55,11 +57,15 @@ export function createKeygenClient(
         throw new Error(`Keygen search failed (${res.status})`);
       }
       const body = (await res.json()) as { data?: KeygenLicense[] };
-      const first = body.data?.[0];
-      return first ?? null;
+      // D-58: only accept an EXACT orderId match (the metadata[] filter is a CE
+      // hint, not a guarantee — never blind-trust data[0]).
+      const match = body.data?.find(
+        (lic) => lic.attributes.metadata?.orderId === orderId,
+      );
+      return match ?? null;
     },
 
-    async createLicense(orderId: string): Promise<string> {
+    async createLicense(orderId: string): Promise<{ id: string; key: string }> {
       const url = `${base}/licenses`;
       const payload = {
         data: {
@@ -80,11 +86,32 @@ export function createKeygenClient(
         throw new Error(`Keygen create failed (${res.status})`);
       }
       const body = (await res.json()) as { data?: KeygenLicense };
+      const id = body.data?.id;
       const key = body.data?.attributes?.key;
-      if (!key) {
-        throw new Error("Keygen create returned no license key");
+      if (!id || !key) {
+        throw new Error("Keygen create returned no license id/key");
       }
-      return key;
+      return { id, key };
+    },
+
+    async markEmailed(licenseId: string, orderId: string): Promise<void> {
+      const url = `${base}/licenses/${licenseId}`;
+      // Keygen REPLACES the metadata object on PATCH, so re-send orderId
+      // alongside the emailed flag to avoid clobbering it.
+      const payload = {
+        data: {
+          type: "licenses",
+          attributes: { metadata: { orderId, emailed: true } },
+        },
+      };
+      const res = await fetchImpl(url, {
+        method: "PATCH",
+        headers: { ...authHeaders, "Content-Type": JSON_API },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        throw new Error(`Keygen markEmailed failed (${res.status})`);
+      }
     },
   };
 }
