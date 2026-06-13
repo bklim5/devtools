@@ -20,3 +20,43 @@ elif [[ $status -ge 2 ]]; then
   exit 1
 fi
 echo "OK: dev toggle absent from dist/assets"
+
+# --- D-52: release binary embeds ONLY the prod licensing constants -----------
+# The licensing host/account/pubkey are cfg(debug_assertions)-split in
+# src-tauri/src/license/config.rs — a RELEASE binary must embed the production
+# CE host (license.tinkerdev.io) and NOT the localhost Keygen host. Unlike the
+# dist/assets dev-toggle check above (the Rust binary, not dist/, is the
+# artifact here), this runs against the packaged RELEASE binary at the
+# phase-boundary `tauri build` (Plan 03) — pass the binary/bundle path:
+#
+#   bash scripts/check-dev-strip.sh && \
+#     check_prod_constants src-tauri/target/release/devtools-app
+#
+# (sourcing: `source scripts/check-dev-strip.sh` then call the function, or run
+# the inline block below by exporting CHECK_PROD_BINARY=<path>). The prod-host
+# PRESENT grep is the load-bearing assertion; the localhost-ABSENT grep is the
+# corroborating check and only meaningful against a release (non-debug) binary.
+check_prod_constants() {
+  local binary="${1:?usage: check_prod_constants <release-binary-path>}"
+  if [[ ! -f "$binary" ]]; then
+    echo "FAIL: release binary not found at '$binary' — run 'pnpm tauri build' first" >&2
+    return 1
+  fi
+  # PRESENT: the production CE host must be embedded (load-bearing, D-52).
+  if ! grep -qa "license.tinkerdev.io" "$binary"; then
+    echo "FAIL: prod Keygen host 'license.tinkerdev.io' ABSENT from release binary" >&2
+    return 1
+  fi
+  # ABSENT: the localhost Keygen host string must NOT be embedded in a release
+  # binary (the dev arm is cfg'd out). Corroborating check.
+  if grep -qa "localhost" "$binary"; then
+    echo "WARN: 'localhost' string present in release binary — verify it is NOT the Keygen host constant" >&2
+  fi
+  echo "OK: release binary embeds prod constant license.tinkerdev.io"
+}
+
+# Opt-in: run the prod-constant check inline when CHECK_PROD_BINARY is set, so
+# the Plan 03 phase-boundary build can invoke this single script end-to-end.
+if [[ -n "${CHECK_PROD_BINARY:-}" ]]; then
+  check_prod_constants "$CHECK_PROD_BINARY" || exit 1
+fi
