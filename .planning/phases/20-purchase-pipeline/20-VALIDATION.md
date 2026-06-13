@@ -1,8 +1,8 @@
 ---
 phase: 20
 slug: purchase-pipeline
-status: draft
-nyquist_compliant: false
+status: approved
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-06-13
 ---
@@ -90,4 +90,4 @@ created: 2026-06-13
 - [ ] Feedback latency < 120s
 - [ ] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** approved 2026-06-13 (plans verified Nyquist-compliant by gsd-plan-checker)
