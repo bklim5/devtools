@@ -25,7 +25,7 @@ function required(env: NodeJS.ProcessEnv, name: string): string {
   if (value === undefined || value.trim() === "") {
     throw new Error(`Missing required env var: ${name}`);
   }
-  return value;
+  return value.trim();
 }
 
 /** Build + validate the Config from an env bag (defaults to process.env). */
