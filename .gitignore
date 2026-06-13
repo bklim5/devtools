@@ -46,3 +46,10 @@ scripts/keygen-ce/.env
 scripts/keygen-ce/caddy-root.crt
 !scripts/keygen-ce/.env.example
 scripts/keygen-ce/spike-transcript.log
+
+# Purchase-webhook backend (D-55) — real secrets (admin token, LS secret, Resend
+# key) stay local-only; the .env.example TEMPLATE is committed (re-included; the
+# global `.env.*` pattern above would otherwise swallow it).
+server/webhook/.env
+!server/webhook/.env.example
+server/webhook/*.tsbuildinfo

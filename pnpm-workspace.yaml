@@ -1,3 +1,6 @@
+packages:
+  - "."
+  - "server/webhook"
 allowBuilds:
   edgedriver: false
   esbuild: true

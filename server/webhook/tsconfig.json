@@ -1,0 +1,25 @@
+{
+  /* Node-targeted webhook backend. Composite so the root tsconfig can reference
+     it AND so `tsc -b` walks it; but the per-commit lefthook gate ALSO names this
+     file directly (`pnpm tsc --noEmit -p server/webhook/tsconfig.json`) because a
+     plain reference is NOT walked under the root `tsc --noEmit` (no `--build`) — D-56. */
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022"],
+    "types": ["node"],
+    "composite": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["src"]
+}

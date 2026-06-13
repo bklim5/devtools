@@ -1,0 +1,14 @@
+{
+  "name": "@devtools/webhook",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Lemon Squeezy order_created webhook -> Keygen CE license create -> Resend key email (PAY-02/PAY-03).",
+  "scripts": {
+    "start": "node --experimental-strip-types src/index.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "resend": "6.12.4"
+  }
+}
