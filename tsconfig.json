@@ -26,5 +26,10 @@
     "noFallthroughCasesInSwitch": true
   },
   "include": ["src"],
+  /* NOTE: server/webhook is deliberately NOT a project reference here. The gate
+     typechecks it via an EXPLICIT second invocation in lefthook.yml
+     (`tsc --noEmit -p server/webhook/tsconfig.json`) — D-56. A composite
+     reference would force `noEmit:false` on the server config (TS6310) and is
+     not needed, since the root gate runs `tsc --noEmit` without `--build`. */
   "references": [{ "path": "./tsconfig.node.json" }]
 }

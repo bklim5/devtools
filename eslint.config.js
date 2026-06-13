@@ -27,4 +27,17 @@ export default tseslint.config(
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
     },
   },
+  {
+    // The webhook backend (D-56) is Node, not browser — `process`/`Buffer`/
+    // `crypto`/`console` are Node globals. This block MERGES node globals onto
+    // server files (it comes AFTER the browser block, so node globals are added)
+    // and drops the React-refresh constraint, which is meaningless server-side.
+    files: ["server/**/*.ts"],
+    languageOptions: {
+      globals: { ...globals.node },
+    },
+    rules: {
+      "react-refresh/only-export-components": "off",
+    },
+  },
 );

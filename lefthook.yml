@@ -17,7 +17,10 @@ pre-commit:
   parallel: true
   commands:
     typecheck:
-      run: pnpm tsc --noEmit
+      # Root config has `include:["src"]` and runs WITHOUT `--build`, so a project
+      # `reference` to server/webhook is NOT walked. The server/ backend (D-56)
+      # therefore needs its OWN explicit typecheck invocation in the gate command.
+      run: pnpm tsc --noEmit && pnpm tsc --noEmit -p server/webhook/tsconfig.json
     test:
       run: pnpm vitest run
     lint:
