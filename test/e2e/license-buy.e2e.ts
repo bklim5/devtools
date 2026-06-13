@@ -86,15 +86,30 @@ describe("Buy-license wiring (real WKWebView)", () => {
     await firstHandle.waitForExist({ timeout: 15_000 });
 
     // BASELINE: in-Tauri default is FULL — toggle to FREE so the "Unlock Pro"
-    // footer (which opens the shared upsell modal) is present.
-    if (!(await unlockProFooterPresent())) {
+    // footer (which opens the shared upsell modal) is present. The ⌘K dev-toggle
+    // → refreshEntitlements() propagation is racy on this WKWebView worker setup
+    // (the same path the unmodified entitlements.e2e.ts shares — see
+    // .planning/phases/20-purchase-pipeline/deferred-items.md), so retry the
+    // toggle a few times before failing loud rather than depending on a single
+    // flip landing within one window.
+    let footerUp = await unlockProFooterPresent();
+    for (let attempt = 0; attempt < 4 && !footerUp; attempt++) {
       await runDevToggle();
-      await browser.waitUntil(async () => unlockProFooterPresent(), {
-        timeout: 10_000,
-        timeoutMsg:
-          'expected the free-tier "Unlock Pro" footer row after the dev toggle (D-29)',
-      });
+      try {
+        await browser.waitUntil(async () => unlockProFooterPresent(), {
+          timeout: 8_000,
+          interval: 200,
+          timeoutMsg: "footer not up yet",
+        });
+        footerUp = true;
+      } catch {
+        footerUp = await unlockProFooterPresent();
+      }
     }
+    assert(
+      footerUp,
+      'expected the free-tier "Unlock Pro" footer row after the dev toggle (D-29) — retried',
+    );
 
     try {
       // Open the shared upsell modal from the footer "Unlock Pro" row.
