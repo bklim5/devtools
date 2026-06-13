@@ -50,6 +50,7 @@ describe("platform seam", () => {
         refresh: vi.fn(),
         deactivate: vi.fn(),
       },
+      opener: { openUrl: vi.fn().mockResolvedValue(undefined) },
     };
     setPlatformForTest(stub);
 
@@ -155,6 +156,7 @@ describe("platform seam — native capabilities (NAT-01)", () => {
         refresh: vi.fn(),
         deactivate: vi.fn(),
       },
+      opener: { openUrl: vi.fn().mockResolvedValue(undefined) },
     };
     setPlatformForTest(stub);
 
@@ -219,6 +221,7 @@ describe("platform seam — auto-updater (DST-02)", () => {
         refresh: vi.fn(),
         deactivate: vi.fn(),
       },
+      opener: { openUrl: vi.fn().mockResolvedValue(undefined) },
     };
     setPlatformForTest(stub);
 

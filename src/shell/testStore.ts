@@ -43,6 +43,13 @@ export const noopEvents: Platform["events"] = {
  *  so jsdom tests never touch licensing or the network. */
 export const noopLicense: Platform["license"] = createLicenseStub();
 
+/** Shared no-op opener for test Platform stubs (PAY-01, D-67): opening external
+ *  URLs is Tauri-only, so jsdom/vite-preview NEVER navigate — one source of truth
+ *  so every inline literal satisfies the widened interface without re-drifting. */
+export const noopOpener: Platform["opener"] = {
+  openUrl: async () => {},
+};
+
 export function makeMemoryPlatform(store: Store = createStoreStub()): Platform {
   return {
     clipboard: { writeText: async () => {}, readText: async () => "" },
@@ -52,5 +59,6 @@ export function makeMemoryPlatform(store: Store = createStoreStub()): Platform {
     updater: noopUpdater,
     events: noopEvents,
     license: noopLicense,
+    opener: noopOpener,
   };
 }

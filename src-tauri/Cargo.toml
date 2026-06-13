@@ -63,6 +63,13 @@ thiserror = "2"
 # activation calls need. Unit tests never construct this client (pure parsers
 # only); transport is exercised live in the Plan 04 walkthrough.
 reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
+# External-URL opener for the in-app "Buy license" CTA (Phase 20, PAY-01 / D-67).
+# The JS side calls it via @tauri-apps/plugin-opener behind src/lib/platform/tauri.ts;
+# this is the explicit D-67 webview-runtime-dep exception (the seam wrapper) — the
+# rest of the webview stays zero-new-dep. Gated at runtime by the https-only
+# `opener:allow-open-url` capability in capabilities/default.json (no shell-injection
+# surface; the URL is the fixed compile-time https://tinkerdev.io/buy constant).
+tauri-plugin-opener = "2"
 
 [dev-dependencies]
 # Fixture keypair generation for license verify tests (rand_core 0.6-compatible

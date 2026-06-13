@@ -102,6 +102,12 @@ export interface Platform {
     /** Seat-transfer primitive — callable-but-unwired this phase. */
     deactivate(): Promise<LicenseStatusPayload>;
   };
+  /** Open an external URL in the OS default browser (PAY-01, D-67). https-only
+   *  (capability-scoped). No-op in the browser/test fallback — NEVER navigates
+   *  jsdom/vite-preview. Only tauri.ts reaches the opener plugin. */
+  opener: {
+    openUrl(url: string): Promise<void>;
+  };
 }
 
 /**
@@ -151,6 +157,9 @@ export const platform: Platform = {
   },
   get license() {
     return active.license;
+  },
+  get opener() {
+    return active.opener;
   },
 };
 

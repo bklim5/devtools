@@ -97,4 +97,10 @@ export const browserPlatform: Platform = {
   // resolves notActivated / rejects serviceUnreachable — never a network call
   // (ENT-03 mirror). This file must NOT import @tauri-apps/*.
   license: createLicenseStub(),
+  // Opening external URLs is Tauri-only (PAY-01, D-67): outside Tauri this is a
+  // no-op so jsdom/vite-preview NEVER navigate the document. This file must NOT
+  // import @tauri-apps/*.
+  opener: {
+    async openUrl(): Promise<void> {},
+  },
 };

@@ -44,6 +44,12 @@ pub fn run() {
         // via @tauri-apps/plugin-process behind src/lib/platform/tauri.ts to restart
         // into the freshly-installed bundle. Gated by `process:allow-restart`.
         .plugin(tauri_plugin_process::init())
+        // External-URL opener for the "Buy license" CTA (Phase 20, PAY-01 / D-67).
+        // The JS side calls openUrl via @tauri-apps/plugin-opener behind
+        // src/lib/platform/tauri.ts; gated at runtime by the https-only
+        // `opener:allow-open-url` capability (capabilities/default.json) so the app
+        // can never be coerced to open non-https schemes (file:/tel:/mailto:).
+        .plugin(tauri_plugin_opener::init())
         // Tray icon + menu (NAT-02, D-02 regular dock app + tray). Tauri 2 trays are
         // Rust-only (no tauri.conf.json tray config). The menu has Show + Quit; both
         // the menu "show" and a left-click summon the main window using the D-03

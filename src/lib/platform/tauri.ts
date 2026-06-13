@@ -22,6 +22,7 @@ import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import type { LicenseStatusPayload, Platform } from "./index";
 import type { Store } from "./stub";
 import {
@@ -122,5 +123,12 @@ export const tauriPlatform: Platform = {
     activate: (key) => invoke<LicenseStatusPayload>("activate_license", { key }),
     refresh: () => invoke<LicenseStatusPayload>("refresh_license"),
     deactivate: () => invoke<LicenseStatusPayload>("deactivate_machine"),
+  },
+  // PAY-01 / D-67: hand a fixed https URL to the OS default browser via the
+  // opener plugin. Gated at runtime by the https-only `opener:allow-open-url`
+  // capability — a non-https scheme is rejected by the capability scope, never
+  // reaching the OS. The `@tauri-apps/plugin-opener` import lives ONLY here.
+  opener: {
+    openUrl: (url: string) => openUrl(url),
   },
 };
