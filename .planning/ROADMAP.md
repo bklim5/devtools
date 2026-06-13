@@ -143,7 +143,12 @@ Plans:
   2. A completed purchase fires the `order_created` webhook → the small backend creates the Keygen license (perpetual, node-locked, `maxMachines=1`, entitlements embedded in the signed license) without manual steps
   3. The buyer receives the license key by email automatically after purchase, and that key activates successfully through the Phase 19 in-app flow
   4. Privileged Keygen tokens exist only server-side — verifiably absent from the app bundle, the repo, and every client-reachable surface
-**Plans**: TBD
+**Plans**: 3 plans (planned 2026-06-13)
+
+Plans:
+- [ ] 20-01-PLAN.md — Buy-CTA opener seam (https-scoped) + UpsellPanel wiring + config.rs cfg(debug_assertions) prod/dev constant switch + dist-grep + Buy e2e (PAY-01, D-52/D-67/D-68; autonomous, wave 1)
+- [ ] 20-02-PLAN.md — TypeScript/Node webhook backend: LS order_created signature verify + Keygen idempotent license create (metadata.orderId, pro.theming/pro.ordering) + Resend key email; TDD, joins the vitest/tsc/eslint gate (PAY-02/PAY-03; autonomous, wave 1)
+- [ ] 20-03-PLAN.md — Production CE bring-up: committed infra/keygen/ (real-ACME Caddy + webhook container + swap + idempotent setup) + human RUNBOOK (VPS/DNS/LS/Resend/secrets) + real prod constants + live D-63 purchase + grep-clean (PAY-01/02/03; NOT autonomous, wave 2)
 **UI hint**: yes
 
 ### Phase 21: License Lifecycle & Ship Gate
