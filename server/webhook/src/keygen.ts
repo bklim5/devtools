@@ -43,7 +43,11 @@ export function createKeygenClient(
   config: KeygenConfig,
   fetchImpl: FetchLike = fetch,
 ): KeygenClient {
-  const base = `${config.baseUrl.replace(/\/$/, "")}/v1/accounts/${config.accountId}`;
+  // Keygen CE (singleplayer) mounts the API at /v1/... with NO /accounts/{id}
+  // segment — the single account is implicit. Account-scoped routes 404 on the
+  // real prod CE (verified live 2026-06-14). config.accountId is retained for
+  // the record but is not in the URL path.
+  const base = `${config.baseUrl.replace(/\/$/, "")}/v1`;
   const authHeaders = {
     Authorization: `Bearer ${config.adminToken}`,
     Accept: JSON_API,

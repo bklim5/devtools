@@ -357,11 +357,13 @@ impl KeygenClient {
     pub fn new() -> Self {
         Self {
             http: build_http_client(),
-            base_url: format!(
-                "https://{}/v1/accounts/{}",
-                config::KEYGEN_HOST,
-                config::KEYGEN_ACCOUNT_ID
-            ),
+            // Keygen CE (singleplayer) mounts the API at /v1/... with NO
+            // /accounts/{id} segment — the single account is implicit. The
+            // account-scoped routes 404 on the real two-label prod host
+            // (verified live 2026-06-14: /v1/licenses/actions/validate-key →
+            // VALID, /v1/accounts/{id}/... → 404); they only resolved on the
+            // Phase-19 localhost CE via a nil-domain routing quirk.
+            base_url: format!("https://{}/v1", config::KEYGEN_HOST),
         }
     }
 

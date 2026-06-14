@@ -25,7 +25,7 @@ describe("createKeygenClient.searchByOrderId (D-58 idempotency)", () => {
 
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toContain(
-      "http://localhost:3000/v1/accounts/acct_1/licenses?metadata[orderId]=",
+      "http://localhost:3000/v1/licenses?metadata[orderId]=",
     );
     expect(url).toContain(encodeURIComponent("order 1/x"));
     expect(init.method).toBe("GET");
@@ -74,7 +74,7 @@ describe("createKeygenClient.createLicense (D-58 metadata + D-54 policy rel)", (
     expect(created).toEqual({ id: "lic_9", key: "KEY-XYZ" });
 
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe("http://localhost:3000/v1/accounts/acct_1/licenses");
+    expect(url).toBe("http://localhost:3000/v1/licenses");
     expect(init.method).toBe("POST");
     expect(init.headers["Content-Type"]).toBe("application/vnd.api+json");
     const sent = JSON.parse(init.body);
@@ -111,7 +111,7 @@ describe("createKeygenClient.markEmailed", () => {
     await client.markEmailed("lic_9", "order_77");
 
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe("http://localhost:3000/v1/accounts/acct_1/licenses/lic_9");
+    expect(url).toBe("http://localhost:3000/v1/licenses/lic_9");
     expect(init.method).toBe("PATCH");
     expect(init.headers["Content-Type"]).toBe("application/vnd.api+json");
     const sent = JSON.parse(init.body);
