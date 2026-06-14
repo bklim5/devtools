@@ -44,10 +44,14 @@ export interface Preferences {
    *  prompt on first launch); true = silent check at launch; false = no automatic
    *  network call ever. A manual check is always available regardless. */
   autoUpdateCheck: boolean | null;
-  /** Dev/test downgrade-only entitlement override (D-31). "free" forces the
-   *  free-tier set through the central gate in ANY build; it can only LOCK,
-   *  never unlock. null = no override (the environment default applies). */
-  entitlementsOverride: "free" | null;
+  /** Dev/test entitlement override (D-31). "free" forces the free-tier set
+   *  through the central gate in ANY build — downgrade-only, the prod invariant
+   *  (T-18-10/T-21-15). "full" is DEV-ONLY: it grants Pro under
+   *  `import.meta.env.DEV` so the dev/e2e harness can reach Pro after the D-85 flip
+   *  made an unlicensed in-Tauri install resolve FREE; in a release build the
+   *  coercer (prefsStore.ts) nulls it and the resolve.ts branch is tree-shaken, so
+   *  it can NEVER unlock prod. null = no override (the environment default applies). */
+  entitlementsOverride: "free" | "full" | null;
   /** One-shot license-drop notice acknowledgement (D-84). `true` = nothing to
    *  acknowledge (the steady state); set to `false` when Pro entitlements drop so
    *  the next open of the status route surfaces ONE calm, dismissable inline

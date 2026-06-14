@@ -184,21 +184,26 @@ describe("autoUpdateCheck coercion (D-09)", () => {
   });
 });
 
-// entitlementsOverride is the dev/test downgrade-only override (D-31), read from
-// the same untrusted on-disk blob (threat T-18-01: hand-edited prefs.json). Only
-// the exact string "free" is honored; EVERYTHING else — including "full" — must
-// coerce to null so no stored value can ever upgrade beyond the environment base.
-describe("entitlementsOverride coercion (D-31, T-18-01 — downgrade-only)", () => {
+// entitlementsOverride is the dev/test override (D-31), read from the same
+// untrusted on-disk blob (threat T-18-01: hand-edited prefs.json). "free" is
+// honored in any build (downgrade-only). "full" is DEV-ONLY: it survives the
+// coercer only under isTestOrDev() (vitest MODE==="test" satisfies this here) so
+// the dev/e2e harness can reach Pro after the D-85 flip; in a RELEASE build "full"
+// coerces to null. Everything else → null.
+describe("entitlementsOverride coercion (D-31, T-18-01 — downgrade-only + DEV-only full)", () => {
   it("preserves the exact string \"free\"", () => {
     expect(mergePreferences({ entitlementsOverride: "free" }).entitlementsOverride).toBe(
       "free",
     );
   });
 
-  it("coerces \"full\" to null (no stored value can UNLOCK)", () => {
+  it("preserves \"full\" under test/dev (DEV-only Pro override for the e2e harness)", () => {
+    // vitest runs with import.meta.env.MODE === "test" → isTestOrDev() is true, so
+    // "full" survives here. A RELEASE bundle (DEV false / MODE "production") nulls it
+    // — the prod downgrade-only invariant is grep-pinned by check-dev-strip.sh.
     expect(
       mergePreferences({ entitlementsOverride: "full" }).entitlementsOverride,
-    ).toBeNull();
+    ).toBe("full");
   });
 
   it("coerces junk values to null (untrusted hand-edited prefs.json)", () => {

@@ -37,9 +37,22 @@ function coerceAutoUpdateCheck(value: unknown): boolean | null {
   return value === true || value === false ? value : null;
 }
 
-/** Untrusted + DOWNGRADE-ONLY (D-31): accept exactly "free"; anything else → null. */
-function coerceEntitlementsOverride(value: unknown): "free" | null {
-  return value === "free" ? "free" : null;
+/** True under vitest or a dev build — never in a production bundle. Mirrors the
+ *  guard in src/lib/entitlements/store.ts (setEntitlementsForTest). */
+function isTestOrDev(): boolean {
+  const env = (import.meta as { env?: { MODE?: string; DEV?: boolean } }).env;
+  return env?.MODE === "test" || env?.DEV === true;
+}
+
+/** Untrusted entitlement override (D-31). "free" is honored in ANY build
+ *  (downgrade-only, the T-18-10/T-21-15 prod invariant). "full" is DEV-ONLY: it
+ *  survives the coercer only under `isTestOrDev()` so the dev/e2e harness can reach
+ *  Pro after the D-85 flip; in a RELEASE build "full" coerces to null (no stored
+ *  value can ever UNLOCK prod). Everything else → null. */
+function coerceEntitlementsOverride(value: unknown): "free" | "full" | null {
+  if (value === "free") return "free";
+  if (value === "full" && isTestOrDev()) return "full";
+  return null;
 }
 
 /** Untrusted one-shot drop-notice ack (D-84): honor only the explicit boolean

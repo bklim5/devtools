@@ -8,6 +8,7 @@ import { loadPreferences } from "@/shell/prefsStore";
 import {
   ALL_ENTITLEMENTS,
   FREE_SET,
+  FULL_SET,
   type EntitlementSet,
 } from "./entitlements";
 
@@ -37,8 +38,16 @@ function baseFromLicense(
  *  in-Tauri install actually locks theming + ordering/pinning (all 11 tools stay
  *  free). Browser/jsdom/vite-preview stay deterministically free (the status stub
  *  returns notActivated → FREE_SET — tests never touch licensing). Flip HERE and
- *  nowhere else. The D-31 override is DOWNGRADE-ONLY: it can force FREE, never add
- *  entitlements. */
+ *  nowhere else.
+ *
+ *  The D-31 override is DOWNGRADE-ONLY in production: `"free"` forces FREE_SET, and
+ *  nothing stored can ever UPGRADE past the environment base (T-18-10 / T-21-15 prod
+ *  invariant). The single exception is the DEV-only `"full"` value: under
+ *  `import.meta.env.DEV` (tree-shaken statically-false out of every release bundle)
+ *  it resolves to FULL_SET so the dev/e2e harness can reach Pro after the D-85 flip
+ *  made an unlicensed in-Tauri install resolve FREE. In a release build the coercer
+ *  already nulls `"full"` (prefsStore.ts), and this branch is shaken out — the
+ *  override stays strictly downgrade-only in prod. */
 export async function resolveEntitlements(): Promise<EntitlementSet> {
   // Outside Tauri: deterministic free, no licensing/network path (jsdom/preview).
   // Inside Tauri: the live license_status (pure-local file read + Ed25519 verify,
@@ -47,5 +56,10 @@ export async function resolveEntitlements(): Promise<EntitlementSet> {
     ? baseFromLicense(await platform.license.status())
     : FREE_SET;
   const prefs = await loadPreferences(); // awaits initPlatform() internally — store-race safe
-  return prefs.entitlementsOverride === "free" ? FREE_SET : base;
+  if (prefs.entitlementsOverride === "free") return FREE_SET; // downgrade-only (all builds)
+  // DEV-only Pro override (e2e/dev harness). Statically false in production →
+  // tree-shaken; the coercer also nulls "full" in prod, so this can never unlock
+  // a release build (the prod downgrade-only invariant holds).
+  if (import.meta.env.DEV && prefs.entitlementsOverride === "full") return FULL_SET;
+  return base;
 }

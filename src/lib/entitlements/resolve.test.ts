@@ -165,18 +165,33 @@ describe("resolveEntitlements (ENT-03 — the LIVE Phase 21 D-85 flip point)", (
     await expect(resolveEntitlements()).resolves.toBe(FREE_SET);
   });
 
-  it("junk override values never change the licensed base (coercer nulls them)", async () => {
+  it("entitlementsOverride=\"full\" UPGRADES to FULL_SET under DEV even when notActivated (the e2e Pro-reach override)", async () => {
+    // import.meta.env.DEV is true under vitest (same as a dev build) → the DEV-only
+    // "full" override resolves Pro, so the e2e harness can reach Pro after the D-85
+    // flip made an unlicensed install resolve FREE. A RELEASE bundle nulls "full" at
+    // the coercer AND tree-shakes this branch — the prod downgrade-only invariant is
+    // grep-pinned by check-dev-strip.sh.
     setTauriEnv();
-    await seedStoredPrefs({ entitlementsOverride: "full" }, licenseArm(LICENSED_BOTH));
-    expect((await resolveEntitlements()).size).toBe(2);
+    await seedStoredPrefs(
+      { entitlementsOverride: "full" },
+      licenseArm({ state: "notActivated", hasStoredKey: false }),
+    );
+    await expect(resolveEntitlements()).resolves.toBe(FULL_SET);
+  });
 
+  it("\"free\" still beats \"full\" precedence is moot — they are mutually exclusive stored values; junk override values never change the licensed base (coercer nulls them)", async () => {
+    setTauriEnv();
     await seedStoredPrefs({ entitlementsOverride: 123 }, licenseArm(LICENSED_BOTH));
     expect((await resolveEntitlements()).size).toBe(2);
 
-    // Outside Tauri, junk cannot upgrade either — the base stays FREE.
+    await seedStoredPrefs({ entitlementsOverride: {} }, licenseArm(LICENSED_BOTH));
+    expect((await resolveEntitlements()).size).toBe(2);
+
+    // Outside Tauri the base is FREE; the DEV "full" override still upgrades there
+    // too (the resolve branch is env-gated by import.meta.env.DEV, not by isTauriEnv).
     delete win.__TAURI_INTERNALS__;
     await seedStoredPrefs({ entitlementsOverride: "full" });
-    await expect(resolveEntitlements()).resolves.toBe(FREE_SET);
+    await expect(resolveEntitlements()).resolves.toBe(FULL_SET);
   });
 });
 
