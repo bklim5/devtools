@@ -16,7 +16,8 @@
     "process:allow-restart",
     {
       "identifier": "opener:allow-open-url",
-      "allow": [{ "url": "https://*" }]
+      "description": "Finding 7 / T-20-01: scoped to the EXACT buy host only (https://tinkerdev.io/*), never https://* or *, so an over-broad scope cannot turn the openUrl seam into an open-redirect. This permits BUY_LICENSE_URL=https://tinkerdev.io/buy (UpsellPanel.tsx). MAILTO SEAM: the pending Send-feedback affordance todo will ADD a narrow mailto:feedback@tinkerdev.io* allow entry here — keep additions deliberate and narrow; do NOT widen the existing https scope.",
+      "allow": [{ "url": "https://tinkerdev.io/*" }]
     }
   ]
 }
