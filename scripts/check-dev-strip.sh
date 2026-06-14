@@ -21,6 +21,26 @@ elif [[ $status -ge 2 ]]; then
 fi
 echo "OK: dev toggle absent from dist/assets"
 
+# Phase 21 (T-21-15): the DEV-only "full" entitlements override is written ONLY
+# inside the same import.meta.env.DEV palette branch (above) AND honored only
+# behind isTestOrDev()/import.meta.env.DEV (prefsStore.ts coercer + resolve.ts
+# branch). The dev write-site is the distinctive `entitlementsOverride:"full"`
+# object-literal assignment; a release bundle that failed to tree-shake the DEV
+# branch would carry it. Grep the MINIFIED-tolerant shapes (whitespace varies):
+# the absence of the literal "full" override write proves the Pro-grant path is
+# gone from prod, so no stored value can ever UNLOCK (the prod downgrade-only
+# invariant). The "free" downgrade write legitimately ships (it can only LOCK).
+if grep -REq --include='*.js' 'entitlementsOverride: *"full"' dist/assets/; then
+  echo "FAIL: DEV-only 'entitlementsOverride: \"full\"' write present in production bundle (T-21-15)" >&2
+  exit 1
+fi
+gstatus=$?
+if [[ $gstatus -ge 2 ]]; then
+  echo "FAIL: grep errored (exit $gstatus) — the 'full' override check did not run" >&2
+  exit 1
+fi
+echo "OK: DEV-only 'full' entitlements override absent from dist/assets"
+
 # --- D-52: release binary embeds ONLY the prod licensing constants -----------
 # The licensing host/account/pubkey are cfg(debug_assertions)-split in
 # src-tauri/src/license/config.rs — a RELEASE binary must embed the production

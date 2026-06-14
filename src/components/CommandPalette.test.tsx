@@ -15,7 +15,7 @@ import {
 import { createStoreStub } from "@/lib/platform/stub";
 import { makeMemoryPlatform } from "@/shell/testStore";
 import { PREFERENCES_STORE_KEY } from "@/shell/preferences";
-import { FULL_SET } from "@/lib/entitlements/entitlements";
+import { FREE_SET, FULL_SET } from "@/lib/entitlements/entitlements";
 import {
   getEntitlementsSnapshot,
   resetEntitlementsForTest,
@@ -286,8 +286,12 @@ describe("DEV-only 'Toggle free tier (dev)' command (D-31/D-32)", () => {
     await waitFor(() => expect(getEntitlementsSnapshot().size).toBe(0));
   });
 
-  it("toggling again clears the override (free ⇄ null)", async () => {
+  it("from the FREE baseline, toggling grants the DEV-only 'full' Pro override (Pro ⇄ Free)", async () => {
+    // Post-D-85 the dev toggle flips the EFFECTIVE tier, not the stored string:
+    // with FREE live (the unlicensed baseline), toggling must reach Pro by writing
+    // the DEV-only "full" override (resolve.ts upgrades it under import.meta.env.DEV).
     await store.set(PREFERENCES_STORE_KEY, { entitlementsOverride: "free" });
+    setEntitlementsForTest(FREE_SET); // FREE is live
     const { findByPlaceholderText, findByText } = renderPalette();
     act(() => pressMetaK());
     await findByPlaceholderText("Search tools…");
@@ -295,8 +299,12 @@ describe("DEV-only 'Toggle free tier (dev)' command (D-31/D-32)", () => {
     fireEvent.click(await findByText("Toggle free tier (dev)"));
 
     await waitFor(async () => {
-      expect((await loadPreferences()).entitlementsOverride).toBeNull();
+      expect((await loadPreferences()).entitlementsOverride).toBe("full");
     });
+    // …and the live snapshot flips up to Pro (FREE → FULL).
+    await waitFor(() =>
+      expect(getEntitlementsSnapshot()).toEqual(FULL_SET),
+    );
   });
 });
 

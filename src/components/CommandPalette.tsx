@@ -21,8 +21,11 @@ import {
 } from "react";
 import { useNavigate } from "react-router-dom";
 import { Lock } from "lucide-react";
-import { isToolLocked } from "@/lib/entitlements/entitlements";
-import { refreshEntitlements } from "@/lib/entitlements/store";
+import { ENT_ORDERING, isToolLocked } from "@/lib/entitlements/entitlements";
+import {
+  getEntitlementsSnapshot,
+  refreshEntitlements,
+} from "@/lib/entitlements/store";
 import { ENABLED_TOOLS, getToolById } from "@/lib/tools/registry";
 import type { ToolDefinition } from "@/lib/tools/types";
 import { rankTools, subsequenceScore } from "@/shell/fuzzy";
@@ -53,9 +56,13 @@ const toolRow = (tool: ToolDefinition): PaletteRow => ({ kind: "tool", tool });
 
 // D-32: DEV-only — import.meta.env.DEV is statically false in production builds,
 // so this whole branch (including the command STRING) is tree-shaken out.
-// Verified by the Plan 04 dist-grep check. The override is DOWNGRADE-ONLY (D-31):
-// it writes "free"/null through the coercer path; the resolver can never upgrade
-// past the environment base (T-18-10).
+// Verified by the Plan 04 dist-grep check (scripts/check-dev-strip.sh greps for
+// BOTH dev override values). Post-D-85 the override is a true Pro<->Free toggle
+// that drives the live entitlement snapshot: from the effective FREE baseline it
+// writes the DEV-only "full" (Pro), and from Pro it writes "free". Both values are
+// honored ONLY under import.meta.env.DEV — in a release build the coercer nulls
+// "full" and resolve.ts shakes the branch out, so this can never unlock prod
+// (T-18-10/T-21-15 downgrade-only invariant intact).
 const DEV_COMMANDS: CommandRow[] = import.meta.env.DEV
   ? [
       {
@@ -64,9 +71,13 @@ const DEV_COMMANDS: CommandRow[] = import.meta.env.DEV
         name: "Toggle free tier (dev)",
         icon: Lock,
         run: async () => {
+          // Toggle the EFFECTIVE tier, not the stored string: after the D-85 flip
+          // the baseline (no override / unlicensed) resolves FREE, so a stored-value
+          // flip alone could never reach Pro. If Pro is currently live → force FREE;
+          // otherwise → grant the DEV-only FULL override.
+          const proLive = getEntitlementsSnapshot().has(ENT_ORDERING);
+          const next: "free" | "full" = proLive ? "free" : "full";
           const prefs = await loadPreferences();
-          const next: "free" | null =
-            prefs.entitlementsOverride === "free" ? null : "free";
           await savePreferences({ ...prefs, entitlementsOverride: next });
           // Notify ALL gate consumers (Pitfall 3 — prefs hook instances don't
           // sync; the entitlements store is the one live channel).
