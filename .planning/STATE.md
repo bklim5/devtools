@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Licensing
 status: executing
-last_updated: "2026-06-13T19:21:00.000Z"
-last_activity: 2026-06-13 -- Phase 20 plan 02 complete (webhook backend: LS verify + Keygen create + Resend email; D-56 gate wired)
+last_updated: "2026-06-14T14:00:00.000Z"
+last_activity: 2026-06-14 -- Phase 20 plan 03 verified (prod CE live + pipeline proven test-mode end-to-end; verdict verified-pending-live-gate). Lone unmet gate: live USD-9 purchase, blocked on LS store approval (needs landing page).
 progress:
   total_phases: 10
   completed_phases: 2
   total_plans: 11
-  completed_plans: 10
-  percent: 91
+  completed_plans: 11
+  percent: 100
 ---
 
 # Project State
@@ -18,11 +18,11 @@ progress:
 ## Current Position
 
 Milestone: **v1.6 "Licensing"** — started 2026-06-09, roadmap created 2026-06-09.
-Phase: 20 (Purchase Pipeline) — EXECUTING
-Plan: 3 of 3 (20-01 + 20-02 done; 20-03 production CE bring-up remains, NOT autonomous)
-Status: Executing Phase 20
-Progress: [■■□□] 2/4 phases · v1.6 plans 10/10 (20-01 + 20-02 done)
-Last activity: 2026-06-13 -- Phase 20 plan 02 complete (webhook backend: LS verify + Keygen create + Resend email; D-56 gate wired)
+Phase: 20 (Purchase Pipeline) — VERIFIED-PENDING-LIVE-GATE
+Plan: 3 of 3 done (20-01 + 20-02 + 20-03 all executed & verified; prod CE live, pipeline proven test-mode end-to-end)
+Status: Phase 20 code/infra complete + verified (20-VERIFICATION.md = 4/4 criteria). Lone unmet item: the D-63 live USD-9 purchase, blocked on Lemon Squeezy store approval → blocked on a credible landing page (in progress).
+Progress: [■■□□] 2/4 phases · v1.6 plans 11/11 executed (Phase 20 closes on the live-purchase gate)
+Last activity: 2026-06-14 -- Phase 20 plan 03 verified (prod CE live; LS test-mode purchase → license → email → activation PASSES). Building the tinkerdev.io landing page to unblock LS store approval → the live purchase.
 
 **Goal:** one-time-payment lifetime license — MoR checkout → webhook → Keygen (perpetual, node-locked, maxMachines=1); paste-key one-time activation (fingerprint `HMAC-SHA256(IOPlatformUUID, salt)`); offline Ed25519-verified `machine.lic` (~30-day TTL) thereafter; license key in Keychain (Rust-owned); free tier keeps all 11 tools — Pro locks customization (theming + ordering/pinning) behind a central entitlement gate (D-18 pivot; tool-gating mechanism ships dormant). Research: `docs/licensing-research.md`.
 
