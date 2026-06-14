@@ -105,7 +105,8 @@ export function startServer() {
           search: (orderId) => keygen.searchByOrderId(orderId),
           create: (orderId) => keygen.createLicense(orderId),
           markEmailed: (id, orderId) => keygen.markEmailed(id, orderId),
-          email: (to, key) => sendKeyEmail(resend, { from: config.emailFrom }, to, key),
+          email: (to, key) =>
+            sendKeyEmail(resend, { from: config.emailFrom, replyTo: config.emailReplyTo }, to, key),
           alert: (message) => console.error("[ALERT]", message),
           log: (event, fields) => console.log(JSON.stringify({ event, ...fields })),
           withLock: mutex.withLock,

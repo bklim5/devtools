@@ -15,8 +15,10 @@ export interface Config {
   readonly lsWebhookSecret: string;
   /** Resend API key (D-64). */
   readonly resendApiKey: string;
-  /** Verified "from" address for the key email. */
+  /** Verified "from" address for the key email (Resend send domain). */
   readonly emailFrom: string;
+  /** Reply-To address — a monitored inbox (M365) separate from the send domain. */
+  readonly emailReplyTo: string;
   readonly port: number;
 }
 
@@ -38,6 +40,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     lsWebhookSecret: required(env, "LS_WEBHOOK_SECRET"),
     resendApiKey: required(env, "RESEND_API_KEY"),
     emailFrom: env.EMAIL_FROM?.trim() || "TinkerDev Licenses <licenses@email.tinkerdev.io>",
+    emailReplyTo: env.EMAIL_REPLY_TO?.trim() || "licenses@tinkerdev.io",
     port: Number(env.PORT ?? 8787),
   };
 }
