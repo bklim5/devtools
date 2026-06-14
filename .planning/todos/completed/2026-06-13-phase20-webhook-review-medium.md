@@ -1,5 +1,6 @@
 ---
 created: 2026-06-13T20:10:00+0100
+completed: 2026-06-14
 title: Phase 20 webhook — Medium code-review findings (6–10)
 area: backend/security
 files:
@@ -9,6 +10,19 @@ files:
   - test/e2e/license-buy.e2e.ts
   - server/webhook/src/keygen.ts
 ---
+
+## ✅ Completed 2026-06-14 — quick-task 260614-l39
+
+All five Medium items closed (commits `baaebd2a`, `e74c1f8f`, `9194e47e`, `4661958f`, `62ddff9e`; docs `a8395bc4`):
+- **6** — verified NO-OP: `keygen.ts:66-69` already does the exact `metadata.orderId === orderId` `.find()` (closed by the 20-03 idempotency rewrite); unchanged.
+- **7** — opener scope `https://*` → exact `https://tinkerdev.io/*` (T-20-01). The mailto-seam guidance for the future Send-feedback affordance moved into that todo (`2026-06-13-send-feedback-affordance.md`).
+- **8** — root `tsconfig.json` `"types": []` (zero source fallout; src/ was already browser-correct). server/webhook keeps `["node"]`.
+- **9** — `check-dev-strip.sh` now FAILs (`grep -qaF`, return 1) on `PROD_*_PLACEHOLDER` sentinels.
+- **10** — Buy e2e records + short-circuits `plugin:opener|open_url` and asserts exactly one call with `https://tinkerdev.io/buy`; recorder install moved inside the `try` (codex P2) so `finally` always restores it.
+
+Gates: vitest 889/889, both tsc gates, lint 0 errors; decoder + its 19 tests untouched. **Pending:** the real-WKWebView e2e + Buy→browser walkthrough (Task-4 human checkpoint).
+
+The lower-severity items in "Notes" below (PORT empty-string→0, prod-host string triplication, FulfillDeps/KeygenConfig cleanup) were explicitly out of scope and remain open — fold into a future cleanup pass if desired.
 
 ## Problem
 
