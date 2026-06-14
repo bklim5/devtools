@@ -32,9 +32,15 @@ pub const KEYGEN_HOST: &str = "license.tinkerdev.io";
 /// this is NOT in the URL path; it's retained for the record + release tripwire.
 /// Dev value from 19-SPIKE-OUTCOME.md (local CE instance); the prod value is
 /// minted by Plan 03's `setup.sh` (D-51).
+///
+/// `#[allow(dead_code)]`: unused at runtime (singleplayer `/v1` omits it from the
+/// URL); only the release tripwire (`#[cfg(test)]`) reads it, so non-test builds
+/// would otherwise warn dead_code.
 #[cfg(debug_assertions)]
+#[allow(dead_code)]
 pub const KEYGEN_ACCOUNT_ID: &str = "23c88309-2584-4771-81df-1d351672ff91"; // local CE
 #[cfg(not(debug_assertions))]
+#[allow(dead_code)]
 pub const KEYGEN_ACCOUNT_ID: &str = "0d607683-026f-468b-9cf0-f5bfaf61a7a1"; // prod CE (D-51, setup.sh 2026-06-14)
 
 /// Account Ed25519 public key, base64 of the RAW 32 bytes.
