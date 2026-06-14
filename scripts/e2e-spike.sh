@@ -113,6 +113,25 @@ preflight() {
     security delete-generic-password -s com.tinkerdev.app.dev.license >/dev/null 2>&1 || true
   fi
 
+  # 2.6) Reset the DEV prefs to a deterministic license/entitlement baseline.
+  #    Phase 21 made the resolve.ts Tauri arm LIVE (D-85): with no machine.lic an
+  #    in-Tauri install now resolves FREE. A leftover `entitlementsOverride:"free"`
+  #    from a prior poisoned run (the known [[license-walkthrough-state-pollutes-e2e]]
+  #    flake) would also pin FREE invisibly. Deleting the DEV-only prefs.json +
+  #    machine.dev.lic before launch makes every run start from the SAME known
+  #    state (no override, no cert → notActivated/FREE), so the entitlements /
+  #    license / license-settings specs are no longer order-/history-dependent.
+  #    This touches ONLY the dev identifier dir — a shipped install uses the same
+  #    dir but a buyer's real machine.lic is never present on a dev/CI machine,
+  #    and the file is recreated on next launch.
+  APP_DATA_DIR="$HOME/Library/Application Support/com.tinkerdev.app"
+  for f in "prefs.json" "machine.dev.lic" "machine.dev.lic.tmp"; do
+    if [[ -e "$APP_DATA_DIR/$f" ]]; then
+      echo "[spike] preflight: removing dev $f (deterministic license/entitlement baseline)…"
+      rm -f "$APP_DATA_DIR/$f" || true
+    fi
+  done
+
   # 3) Poll bounded (~10s) until both ports are free; escalate to KILL halfway,
   #    and fail loud on an unkillable foreign holder — never launch over it.
   waited=0
