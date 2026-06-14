@@ -131,4 +131,34 @@ describe("gatePreferences (D-26/D-27 — render-time view, never a prefs mutatio
     expect(gated.toolOrder).toEqual([]);
     expect(gated.pinnedToolIds).toEqual([]);
   });
+
+  it("D-86: a lock→unlock cycle leaves the STORED prefs byte-unchanged (dormant restore under the live flip)", () => {
+    // The live D-85 flip can drop entitlements to FREE_SET at any time; D-86
+    // requires the user's saved customization to survive dormant — gatePreferences
+    // is a render-time VIEW, never a mutation, so the SAME stored object round-trips
+    // identically and unlock restores the exact setup instantly.
+    const stored: Preferences = {
+      ...DEFAULT_PREFERENCES,
+      accent: "#abcdef",
+      toolOrder: ["jwt", "base64", "hash"],
+      pinnedToolIds: ["hash", "jwt"],
+    };
+    const before = structuredClone(stored);
+
+    // Lock (free flip): the render view reverts to defaults…
+    const locked = gatePreferences(stored, FREE_SET);
+    expect(locked.accent).toBe(DEFAULT_PREFERENCES.accent);
+    expect(locked.toolOrder).toEqual([]);
+    expect(locked.pinnedToolIds).toEqual([]);
+    // …but the STORED object is untouched (never wiped on lock).
+    expect(stored).toEqual(before);
+
+    // Unlock (activate/refresh): the exact saved arrangement comes right back.
+    const unlocked = gatePreferences(stored, FULL_SET);
+    expect(unlocked.accent).toBe("#abcdef");
+    expect(unlocked.toolOrder).toEqual(["jwt", "base64", "hash"]);
+    expect(unlocked.pinnedToolIds).toEqual(["hash", "jwt"]);
+    // The stored object is STILL byte-identical after the whole cycle.
+    expect(stored).toEqual(before);
+  });
 });

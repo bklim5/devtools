@@ -28,6 +28,7 @@ import type { ToolDefinition } from "@/lib/tools/types";
 import { rankTools, subsequenceScore } from "@/shell/fuzzy";
 import { loadPreferences, savePreferences } from "@/shell/prefsStore";
 import { useEntitlements } from "@/shell/useEntitlements";
+import { useLicenseUi } from "@/shell/useLicenseUi";
 
 /** A selectable palette row: a registry tool OR a non-navigating command
  *  (RESEARCH Pattern 7 — smallest discriminated-union extension). */
@@ -78,20 +79,25 @@ const DEV_COMMANDS: CommandRow[] = import.meta.env.DEV
 /**
  * Build the grouped, visible result model.
  * - Non-empty query → a single unlabelled ranked group: rankTools over the
- *   registry, then any DEV command whose NAME matches the same subsequence rule
- *   appended at the END (D-32 — dev tooling never outranks tools, but it must
- *   be findable by typing; a command-only match still counts as a match, so
- *   "No tools match" stays reserved for true misses). [] = no match.
+ *   registry, then any PRODUCTION command (e.g. "License", D-88) and any DEV
+ *   command whose NAME matches the same subsequence rule appended at the END
+ *   (D-32 — commands never outrank tools, but must be findable by typing; a
+ *   command-only match still counts as a match, so "No tools match" stays
+ *   reserved for true misses). [] = no match.
  * - Empty query → RECENT (valid recent ids, in order) then ALL TOOLS (the rest in
- *   registry order), then the DEV commands at the very END. Tampered/unknown
- *   recent ids are dropped via getToolById (threat T-02-10) so they can never
- *   render or be navigated to.
+ *   registry order), then the production + DEV commands at the very END.
+ *   Tampered/unknown recent ids are dropped via getToolById (threat T-02-10) so
+ *   they can never render or be navigated to.
  */
-function buildGroups(query: string, recentToolIds: string[]): PaletteGroup[] {
+function buildGroups(
+  query: string,
+  recentToolIds: string[],
+  commands: CommandRow[],
+): PaletteGroup[] {
   const q = query.trim().toLowerCase();
   if (q !== "") {
     const rows: PaletteRow[] = rankTools(query, ENABLED_TOOLS).map(toolRow);
-    for (const cmd of DEV_COMMANDS) {
+    for (const cmd of commands) {
       if (subsequenceScore(q, cmd.name.toLowerCase()) !== null) rows.push(cmd);
     }
     return [{ label: null, rows }];
@@ -111,7 +117,7 @@ function buildGroups(query: string, recentToolIds: string[]): PaletteGroup[] {
   const groups: PaletteGroup[] = [];
   if (recents.length > 0) groups.push({ label: "RECENT", rows: recents.map(toolRow) });
   groups.push({ label: "ALL TOOLS", rows: rest.map(toolRow) });
-  if (DEV_COMMANDS.length > 0) groups.push({ label: null, rows: DEV_COMMANDS });
+  if (commands.length > 0) groups.push({ label: null, rows: commands });
   return groups;
 }
 
@@ -169,9 +175,33 @@ export function CommandPalette() {
   // central predicate — the one resolved set, no per-feature checks (ENT-01).
   const ents = useEntitlements();
 
+  // D-88: the "License" command — a SHIPPED production command (NOT under the
+  // import.meta.env.DEV guard, so check-dev-strip.sh leaves it in the bundle; it
+  // carries no privileged action — it only navigates, T-21-15). Routes by state:
+  // there IS a license to manage (anything but the pure free notActivated) → the
+  // status route; the free tier → "/" where the sidebar's Unlock Pro panel lives.
+  const licenseState = useLicenseUi().state;
+  const licenseCommand = useMemo<CommandRow>(
+    () => ({
+      kind: "command",
+      id: "license-status",
+      name: "License",
+      icon: Lock,
+      run: () =>
+        navigate(licenseState === "notActivated" ? "/" : "/settings/license"),
+    }),
+    [licenseState, navigate],
+  );
+
+  // Production commands first, then DEV commands (dev tooling always last).
+  const commands = useMemo<CommandRow[]>(
+    () => [licenseCommand, ...DEV_COMMANDS],
+    [licenseCommand],
+  );
+
   const groups = useMemo(
-    () => buildGroups(query, recentToolIds),
-    [query, recentToolIds],
+    () => buildGroups(query, recentToolIds, commands),
+    [query, recentToolIds, commands],
   );
 
   // Flat, ordered list of selectable rows (the highlight index walks this).

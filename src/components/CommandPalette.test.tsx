@@ -22,6 +22,10 @@ import {
   setEntitlementsForTest,
 } from "@/lib/entitlements/store";
 import { loadPreferences } from "@/shell/prefsStore";
+import {
+  resetLicenseUiForTest,
+  setLicenseUiForTest,
+} from "@/lib/license/licenseUi";
 
 // Spy on useNavigate so Enter's navigation is observable without a real route.
 const navigateSpy = vi.fn();
@@ -46,6 +50,7 @@ afterEach(() => {
   cleanup();
   resetPlatformForTest();
   resetEntitlementsForTest();
+  resetLicenseUiForTest();
 });
 
 function renderPalette() {
@@ -292,5 +297,52 @@ describe("DEV-only 'Toggle free tier (dev)' command (D-31/D-32)", () => {
     await waitFor(async () => {
       expect((await loadPreferences()).entitlementsOverride).toBeNull();
     });
+  });
+});
+
+describe("CommandPalette — License command (D-88, shipped production command)", () => {
+  it("is findable by typed query (same subsequence rule as tools)", async () => {
+    const { findByPlaceholderText, findByText } = renderPalette();
+    act(() => pressMetaK());
+    await findByPlaceholderText("Search tools…");
+
+    fireEvent.change(await findByPlaceholderText("Search tools…"), {
+      target: { value: "licen" },
+    });
+    expect(await findByText("License")).toBeTruthy();
+  });
+
+  it("navigates to the status route when there is a license to manage (licensed)", async () => {
+    act(() =>
+      setLicenseUiForTest({
+        state: "licensed",
+        expiry: null,
+        entitlements: ["pro.theming", "pro.ordering"],
+        maskedKey: null,
+        email: null,
+      }),
+    );
+    const { findByPlaceholderText, findByText } = renderPalette();
+    act(() => pressMetaK());
+    await findByPlaceholderText("Search tools…");
+    fireEvent.change(await findByPlaceholderText("Search tools…"), {
+      target: { value: "license" },
+    });
+
+    fireEvent.click(await findByText("License"));
+    expect(navigateSpy).toHaveBeenCalledWith("/settings/license");
+  });
+
+  it("routes free (notActivated) to / where the Unlock Pro panel lives (D-88)", async () => {
+    act(() => setLicenseUiForTest({ state: "notActivated", hasStoredKey: false }));
+    const { findByPlaceholderText, findByText } = renderPalette();
+    act(() => pressMetaK());
+    await findByPlaceholderText("Search tools…");
+    fireEvent.change(await findByPlaceholderText("Search tools…"), {
+      target: { value: "license" },
+    });
+
+    fireEvent.click(await findByText("License"));
+    expect(navigateSpy).toHaveBeenCalledWith("/");
   });
 });

@@ -13,6 +13,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
+
+// D-88: the footer license-attention affordance routes via useNavigate when there
+// is a license to manage; spy it so the routing target is observable.
+const navigateSpy = vi.fn();
+vi.mock("react-router-dom", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("react-router-dom")>();
+  return { ...actual, useNavigate: () => navigateSpy };
+});
 import { ENABLED_TOOLS } from "@/lib/tools/registry";
 import { FREE_SET, FULL_SET } from "@/lib/entitlements/entitlements";
 import {
@@ -26,6 +34,7 @@ import {
 import {
   setPlatformForTest,
   resetPlatformForTest,
+  type LicenseStatusPayload,
   type Store,
 } from "@/lib/platform";
 import { createStoreStub } from "@/lib/platform/stub";
@@ -35,6 +44,7 @@ import { PREFERENCES_STORE_KEY } from "@/shell/preferences";
 let store: Store;
 
 beforeEach(() => {
+  navigateSpy.mockClear();
   store = createStoreStub();
   setPlatformForTest(makeMemoryPlatform(store));
   // Pitfall 5: jsdom's environment default is FREE — inject FULL so the existing
@@ -264,8 +274,8 @@ describe("Sidebar free tier (D-26/D-28)", () => {
   });
 });
 
-describe("Sidebar license attention footer (D-43)", () => {
-  it("renders 'License needs attention' under FULL_SET when the license has a problem, and opens the shared modal", async () => {
+describe("Sidebar license attention footer (D-43/D-88)", () => {
+  it("renders 'License needs attention' under FULL_SET when the license has a problem, and ROUTES to the status route (D-88)", async () => {
     // FULL_SET on purpose: a Phase-19 release build has everything unlocked —
     // the attention surface must NOT depend on the free-tier flip.
     const PROBLEM = {
@@ -273,8 +283,6 @@ describe("Sidebar license attention footer (D-43)", () => {
       problem: "corrupt",
       hasStoredKey: false,
     } as const;
-    // The panel re-queries status on mount — the injected stub must agree with
-    // the seeded snapshot or the async refresh would flip the state mid-test.
     setPlatformForTest({
       ...makeMemoryPlatform(store),
       license: { ...noopLicense, status: () => Promise.resolve(PROBLEM) },
@@ -292,11 +300,44 @@ describe("Sidebar license attention footer (D-43)", () => {
 
     fireEvent.click(footer);
 
-    // The shared modal opens; the panel inside renders the D-44 problem state.
-    expect(getByRole("dialog")).toBeDefined();
+    // D-88: a manageable license routes to the status route, NOT the upsell modal.
+    expect(navigateSpy).toHaveBeenCalledWith("/settings/license");
+    expect(queryByRole("dialog")).toBeNull();
+  });
+
+  it("renders 'License needs attention' for refreshNeeded and routes to the status route (D-84/D-88)", async () => {
+    const REFRESH_NEEDED = { state: "refreshNeeded", hasStoredKey: true } as const;
+    setPlatformForTest({
+      ...makeMemoryPlatform(store),
+      license: { ...noopLicense, status: () => Promise.resolve(REFRESH_NEEDED) },
+    });
+    // refreshNeeded drops entitlements to FREE — the footer must surface AND route.
+    act(() => setEntitlementsForTest(FREE_SET));
+    setLicenseUiForTest(REFRESH_NEEDED);
+    const { getByRole } = renderAt("/");
+    await flushPrefsLoad();
+
+    const footer = getByRole("button", { name: "License needs attention" });
+    fireEvent.click(footer);
+    expect(navigateSpy).toHaveBeenCalledWith("/settings/license");
+  });
+
+  it("offlineGrace adds NO footer nag (D-77 — silent outside the status route)", async () => {
+    const GRACE: LicenseStatusPayload = {
+      state: "offlineGrace",
+      expiry: null,
+      entitlements: ["pro.theming", "pro.ordering"],
+      maskedKey: null,
+      email: null,
+    };
+    // Pro is active in grace → FULL set, so neither the lock-row nor the
+    // attention-row condition fires.
+    setLicenseUiForTest(GRACE);
+    const { queryByRole } = renderAt("/");
+    await flushPrefsLoad();
     expect(
-      getByRole("heading", { name: /couldn't be verified/ }),
-    ).toBeDefined();
+      queryByRole("button", { name: /Unlock Pro|needs attention/ }),
+    ).toBeNull();
   });
 
   it("keeps the footer absent under FULL_SET for notActivated AND licensed states", async () => {

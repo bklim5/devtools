@@ -38,7 +38,7 @@
 // immediately via setToolOrder / setPinnedToolIds and survives restart.
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { GripVertical, Lock, Pin } from "lucide-react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { ENT_ORDERING, ENT_THEMING, isToolLocked } from "@/lib/entitlements/entitlements";
 import { ENABLED_TOOLS, getToolById } from "@/lib/tools/registry";
 import { useEntitlements } from "@/shell/useEntitlements";
@@ -63,12 +63,19 @@ export function Sidebar() {
   // touched, so unlocking restores the arrangement instantly. With `pinned`
   // forced empty, the pinned group, divider, and "Unpin all" item hide for free.
   const ents = useEntitlements();
+  const navigate = useNavigate();
   const orderingUnlocked = ents.has(ENT_ORDERING);
-  // D-43: a corrupt/tampered/foreign machine.lic surfaces ONLY as this quiet
-  // footer hint (no launch interruption) — independent of entitlements, since a
-  // Phase-19 release build has everything unlocked yet must still surface the
-  // problem. Details live in the panel's D-44 problem state.
-  const licenseAttention = useLicenseUi().state === "problem";
+  // D-43/D-84: a corrupt/tampered/foreign machine.lic (problem) OR a lapsed
+  // grace (refreshNeeded) surfaces as the quiet footer attention hint (no launch
+  // interruption). OfflineGrace stays SILENT here (D-77 — no footer nag). Details
+  // live in the status route (D-88) / the panel's D-44 problem state.
+  const licenseState = useLicenseUi().state;
+  const licenseAttention =
+    licenseState === "problem" || licenseState === "refreshNeeded";
+  // D-88: there IS a license to manage (licensed/offlineGrace/refreshNeeded/
+  // problem) → the footer + palette route to the status route; the pure free
+  // (notActivated) case opens the Unlock Pro panel (the activation pitch).
+  const hasManageableLicense = licenseState !== "notActivated";
   const { pinned, unpinned } = partitionTools(
     orderingUnlocked ? preferences.pinnedToolIds : [],
     orderingUnlocked ? preferences.toolOrder : [],
@@ -94,6 +101,14 @@ export function Sidebar() {
   // internally (Plan 01).
   const [upsellOpen, setUpsellOpen] = useState(false);
   const openOrderingUpsell = useCallback(() => setUpsellOpen(true), []);
+  // D-88: the footer license-attention affordance routes by state — to the
+  // status route when there is a license to manage, to the Unlock Pro panel for
+  // the pure free tier (the activation pitch). The locked-customization
+  // affordances (pin/reorder/reset) always open the panel via openOrderingUpsell.
+  const openLicenseSurface = useCallback(() => {
+    if (hasManageableLicense) navigate("/settings/license");
+    else openOrderingUpsell();
+  }, [hasManageableLicense, navigate, openOrderingUpsell]);
 
   // The aria-live announcement text (D-06). Re-set on every successful move/toggle.
   const [announcement, setAnnouncement] = useState("");
@@ -605,7 +620,7 @@ export function Sidebar() {
       {licenseAttention || !ents.has(ENT_ORDERING) || !ents.has(ENT_THEMING) ? (
         <button
           type="button"
-          onClick={openOrderingUpsell}
+          onClick={openLicenseSurface}
           className="flex min-h-6 items-center gap-2 rounded-[6px] px-[11px] py-1 text-left text-[13px] text-tx-2 outline-none transition-colors hover:text-tx focus-visible:ring-2 focus-visible:ring-accent"
         >
           <Lock aria-hidden="true" className="h-3 w-3 flex-none" />
