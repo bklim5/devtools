@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Licensing
 status: executing
-last_updated: "2026-06-14T22:48:52.260Z"
-last_activity: 2026-06-14 -- Phase 21 plan 03 complete (email + masked key + revocation/D-79 + seat-release helper)
+last_updated: "2026-06-15T00:10:00.000Z"
+last_activity: 2026-06-15 -- Phase 21 plan 04 Tasks 1-3 landed (D-85 flip LIVE + #/settings/license route + footer/palette routing); AWAITING Task 4 human-verify gate
 progress:
   total_phases: 11
   completed_phases: 3
@@ -19,10 +19,10 @@ progress:
 
 Milestone: **v1.6 "Licensing"** — started 2026-06-09, roadmap created 2026-06-09.
 Phase: 21 (license-lifecycle-ship-gate) — EXECUTING
-Plan: 4 of 5 (plans 01–03 complete)
-Status: Ready to execute
-Progress: [■■□□] 2/4 phases · v1.6 plans 14 executed (Phase 20 closes on the live-purchase gate; Phase 21 plans 01–03 done)
-Last activity: 2026-06-14 -- Phase 21 plan 03 complete (email + masked key + revocation/D-79 + seat-release helper)
+Plan: 4 of 5 (plans 01–03 complete; 04 Tasks 1–3 landed, Task 4 human-verify gate PENDING)
+Status: AWAITING human-verify checkpoint (21-04 Task 4)
+Progress: [■■□□] 2/4 phases · v1.6 plans 14 executed (Phase 20 closes on the live-purchase gate; Phase 21 plans 01–03 done; 04 at its gate)
+Last activity: 2026-06-15 -- Phase 21 plan 04 Tasks 1–3 landed (D-85 flip LIVE + #/settings/license route + footer/palette routing); AWAITING Task 4 human-verify gate
 
 **Goal:** one-time-payment lifetime license — MoR checkout → webhook → Keygen (perpetual, node-locked, maxMachines=1); paste-key one-time activation (fingerprint `HMAC-SHA256(IOPlatformUUID, salt)`); offline Ed25519-verified `machine.lic` (~30-day TTL) thereafter; license key in Keychain (Rust-owned); free tier keeps all 11 tools — Pro locks customization (theming + ordering/pinning) behind a central entitlement gate (D-18 pivot; tool-gating mechanism ships dormant). Research: `docs/licensing-research.md`.
 
