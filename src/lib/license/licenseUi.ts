@@ -37,14 +37,19 @@ function payloadsEqual(
   if (a.state === "licensed" && b.state === "licensed") {
     return (
       a.expiry === b.expiry &&
+      a.maskedKey === b.maskedKey &&
+      a.email === b.email &&
       a.entitlements.length === b.entitlements.length &&
       a.entitlements.every((e, i) => e === b.entitlements[i])
     );
   }
-  // offlineGrace carries the same payload shape as licensed (D-73).
+  // offlineGrace carries the same payload shape as licensed (D-73/D-89:
+  // maskedKey + email too).
   if (a.state === "offlineGrace" && b.state === "offlineGrace") {
     return (
       a.expiry === b.expiry &&
+      a.maskedKey === b.maskedKey &&
+      a.email === b.email &&
       a.entitlements.length === b.entitlements.length &&
       a.entitlements.every((e, i) => e === b.entitlements[i])
     );

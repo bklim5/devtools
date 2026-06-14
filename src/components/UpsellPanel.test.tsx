@@ -226,6 +226,8 @@ const LICENSED: LicenseStatusPayload = {
   state: "licensed",
   expiry: null,
   entitlements: ["pro.theming", "pro.ordering"],
+  maskedKey: null,
+  email: null,
 };
 
 type RenderResult = ReturnType<typeof render>;

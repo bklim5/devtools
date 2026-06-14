@@ -37,11 +37,28 @@ export type LicenseProblem =
  *  - `offlineGrace`  — Pro still active: cert verified but past `expiry`, within
  *    the GRACE_DAYS window (carries the same payload as `licensed`).
  *  - `refreshNeeded` — Pro dropped to free: expiry + GRACE_DAYS lapsed; a
- *    successful refresh restores Pro. `hasStoredKey` enables one-click reactivate. */
+ *    successful refresh restores Pro. `hasStoredKey` enables one-click reactivate.
+ *
+ *  `licensed`/`offlineGrace` carry `maskedKey` (`••••••••{last4}`, computed
+ *  Rust-side — D-89) + `email` (licensee, from the verified cert). The RAW key
+ *  NEVER round-trips through JS (LIC-04); both are `null` when absent (no stored
+ *  key / pre-D-89 license). */
 export type LicenseStatusPayload =
   | { state: "notActivated"; hasStoredKey: boolean }
-  | { state: "licensed"; expiry: string | null; entitlements: string[] }
-  | { state: "offlineGrace"; expiry: string | null; entitlements: string[] }
+  | {
+      state: "licensed";
+      expiry: string | null;
+      entitlements: string[];
+      maskedKey: string | null;
+      email: string | null;
+    }
+  | {
+      state: "offlineGrace";
+      expiry: string | null;
+      entitlements: string[];
+      maskedKey: string | null;
+      email: string | null;
+    }
   | { state: "refreshNeeded"; hasStoredKey: boolean }
   | { state: "problem"; problem: LicenseProblem; hasStoredKey: boolean };
 

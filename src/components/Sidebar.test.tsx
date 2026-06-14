@@ -313,6 +313,8 @@ describe("Sidebar license attention footer (D-43)", () => {
         state: "licensed",
         expiry: null,
         entitlements: [],
+        maskedKey: null,
+        email: null,
       }),
     );
     const second = renderAt("/");

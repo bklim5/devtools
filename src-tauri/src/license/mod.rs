@@ -33,6 +33,12 @@ pub enum LicenseStatusPayload {
     Licensed {
         expiry: Option<String>,
         entitlements: Vec<String>,
+        /// Masked license key (`••••••••{last4}`, computed Rust-side — D-89).
+        /// The RAW key NEVER crosses to JS (LIC-04); `None` if the Keychain read
+        /// failed/empty (fail-soft). Shown only on the user-initiated status route.
+        masked_key: Option<String>,
+        /// Licensee email from the verified cert (D-89); `None` for pre-D-89 licenses.
+        email: Option<String>,
     },
     /// Pro still active: the cert verified but is PAST `expiry`, yet still
     /// within the `GRACE_DAYS` window (D-73/D-75). Carries the same payload as
@@ -41,6 +47,10 @@ pub enum LicenseStatusPayload {
     OfflineGrace {
         expiry: Option<String>,
         entitlements: Vec<String>,
+        /// Masked license key (`••••••••{last4}`, Rust-side — D-89/LIC-04). See Licensed.
+        masked_key: Option<String>,
+        /// Licensee email from the verified cert (D-89).
+        email: Option<String>,
     },
     /// Pro dropped to free: the cert verified but expiry + `GRACE_DAYS` has
     /// lapsed (D-73/D-75) — Pro is off until a successful refresh swaps in a
@@ -151,6 +161,12 @@ pub struct LicenseManager<C: LicenseApi> {
     /// repeatedly (walkthrough 2026-06-12). Read at most once per launch, then
     /// maintained by this manager's own writes (it is the app's only writer).
     stored_key_flag: Option<bool>,
+    /// Per-process cache of the MASKED key (D-89), under the SAME Keychain-read
+    /// discipline as `stored_key_flag` (Pitfall 5 prompt-flood): the masked key
+    /// is computed by reading the raw key Rust-side at most once per process,
+    /// then reused. The raw key is masked immediately and never retained.
+    /// `Some(None)` = read happened, no/failed key (fail-soft); `None` = not yet read.
+    masked_key_cache: Option<Option<String>>,
 }
 
 impl<C: LicenseApi> LicenseManager<C> {
@@ -166,6 +182,7 @@ impl<C: LicenseApi> LicenseManager<C> {
             client,
             fingerprint,
             stored_key_flag: None,
+            masked_key_cache: None,
         }
     }
 
@@ -194,13 +211,20 @@ impl<C: LicenseApi> LicenseManager<C> {
                 // when the classifier actually lands in that arm (Licensed /
                 // OfflineGrace never touch the Keychain).
                 match classify_expiry(data.expiry.as_deref(), Utc::now()) {
+                    // Licensed/OfflineGrace expose the masked key (D-89) — read
+                    // the Keychain at most once per process (Pitfall 5); the raw
+                    // key is masked Rust-side and never enters the payload (LIC-04).
                     ExpiryClass::Active => LicenseStatusPayload::Licensed {
                         expiry: data.expiry,
                         entitlements: data.entitlements,
+                        masked_key: self.masked_key(),
+                        email: data.email,
                     },
                     ExpiryClass::Grace => LicenseStatusPayload::OfflineGrace {
                         expiry: data.expiry,
                         entitlements: data.entitlements,
+                        masked_key: self.masked_key(),
+                        email: data.email,
                     },
                     ExpiryClass::Lapsed => LicenseStatusPayload::RefreshNeeded {
                         has_stored_key: self.has_stored_key(),
@@ -386,10 +410,18 @@ impl<C: LicenseApi> LicenseManager<C> {
                 .set_key(key)
                 .map_err(|_| LicenseError::ActivationFailed)?;
             self.stored_key_flag = Some(true);
+            // We already hold the raw key here — mask it directly and seed the
+            // cache (D-89), so the post-activation status never re-reads the
+            // Keychain (no extra prompt). The raw key is never retained.
+            self.masked_key_cache = Some(Some(mask_key(key)));
         }
         Ok(LicenseStatusPayload::Licensed {
             expiry: data.expiry,
             entitlements: data.entitlements,
+            // On refresh (store_key=None) the cache is filled by the prior
+            // status read or by `masked_key()` here (at most once per process).
+            masked_key: self.masked_key(),
+            email: data.email,
         })
     }
 
@@ -415,6 +447,46 @@ impl<C: LicenseApi> LicenseManager<C> {
         self.stored_key_flag = Some(present);
         present
     }
+
+    /// The MASKED license key for the Licensed/OfflineGrace payloads (D-89).
+    ///
+    /// LIC-04: the raw key is read inside this method, masked immediately, and
+    /// NEVER returned — only the `••••••••{last4}` form crosses to JS. Read at
+    /// MOST ONCE per process and cached (same Pitfall-5 prompt-flood discipline
+    /// as `stored_key_flag`): a Licensed launch previously never read the
+    /// Keychain, so this read is acceptable only because the status route is
+    /// user-initiated, and the cache stops repeated status queries from
+    /// re-prompting. Fail-soft: a Keychain read error/empty → `None`.
+    fn masked_key(&mut self) -> Option<String> {
+        if let Some(cached) = &self.masked_key_cache {
+            return cached.clone();
+        }
+        let masked = match self.keychain.get_key() {
+            Ok(Some(key)) => Some(mask_key(&key)),
+            _ => None,
+        };
+        // Reading for the mask is also a definitive presence signal — keep the
+        // two per-process caches consistent so neither path re-reads.
+        if self.stored_key_flag.is_none() {
+            self.stored_key_flag = Some(masked.is_some());
+        }
+        self.masked_key_cache = Some(masked.clone());
+        masked
+    }
+}
+
+/// Mask a license key for display (D-89): keep the last 4 chars, prefix a fixed
+/// `••••••••` run so the length is not leaked. Keys shorter than 4 chars are
+/// fully masked (all bullets, no plaintext tail). Pure — no I/O, no key retained.
+fn mask_key(key: &str) -> String {
+    const BULLETS: &str = "••••••••";
+    let chars: Vec<char> = key.chars().collect();
+    if chars.len() < 4 {
+        // Too short to safely reveal a tail — mask every character.
+        return chars.iter().map(|_| '•').collect();
+    }
+    let tail: String = chars[chars.len() - 4..].iter().collect();
+    format!("{BULLETS}{tail}")
 }
 
 /// Pure expiry classification (D-73) — the testable core of `resolve_status`'s
@@ -599,12 +671,16 @@ mod tests {
 
     #[test]
     fn valid_cert_with_matching_fingerprint_resolves_to_licensed() {
+        // MockKeychain::Empty -> no raw key -> masked_key None; REAL_CERT carries
+        // no metadata.email -> email None.
         let status = manager(Some(REAL_CERT), MockKeychain::Empty, REAL_FP).resolve_status();
         assert_eq!(
             status,
             LicenseStatusPayload::Licensed {
                 expiry: Some("2026-07-12T15:14:47.247Z".into()),
                 entitlements: vec![],
+                masked_key: None,
+                email: None,
             }
         );
     }
@@ -685,6 +761,79 @@ mod tests {
             }
         );
         assert_eq!(*reads.lock().unwrap(), 0);
+    }
+
+    // --- D-89 masked key (Rust-side masking; LIC-04 raw key never leaves) ---
+
+    #[test]
+    fn mask_key_keeps_last_four_behind_a_fixed_bullet_run() {
+        // A normal key -> 8 bullets + the last 4 plaintext chars.
+        assert_eq!(mask_key("DC1093-5AC5A7-54F009-V3"), "••••••••9-V3");
+        assert_eq!(mask_key("ABCD"), "••••••••ABCD");
+    }
+
+    #[test]
+    fn mask_key_fully_masks_keys_shorter_than_four_chars() {
+        // Too short to reveal a tail safely -> all bullets, no plaintext.
+        assert_eq!(mask_key(""), "");
+        assert_eq!(mask_key("A"), "•");
+        assert_eq!(mask_key("AB"), "••");
+        assert_eq!(mask_key("ABC"), "•••");
+    }
+
+    #[test]
+    fn licensed_payload_exposes_only_the_masked_key_never_the_raw() {
+        // WithKey -> "KEY-AAAA-BBBB"; the payload must carry the masked form only.
+        let status = manager(Some(REAL_CERT), MockKeychain::WithKey, REAL_FP).resolve_status();
+        match status {
+            LicenseStatusPayload::Licensed { masked_key, .. } => {
+                assert_eq!(masked_key.as_deref(), Some("••••••••BBBB"));
+                // The raw key must NEVER appear anywhere in the masked form.
+                assert!(!masked_key.unwrap().contains("KEY-AAAA"));
+            }
+            other => panic!("expected Licensed, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn masking_reuses_the_per_process_keychain_read_cache_at_most_once() {
+        // The masked-key read must obey the same prompt-flood discipline as
+        // has_stored_key: repeated status queries on a Licensed session read the
+        // Keychain AT MOST ONCE (Pitfall 5). Counting keychain proves it.
+        let reads = Arc::new(Mutex::new(0));
+        let mut mgr = LicenseManager::new(
+            Box::new(MockStore(Some(REAL_CERT))),
+            Box::new(CountingKeychain {
+                inner: MockKeychain::WithKey,
+                reads: Arc::clone(&reads),
+            }),
+            NoNetwork,
+            REAL_FP.to_string(),
+        );
+        for _ in 0..3 {
+            match mgr.resolve_status() {
+                LicenseStatusPayload::Licensed { masked_key, .. } => {
+                    assert_eq!(masked_key.as_deref(), Some("••••••••BBBB"));
+                }
+                other => panic!("expected Licensed, got {other:?}"),
+            }
+        }
+        assert_eq!(
+            *reads.lock().unwrap(),
+            1,
+            "masking must read the Keychain at most once per process"
+        );
+    }
+
+    #[test]
+    fn masked_key_is_none_when_the_keychain_read_fails() {
+        // Fail-soft (same posture as has_stored_key): an erroring Keychain ->
+        // masked_key None, status still Licensed (verify path unaffected).
+        let status = manager(Some(REAL_CERT), MockKeychain::Erroring, REAL_FP).resolve_status();
+        match status {
+            LicenseStatusPayload::Licensed { masked_key, .. } => assert_eq!(masked_key, None),
+            other => panic!("expected Licensed, got {other:?}"),
+        }
     }
 
     #[test]
@@ -805,6 +954,8 @@ mod tests {
             LicenseStatusPayload::Licensed {
                 expiry: Some(EXP.into()),
                 entitlements: vec![],
+                masked_key: None,
+                email: None,
             }
         );
     }
@@ -884,21 +1035,37 @@ mod tests {
             .unwrap(),
             r#"{"state":"notActivated","hasStoredKey":false}"#
         );
+        // Licensed/OfflineGrace now carry maskedKey + email (D-89, camelCase).
         assert_eq!(
             serde_json::to_string(&LicenseStatusPayload::Licensed {
                 expiry: Some("2026-07-12T15:14:47.247Z".into()),
                 entitlements: vec!["pro.theming".into()],
+                masked_key: Some("••••••••AB12".into()),
+                email: Some("a@b.com".into()),
             })
             .unwrap(),
-            r#"{"state":"licensed","expiry":"2026-07-12T15:14:47.247Z","entitlements":["pro.theming"]}"#
+            r#"{"state":"licensed","expiry":"2026-07-12T15:14:47.247Z","entitlements":["pro.theming"],"maskedKey":"••••••••AB12","email":"a@b.com"}"#
+        );
+        // null masked_key/email serialize as JSON null (the pre-D-89 / no-key case).
+        assert_eq!(
+            serde_json::to_string(&LicenseStatusPayload::Licensed {
+                expiry: None,
+                entitlements: vec![],
+                masked_key: None,
+                email: None,
+            })
+            .unwrap(),
+            r#"{"state":"licensed","expiry":null,"entitlements":[],"maskedKey":null,"email":null}"#
         );
         assert_eq!(
             serde_json::to_string(&LicenseStatusPayload::OfflineGrace {
                 expiry: Some("2026-07-12T15:14:47.247Z".into()),
                 entitlements: vec!["pro.theming".into()],
+                masked_key: Some("••••••••AB12".into()),
+                email: Some("a@b.com".into()),
             })
             .unwrap(),
-            r#"{"state":"offlineGrace","expiry":"2026-07-12T15:14:47.247Z","entitlements":["pro.theming"]}"#
+            r#"{"state":"offlineGrace","expiry":"2026-07-12T15:14:47.247Z","entitlements":["pro.theming"],"maskedKey":"••••••••AB12","email":"a@b.com"}"#
         );
         assert_eq!(
             serde_json::to_string(&LicenseStatusPayload::RefreshNeeded {
@@ -1081,6 +1248,10 @@ mod tests {
             LicenseStatusPayload::Licensed {
                 expiry: Some("2026-07-12T15:14:47.247Z".into()),
                 entitlements: vec![],
+                // The just-stored key is masked directly (last 4 of "KEY-1");
+                // REAL_CERT carries no metadata.email.
+                masked_key: Some("••••••••EY-1".into()),
+                email: None,
             }
         );
         assert_eq!(

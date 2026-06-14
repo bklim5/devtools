@@ -41,6 +41,8 @@ const OFFLINE_GRACE: LicenseStatusPayload = {
   state: "offlineGrace",
   expiry: "2026-07-12T15:14:47.247Z",
   entitlements: ["pro.theming", "pro.ordering"],
+  maskedKey: "••••••••AB12",
+  email: "buyer@example.com",
 };
 
 const REFRESH_NEEDED: LicenseStatusPayload = {
@@ -166,6 +168,30 @@ describe("licenseUi snapshot store", () => {
       ...OFFLINE_GRACE,
       entitlements: ["pro.theming"],
     });
+    expect(listener).toHaveBeenCalledTimes(2);
+    unsubscribe();
+  });
+
+  it("a maskedKey-only diff (D-89) is a change", () => {
+    const listener = vi.fn();
+    const unsubscribe = subscribeLicenseUi(listener);
+
+    setLicenseUiForTest(OFFLINE_GRACE);
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    setLicenseUiForTest({ ...OFFLINE_GRACE, maskedKey: "••••••••ZZZZ" });
+    expect(listener).toHaveBeenCalledTimes(2);
+    unsubscribe();
+  });
+
+  it("an email-only diff (D-89) is a change", () => {
+    const listener = vi.fn();
+    const unsubscribe = subscribeLicenseUi(listener);
+
+    setLicenseUiForTest(OFFLINE_GRACE);
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    setLicenseUiForTest({ ...OFFLINE_GRACE, email: "other@example.com" });
     expect(listener).toHaveBeenCalledTimes(2);
     unsubscribe();
   });
