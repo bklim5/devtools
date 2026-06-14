@@ -29,7 +29,7 @@
 - [ ] **LIC-05**: The cached license carries a ~30-day TTL; the app refreshes it opportunistically (background, online-only-when-available) with a generous offline grace — never a hard per-launch network check.
 - [x] **LIC-06**: A corrupt, tampered, or foreign-machine `machine.lic` fails closed to the free tier — no crash, calm status messaging, re-activation offered.
 - [ ] **LIC-07**: User can self-serve deactivate this machine from within the app, freeing the seat to activate on a new Mac (transfer).
-- [ ] **LIC-08**: A revoked/suspended license (refund or chargeback handled in Keygen) propagates to the app at the next TTL refresh — entitlements drop to free tier.
+- [x] **LIC-08**: A revoked/suspended license (refund or chargeback handled in Keygen) propagates to the app at the next TTL refresh — entitlements drop to free tier.
 - [ ] **LIC-09**: A license status UI shows the current state (free / licensed / offline-grace / refresh-needed), masked key + licensee email from the signed license data, and refresh + deactivate actions — keyboard-reachable, WCAG-AA.
 
 ### Purchase Pipeline (PAY)
@@ -83,7 +83,7 @@
 | LIC-05 | Phase 21 | — | Pending |
 | LIC-06 | Phase 19 | 19-02, 19-04 | Complete |
 | LIC-07 | Phase 21 | — | Pending |
-| LIC-08 | Phase 21 | — | Pending |
+| LIC-08 | Phase 21 | 21-03 | Complete |
 | LIC-09 | Phase 21 | — | Pending |
 | PAY-01 | Phase 20 | 20-01 | Done |
 | PAY-02 | Phase 20 | 20-02 | Done |
