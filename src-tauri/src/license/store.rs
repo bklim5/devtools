@@ -6,7 +6,23 @@
 
 use std::path::PathBuf;
 
+/// On-disk certificate filenames, split by build profile (260614, mirrors
+/// keychain.rs SERVICE / config.rs D-52). Dev and release builds share one
+/// bundle id → one `app_data_dir`, so a single filename let a dev/e2e cert
+/// overwrite the release `machine.lic`. A DEBUG build (incl. `cargo test` +
+/// `tauri dev`) writes `machine.dev.lic` so dev/e2e activity never clobbers the
+/// release file in the shared dir. The `.tmp` stays adjacent to its base name in
+/// the SAME directory so `write_atomic`'s same-volume rename stays atomic. The
+/// release arms are byte-identical to the pre-260614 values → no install impact.
+/// The store tests reference these symbolically (no literal asserted), so they
+/// stay green under the active (debug) profile with no edit.
+#[cfg(debug_assertions)]
+const LIC_FILE: &str = "machine.dev.lic";
+#[cfg(not(debug_assertions))]
 const LIC_FILE: &str = "machine.lic";
+#[cfg(debug_assertions)]
+const LIC_TMP: &str = "machine.dev.lic.tmp";
+#[cfg(not(debug_assertions))]
 const LIC_TMP: &str = "machine.lic.tmp";
 
 pub trait LicFileStore {

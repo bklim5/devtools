@@ -14,8 +14,17 @@
 
 use keyring::Entry;
 
-/// Service string matches the bundle identifier `com.tinkerdev.app`
-/// (tauri.conf.json) with a `.license` suffix.
+/// Keychain service string, split by build profile (260614, mirrors config.rs
+/// D-52). The bundle id `com.tinkerdev.app` (tauri.conf.json) is shared by dev
+/// and release builds, so a single service let dev/e2e activity overwrite (and
+/// e2e-spike preflight DELETE) the shipped buyer's item. A DEBUG build (incl.
+/// `cargo test` + `tauri dev`) embeds the local-CE Ed25519 key (config.rs D-52),
+/// so its license can only verify against the `.dev.license` item — isolating it
+/// from the release `.license` item. The release arm is byte-identical to the
+/// pre-260614 value, so shipped installs are unaffected.
+#[cfg(debug_assertions)]
+const SERVICE: &str = "com.tinkerdev.app.dev.license";
+#[cfg(not(debug_assertions))]
 const SERVICE: &str = "com.tinkerdev.app.license";
 const USER: &str = "license-key";
 
