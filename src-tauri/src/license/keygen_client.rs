@@ -224,10 +224,36 @@ pub fn parse_create_machine_response(status: u16, body: &str) -> Result<String, 
     }
 }
 
+/// Keygen error `code`s that mean the license is no longer entitled at checkout
+/// — a revoked/suspended/expired seat (D-82/D-83). They map to the calm
+/// `Suspended` terminal so the refresh path surfaces one calm "no longer active"
+/// signal (D-83) instead of an opaque ActivationFailed.
+const SUSPENDED_CHECKOUT_CODES: &[&str] = &[
+    "LICENSE_SUSPENDED",
+    "LICENSE_EXPIRED",
+    "LICENSE_BANNED",
+    "SUSPENDED",
+    "EXPIRED",
+    "BANNED",
+];
+
 /// Parse `POST /machines/{id}/actions/check-out` → the certificate text
 /// (`-----BEGIN MACHINE FILE-----` …) extracted verbatim.
+///
+/// D-82/D-83 revocation propagation: a non-200 whose error body carries a
+/// suspended/revoked/expired `code` maps to the calm `Suspended` terminal (the
+/// refresh path's "Pro is no longer active" source). Any other non-200 stays
+/// the catch-all `ActivationFailed` — fail-closed, never licensed on error.
 pub fn parse_checkout_response(status: u16, body: &str) -> Result<String, LicenseError> {
     if status != 200 {
+        let errs: ErrorsBody = serde_json::from_str(body).unwrap_or_default();
+        if errs.errors.iter().any(|e| {
+            e.code
+                .as_deref()
+                .is_some_and(|c| SUSPENDED_CHECKOUT_CODES.contains(&c))
+        }) {
+            return Err(LicenseError::Suspended);
+        }
         return Err(LicenseError::ActivationFailed);
     }
     serde_json::from_str::<CheckoutResponse>(body)
@@ -586,6 +612,31 @@ mod tests {
             parse_checkout_response(404, "{}"),
             Err(LicenseError::ActivationFailed)
         );
+    }
+
+    #[test]
+    fn revoked_or_suspended_checkout_maps_to_the_calm_suspended_terminal() {
+        // D-82/D-83: a refresh checkout against a revoked/suspended/expired
+        // license surfaces the ONE calm Suspended terminal (never a crash, never
+        // a licensed state). Keygen-style error bodies, code-driven (Pitfall 3).
+        for code in ["LICENSE_SUSPENDED", "LICENSE_EXPIRED", "SUSPENDED", "BANNED"] {
+            let body = format!(
+                r#"{{"errors":[{{"title":"Forbidden","detail":"license is suspended","code":"{code}"}}]}}"#
+            );
+            assert_eq!(
+                parse_checkout_response(403, &body),
+                Err(LicenseError::Suspended),
+                "checkout code {code} must map to the calm Suspended terminal"
+            );
+        }
+        // An unrelated non-200 stays the catch-all ActivationFailed (fail-closed).
+        let other = r#"{"errors":[{"title":"Server error","code":"INTERNAL"}]}"#;
+        assert_eq!(
+            parse_checkout_response(500, other),
+            Err(LicenseError::ActivationFailed)
+        );
+        // A revoked checkout never yields a licensed/Ok state.
+        assert!(parse_checkout_response(403, "{}").is_err());
     }
 
     #[test]

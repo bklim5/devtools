@@ -1430,6 +1430,103 @@ mod tests {
         assert_eq!(*rec.cert_writes.lock().unwrap(), vec![REAL_CERT.to_string()]);
     }
 
+    // --- D-82 revocation propagation on refresh ----------------------------
+
+    #[test]
+    fn refresh_against_a_revoked_license_yields_a_typed_error_without_panicking() {
+        // D-82/D-83: a refresh whose checkout returns Suspended (revoked/expired)
+        // surfaces a typed error the command layer maps to the calm "no longer
+        // active" copy — never a panic, never a licensed state.
+        let rec = Recorder::default();
+        let client = ScriptedClient {
+            checkout: Err(LicenseError::Suspended),
+            ..ScriptedClient::happy(&rec)
+        };
+        let mut mgr = scripted_manager(Some(REAL_CERT), Some("STORED-KEY"), client, &rec);
+        assert_eq!(block_on(mgr.refresh()), Err(LicenseError::Suspended));
+    }
+
+    #[test]
+    fn revoked_refresh_writes_no_cert_user_keeps_last_good_until_grace_lapses() {
+        // Write-after-verify (T-21-11): a revoked/garbled checkout NEVER
+        // overwrites the last-good machine.lic. The propagation chain is:
+        // revoke in Keygen -> next refresh checkout fails/returns no usable cert
+        // -> nothing written -> the existing cert ages into grace -> RefreshNeeded
+        // (the ~37-day eventual-consistency window, D-82). Here: a checkout that
+        // returns a cert which fails local verify must write nothing.
+        let rec = Recorder::default();
+        let client = ScriptedClient {
+            checkout: Ok("not a verifiable machine file".into()),
+            ..ScriptedClient::happy(&rec)
+        };
+        let mut mgr = scripted_manager(Some(REAL_CERT), Some("STORED-KEY"), client, &rec);
+        assert_eq!(block_on(mgr.refresh()), Err(LicenseError::LicenseProblem));
+        assert!(
+            rec.cert_writes.lock().unwrap().is_empty(),
+            "a revoked/garbled checkout must overwrite nothing (last-good cert kept)"
+        );
+    }
+
+    // --- D-79 offline-deactivate no-clear invariant (PINNED, not just UI) ---
+
+    #[test]
+    fn offline_deactivate_returns_offline_and_clears_nothing_locally() {
+        // D-79 (the never-orphan-a-seat invariant), promoted from prose +
+        // walkthrough to a deterministic Rust test: an OFFLINE deactivate (the
+        // server delete-machine call fails service-unreachable/offline) must
+        // return that error AND leave the Keychain key present + machine.lic
+        // byte-unchanged — NO local clear happens before the server delete
+        // confirms (a local-only forget would orphan a consumed seat).
+        let rec = Recorder::default();
+        let client = ScriptedClient {
+            delete: Err(LicenseError::Offline),
+            ..ScriptedClient::happy(&rec)
+        };
+        let mut mgr = scripted_manager(Some(REAL_CERT), Some("STORED-KEY"), client, &rec);
+
+        // Record local state BEFORE the offline deactivate.
+        let cert_before = mgr.store.read();
+        let key_before = mgr.keychain.get_key().unwrap();
+
+        assert_eq!(block_on(mgr.deactivate()), Err(LicenseError::Offline));
+
+        // The error came from the server delete; NOTHING was cleared locally.
+        assert!(
+            !*rec.store_removed.lock().unwrap(),
+            "machine.lic must NOT be removed on an offline deactivate"
+        );
+        assert!(
+            !*rec.key_deleted.lock().unwrap(),
+            "the Keychain key must NOT be deleted on an offline deactivate"
+        );
+        // And the bytes are identical before/after.
+        assert_eq!(mgr.store.read(), cert_before, "machine.lic byte-unchanged");
+        assert_eq!(
+            mgr.keychain.get_key().unwrap(),
+            key_before,
+            "Keychain key byte-unchanged (seat never orphaned)"
+        );
+        assert_eq!(cert_before.as_deref(), Some(REAL_CERT));
+    }
+
+    #[test]
+    fn service_unreachable_deactivate_also_clears_nothing_locally() {
+        // The same no-clear invariant holds for the ServiceUnreachable flavor of
+        // "couldn't reach the server" — the delete must confirm before any clear.
+        let rec = Recorder::default();
+        let client = ScriptedClient {
+            delete: Err(LicenseError::ServiceUnreachable),
+            ..ScriptedClient::happy(&rec)
+        };
+        let mut mgr = scripted_manager(Some(REAL_CERT), Some("STORED-KEY"), client, &rec);
+        assert_eq!(
+            block_on(mgr.deactivate()),
+            Err(LicenseError::ServiceUnreachable)
+        );
+        assert!(!*rec.store_removed.lock().unwrap());
+        assert!(!*rec.key_deleted.lock().unwrap());
+    }
+
     // --- refresh_if_needed (D-76 silent scheduler entry point) -------------
 
     #[test]
