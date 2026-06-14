@@ -6,6 +6,14 @@
     "module": "ESNext",
     "skipLibCheck": true,
 
+    /* Finding 8 (T-20-13): the webview app sees NO ambient @types — the
+       server/webhook workspace member hoists @types/node, which would otherwise
+       leak Node globals (process, Buffer, NodeJS.Timeout) into this `tsc --noEmit`
+       gate and MASK browser-only type errors (e.g. setTimeout typed as
+       NodeJS.Timeout instead of the DOM `number`). Node types stay scoped to
+       server/webhook/tsconfig.json (`"types": ["node"]`). Do NOT re-add @types/node here. */
+    "types": [],
+
     /* Path alias — must mirror vite.config.ts resolve.alias so `tsc --noEmit`
        (the unit gate) resolves the ported lib's `@/...` imports (FND-03). */
     "baseUrl": ".",
