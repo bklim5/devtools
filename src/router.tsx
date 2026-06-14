@@ -1,5 +1,6 @@
 import { createHashRouter } from "react-router-dom";
 import { App } from "./App";
+import { LicenseSettings } from "./components/LicenseSettings";
 import { ToolRoute } from "./components/ToolRoute";
 import { ENABLED_TOOLS } from "./lib/tools/registry";
 import { StartupRedirect } from "./shell/StartupRedirect";
@@ -40,6 +41,12 @@ export const router = createHashRouter([
         path: `tools/${tool.id}`,
         element: <ToolRoute tool={tool} />,
       })),
+      // APP CHROME — NOT a tool (D-87): the license status/management route sits
+      // OUTSIDE the six/eleven-tools registry constraint. It is a sibling of the
+      // ENABLED_TOOLS.map block above, deliberately NOT derived from it, so the
+      // registry stays the single control plane for tools. HashRouter-friendly —
+      // reached at #/settings/license (footer + ⌘K route here per D-88).
+      { path: "settings/license", element: <LicenseSettings /> },
       // Unknown route -> resolved startup tool (last-used / hero).
       { path: "*", element: startupElement },
     ],

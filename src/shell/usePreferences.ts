@@ -41,6 +41,11 @@ export interface UsePreferences {
   /** Persist the first-run update-check opt-in (D-09). true = silent launch check,
    *  false = no automatic network call ever, null = ask again. */
   setAutoUpdateCheck: (v: boolean | null) => void;
+  /** Mark a license-drop notice (D-84) and acknowledge/dismiss it. `mark()` sets
+   *  the flag false (a drop is pending), surfacing the one-time inline notice on
+   *  the status route; `ack()` sets it true (dismissed / nothing to show). */
+  markLicenseDropNotice: () => void;
+  ackLicenseDropNotice: () => void;
 }
 
 export function usePreferences(): UsePreferences {
@@ -114,6 +119,14 @@ export function usePreferences(): UsePreferences {
     (v: boolean | null) => update({ autoUpdateCheck: v }),
     [update],
   );
+  const markLicenseDropNotice = useCallback(
+    () => update({ licenseDropNoticeAck: false }),
+    [update],
+  );
+  const ackLicenseDropNotice = useCallback(
+    () => update({ licenseDropNoticeAck: true }),
+    [update],
+  );
 
   return {
     preferences,
@@ -126,5 +139,7 @@ export function usePreferences(): UsePreferences {
     togglePinned,
     setTreeStyle,
     setAutoUpdateCheck,
+    markLicenseDropNotice,
+    ackLicenseDropNotice,
   };
 }
