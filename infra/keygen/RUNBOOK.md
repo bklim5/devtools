@@ -230,6 +230,64 @@ run AFTER Claude captures the prod constants (Task 3) and builds the app:
 
 ---
 
+## Freeing a seat (lost-device transfer fallback, D-80/D-81)
+
+**When to use it.** A buyer lost access to their old Mac (dead/wiped/sold) and
+can't self-serve deactivate from it, so the seat stays consumed and "activate
+here" returns the calm seat-limit message ("This key is active on another
+device …"). They **reply to their license email** asking for help (the D-80
+fallback). This is the one repeatable command that frees the seat for them. It
+is the manual-but-repeatable path until the deferred admin dashboard lands.
+
+**Run it ON THE BOX over SSH** — the privileged admin token stays server-side
+(D-55), never on the buyer's machine and never on the command line. The script
+reads the token from `infra/keygen/.env` (`KEYGEN_ADMIN_TOKEN`, or it mints one
+from `KEYGEN_ADMIN_EMAIL` + `KEYGEN_ADMIN_PASSWORD`, same as `setup.sh`).
+
+By license key (from their email):
+
+```
+ssh tinkerdev-box 'bash -s' -- --key DC1093-5AC5A7-54F009-A493F6-56FFC9-V3 \
+  < infra/keygen/release-seat.sh
+```
+
+Or by Lemon Squeezy order id (from the LS dashboard / the `metadata.orderId`
+stamped at create time):
+
+```
+ssh tinkerdev-box 'bash -s' -- --order-id 123456 < infra/keygen/release-seat.sh
+```
+
+(Or copy `release-seat.sh` onto the box and run `./release-seat.sh --key …`
+directly — same effect; the script always runs against the CE admin API over
+localhost/own-host TLS, never the open internet.)
+
+**Expected output** (to stderr — copy-pasteable proof for the support reply):
+
+```
+resolved license: <license-id>
+machines before: 1
+deleted machine: <machine-id>
+machines after: 0
+seat released for license <license-id>
+```
+
+**Idempotent.** Re-running on an already-free license is a no-op success:
+
+```
+resolved license: <license-id>
+machines before: 0
+seat already free for license <license-id> (no machines) — nothing to do
+machines after: 0
+```
+
+Then tell the buyer to open DevTools → Unlock Pro → paste their key → activate.
+The seat binds to the new Mac. (`release-seat.sh` only DELETES machines; it never
+touches the license itself, so the key, entitlements, and `metadata.email`/
+`orderId` are all preserved.)
+
+---
+
 ## Resume signal
 
 When bring-up (Steps 1–8) is done, return to the executor with:
