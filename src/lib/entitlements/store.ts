@@ -7,12 +7,19 @@
 // licensed set; it notifies subscribers only when the set actually changes.
 
 import { loadPreferences, savePreferences } from "@/shell/prefsStore";
-import { FREE_SET, FULL_SET, type EntitlementSet } from "./entitlements";
-import { isTauriEnv, resolveEntitlements } from "./resolve";
+import { FREE_SET, type EntitlementSet } from "./entitlements";
+import { resolveEntitlements } from "./resolve";
 
-/** The environment base BEFORE async resolution (Tauri → FULL, browser → FREE). */
+/** The synchronous default BEFORE async resolution. Phase 21 flip (D-85): the
+ *  in-Tauri base is no longer a blanket FULL_SET — it now depends on the licensed
+ *  state, which is only knowable after the async `license_status` read. So the
+ *  pre-resolution default is FREE everywhere (Tauri AND browser): an unlicensed
+ *  install shows the correct locked state immediately, and a licensed install
+ *  flips UP to Pro on the first refreshEntitlements() (kicked off in main.tsx).
+ *  Defaulting locked-then-unlock is the calm direction — never a flash of Pro
+ *  that then snaps to locked (ENT-04). */
 function defaultSet(): EntitlementSet {
-  return isTauriEnv() ? FULL_SET : FREE_SET;
+  return FREE_SET;
 }
 
 let current: EntitlementSet = defaultSet();

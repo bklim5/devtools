@@ -48,6 +48,12 @@ export interface Preferences {
    *  free-tier set through the central gate in ANY build; it can only LOCK,
    *  never unlock. null = no override (the environment default applies). */
   entitlementsOverride: "free" | null;
+  /** One-shot license-drop notice acknowledgement (D-84). `true` = nothing to
+   *  acknowledge (the steady state); set to `false` when Pro entitlements drop so
+   *  the next open of the status route surfaces ONE calm, dismissable inline
+   *  notice ("Your Pro features turned off…"), then back to `true` on dismiss.
+   *  Never a mid-use toast/dialog — the flag is surfaced inline on the route. */
+  licenseDropNoticeAck: boolean;
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -60,6 +66,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   protobufTreeStyle: "cards",
   autoUpdateCheck: null,
   entitlementsOverride: null,
+  licenseDropNoticeAck: true,
 };
 
 /** Single namespaced store key holding the whole prefs blob. One key keeps the

@@ -50,7 +50,13 @@ export const noopOpener: Platform["opener"] = {
   openUrl: async () => {},
 };
 
-export function makeMemoryPlatform(store: Store = createStoreStub()): Platform {
+export function makeMemoryPlatform(
+  store: Store = createStoreStub(),
+  /** Optional license arm override (Phase 21 D-85 flip tests): drive a specific
+   *  license_status so resolveEntitlements / LicenseSettings can exercise each
+   *  state. Defaults to the deterministic notActivated stub. */
+  license: Platform["license"] = noopLicense,
+): Platform {
   return {
     clipboard: { writeText: async () => {}, readText: async () => "" },
     store,
@@ -58,7 +64,7 @@ export function makeMemoryPlatform(store: Store = createStoreStub()): Platform {
     nativeShortcut: noopNativeShortcut,
     updater: noopUpdater,
     events: noopEvents,
-    license: noopLicense,
+    license,
     opener: noopOpener,
   };
 }

@@ -42,6 +42,15 @@ function coerceEntitlementsOverride(value: unknown): "free" | null {
   return value === "free" ? "free" : null;
 }
 
+/** Untrusted one-shot drop-notice ack (D-84): honor only the explicit boolean
+ *  `false` ("a drop is pending acknowledgement"); EVERYTHING else — absent, junk,
+ *  `true` — resolves to `true` (the steady "nothing to acknowledge" state). This
+ *  way a hand-edited/absent value can never wrongly POP the notice; only a real
+ *  detected drop (which writes `false`) surfaces it. */
+function coerceLicenseDropNoticeAck(value: unknown): boolean {
+  return value === false ? false : true;
+}
+
 function coerceAccent(value: unknown): string {
   return typeof value === "string" && value.length > 0
     ? value
@@ -122,6 +131,7 @@ export function mergePreferences(stored: unknown): Preferences {
     protobufTreeStyle: coerceTreeStyle(blob.protobufTreeStyle),
     autoUpdateCheck: coerceAutoUpdateCheck(blob.autoUpdateCheck),
     entitlementsOverride: coerceEntitlementsOverride(blob.entitlementsOverride),
+    licenseDropNoticeAck: coerceLicenseDropNoticeAck(blob.licenseDropNoticeAck),
   };
 }
 

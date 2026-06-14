@@ -227,3 +227,43 @@ describe("entitlementsOverride coercion (D-31, T-18-01 — downgrade-only)", () 
     expect(merged.toolOrder).toEqual(["a"]);
   });
 });
+
+// licenseDropNoticeAck is the one-shot D-84 drop notice flag, read from the same
+// untrusted on-disk blob (the user can hand-edit prefs.json). ONLY an explicit
+// `false` ("a drop is pending") is honored; everything else — absent, junk,
+// `true` — coerces to `true` (steady "nothing to acknowledge"), so a corrupt
+// value can never wrongly surface the notice.
+describe("licenseDropNoticeAck coercion (D-84 — one-shot drop notice)", () => {
+  it("defaults to true (nothing to acknowledge) when absent", () => {
+    expect(mergePreferences({}).licenseDropNoticeAck).toBe(true);
+  });
+
+  it("honors an explicit false (a detected drop is pending acknowledgement)", () => {
+    expect(mergePreferences({ licenseDropNoticeAck: false }).licenseDropNoticeAck).toBe(
+      false,
+    );
+  });
+
+  it("coerces junk values to true (untrusted hand-edited prefs.json)", () => {
+    expect(mergePreferences({ licenseDropNoticeAck: "no" }).licenseDropNoticeAck).toBe(
+      true,
+    );
+    expect(mergePreferences({ licenseDropNoticeAck: 0 }).licenseDropNoticeAck).toBe(true);
+    expect(mergePreferences({ licenseDropNoticeAck: null }).licenseDropNoticeAck).toBe(
+      true,
+    );
+  });
+
+  it("survives a save → load round-trip through the store seam (false preserved)", async () => {
+    await savePreferences({ ...DEFAULT_PREFERENCES, licenseDropNoticeAck: false });
+    await expect(loadPreferences()).resolves.toMatchObject({
+      licenseDropNoticeAck: false,
+    });
+  });
+
+  it("does not regress a sibling field in the same merged blob", () => {
+    const merged = mergePreferences({ licenseDropNoticeAck: false, toolOrder: ["a"] });
+    expect(merged.licenseDropNoticeAck).toBe(false);
+    expect(merged.toolOrder).toEqual(["a"]);
+  });
+});

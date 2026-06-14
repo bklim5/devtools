@@ -4,11 +4,16 @@
 // with the persisted D-31 override able only to DOWNGRADE to FREE. The snapshot
 // store propagates flips to subscribers exactly when the set changes.
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { resetPlatformForTest, setPlatformForTest } from "@/lib/platform";
-import { createStoreStub } from "@/lib/platform/stub";
+import {
+  resetPlatformForTest,
+  setPlatformForTest,
+  type LicenseStatusPayload,
+  type Platform,
+} from "@/lib/platform";
+import { createLicenseStub, createStoreStub } from "@/lib/platform/stub";
 import { makeMemoryPlatform } from "@/shell/testStore";
 import { PREFERENCES_STORE_KEY } from "@/shell/preferences";
-import { FREE_SET, FULL_SET } from "./entitlements";
+import { ENT_ORDERING, ENT_THEMING, FREE_SET, FULL_SET } from "./entitlements";
 import { isTauriEnv, resolveEntitlements } from "./resolve";
 import {
   clearEntitlementsOverride,
@@ -26,10 +31,26 @@ function setTauriEnv(): void {
   win.__TAURI_INTERNALS__ = {};
 }
 
-async function seedStoredPrefs(blob: unknown): Promise<void> {
+/** A license arm that returns a fixed status (D-85 flip tests). */
+function licenseArm(status: LicenseStatusPayload): Platform["license"] {
+  return { ...createLicenseStub(), status: () => Promise.resolve(status) };
+}
+
+const LICENSED_BOTH: LicenseStatusPayload = {
+  state: "licensed",
+  expiry: null,
+  entitlements: [ENT_THEMING, ENT_ORDERING],
+  maskedKey: null,
+  email: null,
+};
+
+async function seedStoredPrefs(
+  blob: unknown,
+  license?: Platform["license"],
+): Promise<void> {
   const store = createStoreStub();
   await store.set(PREFERENCES_STORE_KEY, blob);
-  setPlatformForTest(makeMemoryPlatform(store));
+  setPlatformForTest(makeMemoryPlatform(store, license));
 }
 
 beforeEach(async () => {
@@ -44,31 +65,113 @@ afterEach(() => {
   resetPlatformForTest();
 });
 
-describe("resolveEntitlements (ENT-03 — the Phase 21 flip point)", () => {
-  it("resolves FREE_SET outside Tauri (jsdom — no __TAURI_INTERNALS__)", async () => {
+describe("resolveEntitlements (ENT-03 — the LIVE Phase 21 D-85 flip point)", () => {
+  it("resolves FREE_SET outside Tauri (jsdom — no __TAURI_INTERNALS__, never touches licensing)", async () => {
     expect(isTauriEnv()).toBe(false);
     await expect(resolveEntitlements()).resolves.toBe(FREE_SET);
   });
 
-  it("resolves FULL_SET inside Tauri (everything unlocked pre-licensing)", async () => {
+  it("inside Tauri, a licensed status with both entitlements resolves Pro (BOTH)", async () => {
     setTauriEnv();
     expect(isTauriEnv()).toBe(true);
-    await expect(resolveEntitlements()).resolves.toBe(FULL_SET);
+    await seedStoredPrefs({}, licenseArm(LICENSED_BOTH));
+    const ents = await resolveEntitlements();
+    expect([...ents].sort()).toEqual([ENT_ORDERING, ENT_THEMING].sort());
   });
 
-  it("entitlementsOverride=\"free\" downgrades to FREE_SET even inside Tauri (D-31)", async () => {
+  it("inside Tauri, an offlineGrace status keeps Pro active (Pro within grace)", async () => {
     setTauriEnv();
-    await seedStoredPrefs({ entitlementsOverride: "free" });
+    await seedStoredPrefs(
+      {},
+      licenseArm({
+        state: "offlineGrace",
+        expiry: null,
+        entitlements: [ENT_THEMING, ENT_ORDERING],
+        maskedKey: null,
+        email: null,
+      }),
+    );
+    const ents = await resolveEntitlements();
+    expect(ents.has(ENT_THEMING)).toBe(true);
+    expect(ents.has(ENT_ORDERING)).toBe(true);
+  });
+
+  it("inside Tauri, a notActivated status locks to FREE_SET (the live free-tier flip)", async () => {
+    setTauriEnv();
+    await seedStoredPrefs(
+      {},
+      licenseArm({ state: "notActivated", hasStoredKey: false }),
+    );
+    const ents = await resolveEntitlements();
+    expect(ents.size).toBe(0);
+  });
+
+  it("inside Tauri, refreshNeeded and problem both lock to FREE_SET (Pro dropped)", async () => {
+    setTauriEnv();
+    await seedStoredPrefs(
+      {},
+      licenseArm({ state: "refreshNeeded", hasStoredKey: true }),
+    );
+    expect((await resolveEntitlements()).size).toBe(0);
+
+    await seedStoredPrefs(
+      {},
+      licenseArm({ state: "problem", problem: "foreignMachine", hasStoredKey: false }),
+    );
+    expect((await resolveEntitlements()).size).toBe(0);
+  });
+
+  it("entitlements drive the set, not a blanket FULL (a licensed cert with ONLY theming grants theming, not ordering)", async () => {
+    setTauriEnv();
+    await seedStoredPrefs(
+      {},
+      licenseArm({
+        state: "licensed",
+        expiry: null,
+        entitlements: [ENT_THEMING],
+        maskedKey: null,
+        email: null,
+      }),
+    );
+    const ents = await resolveEntitlements();
+    expect(ents.has(ENT_THEMING)).toBe(true);
+    expect(ents.has(ENT_ORDERING)).toBe(false);
+  });
+
+  it("an unknown entitlement string in the payload is IGNORED (intersect with ALL_ENTITLEMENTS — T-21-12 over-grant)", async () => {
+    setTauriEnv();
+    await seedStoredPrefs(
+      {},
+      licenseArm({
+        state: "licensed",
+        expiry: null,
+        entitlements: [ENT_THEMING, "pro.future-superpower"],
+        maskedKey: null,
+        email: null,
+      }),
+    );
+    const ents = await resolveEntitlements();
+    expect(ents.has(ENT_THEMING)).toBe(true);
+    expect(ents.has("pro.future-superpower")).toBe(false);
+    expect(ents.size).toBe(1);
+  });
+
+  it("entitlementsOverride=\"free\" downgrades to FREE_SET even when licensed (D-31 downgrade-only, unchanged)", async () => {
+    setTauriEnv();
+    await seedStoredPrefs(
+      { entitlementsOverride: "free" },
+      licenseArm(LICENSED_BOTH),
+    );
     await expect(resolveEntitlements()).resolves.toBe(FREE_SET);
   });
 
-  it("junk override values never change the environment base (coercer nulls them)", async () => {
+  it("junk override values never change the licensed base (coercer nulls them)", async () => {
     setTauriEnv();
-    await seedStoredPrefs({ entitlementsOverride: "full" });
-    await expect(resolveEntitlements()).resolves.toBe(FULL_SET);
+    await seedStoredPrefs({ entitlementsOverride: "full" }, licenseArm(LICENSED_BOTH));
+    expect((await resolveEntitlements()).size).toBe(2);
 
-    await seedStoredPrefs({ entitlementsOverride: 123 });
-    await expect(resolveEntitlements()).resolves.toBe(FULL_SET);
+    await seedStoredPrefs({ entitlementsOverride: 123 }, licenseArm(LICENSED_BOTH));
+    expect((await resolveEntitlements()).size).toBe(2);
 
     // Outside Tauri, junk cannot upgrade either — the base stays FREE.
     delete win.__TAURI_INTERNALS__;
@@ -90,11 +193,14 @@ describe("entitlements snapshot store", () => {
     expect(calls).toBe(0);
     expect(getEntitlementsSnapshot()).toBe(FREE_SET);
 
-    // Flip the environment to Tauri-FULL → the set changes → ONE notification.
+    // Flip to Tauri AND a licensed cert → the set changes to Pro → ONE notification.
     setTauriEnv();
+    await seedStoredPrefs({}, licenseArm(LICENSED_BOTH));
     await refreshEntitlements();
     expect(calls).toBe(1);
-    expect(getEntitlementsSnapshot()).toBe(FULL_SET);
+    expect([...getEntitlementsSnapshot()].sort()).toEqual(
+      [ENT_ORDERING, ENT_THEMING].sort(),
+    );
 
     // Refreshing again with no change stays silent.
     await refreshEntitlements();
@@ -136,14 +242,18 @@ describe("entitlements snapshot store", () => {
     // The walkthrough-2026-06-12 decision: successful activation is the ONE
     // event allowed to clear the D-31 dev override (downgrade-only otherwise).
     setTauriEnv();
-    await seedStoredPrefs({ entitlementsOverride: "free" });
+    await seedStoredPrefs({ entitlementsOverride: "free" }, licenseArm(LICENSED_BOTH));
     await refreshEntitlements();
     expect(getEntitlementsSnapshot()).toBe(FREE_SET);
 
     await clearEntitlementsOverride();
     await refreshEntitlements();
-    expect(getEntitlementsSnapshot()).toBe(FULL_SET);
-    await expect(resolveEntitlements()).resolves.toBe(FULL_SET);
+    expect([...getEntitlementsSnapshot()].sort()).toEqual(
+      [ENT_ORDERING, ENT_THEMING].sort(),
+    );
+    expect([...(await resolveEntitlements())].sort()).toEqual(
+      [ENT_ORDERING, ENT_THEMING].sort(),
+    );
   });
 
   it("unsubscribe stops notifications", () => {
