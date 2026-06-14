@@ -199,6 +199,14 @@ describe("Reorderable sidebar (real WKWebView)", () => {
     await navigateToTool("protobuf-decoder");
     const afterReloadHandle = await $('button[aria-label^="Reorder "]');
     await afterReloadHandle.waitForExist({ timeout: 15_000 });
+    // D-86: under FREE the persisted toolOrder is DORMANT (default render); the
+    // custom order only renders under Pro. The reload drops the live entitlement
+    // snapshot back to the resolved baseline, which after the D-85 flip needs the
+    // DEV "full" override to resolve to Pro — and the dev-toggle→refreshEntitlements
+    // propagation is racy on this WKWebView (helpers.ts). Re-establish Pro AFTER the
+    // reload (idempotent — a no-op if the persisted override already resolved Pro)
+    // so this asserts persistence of the ORDER, not of the tier flip.
+    await ensureProTier();
     await browser.waitUntil(
       async () => {
         const order = await readOrder();
@@ -362,6 +370,13 @@ describe("Pinned sidebar section (real WKWebView)", () => {
     await navigateToTool("protobuf-decoder");
     const reloadHandle = await $('button[aria-label^="Reorder "]');
     await reloadHandle.waitForExist({ timeout: 15_000 });
+    // D-86: under FREE the persisted pinnedToolIds are DORMANT (the pinned group
+    // does not render). The reload drops the live entitlement snapshot to the
+    // resolved baseline; after the D-85 flip Pro needs the DEV "full" override,
+    // whose dev-toggle propagation is racy on this WKWebView (helpers.ts). Re-
+    // establish Pro AFTER the reload (idempotent) so this asserts persistence of
+    // the PIN, not of the tier flip.
+    await ensureProTier();
     await browser.waitUntil(
       async () => (await readPinnedOrder()).includes(targetName),
       {

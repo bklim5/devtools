@@ -40,7 +40,6 @@ import {
   ensureFreeTier,
   ensureProTier,
   navigateToTool,
-  runDevToggle,
   saveScreenshot,
 } from "./helpers";
 
@@ -302,19 +301,24 @@ describe("License activation UX (real WKWebView)", () => {
             },
           );
         }
-        // 3. Untoggle the free tier (also clears the persisted override).
-        if (toggledFree && (await footerLabel()) === "Unlock Pro") {
-          await runDevToggle();
+        // 3. Re-establish Pro (clears the persisted free override AND survives the
+        //    racy dev-toggle→refreshEntitlements propagation via ensureProTier's
+        //    retry — a single runDevToggle could leave FREE if the one flip missed).
+        //    Under Pro the "Unlock Pro" footer is gone, the deterministic end state.
+        if (toggledFree) {
+          await ensureProTier();
         }
       } catch (cleanupError) {
         console.error("[license] cleanup failed:", cleanupError);
       }
     }
 
-    // Default state returned: no footer row at all (full tier, no attention).
+    // Default state returned: no footer row at all — Pro is live (the dev "full"
+    // override resolves FULL post-D-85), so neither the "Unlock Pro" free row nor
+    // the "License needs attention" hint renders.
     await browser.waitUntil(async () => (await footerLabel()) === null, {
       timeout: 10_000,
-      timeoutMsg: `expected the footer row gone after cleanup, got ${JSON.stringify(await footerLabel())}`,
+      timeoutMsg: `expected the footer row gone after re-establishing Pro in cleanup, got ${JSON.stringify(await footerLabel())}`,
     });
   });
 });
