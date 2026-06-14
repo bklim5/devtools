@@ -165,7 +165,7 @@ Plans:
 
 Plans:
 - [x] 21-01-PLAN.md — Expiry-aware resolve_status: OfflineGrace + RefreshNeeded states, TTL/grace/poll consts, needs_refresh helper (LIC-05; D-73/74/75; TDD, wave 1) — DONE 2026-06-14 (cargo license:: 66/66)
-- [ ] 21-02-PLAN.md — Background refresh scheduler (launch + 24h poll, online + needs_refresh gated, silent) + 5-state TS payload mirror (LIC-05; D-76/77; wave 2)
+- [x] 21-02-PLAN.md — Background refresh scheduler (launch + 24h poll, online + needs_refresh gated, silent) + 5-state TS payload mirror (LIC-05; D-76/77; wave 2) — DONE 2026-06-14 (cargo license:: 69/69, vitest 893/893; tokio time-feature dep)
 - [ ] 21-03-PLAN.md — Transfer/revocation surface: webhook email-embed (D-89) + verify.rs email + maskedKey payload + revocation tests + infra/ seat-release helper (LIC-07/08; D-78..82/89/81; wave 3)
 - [ ] 21-04-PLAN.md — D-85 live free-tier flip + #/settings/license status route + confirm-first deactivate + drop notice + footer/palette routing + real-WKWebView e2e (LIC-09/05/07/08; D-83..88; NOT autonomous, wave 4)
 - [ ] 21-05-PLAN.md — 8-case ship-gate matrix on a fresh prod build (D-90; gated on Phase 20 completion for the live cases 1/2/7/8; NOT autonomous, wave 5)
