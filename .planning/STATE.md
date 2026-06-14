@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Licensing
 status: executing
-last_updated: "2026-06-14T16:10:00.000Z"
-last_activity: 2026-06-14 -- Quick 260614-nox: isolated dev vs prod license storage (Keychain service + machine.lic filename cfg-split; release byte-identical) so dev/e2e can never corrupt a buyer's license; e2e-spike preflight retargeted at the dev service. (Earlier today: Phase 20 verified; tinkerdev.io live; quick 260614-l39 hardening — Task-4 Buy walkthrough APPROVED; KEYGEN_ACCOUNT_ID dead_code warning fixed.)
+last_updated: "2026-06-14T23:24:00.000Z"
+last_activity: 2026-06-14 -- Phase 21 plan 01 complete (expiry-aware resolve_status)
 progress:
-  total_phases: 10
-  completed_phases: 2
-  total_plans: 11
-  completed_plans: 11
-  percent: 100
+  total_phases: 11
+  completed_phases: 3
+  total_plans: 16
+  completed_plans: 12
+  percent: 75
 ---
 
 # Project State
@@ -18,11 +18,11 @@ progress:
 ## Current Position
 
 Milestone: **v1.6 "Licensing"** — started 2026-06-09, roadmap created 2026-06-09.
-Phase: 20 (Purchase Pipeline) — VERIFIED-PENDING-LIVE-GATE
-Plan: 3 of 3 done (20-01 + 20-02 + 20-03 all executed & verified; prod CE live, pipeline proven test-mode end-to-end)
-Status: Phase 20 code/infra complete + verified (20-VERIFICATION.md = 4/4 criteria). Lone unmet item: the D-63 live USD-9 purchase, blocked on Lemon Squeezy store approval → blocked on a credible landing page (in progress).
-Progress: [■■□□] 2/4 phases · v1.6 plans 11/11 executed (Phase 20 closes on the live-purchase gate)
-Last activity: 2026-06-14 -- Phase 20 plan 03 verified (prod CE live; LS test-mode purchase → license → email → activation PASSES). Building the tinkerdev.io landing page to unblock LS store approval → the live purchase.
+Phase: 21 (license-lifecycle-ship-gate) — EXECUTING
+Plan: 2 of 5 (plan 01 complete)
+Status: Executing Phase 21
+Progress: [■■□□] 2/4 phases · v1.6 plans 12 executed (Phase 20 closes on the live-purchase gate; Phase 21 plan 01 done)
+Last activity: 2026-06-14 -- Phase 21 plan 01 complete (expiry-aware resolve_status)
 
 **Goal:** one-time-payment lifetime license — MoR checkout → webhook → Keygen (perpetual, node-locked, maxMachines=1); paste-key one-time activation (fingerprint `HMAC-SHA256(IOPlatformUUID, salt)`); offline Ed25519-verified `machine.lic` (~30-day TTL) thereafter; license key in Keychain (Rust-owned); free tier keeps all 11 tools — Pro locks customization (theming + ordering/pinning) behind a central entitlement gate (D-18 pivot; tool-gating mechanism ships dormant). Research: `docs/licensing-research.md`.
 
@@ -54,7 +54,7 @@ Last activity: 2026-06-14 -- Phase 20 plan 03 verified (prod CE live; LS test-mo
 See: .planning/PROJECT.md (updated 2026-06-09, v1.6 started) · roadmap: .planning/ROADMAP.md · requirements: .planning/REQUIREMENTS.md · research: docs/licensing-research.md
 
 **Core value:** Paste an unknown blob → usable, explorable interpretation in <2s, entirely offline, no mouse.
-**Current focus:** Phase 20 — Purchase Pipeline
+**Current focus:** Phase 21 — license-lifecycle-ship-gate
 
 ## v1.5 — Pinned Tools (SHIPPED & ARCHIVED, 2026-06-07)
 
@@ -90,6 +90,8 @@ v1.5 complete — Phase 17 (2 plans), archived to `.planning/milestones/v1.5-*` 
 **Phase 20 plan 01 decisions (2026-06-13, Buy wiring + D-52 constant split):** the app-side change is done — an `opener` capability mirrors the license-capability shape across the platform seam (`index.ts` interface + `get opener()` proxy, `tauri.ts` the SOLE `@tauri-apps/plugin-opener` importer, `browser.ts` deterministic no-op that never navigates jsdom). Installed `@tauri-apps/plugin-opener` (npm 2.5.4 + crate "2") + `tauri_plugin_opener::init()` — the FIRST new webview runtime dep, the explicit **D-67** exception; `opener:allow-open-url` scoped **https-only** (`{ url: "https://*" }`, T-20-01). Buy CTA now calls `platform.opener.openUrl("https://tinkerdev.io/buy")` — **D-68** own-domain redirect (store/MoR change never forces an app release), best-effort/calm (logs, never throws); D-21 stub tests rewritten to assert the seam call + no in-app navigation. **config.rs D-52:** `KEYGEN_HOST`/`KEYGEN_ACCOUNT_ID`/`KEYGEN_ED25519_PUBKEY_B64` cfg(debug_assertions)-split (dev=local CE, release=`license.tinkerdev.io` + `PROD_*_PLACEHOLDER` sentinels D-51); **APP_SALT stays single + byte-identical (A5)**; a `#[cfg(not(debug_assertions))]` tripwire test FAILS `cargo test --release` while placeholders remain (Plan 03's gate — `setup.sh` mints real values then re-runs green); default debug `cargo test` stays 3/3. `check-dev-strip.sh` extended with `check_prod_constants` (release-binary `license.tinkerdev.io`-present grep). Shared `noopOpener` added to `makeMemoryPlatform`/test literals (Rule-3 blocking fix). Unit suite **841/841**, tsc clean. **Carried to Plan 03:** fill the two config.rs prod placeholders, run `cargo test --release` green, run `check-dev-strip.sh` with `CHECK_PROD_BINARY`. **PAY-01 Validated (Plan 20-01).**
 
 **Phase 20 plan 02 decisions (2026-06-13, webhook backend — PAY-02/PAY-03):** `server/webhook/` Node/TS backend landed unit-complete (30 tests, all mocked I/O, zero live calls). `mor.ts` is the ONE Lemon-Squeezy swap seam (D-61) → neutral `OrderEvent` union; `verify.ts` HMAC-SHA256 over the RAW body + length-guarded `crypto.timingSafeEqual` (D-60, T-20-09/T-20-10 — re-serialized-JSON failure pinned); `keygen.ts` searches `metadata[orderId]` before create (D-58 idempotency, Keygen as the single source of truth — no second datastore) and POSTs the JSON:API license (policy rel → D-54 inherited `pro.theming`/`pro.ordering`, `metadata.orderId`), non-2xx throws → 5xx (D-59); `email.ts` Resend plain-text key + 3 activation steps + releases link (D-66), re-throws Resend `{error}` so fulfill 5xx + alert (D-72); `fulfill.ts` orchestrates verify(401)→ignore(200)→invalid(400)→idempotent-skip(200)→create→email→200, NEVER 2xx after a side-effect failure (LS auto-retries); `index.ts` built-in-`http` server, `GET /health` + `POST /webhooks/lemonsqueezy` capturing the RAW body before any parse (Pitfall 5). **D-56 gate genuinely wired:** lefthook typecheck COMMAND now also runs `tsc --noEmit -p server/webhook/tsconfig.json` (PROVEN to catch a server-only type error the old root-only command missed) + eslint `files:["server/**/*.ts"]` node-globals block. **Structural decisions:** `server/webhook` is a pnpm WORKSPACE MEMBER (not a root dep) so `resend@6.12.4` is the webhook package's dep and never enters the app/webview manifest (zero-webview-runtime-deps wedge holds — resend is backend-only, never imported by `src/`); the optional root tsconfig project reference was DROPPED (a composite ref forces `noEmit:false` → TS6310, broke `tsc --noEmit`; the explicit `-p` gate command is the required D-56 mechanism regardless). Added `@types/node@22` (devDep) + `allowImportingTsExtensions` to the server tsconfig (Rule-3 blocking fixes). Secrets template-only: real `.env` gitignored, `.env.example` placeholders, no hardcoded token. Full suite **871/871** (+30), root+server tsc + lint clean; `decoder.ts` + its 19 tests untouched. **PAY-02/PAY-03 Done (Plan 20-02).** **Carried to Plan 03:** confirm the real LS test-mode payload field paths (`data.id`, `data.attributes.user_email`, A5) in the D-63 e2e; stand up prod CE + policy + Caddy; fill `server/webhook/.env`; live purchase→license→email round-trip.
+
+**Phase 21 plan 01 decisions (2026-06-14, expiry-aware resolve_status — LIC-05 core, D-73):** `LicenseStatusPayload` is now 5 states — added **OfflineGrace** `{expiry, entitlements}` (Pro active, past expiry, within grace) and **RefreshNeeded** `{has_stored_key}` (Pro dropped, grace lapsed); serde shapes `offlineGrace`/`refreshNeeded` pinned in the contract test. `resolve_status` Ok-arm branches via a PURE `classify_expiry(expiry, now) -> {Active|Grace|Lapsed}` (injected `now`, no clock mocking) → Licensed/OfflineGrace/RefreshNeeded; **verify gates the expiry branch** (a tampered/foreign cert is still `Problem`, never grace). **Fail-OPEN on absent/unparseable expiry** (Active — a verified signature already proves authenticity; never downgrade a paying user on a date quirk, T-21-02/03 mitigated, test-pinned); inclusive boundaries (`now==expiry`→Active, `now==expiry+GRACE_DAYS`→Grace, strictly beyond→Lapsed). `needs_refresh(&mut self)` helper for Plan 02's scheduler: true in grace/lapsed OR Licensed-within-`RENEW_AHEAD_DAYS` (pure `within_renew_ahead`, fail-CLOSED false on absent/unparseable); both carry documented `#[allow(dead_code)]` until Plan 02 wires them. Constants landed in `config.rs` (profile-invariant, NOT cfg-split): **TTL_DAYS=30 / RENEW_AHEAD_DAYS=7 / GRACE_DAYS=7 / POLL_INTERVAL_HOURS=24** (D-74/75/76; ~37d worst-case revocation exposure). **D-45 intact** — zero network on the status path (NoNetwork client panics-on-call test green). Added **chrono 0.4** (`clock` only, src-tauri Rust dep — webview zero-dep wedge N/A). `cargo test license::` **66/66**; full webview gate 889/889 + tsc + lint green; APP_SALT byte-identical; decoder + 19 tests untouched.
 
 **v1.6 sequencing decisions:** entitlements seam FIRST (pure frontend, free-tier default = everything unlocked until Phase 21 flips it at integration); Keygen Rust integration is the riskiest chunk and carries the key→token-exchange SPIKE; PAY pipeline is external infra, parallel-capable with Phase 19; lifecycle hardening + the 8-case ship-gate matrix close the milestone.
 
