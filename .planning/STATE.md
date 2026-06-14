@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Licensing
 status: executing
-last_updated: "2026-06-14T14:00:00.000Z"
-last_activity: 2026-06-14 -- Phase 20 plan 03 verified (prod CE live + pipeline proven test-mode end-to-end; verdict verified-pending-live-gate). Lone unmet gate: live USD-9 purchase, blocked on LS store approval (needs landing page).
+last_updated: "2026-06-14T15:35:00.000Z"
+last_activity: 2026-06-14 -- Quick 260614-l39: hardened Phase 20 webhook Medium findings 6-10 (opener scope, tsconfig types, strip-check, Buy e2e) on the now-live pipeline; gates green, real-WKWebView e2e is the pending Task-4 human checkpoint. (Earlier: Phase 20 verified verified-pending-live-gate; tinkerdev.io product site live.)
 progress:
   total_phases: 10
   completed_phases: 2
@@ -46,6 +46,7 @@ Last activity: 2026-06-14 -- Phase 20 plan 03 verified (prod CE live; LS test-mo
 | 260611-dl1 | Harness batch 1/4: e2e-spike.sh `preflight()` kills orphan devtools-app + clears :4445/:1420 LISTEN holders (TERM→KILL→fail-loud; `PREFLIGHT_ONLY=1` dry-run) so a green e2e run provably ran CURRENT code; eslint joins the lefthook unit gate (tsc+vitest+lint); .gitignore deduped, stale __logs__ purged, 3 stale docs → docs/archive/ with refs updated | 2026-06-11 | 02a76acf + fbaa2333 + 4aff0de8 | [260611-dl1-harness-e2e-spike-orphan-port-preflight-](./quick/260611-dl1-harness-e2e-spike-orphan-port-preflight-/) |
 | 260611-dww | Harness batch 2/4: regex/url/cron migrated to the ONE shared CopyButton (call sites pass the bare noun — shared prepends `Copy ` so aria-labels stay byte-identical; -96 lines), dead `src/tools/_placeholder/` deleted, `docs/HARNESS.md` e2e-gate runbook (ports/env/preflight/session/WebKit quirks/DMG flake); full gate 816/816 + tsc + eslint; real-WKWebView e2e deferred to batch 3's full run | 2026-06-11 | acba7c24 + 3ff4ee97 + 94d8cf99 | [260611-dww-shared-copybutton-in-regex-url-cron-dele](./quick/260611-dww-shared-copybutton-in-regex-url-cron-dele/) |
 | 260611-e5k | Harness batch 3/4: `test/e2e/helpers.ts` extracted (assert/dispatchKey/dispatchAltP/navigateToTool/saveScreenshot/readOrder/readPinnedOrder/focusRow) with the 3 WebKit lessons as helper doc comments; ALL 15 specs migrated (pure refactor, log lines + screenshots byte-identical; -336 duplicated spec lines, net -181); full real-WKWebView e2e 15/15 specs / 20 tests green — batch-2 CopyButton deferred verification DISCHARGED (regex/url/cron Copy aria-labels proven on WKWebView) | 2026-06-11 | e68a5c68 + 409d6785 | [260611-e5k-extract-test-e2e-helpers-ts-and-migrate-](./quick/260611-e5k-extract-test-e2e-helpers-ts-and-migrate-/) |
+| 260614-l39 | Phase 20 webhook code-review Medium findings 6–10 (harden the now-LIVE licensing pipeline): #6 idempotency guard already present (verified no-op, keygen.ts untouched); #7 opener scope `https://*`→exact `https://tinkerdev.io/*` (open-redirect surface, T-20-01); #8 root tsconfig `"types":[]` so hoisted @types/node stops masking the webview tsc gate (zero source fallout); #9 check-dev-strip.sh now FAILs on `PROD_*_PLACEHOLDER` sentinels (`grep -qaF`); #10 Buy e2e de-vacuumed — records+short-circuits `plugin:opener\|open_url`, asserts exact `https://tinkerdev.io/buy`. /simplify (shared RecorderWindow type + mailto guidance→todo) + codex review (P2: recorder install moved inside try so finally always restores). vitest 889/889 + both tsc gates + lint green; decoder untouched. **Real-WKWebView e2e = Task-4 human checkpoint (pending).** | 2026-06-14 | baaebd2a + e74c1f8f + 9194e47e + 4661958f + 62ddff9e | [260614-l39-phase-20-webhook-code-review-medium-find](./quick/260614-l39-phase-20-webhook-code-review-medium-find/) |
 
 ## Project Reference
 
