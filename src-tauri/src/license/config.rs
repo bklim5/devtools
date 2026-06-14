@@ -13,9 +13,10 @@
 //! placeholder pubkey, so a release build (`cargo test --release`) FAILS while
 //! the placeholder remains — Plan 03 fills the real values and re-runs it.
 //!
-//! D-41: everything in this file is safe to commit. The account id appears in
-//! every API URL, the Ed25519 public key is public by design (minisign-pubkey
-//! posture), and APP_SALT only de-correlates fingerprints (see its doc).
+//! D-41: everything in this file is safe to commit. The account id is a public
+//! identifier (under CE singleplayer it is NOT in the API URL path — the API is
+//! mounted at `/v1/...`), the Ed25519 public key is public by design
+//! (minisign-pubkey posture), and APP_SALT only de-correlates fingerprints.
 
 use ed25519_dalek::VerifyingKey;
 
@@ -26,13 +27,15 @@ pub const KEYGEN_HOST: &str = "localhost";
 #[cfg(not(debug_assertions))]
 pub const KEYGEN_HOST: &str = "license.tinkerdev.io";
 
-/// Keygen account id — present in every API URL path; not a secret (D-41).
+/// Keygen account id — the public account identifier; not a secret (D-41). CE
+/// singleplayer mounts the API at `/v1/...` (no `/accounts/{id}` segment), so
+/// this is NOT in the URL path; it's retained for the record + release tripwire.
 /// Dev value from 19-SPIKE-OUTCOME.md (local CE instance); the prod value is
-/// minted by Plan 03's `setup.sh` (D-51), placeholder until then.
+/// minted by Plan 03's `setup.sh` (D-51).
 #[cfg(debug_assertions)]
 pub const KEYGEN_ACCOUNT_ID: &str = "23c88309-2584-4771-81df-1d351672ff91"; // local CE
 #[cfg(not(debug_assertions))]
-pub const KEYGEN_ACCOUNT_ID: &str = "PROD_ACCOUNT_ID_PLACEHOLDER"; // ← Plan 03 setup.sh (D-51)
+pub const KEYGEN_ACCOUNT_ID: &str = "0d607683-026f-468b-9cf0-f5bfaf61a7a1"; // prod CE (D-51, setup.sh 2026-06-14)
 
 /// Account Ed25519 public key, base64 of the RAW 32 bytes.
 ///
@@ -46,7 +49,7 @@ pub const KEYGEN_ACCOUNT_ID: &str = "PROD_ACCOUNT_ID_PLACEHOLDER"; // ← Plan 0
 #[cfg(debug_assertions)]
 pub const KEYGEN_ED25519_PUBKEY_B64: &str = "ZBd2u102TCpivzVAisQZi7h5YUqhmtT6DA1Ej0YPes4="; // local CE
 #[cfg(not(debug_assertions))]
-pub const KEYGEN_ED25519_PUBKEY_B64: &str = "PROD_PUBKEY_PLACEHOLDER"; // ← Plan 03 setup.sh (D-51)
+pub const KEYGEN_ED25519_PUBKEY_B64: &str = "huJdyRsBtd7KrPqWv5Z/8GVeLmiqfWTfQnEb090+jO4="; // prod CE (D-51, setup.sh 2026-06-14)
 
 /// App-wide fingerprint salt (D-41): `fingerprint = hex(HMAC-SHA256(APP_SALT, IOPlatformUUID))`.
 ///
