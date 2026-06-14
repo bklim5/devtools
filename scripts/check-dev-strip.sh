@@ -47,6 +47,17 @@ check_prod_constants() {
     echo "FAIL: prod Keygen host 'license.tinkerdev.io' ABSENT from release binary" >&2
     return 1
   fi
+  # ABSENT (load-bearing, finding 9 / T-20-14): the pre-fill sentinels must NOT
+  # be embedded. A release built before 20-03 filled config.rs would still carry
+  # these literal placeholder strings — fixed-string (`grep -F`) match so a stray
+  # regex metachar in a future sentinel can't silently neuter the check. Either
+  # sentinel present ⇒ a placeholder binary is masquerading as prod ⇒ FAIL.
+  for sentinel in "PROD_ACCOUNT_ID_PLACEHOLDER" "PROD_PUBKEY_PLACEHOLDER"; do
+    if grep -qaF "$sentinel" "$binary"; then
+      echo "FAIL: placeholder sentinel '$sentinel' embedded in release binary — config.rs prod constants not filled (run Plan 03 setup.sh)" >&2
+      return 1
+    fi
+  done
   # ABSENT: the localhost Keygen host string must NOT be embedded in a release
   # binary (the dev arm is cfg'd out). Corroborating check.
   if grep -qa "localhost" "$binary"; then
