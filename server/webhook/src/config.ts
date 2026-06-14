@@ -37,7 +37,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     keygenPolicyId: required(env, "KEYGEN_POLICY_ID"),
     lsWebhookSecret: required(env, "LS_WEBHOOK_SECRET"),
     resendApiKey: required(env, "RESEND_API_KEY"),
-    emailFrom: env.EMAIL_FROM?.trim() || "TinkerDev Licenses <licenses@tinkerdev.io>",
+    emailFrom: env.EMAIL_FROM?.trim() || "TinkerDev Licenses <licenses@email.tinkerdev.io>",
     port: Number(env.PORT ?? 8787),
   };
 }
