@@ -95,17 +95,21 @@ function currentHash(): Promise<string> {
 // Calls are stashed on window.__openUrlCalls and the original is stashed on
 // window.__realInvoke for restoration in finally.
 
+// Shape of the window we read/patch inside the browser.execute closures below.
+// Type-only — it erases at compile time, so referencing it from the serialized
+// closures is safe (no runtime value crosses the WebDriver boundary).
+type RecorderInvoke = (cmd: string, args?: unknown, opts?: unknown) => Promise<unknown>;
+type RecorderWindow = {
+  __TAURI_INTERNALS__?: { invoke: RecorderInvoke };
+  __openUrlCalls?: string[];
+  __realInvoke?: RecorderInvoke;
+};
+
 // Install the recorder. Idempotent: a second install is a no-op (so a retry
 // loop cannot double-wrap and lose the original).
 function installOpenerRecorder(): Promise<void> {
   return browser.execute(() => {
-    const w = window as unknown as {
-      __TAURI_INTERNALS__?: {
-        invoke: (cmd: string, args?: unknown, opts?: unknown) => Promise<unknown>;
-      };
-      __openUrlCalls?: string[];
-      __realInvoke?: (cmd: string, args?: unknown, opts?: unknown) => Promise<unknown>;
-    };
+    const w = window as unknown as RecorderWindow;
     const internals = w.__TAURI_INTERNALS__;
     if (!internals || w.__realInvoke) return; // not in Tauri, or already wrapped
     w.__openUrlCalls = [];
@@ -126,7 +130,7 @@ function installOpenerRecorder(): Promise<void> {
 // Read back the recorded openUrl calls.
 function recordedOpenUrlCalls(): Promise<string[]> {
   return browser.execute(
-    () => (window as unknown as { __openUrlCalls?: string[] }).__openUrlCalls ?? [],
+    () => (window as unknown as RecorderWindow).__openUrlCalls ?? [],
   );
 }
 
@@ -134,13 +138,7 @@ function recordedOpenUrlCalls(): Promise<string[]> {
 // wrapped invoke never leaks into later specs in the same WDIO run).
 function restoreOpenerRecorder(): Promise<void> {
   return browser.execute(() => {
-    const w = window as unknown as {
-      __TAURI_INTERNALS__?: {
-        invoke: (cmd: string, args?: unknown, opts?: unknown) => Promise<unknown>;
-      };
-      __openUrlCalls?: string[];
-      __realInvoke?: (cmd: string, args?: unknown, opts?: unknown) => Promise<unknown>;
-    };
+    const w = window as unknown as RecorderWindow;
     if (w.__TAURI_INTERNALS__ && w.__realInvoke) {
       w.__TAURI_INTERNALS__.invoke = w.__realInvoke;
     }
