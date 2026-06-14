@@ -84,6 +84,12 @@ pub const APP_SALT: &[u8] = b"e14f0d1630565bf022fe7d40de2aeceefb254a01151d3df397
 // upper bound, not the common case.
 
 /// D-74: cache TTL of a checked-out `machine.lic` (~30-day Keygen TTL).
+///
+/// `#[allow(dead_code)]`: a documentation/invariant constant — the TTL is
+/// enforced server-side by Keygen (the issued cert's `expiry`), so nothing in
+/// the client reads it at runtime; the config tests pin it + the
+/// `RENEW_AHEAD_DAYS < TTL_DAYS` invariant.
+#[allow(dead_code)]
 pub const TTL_DAYS: i64 = 30;
 
 /// D-74: renew-ahead window — attempt a background re-checkout once the cert is

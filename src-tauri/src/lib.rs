@@ -85,6 +85,46 @@ pub fn run() {
                 tauri::async_runtime::Mutex::new(mgr),
             ));
 
+            // Opportunistic background license refresh (D-76, LIC-05). A
+            // fire-and-forget task — setup() returns IMMEDIATELY, so first
+            // paint is never blocked (honoring the v1.6 "no per-launch hard
+            // network check" amendment; the launch trigger waits for the window
+            // to paint, then runs off the UI thread).
+            //
+            // Both the launch trigger and the 24h poll funnel through
+            // `refresh_if_needed`, which is itself gated: it makes ZERO network
+            // when the cert is fresh, and SWALLOWS every error (offline /
+            // service down) so a failed attempt is silent and leaves state
+            // untouched. The scheduler's job is to keep machine.lic fresh on
+            // disk so the next `license_status` (panel open / explicit Refresh,
+            // Plan 04) reflects it; the result here is discarded server-side.
+            let handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                use std::time::Duration;
+                // POLL_INTERVAL_HOURS=24 (config.rs, D-76). tokio's interval
+                // fires its FIRST tick immediately — we consume that first tick
+                // as the launch trigger (after a short paint delay) and every
+                // subsequent tick as a periodic poll, so the launch attempt and
+                // the first poll never double-fire.
+                let mut interval = tokio::time::interval(Duration::from_secs(
+                    license::config::POLL_INTERVAL_HOURS * 3600,
+                ));
+                // Let the window paint before the first (launch) attempt — the
+                // refresh must never delay first paint.
+                tokio::time::sleep(Duration::from_secs(2)).await;
+                loop {
+                    interval.tick().await; // immediate on the first iteration
+                    let state = handle.state::<license::commands::LicenseState>();
+                    let _ = state.0.lock().await.refresh_if_needed().await;
+                    // TODO(21-04): emit a `license://refreshed` event here when
+                    // the on-disk state changed, so a long-running window can
+                    // live-flip the UI without a restart. Plan 04 wires the
+                    // status-open + explicit-Refresh paths that already pick up
+                    // the fresh disk state, so the event is a nice-to-have for
+                    // the long-uptime case, not a blocker for this plan.
+                }
+            });
+
             let show_i = MenuItem::with_id(app, "show", "Show TinkerDev", true, None::<&str>)?;
             // "Check for Updates…" (DST-02 / D-11a). The actual check() runs in JS
             // through the platform seam (D-12); this just emits an event the JS shell

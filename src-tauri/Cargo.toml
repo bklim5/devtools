@@ -61,6 +61,13 @@ thiserror = "2"
 # `Utc::now()`; `default-features=false` drops the heavy `oldtime`/`wasm` extras.
 # RFC3339 parsing comes from `DateTime::parse_from_rfc3339` (no extra feature).
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
+# Background license-refresh scheduler timer (Phase 21 Plan 02, D-76). tokio is
+# already in the tree (Tauri's async runtime is tokio); declaring it directly
+# with ONLY the `time` feature gives `interval`/`sleep` for the 24h poll without
+# pulling new transitive crates. Rust-only dep — the webview zero-new-dep wedge
+# does not apply to src-tauri. The spawned task runs on Tauri's own runtime
+# (`tauri::async_runtime::spawn`), so no separate runtime is started.
+tokio = { version = "1", default-features = false, features = ["time"] }
 # Keygen HTTP client (Phase 19 Plan 03, LIC-01/02). rustls-only — no OpenSSL
 # linkage. NOTE: in reqwest 0.13 the rustls TLS feature is named `rustls`
 # (0.12's `rustls-tls` name no longer exists); default-features off drops
