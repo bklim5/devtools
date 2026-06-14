@@ -24,7 +24,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
 set -a; source "$SCRIPT_DIR/.env"; set +a
 
-BASE="https://$KEYGEN_HOST/v1/accounts/$KEYGEN_ACCOUNT_ID"
+# Keygen CE runs in SINGLEPLAYER mode (the only CE mode): the API is mounted at
+# /v1/... with NO /accounts/{id} segment (the single account is implicit). The
+# multiplayer-style /v1/accounts/{id}/... routes 404 on a real two-label host
+# (they only resolved on the Phase-19 localhost CE via a nil-domain routing
+# quirk). Verified live: GET /v1/products → 200, /v1/accounts/{id}/products → 404.
+BASE="https://$KEYGEN_HOST/v1"
 PRODUCT_NAME="TinkerDev"
 POLICY_NAME="perpetual-node-locked"
 
@@ -134,7 +139,7 @@ attach_entitlements() { # POLICY_ID THEMING_ID ORDERING_ID
   resp="$(curl -s -X POST -w $'\n%{http_code}' \
     -H "Authorization: Bearer $ADMIN_TOKEN" \
     -H "Content-Type: application/vnd.api+json" -H "Accept: application/vnd.api+json" \
-    -d "$body" "$BASE/policies/$policy_id/relationships/entitlements")"
+    -d "$body" "$BASE/policies/$policy_id/entitlements")"
   status="${resp##*$'\n'}"
   resp="${resp%$'\n'*}"
   if (( status >= 400 )) && (( status != 409 )) && (( status != 422 )); then
