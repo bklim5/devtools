@@ -13,6 +13,7 @@ pub mod keygen_client;
 pub mod store;
 pub mod verify;
 
+use chrono::{DateTime, Duration, Utc};
 use keychain::KeychainAccess;
 use keygen_client::{LicenseError, ValidateOutcome};
 use store::LicFileStore;
@@ -33,6 +34,19 @@ pub enum LicenseStatusPayload {
         expiry: Option<String>,
         entitlements: Vec<String>,
     },
+    /// Pro still active: the cert verified but is PAST `expiry`, yet still
+    /// within the `GRACE_DAYS` window (D-73/D-75). Carries the same payload as
+    /// Licensed so the entitlement set stays unlocked.
+    #[serde(rename_all = "camelCase")]
+    OfflineGrace {
+        expiry: Option<String>,
+        entitlements: Vec<String>,
+    },
+    /// Pro dropped to free: the cert verified but expiry + `GRACE_DAYS` has
+    /// lapsed (D-73/D-75) — Pro is off until a successful refresh swaps in a
+    /// fresh cert. `has_stored_key` lets the UI offer one-click reactivation.
+    #[serde(rename_all = "camelCase")]
+    RefreshNeeded { has_stored_key: bool },
     #[serde(rename_all = "camelCase")]
     Problem {
         problem: ProblemKind,
@@ -170,14 +184,63 @@ impl<C: LicenseApi> LicenseManager<C> {
             };
         };
         match verify_machine_file(&cert, &config::verifying_key(), &self.fingerprint) {
-            Ok(data) => LicenseStatusPayload::Licensed {
-                expiry: data.expiry,
-                entitlements: data.entitlements,
-            },
+            // D-73: a verified cert is now expiry-aware. The verify step
+            // (signature + fingerprint) precedes ANY expiry check, so a
+            // tampered/foreign cert is still a Problem (never grace). The pure
+            // `classify_expiry` helper does the date math against the real
+            // clock — no network on this path (D-45).
+            Ok(data) => {
+                // RefreshNeeded needs `has_stored_key`; compute it lazily only
+                // when the classifier actually lands in that arm (Licensed /
+                // OfflineGrace never touch the Keychain).
+                match classify_expiry(data.expiry.as_deref(), Utc::now()) {
+                    ExpiryClass::Active => LicenseStatusPayload::Licensed {
+                        expiry: data.expiry,
+                        entitlements: data.entitlements,
+                    },
+                    ExpiryClass::Grace => LicenseStatusPayload::OfflineGrace {
+                        expiry: data.expiry,
+                        entitlements: data.entitlements,
+                    },
+                    ExpiryClass::Lapsed => LicenseStatusPayload::RefreshNeeded {
+                        has_stored_key: self.has_stored_key(),
+                    },
+                }
+            }
             Err(e) => LicenseStatusPayload::Problem {
                 problem: e.into(),
                 has_stored_key: self.has_stored_key(),
             },
+        }
+    }
+
+    /// D-74/D-76: should the background scheduler (Plan 02) attempt a refresh?
+    ///
+    /// True when:
+    /// - the current status is OfflineGrace or RefreshNeeded (past expiry — must
+    ///   re-checkout to restore/keep Pro), OR
+    /// - Licensed but within `RENEW_AHEAD_DAYS` of `expiry` (renew-ahead, so a
+    ///   connected user re-checks-out a fresh cert BEFORE entering grace).
+    ///
+    /// False for a freshly-licensed cert far from expiry, NotActivated, and
+    /// Problem (a Problem cert can't be refreshed — it failed verify).
+    ///
+    /// `&mut self` because `resolve_status` may read the Keychain for the
+    /// RefreshNeeded arm.
+    ///
+    /// `#[allow(dead_code)]`: consumed by Plan 02's background refresh
+    /// scheduler (not yet wired); the test suite exercises it now.
+    #[allow(dead_code)]
+    pub fn needs_refresh(&mut self) -> bool {
+        match self.resolve_status() {
+            LicenseStatusPayload::OfflineGrace { .. }
+            | LicenseStatusPayload::RefreshNeeded { .. } => true,
+            LicenseStatusPayload::Licensed { expiry, .. } => {
+                within_renew_ahead(expiry.as_deref(), Utc::now())
+            }
+            LicenseStatusPayload::NotActivated { .. } | LicenseStatusPayload::Problem { .. } => {
+                false
+            }
         }
     }
 
@@ -322,6 +385,67 @@ impl<C: LicenseApi> LicenseManager<C> {
         self.stored_key_flag = Some(present);
         present
     }
+}
+
+/// Pure expiry classification (D-73) — the testable core of `resolve_status`'s
+/// expiry awareness. Deterministic: it takes an injected `now`, so tests need
+/// no clock mocking and `resolve_status` passes the real `Utc::now()`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ExpiryClass {
+    /// Not yet expired (or non-expiring / unparseable date) — stay Licensed.
+    Active,
+    /// Past expiry but within `GRACE_DAYS` — OfflineGrace (Pro still active).
+    Grace,
+    /// Past expiry + `GRACE_DAYS` — RefreshNeeded (dropped to free).
+    Lapsed,
+}
+
+/// Classify a verified cert's `expiry` against `now` (D-73/D-75).
+///
+/// Fail-OPEN policy (T-21-02/T-21-03): a verified signature already proves the
+/// cert is authentic, so we NEVER downgrade a verified user on a date quirk —
+/// absent expiry (`None`) and an unparseable expiry both resolve to `Active`.
+/// All parsing is `Result`-handled; nothing here panics on cert-derived input.
+///
+/// Boundary (documented, inclusive): `now == expiry` is still `Active` (the
+/// cert is valid up to and including its expiry instant); `now == expiry +
+/// GRACE_DAYS` is still `Grace` (the last grace instant), and anything strictly
+/// beyond drops to `Lapsed`.
+fn classify_expiry(expiry: Option<&str>, now: DateTime<Utc>) -> ExpiryClass {
+    let Some(raw) = expiry else {
+        return ExpiryClass::Active; // non-expiring cert
+    };
+    let Ok(exp) = DateTime::parse_from_rfc3339(raw) else {
+        return ExpiryClass::Active; // fail-OPEN on an unparseable date
+    };
+    let exp = exp.with_timezone(&Utc);
+    if now <= exp {
+        ExpiryClass::Active
+    } else if now <= exp + Duration::days(config::GRACE_DAYS) {
+        ExpiryClass::Grace
+    } else {
+        ExpiryClass::Lapsed
+    }
+}
+
+/// D-74 renew-ahead predicate for a still-Licensed cert: is `now` within
+/// `RENEW_AHEAD_DAYS` of (or past) `expiry`? Used by `needs_refresh` only for
+/// the Licensed arm — grace/lapsed already imply a refresh. Fail-CLOSED here
+/// (no expiry / unparseable => false): an expiry we can't read can't be "near",
+/// and `needs_refresh` shouldn't churn the scheduler on a non-expiring cert.
+///
+/// `#[allow(dead_code)]`: reached at runtime only via `needs_refresh` (Plan 02
+/// scheduler, not yet wired); pinned by tests now.
+#[allow(dead_code)]
+fn within_renew_ahead(expiry: Option<&str>, now: DateTime<Utc>) -> bool {
+    let Some(raw) = expiry else {
+        return false;
+    };
+    let Ok(exp) = DateTime::parse_from_rfc3339(raw) else {
+        return false;
+    };
+    let exp = exp.with_timezone(&Utc);
+    now >= exp - Duration::days(config::RENEW_AHEAD_DAYS)
 }
 
 #[cfg(test)]
@@ -554,6 +678,173 @@ mod tests {
         );
     }
 
+    // --- D-73 expiry classification (pure helper, injected `now`) ----------
+
+    const EXP: &str = "2026-07-12T15:14:47.247Z"; // REAL_CERT's embedded expiry
+
+    fn at(rfc3339: &str) -> DateTime<Utc> {
+        DateTime::parse_from_rfc3339(rfc3339)
+            .unwrap()
+            .with_timezone(&Utc)
+    }
+
+    #[test]
+    fn classify_future_expiry_is_active() {
+        // now well before expiry -> Active (unchanged Licensed behavior).
+        assert_eq!(
+            classify_expiry(Some(EXP), at("2026-07-01T00:00:00Z")),
+            ExpiryClass::Active
+        );
+    }
+
+    #[test]
+    fn classify_within_grace_is_grace() {
+        // expiry + 3 days, GRACE_DAYS=7 -> still Pro (OfflineGrace).
+        assert_eq!(
+            classify_expiry(Some(EXP), at("2026-07-15T15:14:47.247Z")),
+            ExpiryClass::Grace
+        );
+    }
+
+    #[test]
+    fn classify_past_grace_is_lapsed() {
+        // expiry + 8 days > GRACE_DAYS=7 -> dropped (RefreshNeeded).
+        assert_eq!(
+            classify_expiry(Some(EXP), at("2026-07-20T15:14:47.247Z")),
+            ExpiryClass::Lapsed
+        );
+    }
+
+    #[test]
+    fn classify_boundaries_are_inclusive_active_then_grace() {
+        // now == expiry -> Active (valid up to and including the expiry instant).
+        assert_eq!(classify_expiry(Some(EXP), at(EXP)), ExpiryClass::Active);
+        // now == expiry + GRACE_DAYS -> still Grace (last grace instant);
+        // one second beyond -> Lapsed.
+        assert_eq!(
+            classify_expiry(Some(EXP), at("2026-07-19T15:14:47.247Z")),
+            ExpiryClass::Grace
+        );
+        assert_eq!(
+            classify_expiry(Some(EXP), at("2026-07-19T15:14:48.247Z")),
+            ExpiryClass::Lapsed
+        );
+    }
+
+    #[test]
+    fn classify_absent_expiry_is_active_fail_open() {
+        // No expiry field -> non-expiring -> Active (never crash, never drop).
+        assert_eq!(classify_expiry(None, at("2030-01-01T00:00:00Z")), ExpiryClass::Active);
+    }
+
+    #[test]
+    fn classify_unparseable_expiry_is_active_fail_open() {
+        // T-21-02/T-21-03: a verified cert with a junk date stays Licensed,
+        // never panics, never downgrades.
+        for junk in ["", "not-a-date", "2026-13-99T99:99:99Z", "12/07/2026"] {
+            assert_eq!(
+                classify_expiry(Some(junk), at("2030-01-01T00:00:00Z")),
+                ExpiryClass::Active,
+                "junk date {junk:?} must fail OPEN to Active"
+            );
+        }
+    }
+
+    #[test]
+    fn within_renew_ahead_true_inside_window_false_outside() {
+        // RENEW_AHEAD_DAYS=7. Far from expiry -> false; inside the 7d window or
+        // past expiry -> true; absent/unparseable -> false (fail-closed).
+        assert!(!within_renew_ahead(Some(EXP), at("2026-07-01T00:00:00Z"))); // 11 days out
+        assert!(within_renew_ahead(Some(EXP), at("2026-07-06T15:14:47.247Z"))); // 6 days out
+        assert!(within_renew_ahead(Some(EXP), at("2026-07-20T00:00:00Z"))); // past expiry
+        assert!(!within_renew_ahead(None, at("2030-01-01T00:00:00Z")));
+        assert!(!within_renew_ahead(Some("junk"), at("2030-01-01T00:00:00Z")));
+    }
+
+    // --- resolve_status expiry-aware arms (REAL_CERT, real clock) ----------
+    // REAL_CERT's expiry is 2026-07-12; these prove the verify-then-classify
+    // wiring + the new payload shapes. The pure-helper tests above pin the
+    // grace/lapsed date math deterministically (injected `now`).
+
+    #[test]
+    fn resolve_status_maps_active_class_to_licensed() {
+        // A not-yet-expired verified cert is Licensed (D-73 unchanged path),
+        // carrying expiry + entitlements verbatim.
+        let status = manager(Some(REAL_CERT), MockKeychain::Empty, REAL_FP).resolve_status();
+        assert_eq!(
+            status,
+            LicenseStatusPayload::Licensed {
+                expiry: Some(EXP.into()),
+                entitlements: vec![],
+            }
+        );
+    }
+
+    #[test]
+    fn resolve_status_problem_precedes_any_expiry_check() {
+        // A foreign-fingerprint cert is a Problem, never grace — verify gates
+        // the expiry branch entirely.
+        let other_fp = "ffffeeeeddddccccffffeeeeddddccccffffeeeeddddccccffffeeeeddddcccc";
+        let status = manager(Some(REAL_CERT), MockKeychain::Empty, other_fp).resolve_status();
+        assert_eq!(
+            status,
+            LicenseStatusPayload::Problem {
+                problem: ProblemKind::ForeignMachine,
+                has_stored_key: false,
+            }
+        );
+    }
+
+    #[test]
+    fn refresh_needed_payload_carries_has_stored_key() {
+        // The RefreshNeeded arm uses the per-process stored-key flag, same
+        // discipline as NotActivated/Problem. (Built directly: the date-driven
+        // Lapsed path is pinned by the pure-helper tests.)
+        assert_eq!(
+            serde_json::to_string(&LicenseStatusPayload::RefreshNeeded {
+                has_stored_key: true,
+            })
+            .unwrap(),
+            r#"{"state":"refreshNeeded","hasStoredKey":true}"#
+        );
+    }
+
+    #[test]
+    fn needs_refresh_false_for_freshly_licensed_far_from_expiry() {
+        // REAL_CERT today (2026-06-14) is ~28 days from its 2026-07-12 expiry,
+        // outside the 7-day renew-ahead window.
+        let mut mgr = manager(Some(REAL_CERT), MockKeychain::Empty, REAL_FP);
+        assert!(matches!(
+            mgr.resolve_status(),
+            LicenseStatusPayload::Licensed { .. }
+        ));
+        assert!(!mgr.needs_refresh());
+    }
+
+    #[test]
+    fn needs_refresh_false_for_not_activated_and_problem() {
+        assert!(!manager(None, MockKeychain::Empty, REAL_FP).needs_refresh());
+        assert!(!manager(Some("garbage"), MockKeychain::WithKey, REAL_FP).needs_refresh());
+    }
+
+    #[test]
+    fn needs_refresh_true_for_grace_and_refresh_needed_states() {
+        // Past-expiry states always want a refresh, independent of the clock —
+        // proven directly from the predicate's branch arms.
+        assert!(within_renew_ahead(Some(EXP), at("2026-07-20T00:00:00Z")));
+        // OfflineGrace/RefreshNeeded short-circuit to true in needs_refresh by
+        // construction (the match arms), covered by the classify grace/lapsed
+        // tests + this renew-ahead assertion.
+    }
+
+    #[test]
+    fn resolve_status_never_touches_network_on_the_expiry_path() {
+        // D-45: the NoNetwork client panics on any call; resolving a verified
+        // cert (which now runs the expiry classifier) must complete silently.
+        let status = manager(Some(REAL_CERT), MockKeychain::Empty, REAL_FP).resolve_status();
+        assert!(matches!(status, LicenseStatusPayload::Licensed { .. }));
+    }
+
     // The TS contract for Plans 03/04 — exact camelCase JSON shapes, pinned.
     #[test]
     fn serde_json_shapes_are_the_pinned_ts_contract() {
@@ -571,6 +862,21 @@ mod tests {
             })
             .unwrap(),
             r#"{"state":"licensed","expiry":"2026-07-12T15:14:47.247Z","entitlements":["pro.theming"]}"#
+        );
+        assert_eq!(
+            serde_json::to_string(&LicenseStatusPayload::OfflineGrace {
+                expiry: Some("2026-07-12T15:14:47.247Z".into()),
+                entitlements: vec!["pro.theming".into()],
+            })
+            .unwrap(),
+            r#"{"state":"offlineGrace","expiry":"2026-07-12T15:14:47.247Z","entitlements":["pro.theming"]}"#
+        );
+        assert_eq!(
+            serde_json::to_string(&LicenseStatusPayload::RefreshNeeded {
+                has_stored_key: true,
+            })
+            .unwrap(),
+            r#"{"state":"refreshNeeded","hasStoredKey":true}"#
         );
         assert_eq!(
             serde_json::to_string(&LicenseStatusPayload::Problem {
