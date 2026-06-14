@@ -9,8 +9,18 @@ live purchase are manual steps Claude cannot do.
 - **`swap.sh` runs BEFORE any CE bring-up** (Pitfall 6 — OOM during migration).
 - **The A-record `license.tinkerdev.io` is live BEFORE the first Caddy boot**
   (Pitfall 3 — Let's Encrypt HTTP-01 needs it; no `-k`, no `tls internal`).
+- **`setup.sh` runs AFTER `web` + `caddy` are up and the cert is real** — it calls
+  the CE admin API over the PUBLIC https host (no `-k`), so the data tier alone is
+  NOT enough. (Order: `run --rm setup` → up `web worker caddy` → verify TLS → `./setup.sh`.)
+- **The `webhook` container starts LAST (Step 7)** — only after its `.env` has the
+  admin token + LS secret + Resend key, else it crash-loops on the required-env check.
 - **The `tinkerdev.io/buy` redirect is configured AFTER the LS store exists**
   (the live checkout URL only exists once the product is created).
+
+**What the prod constants (Task 3) actually need:** box + Docker + the A-record live
++ ports 80/443 + the CE stack (`web`+`caddy`) on real TLS + `setup.sh`. They do **NOT**
+need Lemon Squeezy or Resend — those gate the live-purchase ship-gate (Task 4), not the
+constants. So you can capture the constants now and finish the dashboards in parallel.
 
 **Secret discipline (criterion 4, D-41/D-55):** every secret below lives ONLY in
 a gitignored `.env` ON THE BOX. Nothing privileged is ever committed or shipped
@@ -96,38 +106,51 @@ your machine). Then, from the repo root on the box:
    # Leave KEYGEN_ADMIN_TOKEN / KEYGEN_POLICY_ID / LS_WEBHOOK_SECRET / RESEND_API_KEY
    # blank for now — filled in Steps 4.5, 5, 7.
    ```
-4. **Bring up the data tier + run setup ONCE** (Pitfall 8 — `setup` is one-shot,
-   never in `up`):
+4. **Bring up the data tier + create the account ONCE** (Pitfall 8 — `setup` is
+   one-shot, never in `up`):
    ```bash
    docker compose -f compose.yaml up -d postgres redis
-   docker compose -f compose.yaml run --rm setup     # rails keygen:setup — creates the account + Ed25519 keypair
+   docker compose -f compose.yaml run --rm setup     # rails keygen:setup — creates the account + Ed25519 keypair + admin user
    ```
-5. **Provision product/policy/entitlements + validate metadata** (D-51/D-53/D-54):
+5. **Bring up the API + TLS front, THEN verify real TLS — NO `-k`** (`setup.sh` in
+   the next step calls the CE API over the PUBLIC https host, so `web` + `caddy`
+   must be up and the cert must be real FIRST). Do **not** start the `webhook`
+   container yet — its `.env` is completed in Steps 5/7:
+   ```bash
+   docker compose -f compose.yaml up -d web worker caddy
+   curl https://license.tinkerdev.io/v1/health        # expect 204, over REAL TLS (no -k)
+   ```
+   If this needs `-k`, the cert is NOT trusted — fix the A-record / ports 80+443
+   and let Caddy re-issue before proceeding (Pitfall 3 — release builds need a
+   publicly trusted cert).
+6. **Provision product/policy/entitlements + validate metadata** (D-51/D-53/D-54)
+   — now that the API + TLS are live:
    ```bash
    ./setup.sh
    ```
-   This prints, at the end:
+   It prints, at the end:
    ```
    PROD_ACCOUNT_ID=...
    PROD_ED25519_PUBKEY_B64=...   # base64 of the RAW 32 bytes
    PROD_POLICY_ID=...
    ```
-   **Record all three.** Confirm its line `metadata-validation: PASSED` (A2 — the
-   `?metadata[orderId]=` filter works, so D-58 idempotency is sound). Also mint
-   an **admin token** for the webhook and put it + `PROD_POLICY_ID` into
-   `server/webhook/.env` (`KEYGEN_ADMIN_TOKEN`, `KEYGEN_POLICY_ID`).
-6. **Bring up the full stack:**
+   **Record all three** and confirm the `metadata-validation: PASSED` line (A2 —
+   the `?metadata[orderId]=` filter works, so D-58 idempotency is sound). Then
+   **mint a long-lived admin token** for the webhook and put it + `PROD_POLICY_ID`
+   into `server/webhook/.env` (`KEYGEN_ADMIN_TOKEN`, `KEYGEN_POLICY_ID`):
    ```bash
-   docker compose -f compose.yaml up -d postgres redis web worker webhook caddy
+   curl -s -u "$KEYGEN_ADMIN_EMAIL:$KEYGEN_ADMIN_PASSWORD" \
+     -H "Accept: application/vnd.api+json" \
+     -X POST https://license.tinkerdev.io/v1/tokens | jq -r '.data.attributes.token'
    ```
-7. **Verify real TLS — NO `-k`** (Pitfall 3 proof; release builds need a publicly
-   trusted cert):
-   ```bash
-   curl https://license.tinkerdev.io/v1/health        # CE health (expect 204)
-   curl https://license.tinkerdev.io/health           # webhook health (expect {"ok":true})
-   ```
-   If either needs `-k` to succeed, the cert is NOT trusted — fix DNS/ports and
-   let Caddy re-issue before proceeding.
+   (`$KEYGEN_ADMIN_EMAIL` / `$KEYGEN_ADMIN_PASSWORD` are the values you set in
+   `infra/keygen/.env`. The `webhook` container is started later, in Step 7, once
+   its `.env` is complete — so it never crash-loops on a missing secret.)
+
+   **→ At this point you can resume Claude (Task 3): paste `PROD_ACCOUNT_ID` +
+   `PROD_ED25519_PUBKEY_B64`.** Steps 5–8 below (LS, Resend, redirect, webhook,
+   UptimeRobot) gate the live-purchase ship-gate (Task 4), not the constants, and
+   can run in parallel.
 
 ---
 
