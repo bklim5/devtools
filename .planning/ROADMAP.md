@@ -161,7 +161,14 @@ Plans:
   3. A license revoked/suspended in Keygen (refund or chargeback) drops entitlements to the free tier at the next TTL refresh — calm messaging, no crash
   4. A keyboard-reachable, WCAG-AA license status UI shows the current state (free / licensed / offline-grace / refresh-needed), the masked key + licensee email from the signed license data, and working refresh + deactivate actions
   5. The in-Tauri free-tier default flips live (an unlicensed install actually locks theming and ordering/pinning — all tools stay free, D-18) and all 8 ship-gate matrix cases pass on a fresh `tauri build`: valid first-Mac activation · second Mac rejected · offline launch · corrupted `machine.lic` fails closed · copied `machine.lic` fails on foreign fingerprint · TTL-expired grace→refresh · deactivate/transfer end-to-end · revocation propagates on refresh
-**Plans**: TBD
+**Plans**: 5 plans (planned 2026-06-14)
+
+Plans:
+- [ ] 21-01-PLAN.md — Expiry-aware resolve_status: OfflineGrace + RefreshNeeded states, TTL/grace/poll consts, needs_refresh helper (LIC-05; D-73/74/75; TDD, wave 1)
+- [ ] 21-02-PLAN.md — Background refresh scheduler (launch + 24h poll, online + needs_refresh gated, silent) + 5-state TS payload mirror (LIC-05; D-76/77; wave 2)
+- [ ] 21-03-PLAN.md — Transfer/revocation surface: webhook email-embed (D-89) + verify.rs email + maskedKey payload + revocation tests + infra/ seat-release helper (LIC-07/08; D-78..82/89/81; wave 2)
+- [ ] 21-04-PLAN.md — D-85 live free-tier flip + #/settings/license status route + confirm-first deactivate + drop notice + footer/palette routing + real-WKWebView e2e (LIC-09/05/07/08; D-83..88; NOT autonomous, wave 3)
+- [ ] 21-05-PLAN.md — 8-case ship-gate matrix on a fresh prod build (D-90; gated on Phase 20 completion for the live cases 1/2/7/8; NOT autonomous, wave 4)
 **UI hint**: yes
 
 ## Progress
@@ -191,7 +198,7 @@ Phases execute in numeric order. v1.6 runs 18 → 19 → 21 with Phase 20 parall
 | 18. Entitlements Seam & Central Gate | v1.6 | 4/4 | Complete    | 2026-06-10 |
 | 19. License Activation & Offline Verification | v1.6 | 4/4 | Complete    | 2026-06-12 |
 | 20. Purchase Pipeline | v1.6 | 2/3 | In progress | PAY-01/02/03 |
-| 21. License Lifecycle & Ship Gate | v1.6 | 0/? | Not started | - |
+| 21. License Lifecycle & Ship Gate | v1.6 | 0/5 | Not started | - |
 
 ## Backlog
 
