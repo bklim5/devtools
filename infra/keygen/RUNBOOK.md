@@ -27,10 +27,12 @@ a gitignored `.env` ON THE BOX. Nothing privileged is ever committed or shipped
 in the app. The two env files:
 - `infra/keygen/.env` — CE containers: `SECRET_KEY_BASE`, `ENCRYPTION_*`,
   `KEYGEN_ACCOUNT_ID`, `CADDY_ACME_EMAIL`, postgres password.
-- `server/webhook/.env` — webhook: `KEYGEN_BASE_URL=http://web:3000` (internal CE
-  origin, D-55 — **NOT** the public https host), `KEYGEN_ACCOUNT_ID`,
-  `KEYGEN_ADMIN_TOKEN`, `KEYGEN_POLICY_ID`, `LS_WEBHOOK_SECRET`, `RESEND_API_KEY`,
-  `EMAIL_FROM`, `PORT`.
+- `server/webhook/.env` — webhook: `KEYGEN_BASE_URL=https://license.tinkerdev.io`
+  (keygen forces HTTPS + the canonical Host, so an internal `http://web:3000`
+  401/403/301s; the public URL resolves to the box's OWN public IP so it stays
+  on-host over TLS — token still never crosses the internet, D-55),
+  `KEYGEN_ACCOUNT_ID`, `KEYGEN_ADMIN_TOKEN`, `KEYGEN_POLICY_ID`,
+  `LS_WEBHOOK_SECRET`, `RESEND_API_KEY`, `EMAIL_FROM`, `PORT`.
 
 ---
 
@@ -101,7 +103,8 @@ your machine). Then, from the repo root on the box:
 3. **Webhook env** (separate file — secrets stay on box, D-55):
    ```bash
    cp ../../server/webhook/.env.example ../../server/webhook/.env
-   # Set KEYGEN_BASE_URL=http://web:3000   (internal CE origin, NOT the public host!)
+   # Set KEYGEN_BASE_URL=https://license.tinkerdev.io  (keygen forces https+canonical Host;
+   #   resolves to the box's own public IP so it stays on-host over TLS — D-55)
    # Set KEYGEN_ACCOUNT_ID = the SAME uuid you put in infra/keygen/.env.
    # Leave KEYGEN_ADMIN_TOKEN / KEYGEN_POLICY_ID / LS_WEBHOOK_SECRET / RESEND_API_KEY
    # blank for now — filled in Steps 4.5, 5, 7.
@@ -182,7 +185,7 @@ Confirm `server/webhook/.env` on the box now has ALL of:
 
 | Var | Value / source |
 |---|---|
-| `KEYGEN_BASE_URL` | `http://web:3000` (internal CE origin — NOT the public host) |
+| `KEYGEN_BASE_URL` | `https://license.tinkerdev.io` (keygen forces https+canonical Host; stays on-host via the box's own public IP, D-55) |
 | `KEYGEN_ACCOUNT_ID` | `PROD_ACCOUNT_ID` (Step 4.5) |
 | `KEYGEN_ADMIN_TOKEN` | admin token minted in Step 4.5 (server-side ONLY) |
 | `KEYGEN_POLICY_ID` | `PROD_POLICY_ID` (Step 4.5) |

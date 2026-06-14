@@ -79,7 +79,17 @@ export async function fulfill(
     // 3. Idempotency (D-58): if a license exists, only skip when it was ALSO emailed.
     // A license that exists but never emailed (create succeeded, email failed last
     // try) must be re-emailed — otherwise the buyer pays and never gets the key.
-    const existing = await deps.search(orderId);
+    // The idempotency search is a CE call too — wrap it so a transient CE error
+    // (or a routing 4xx) returns 500 for LS to retry, and NEVER escapes to crash
+    // the process (an unhandled rejection here 502s the request and would take
+    // the whole webhook down mid-fulfillment).
+    let existing: KeygenLicense | null;
+    try {
+      existing = await deps.search(orderId);
+    } catch (err) {
+      log("webhook.search_failed", { orderId, error: String(err) });
+      return { status: 500, body: '{"error":"idempotency search failed"}' };
+    }
     let licenseId: string;
     let key: string;
     if (existing) {

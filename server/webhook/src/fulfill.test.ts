@@ -113,6 +113,17 @@ describe("fulfill orchestrator", () => {
     expect(deps.email).not.toHaveBeenCalled();
   });
 
+  it("returns 5xx when searchByOrderId throws (LS retries; never crashes the process)", async () => {
+    const deps = makeDeps({
+      search: vi.fn().mockRejectedValue(new Error("Keygen search failed (403)")),
+    });
+    const res = await fulfill(req, deps);
+
+    expect(res.status).toBeGreaterThanOrEqual(500);
+    expect(deps.create).not.toHaveBeenCalled();
+    expect(deps.email).not.toHaveBeenCalled();
+  });
+
   it("returns 5xx AND fires the alert callback when sendKeyEmail throws (D-59/D-72)", async () => {
     const alert = vi.fn();
     const deps = makeDeps({
