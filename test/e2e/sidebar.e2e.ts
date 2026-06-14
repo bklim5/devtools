@@ -28,6 +28,7 @@ import {
   assert,
   dispatchAltP,
   dispatchKey,
+  ensureProTier,
   focusRow,
   navigateToTool,
   readOrder,
@@ -86,6 +87,11 @@ describe("Reorderable sidebar (real WKWebView)", () => {
     await navigateToTool("protobuf-decoder");
     const firstHandle = await $('button[aria-label^="Reorder "]');
     await firstHandle.waitForExist({ timeout: 15_000 });
+
+    // Post-D-85 the e2e baseline is FREE (the unlicensed in-Tauri flip). Reorder +
+    // pinning are pro.ordering features, so establish Pro BEFORE the reset gestures
+    // (Unpin all is itself gated) and the test body's Alt+chord assertions.
+    await ensureProTier();
 
     const startPinned = await readPinnedOrder();
     if (startPinned.length > 0) {
@@ -257,6 +263,10 @@ describe("Pinned sidebar section (real WKWebView)", () => {
     await navigateToTool("protobuf-decoder");
     const firstHandle = await $('button[aria-label^="Reorder "]');
     await firstHandle.waitForExist({ timeout: 15_000 });
+
+    // Pinning is a pro.ordering feature — establish Pro before the reset + Alt+P
+    // assertions (post-D-85 the e2e baseline is FREE).
+    await ensureProTier();
 
     // Start from a clean pinned set so assertions are deterministic regardless of
     // any pins left by a prior run's persisted prefs.json.
@@ -436,6 +446,9 @@ describe("Sidebar keyboard model (real WKWebView)", () => {
     await navigateToTool("protobuf-decoder");
     const firstHandle = await $('button[aria-label^="Reorder "]');
     await firstHandle.waitForExist({ timeout: 15_000 });
+    // The roving/Tab-pin tests pin tools (a pro.ordering feature) — establish Pro
+    // before the reset + the test body (post-D-85 the e2e baseline is FREE).
+    await ensureProTier();
     const startPinned = await readPinnedOrder();
     if (startPinned.length > 0) {
       const focusedForReset = await focusRow((await readOrder())[0]);

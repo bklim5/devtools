@@ -43,24 +43,15 @@ import {
   assert,
   dispatchAltP,
   dispatchKey,
+  ensureProTier,
   focusRow,
   navigateToTool,
   readOrder,
   readPinnedOrder,
   runDevToggle,
   saveScreenshot,
+  unlockProFooterPresent,
 } from "./helpers";
-
-// Whether the D-29 free-tier footer "Unlock Pro" button is rendered — the
-// stable free-vs-full tier probe (present in free tier only).
-function unlockProFooterPresent(): Promise<boolean> {
-  return browser.execute(
-    () =>
-      Array.from(document.querySelectorAll("aside button")).some((b) =>
-        (b.textContent ?? "").includes("Unlock Pro"),
-      ),
-  );
-}
 
 // Whether the shared upsell modal is open (the [role="dialog"] carrying the
 // UI-SPEC copy contract). Distinguished from the ⌘K palette dialog by the
@@ -128,15 +119,11 @@ describe("Entitlements dev toggle (real WKWebView)", () => {
     const firstHandle = await $('button[aria-label^="Reorder "]');
     await firstHandle.waitForExist({ timeout: 15_000 });
 
-    // 0. BASELINE TIER: if a prior failed run left the persisted "free"
-    //    override behind, toggle back to full first (T-18-15 hygiene).
-    if (await unlockProFooterPresent()) {
-      await runDevToggle();
-      await browser.waitUntil(async () => !(await unlockProFooterPresent()), {
-        timeout: 10_000,
-        timeoutMsg: "could not restore full tier from a leftover free override",
-      });
-    }
+    // 0. BASELINE TIER: post-D-85 the e2e baseline is FREE (the unlicensed
+    //    in-Tauri flip; the e2e-spike preflight wipes prefs.json + machine.dev.lic).
+    //    Establish Pro via the dev toggle's DEV-only "full" override so the seeding
+    //    below (reorder + pin, both pro.ordering) can run.
+    await ensureProTier();
 
     // 1. DETERMINISTIC BASELINE: reset order + pins, then read the registry
     //    default order from the live DOM.

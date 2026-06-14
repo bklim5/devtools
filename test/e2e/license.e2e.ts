@@ -37,6 +37,8 @@ import { join } from "node:path";
 import {
   assert,
   dispatchKey,
+  ensureFreeTier,
+  ensureProTier,
   navigateToTool,
   runDevToggle,
   saveScreenshot,
@@ -185,15 +187,11 @@ describe("License activation UX (real WKWebView)", () => {
     const firstHandle = await $('button[aria-label^="Reorder "]');
     await firstHandle.waitForExist({ timeout: 15_000 });
 
-    // BASELINE TIER hygiene: a prior failed run may have left the persisted
-    // "free" override behind — restore full tier first (T-18-15).
-    if ((await footerLabel()) === "Unlock Pro") {
-      await runDevToggle();
-      await browser.waitUntil(async () => (await footerLabel()) === null, {
-        timeout: 10_000,
-        timeoutMsg: "could not restore full tier from a leftover free override",
-      });
-    }
+    // BASELINE TIER: post-D-85 the e2e baseline is FREE (the unlicensed in-Tauri
+    // flip; the e2e-spike preflight wipes prefs.json + machine.dev.lic). Establish
+    // Pro first so the cleanup below has a deterministic "Pro restored" end state
+    // and toggledFree tracks an actual Pro→free transition.
+    await ensureProTier();
 
     let toggledFree = false;
     let licSeeded = false;
@@ -201,7 +199,9 @@ describe("License activation UX (real WKWebView)", () => {
     let licBackup: Buffer | null = null;
     try {
       // ---------------- Flow A: form mechanics (D-33/D-34/D-37) ------------
-      await runDevToggle();
+      // Drop to FREE so the "Unlock Pro" footer (the only standing affordance that
+      // opens the activation panel) is present.
+      await ensureFreeTier();
       toggledFree = true;
       await browser.waitUntil(
         async () => (await footerLabel()) === "Unlock Pro",

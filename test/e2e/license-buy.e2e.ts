@@ -36,17 +36,13 @@
 // Buy CTA, then toggles back to FULL (T-18-15 cleanup) so it leaves no "free"
 // override behind on the dev machine for later specs in the same WDIO run.
 
-import { assert, runDevToggle, saveScreenshot } from "./helpers";
-
-// Whether the free-tier footer "Unlock Pro" row is rendered (the stable
-// free-vs-full tier probe — present in free tier only; D-29).
-function unlockProFooterPresent(): Promise<boolean> {
-  return browser.execute(() =>
-    Array.from(document.querySelectorAll("aside button")).some((b) =>
-      (b.textContent ?? "").includes("Unlock Pro"),
-    ),
-  );
-}
+import {
+  assert,
+  ensureFreeTier,
+  ensureProTier,
+  saveScreenshot,
+  unlockProFooterPresent,
+} from "./helpers";
 
 // Whether the shared upsell modal is open — the [role="dialog"] carrying the
 // UI-SPEC thank-you copy (distinguished from the ⌘K palette dialog by heading).
@@ -156,30 +152,16 @@ describe("Buy-license wiring (real WKWebView)", () => {
     const firstHandle = await $('button[aria-label^="Reorder "]');
     await firstHandle.waitForExist({ timeout: 15_000 });
 
-    // BASELINE: in-Tauri default is FULL — toggle to FREE so the "Unlock Pro"
-    // footer (which opens the shared upsell modal) is present. The ⌘K dev-toggle
-    // → refreshEntitlements() propagation is racy on this WKWebView worker setup
-    // (the same path the unmodified entitlements.e2e.ts shares — see
-    // .planning/phases/20-purchase-pipeline/deferred-items.md), so retry the
-    // toggle a few times before failing loud rather than depending on a single
-    // flip landing within one window.
-    let footerUp = await unlockProFooterPresent();
-    for (let attempt = 0; attempt < 4 && !footerUp; attempt++) {
-      await runDevToggle();
-      try {
-        await browser.waitUntil(async () => unlockProFooterPresent(), {
-          timeout: 8_000,
-          interval: 200,
-          timeoutMsg: "footer not up yet",
-        });
-        footerUp = true;
-      } catch {
-        footerUp = await unlockProFooterPresent();
-      }
-    }
+    // BASELINE: post-D-85 the e2e baseline is FREE (the unlicensed in-Tauri flip),
+    // but to keep this spec independent of prior-spec tier state in the same WDIO
+    // run, drop to FREE explicitly so the "Unlock Pro" footer (which opens the
+    // shared upsell modal) is present. ensureFreeTier carries the racy-propagation
+    // retry the ⌘K dev-toggle→refreshEntitlements() path needs on this WKWebView
+    // worker (deferred-items / [[license-walkthrough-state-pollutes-e2e]]).
+    await ensureFreeTier();
     assert(
-      footerUp,
-      'expected the free-tier "Unlock Pro" footer row after the dev toggle (D-29) — retried',
+      await unlockProFooterPresent(),
+      'expected the free-tier "Unlock Pro" footer row after establishing the free tier (D-29)',
     );
 
     try {
@@ -280,7 +262,7 @@ describe("Buy-license wiring (real WKWebView)", () => {
       } catch (restoreError) {
         console.error("[license-buy] opener recorder restore failed:", restoreError);
       }
-      // Cleanup (T-18-15): dismiss any open modal and toggle back to FULL so the
+      // Cleanup (T-18-15): dismiss any open modal and re-establish Pro so the
       // persisted "free" override never poisons later specs in this WDIO run.
       try {
         if (await upsellModalOpen()) {
@@ -290,17 +272,7 @@ describe("Buy-license wiring (real WKWebView)", () => {
             );
           });
         }
-        if (await unlockProFooterPresent()) {
-          await runDevToggle();
-          await browser.waitUntil(
-            async () => !(await unlockProFooterPresent()),
-            {
-              timeout: 10_000,
-              timeoutMsg:
-                'expected the "Unlock Pro" footer row to disappear on toggle-back',
-            },
-          );
-        }
+        await ensureProTier();
       } catch (cleanupError) {
         console.error("[license-buy] toggle-back cleanup failed:", cleanupError);
       }

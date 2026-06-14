@@ -209,6 +209,76 @@ export async function runDevToggle(): Promise<void> {
   );
 }
 
+// The D-29 free-tier footer "Unlock Pro" row — the stable free-vs-Pro tier probe
+// (present in free tier only). Shared so every spec reads the tier identically.
+export function unlockProFooterPresent(): Promise<boolean> {
+  return browser.execute(() =>
+    Array.from(document.querySelectorAll("aside button")).some((b) =>
+      (b.textContent ?? "").includes("Unlock Pro"),
+    ),
+  );
+}
+
+// --- DEV-only tier control (post-D-85) --------------------------------------
+//
+// After the Phase 21 D-85 flip an unlicensed in-Tauri install resolves FREE, so
+// the e2e baseline (the e2e-spike preflight wipes prefs.json + machine.dev.lic)
+// is FREE. The dev "Toggle free tier (dev)" command now flips the EFFECTIVE tier
+// (CommandPalette.tsx): from FREE it grants the DEV-only "full" Pro override, from
+// Pro it forces "free". These two helpers make a spec's required tier explicit and
+// idempotent instead of assuming a baseline — Pro-gated UX (reorder/pin/theming)
+// MUST establish Pro first; locked-UX checks establish FREE.
+
+// Ensure Pro is live: toggle iff the free-tier footer is currently showing. The
+// dev-toggle→refreshEntitlements() propagation is racy on this WKWebView worker
+// (deferred-items / [[license-walkthrough-state-pollutes-e2e]]), so retry a few
+// times before failing loud rather than depending on one flip landing.
+export async function ensureProTier(): Promise<void> {
+  let free = await unlockProFooterPresent();
+  for (let attempt = 0; attempt < 4 && free; attempt++) {
+    await runDevToggle();
+    try {
+      await browser.waitUntil(async () => !(await unlockProFooterPresent()), {
+        timeout: 8_000,
+        interval: 200,
+        timeoutMsg: "Pro not live yet",
+      });
+      free = false;
+    } catch {
+      free = await unlockProFooterPresent();
+    }
+  }
+  if (free) {
+    throw new Error(
+      "could not establish Pro tier via the dev toggle (the free-tier footer never cleared) — Pro-gated assertions cannot run",
+    );
+  }
+}
+
+// Ensure FREE is live: toggle iff Pro is currently live (footer absent). Same
+// racy-propagation retry as ensureProTier.
+export async function ensureFreeTier(): Promise<void> {
+  let free = await unlockProFooterPresent();
+  for (let attempt = 0; attempt < 4 && !free; attempt++) {
+    await runDevToggle();
+    try {
+      await browser.waitUntil(async () => unlockProFooterPresent(), {
+        timeout: 8_000,
+        interval: 200,
+        timeoutMsg: "free tier not live yet",
+      });
+      free = true;
+    } catch {
+      free = await unlockProFooterPresent();
+    }
+  }
+  if (!free) {
+    throw new Error(
+      'could not establish the free tier via the dev toggle (the "Unlock Pro" footer never appeared)',
+    );
+  }
+}
+
 // --- Sidebar DOM readers (WebKit lesson 3) ----------------------------------
 
 // LESSON 3 — stale chained element handles.
