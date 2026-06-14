@@ -64,13 +64,13 @@ describe("createKeygenClient.searchByOrderId (D-58 idempotency)", () => {
 });
 
 describe("createKeygenClient.createLicense (D-58 metadata + D-54 policy rel)", () => {
-  it("POSTs the JSON:API body (type licenses, attributes.metadata.orderId, relationships.policy) and returns {id,key}", async () => {
+  it("POSTs the JSON:API body (type licenses, attributes.metadata.orderId + email, relationships.policy) and returns {id,key}", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       jsonResponse(201, { data: { id: "lic_9", attributes: { key: "KEY-XYZ" } } }),
     );
     const client = createKeygenClient(config, fetchMock);
 
-    const created = await client.createLicense("order_77");
+    const created = await client.createLicense("order_77", "buyer@example.com");
     expect(created).toEqual({ id: "lic_9", key: "KEY-XYZ" });
 
     const [url, init] = fetchMock.mock.calls[0];
@@ -80,6 +80,8 @@ describe("createKeygenClient.createLicense (D-58 metadata + D-54 policy rel)", (
     const sent = JSON.parse(init.body);
     expect(sent.data.type).toBe("licenses");
     expect(sent.data.attributes.metadata.orderId).toBe("order_77");
+    // D-89: the buyer email is stamped into the create body so it flows to machine.lic.
+    expect(sent.data.attributes.metadata.email).toBe("buyer@example.com");
     expect(sent.data.relationships.policy.data).toEqual({
       type: "policies",
       id: "policy_42",
@@ -90,7 +92,7 @@ describe("createKeygenClient.createLicense (D-58 metadata + D-54 policy rel)", (
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse(500, { errors: [] }));
     const client = createKeygenClient(config, fetchMock);
 
-    await expect(client.createLicense("order_1")).rejects.toThrow(/500/);
+    await expect(client.createLicense("order_1", "a@b.com")).rejects.toThrow(/500/);
   });
 
   it("throws when the create response carries no license key", async () => {
@@ -99,16 +101,18 @@ describe("createKeygenClient.createLicense (D-58 metadata + D-54 policy rel)", (
     );
     const client = createKeygenClient(config, fetchMock);
 
-    await expect(client.createLicense("order_1")).rejects.toThrow(/no license id\/key/);
+    await expect(client.createLicense("order_1", "a@b.com")).rejects.toThrow(
+      /no license id\/key/,
+    );
   });
 });
 
 describe("createKeygenClient.markEmailed", () => {
-  it("PATCHes /licenses/:id with metadata { orderId, emailed: true }", async () => {
+  it("PATCHes /licenses/:id with metadata { orderId, email, emailed: true } (D-89 preserves email)", async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, { data: {} }));
     const client = createKeygenClient(config, fetchMock);
 
-    await client.markEmailed("lic_9", "order_77");
+    await client.markEmailed("lic_9", "order_77", "buyer@example.com");
 
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("http://localhost:3000/v1/licenses/lic_9");
@@ -116,13 +120,18 @@ describe("createKeygenClient.markEmailed", () => {
     expect(init.headers["Content-Type"]).toBe("application/vnd.api+json");
     const sent = JSON.parse(init.body);
     expect(sent.data.type).toBe("licenses");
-    expect(sent.data.attributes.metadata).toEqual({ orderId: "order_77", emailed: true });
+    // Keygen replaces metadata wholesale — orderId + email + emailed must all survive.
+    expect(sent.data.attributes.metadata).toEqual({
+      orderId: "order_77",
+      email: "buyer@example.com",
+      emailed: true,
+    });
   });
 
   it("throws on a non-2xx PATCH response", async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse(422, { errors: [] }));
     const client = createKeygenClient(config, fetchMock);
 
-    await expect(client.markEmailed("lic_9", "order_77")).rejects.toThrow(/422/);
+    await expect(client.markEmailed("lic_9", "order_77", "a@b.com")).rejects.toThrow(/422/);
   });
 });

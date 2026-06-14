@@ -7,6 +7,13 @@
 // Entitlements pro.theming + pro.ordering are attached to the POLICY (D-54, set
 // in Plan 03's setup.sh) and inherit automatically onto every license — the
 // backend does NOT attach them per-license. We only stamp metadata.orderId.
+//
+// D-89: the buyer email is stamped into attributes.metadata.email at create
+// time. Keygen embeds license metadata into the checkout cert's license
+// resource, so the email flows all the way to machine.lic and the Rust verifier
+// extracts it (verify.rs) for the support-lookup path (D-80) + the status UI.
+// Keygen REPLACES the whole metadata object on PATCH, so markEmailed re-sends
+// orderId + email alongside the emailed flag (never clobber them).
 
 const JSON_API = "application/vnd.api+json";
 
@@ -21,16 +28,19 @@ export interface KeygenConfig {
 /** Minimal JSON:API license resource shape we consume. */
 export interface KeygenLicense {
   id: string;
-  attributes: { key: string; metadata?: { orderId?: string; emailed?: boolean } };
+  attributes: {
+    key: string;
+    metadata?: { orderId?: string; email?: string; emailed?: boolean };
+  };
 }
 
 export interface KeygenClient {
   /** D-58: existing license for this exact orderId, or null. */
   searchByOrderId(orderId: string): Promise<KeygenLicense | null>;
-  /** Create a license stamped with metadata.orderId; returns its id + key. Throws on non-2xx (D-59). */
-  createLicense(orderId: string): Promise<{ id: string; key: string }>;
-  /** Mark a license as emailed (Keygen replaces metadata, so re-send orderId). Throws on non-2xx. */
-  markEmailed(licenseId: string, orderId: string): Promise<void>;
+  /** Create a license stamped with metadata.orderId + metadata.email (D-89); returns its id + key. Throws on non-2xx (D-59). */
+  createLicense(orderId: string, email: string): Promise<{ id: string; key: string }>;
+  /** Mark a license as emailed (Keygen replaces metadata, so re-send orderId + email, D-89). Throws on non-2xx. */
+  markEmailed(licenseId: string, orderId: string, email: string): Promise<void>;
 }
 
 type FetchLike = typeof fetch;
@@ -69,12 +79,16 @@ export function createKeygenClient(
       return match ?? null;
     },
 
-    async createLicense(orderId: string): Promise<{ id: string; key: string }> {
+    async createLicense(
+      orderId: string,
+      email: string,
+    ): Promise<{ id: string; key: string }> {
       const url = `${base}/licenses`;
       const payload = {
         data: {
           type: "licenses",
-          attributes: { metadata: { orderId } },
+          // D-89: stamp the buyer email beside orderId so it flows into machine.lic.
+          attributes: { metadata: { orderId, email } },
           relationships: {
             policy: { data: { type: "policies", id: config.policyId } },
           },
@@ -98,14 +112,18 @@ export function createKeygenClient(
       return { id, key };
     },
 
-    async markEmailed(licenseId: string, orderId: string): Promise<void> {
+    async markEmailed(
+      licenseId: string,
+      orderId: string,
+      email: string,
+    ): Promise<void> {
       const url = `${base}/licenses/${licenseId}`;
-      // Keygen REPLACES the metadata object on PATCH, so re-send orderId
-      // alongside the emailed flag to avoid clobbering it.
+      // Keygen REPLACES the metadata object on PATCH, so re-send orderId + email
+      // (D-89) alongside the emailed flag to avoid clobbering them.
       const payload = {
         data: {
           type: "licenses",
-          attributes: { metadata: { orderId, emailed: true } },
+          attributes: { metadata: { orderId, email, emailed: true } },
         },
       };
       const res = await fetchImpl(url, {

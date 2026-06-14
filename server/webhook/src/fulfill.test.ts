@@ -82,17 +82,17 @@ describe("fulfill orchestrator", () => {
     expect(res.status).toBe(200);
     expect(deps.create).not.toHaveBeenCalled();
     expect(deps.email).toHaveBeenCalledWith("buyer@example.com", "EXISTING-KEY");
-    expect(deps.markEmailed).toHaveBeenCalledWith("lic_7", "order_1");
+    expect(deps.markEmailed).toHaveBeenCalledWith("lic_7", "order_1", "buyer@example.com");
   });
 
-  it("creates + emails + marks a new order and returns 200", async () => {
+  it("creates (with the buyer email — D-89) + emails + marks a new order and returns 200", async () => {
     const deps = makeDeps();
     const res = await fulfill(req, deps);
 
     expect(res.status).toBe(200);
-    expect(deps.create).toHaveBeenCalledWith("order_1");
+    expect(deps.create).toHaveBeenCalledWith("order_1", "buyer@example.com");
     expect(deps.email).toHaveBeenCalledWith("buyer@example.com", "KEY-123");
-    expect(deps.markEmailed).toHaveBeenCalledWith("lic_1", "order_1");
+    expect(deps.markEmailed).toHaveBeenCalledWith("lic_1", "order_1", "buyer@example.com");
   });
 
   it("still returns 200 when markEmailed fails (email already sent — never double-email)", async () => {

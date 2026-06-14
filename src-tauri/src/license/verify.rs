@@ -53,6 +53,10 @@ pub struct LicenseData {
     pub issued: Option<String>,
     pub fingerprint: String,
     pub entitlements: Vec<String>,
+    /// Buyer email (D-89), extracted from the included "licenses" resource's
+    /// `attributes.metadata.email`. `None` for pre-D-89 licenses minted without
+    /// it — the masked-key/status surface degrades gracefully ("—").
+    pub email: Option<String>,
 }
 
 // --- Wire-format serde structs ---------------------------------------------
@@ -168,11 +172,24 @@ pub fn verify_machine_file(
         .map(str::to_string)
         .collect();
 
+    // Step 10 (D-89): the buyer email rides in the included "licenses" resource's
+    // attributes.metadata.email (the webhook stamps it at create time). Read the
+    // first such resource; absent on pre-D-89 licenses → None (fail-soft).
+    let email = dataset
+        .included
+        .iter()
+        .find(|r| r.kind == "licenses")
+        .and_then(|r| r.attributes.get("metadata"))
+        .and_then(|m| m.get("email"))
+        .and_then(|e| e.as_str())
+        .map(str::to_string);
+
     Ok(LicenseData {
         expiry: dataset.meta.expiry,
         issued: dataset.meta.issued,
         fingerprint: cert_fingerprint,
         entitlements,
+        email,
     })
 }
 
@@ -182,9 +199,35 @@ mod tests {
     use ed25519_dalek::{Signer, SigningKey};
 
     /// Build a certificate exactly like machine_checkout_service.rb: dataset →
-    /// b64 enc → sign "machine/"+enc → envelope JSON → b64 body → markers.
+    /// b64 enc → sign "machine/"+enc → envelope JSON → b64 body → markers. The
+    /// included "licenses" resource carries NO metadata.email (pre-D-89 shape) —
+    /// use [`make_fixture_with_email`] for the email-bearing variant.
     fn make_fixture(fingerprint: &str, expiry: &str) -> (String, VerifyingKey, SigningKey) {
+        make_fixture_inner(fingerprint, expiry, None)
+    }
+
+    /// Like [`make_fixture`] but stamps `metadata.email` onto the included
+    /// "licenses" resource (D-89 — the shape the webhook now mints).
+    fn make_fixture_with_email(
+        fingerprint: &str,
+        expiry: &str,
+        email: &str,
+    ) -> (String, VerifyingKey, SigningKey) {
+        make_fixture_inner(fingerprint, expiry, Some(email))
+    }
+
+    fn make_fixture_inner(
+        fingerprint: &str,
+        expiry: &str,
+        email: Option<&str>,
+    ) -> (String, VerifyingKey, SigningKey) {
         let sk = SigningKey::generate(&mut rand::rngs::OsRng);
+        // Mirror the CE shape: email (when present) lives in the license
+        // resource's attributes.metadata.email (D-89).
+        let license_attrs = match email {
+            Some(e) => serde_json::json!({ "name": "Test", "metadata": { "email": e } }),
+            None => serde_json::json!({ "name": "Test" }),
+        };
         let dataset = serde_json::json!({
             "meta": { "issued": "2026-06-12T00:00:00.000Z", "expiry": expiry, "ttl": 2629746 },
             "data": {
@@ -193,7 +236,7 @@ mod tests {
                 "attributes": { "fingerprint": fingerprint, "platform": "darwin" }
             },
             "included": [
-                { "type": "licenses", "id": "test-license-id", "attributes": { "name": "Test" } },
+                { "type": "licenses", "id": "test-license-id", "attributes": license_attrs },
                 { "type": "entitlements", "id": "ent-1", "attributes": { "code": "pro.theming" } },
                 { "type": "entitlements", "id": "ent-2", "attributes": { "code": "pro.ordering" } }
             ]
@@ -224,6 +267,8 @@ mod tests {
         assert_eq!(data.expiry.as_deref(), Some("2026-07-12T00:00:00.000Z"));
         assert_eq!(data.issued.as_deref(), Some("2026-06-12T00:00:00.000Z"));
         assert_eq!(data.entitlements, vec!["pro.theming", "pro.ordering"]);
+        // The base fixture is the pre-D-89 shape (no metadata.email) → None.
+        assert_eq!(data.email, None);
     }
 
     // Test 2: a flipped byte inside enc → Tampered (signature no longer covers it).
@@ -352,5 +397,25 @@ mod tests {
         let (cert, vk, _) = make_fixture(FP, "2020-01-01T00:00:00.000Z");
         let data = verify_machine_file(&cert, &vk, FP).expect("expired cert must still verify");
         assert_eq!(data.expiry.as_deref(), Some("2020-01-01T00:00:00.000Z"));
+    }
+
+    // Test 10 (D-89): a cert whose included "licenses" resource carries
+    // metadata.email → LicenseData.email == Some(that). Proves the email flows
+    // webhook → license → machine.lic → verified cert (the support-lookup key).
+    #[test]
+    fn email_in_license_metadata_is_extracted() {
+        let (cert, vk, _) =
+            make_fixture_with_email(FP, "2026-07-12T00:00:00.000Z", "buyer@example.com");
+        let data = verify_machine_file(&cert, &vk, FP).expect("must verify");
+        assert_eq!(data.email.as_deref(), Some("buyer@example.com"));
+    }
+
+    // Test 11 (D-89): an older pre-D-89 license with no metadata.email → None.
+    // The verifier must degrade gracefully, never panic on the absent field.
+    #[test]
+    fn absent_email_metadata_is_none() {
+        let (cert, vk, _) = make_fixture(FP, "2026-07-12T00:00:00.000Z");
+        let data = verify_machine_file(&cert, &vk, FP).expect("must verify");
+        assert_eq!(data.email, None);
     }
 }
