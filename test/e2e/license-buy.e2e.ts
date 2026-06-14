@@ -156,11 +156,6 @@ describe("Buy-license wiring (real WKWebView)", () => {
     const firstHandle = await $('button[aria-label^="Reorder "]');
     await firstHandle.waitForExist({ timeout: 15_000 });
 
-    // Install the opener recorder (finding 10) BEFORE any Buy interaction. It
-    // short-circuits the native open_url IPC, so the assertion below observes
-    // the exact URL the CTA hands off — without a real browser opening.
-    await installOpenerRecorder();
-
     // BASELINE: in-Tauri default is FULL — toggle to FREE so the "Unlock Pro"
     // footer (which opens the shared upsell modal) is present. The ⌘K dev-toggle
     // → refreshEntitlements() propagation is racy on this WKWebView worker setup
@@ -188,6 +183,14 @@ describe("Buy-license wiring (real WKWebView)", () => {
     );
 
     try {
+      // Install the opener recorder (finding 10) INSIDE this try so the finally
+      // below always restores it — the racy free-tier toggle above can throw
+      // before we reach here, and a leaked wrap of window.__TAURI_INTERNALS__
+      // .invoke (with open_url short-circuited) would contaminate later specs in
+      // the same WDIO run. It must be active before the Buy click; the toggle
+      // setup doesn't need it.
+      await installOpenerRecorder();
+
       // Open the shared upsell modal from the footer "Unlock Pro" row.
       await browser.execute(() => {
         const btn = Array.from(document.querySelectorAll("aside button")).find(
