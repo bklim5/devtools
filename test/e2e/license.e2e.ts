@@ -43,14 +43,17 @@ import {
 } from "./helpers";
 
 // The REAL app-data path (tauri.conf.json identifier com.tinkerdev.app) — the
-// same file the Rust license_status command reads.
+// same file the Rust license_status command reads. This e2e runs against
+// `tauri dev` (a DEBUG build), which post-260614 reads `machine.dev.lic` (the
+// store.rs cfg-split that isolates dev/e2e from a shipped buyer's machine.lic).
+// Seeding must target that debug filename or the app never sees the corruption.
 const LIC_DIR = join(
   homedir(),
   "Library",
   "Application Support",
   "com.tinkerdev.app",
 );
-const LIC_PATH = join(LIC_DIR, "machine.lic");
+const LIC_PATH = join(LIC_DIR, "machine.dev.lic");
 
 const TEST_KEY = "TEST-KEY-E2E";
 
