@@ -69,6 +69,38 @@ pub const KEYGEN_ED25519_PUBKEY_B64: &str = "huJdyRsBtd7KrPqWv5Z/8GVeLmiqfWTfQnE
 /// activation (research assumption A5).
 pub const APP_SALT: &[u8] = b"e14f0d1630565bf022fe7d40de2aeceefb254a01151d3df397489335b4e45c75";
 
+// --- License lifecycle tunables (D-73/D-74/D-75/D-76) ----------------------
+//
+// Profile-INVARIANT (identical dev and release — NOT cfg-split): these govern
+// the offline-grace state machine in `resolve_status` and the background
+// refresh cadence (Plan 02). They are public constants so both the Rust core
+// and its tests read one source of truth.
+//
+// Worst-case revocation exposure ≈ 37 days: a revoked seat keeps Pro until the
+// cached cert's TTL lapses (≤ TTL_DAYS = 30) plus the GRACE_DAYS = 7 window
+// past expiry before `resolve_status` drops to free. Renew-ahead
+// (RENEW_AHEAD_DAYS) means a normally-connected user re-checks-out a fresh cert
+// before ever entering grace, so the exposure is the genuinely-long-offline
+// upper bound, not the common case.
+
+/// D-74: cache TTL of a checked-out `machine.lic` (~30-day Keygen TTL).
+pub const TTL_DAYS: i64 = 30;
+
+/// D-74: renew-ahead window — attempt a background re-checkout once the cert is
+/// within this many days of (or past) `expiry`, so connected users renew BEFORE
+/// entering grace. Must be `< TTL_DAYS` (the renew window opens before expiry).
+pub const RENEW_AHEAD_DAYS: i64 = 7;
+
+/// D-75: tight grace past `expiry`. If refresh can't succeed (offline/service
+/// down) the cert stays Pro-active for this many days past expiry, then drops to
+/// free (`RefreshNeeded`) until a successful refresh.
+pub const GRACE_DAYS: i64 = 7;
+
+/// D-76: periodic background-poll cadence (hours) while the app runs, used by
+/// Plan 02's scheduler — only fires when online and the cert is in the
+/// renew/grace/expired window. No per-launch hard network check.
+pub const POLL_INTERVAL_HOURS: u64 = 24;
+
 /// The embedded account verifying key, decoded from [`KEYGEN_ED25519_PUBKEY_B64`].
 ///
 /// Panics on malformed constant data — acceptable: the input is compile-time
@@ -109,6 +141,22 @@ mod tests {
     fn app_salt_is_64_hex_chars() {
         assert_eq!(APP_SALT.len(), 64);
         assert!(APP_SALT.iter().all(|b| b.is_ascii_hexdigit()));
+    }
+
+    #[test]
+    fn lifecycle_tunables_are_the_locked_values() {
+        // D-74/D-75/D-76 exact values — pinned so a casual edit is caught.
+        assert_eq!(TTL_DAYS, 30);
+        assert_eq!(RENEW_AHEAD_DAYS, 7);
+        assert_eq!(GRACE_DAYS, 7);
+        assert_eq!(POLL_INTERVAL_HOURS, 24);
+    }
+
+    #[test]
+    fn renew_ahead_window_opens_before_expiry() {
+        // The renew-ahead window must open strictly before the cert expires,
+        // otherwise a connected user could never renew before grace.
+        assert!(RENEW_AHEAD_DAYS < TTL_DAYS);
     }
 
     /// D-52 release tripwire. This test runs ONLY in a release build
