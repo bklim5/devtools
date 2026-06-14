@@ -21,7 +21,7 @@ describe("sendKeyEmail (D-64/D-66)", () => {
     expect(send).toHaveBeenCalledTimes(1);
     const payload = send.mock.calls[0][0];
     expect(payload.from).toBe("TinkerDev Licenses <licenses@email.tinkerdev.io>");
-    expect(payload.reply_to).toBe("licenses@tinkerdev.io");
+    expect(payload.replyTo).toBe("licenses@tinkerdev.io");
     expect(payload.to).toEqual(["buyer@example.com"]);
     expect(payload.subject).toBe("Your TinkerDev license key");
     expect(typeof payload.text).toBe("string");

@@ -17,7 +17,7 @@ export interface EmailSender {
       to: string[];
       subject: string;
       text: string;
-      reply_to?: string;
+      replyTo?: string;
     }): Promise<{ error: { message: string } | null }>;
   };
 }
@@ -60,7 +60,7 @@ export async function sendKeyEmail(
     to: [to],
     subject: SUBJECT,
     text: buildKeyEmailText(licenseKey),
-    reply_to: config.replyTo,
+    replyTo: config.replyTo,
   });
   if (error) {
     throw new Error(`Resend send failed: ${error.message}`);
