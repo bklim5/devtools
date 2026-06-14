@@ -106,9 +106,15 @@ export function UpsellPanel({
 }: UpsellPanelProps) {
   const ui = useLicenseUi();
   const problem = ui.state === "problem";
-  // Both notActivated and problem carry hasStoredKey (the ONLY Keychain-derived
-  // value JS ever sees — T-19-10/LIC-04).
-  const hasStoredKey = ui.state !== "licensed" && ui.hasStoredKey;
+  // notActivated, problem, and refreshNeeded carry hasStoredKey (the ONLY
+  // Keychain-derived value JS ever sees — T-19-10/LIC-04). licensed and
+  // offlineGrace carry expiry+entitlements instead (Pro is active), so they
+  // never expose the stored-key flag.
+  const hasStoredKey =
+    (ui.state === "notActivated" ||
+      ui.state === "problem" ||
+      ui.state === "refreshNeeded") &&
+    ui.hasStoredKey;
 
   const [formRevealed, setFormRevealed] = useState(false);
   const [value, setValue] = useState("");

@@ -31,10 +31,18 @@ export type LicenseProblem =
 
 /** License status union — EXACT mirror of the serde-pinned camelCase JSON the
  *  Rust commands return (do not invent fields; `hasStoredKey` is the ONLY
- *  Keychain-derived value JS ever sees — LIC-04/T-19-10). */
+ *  Keychain-derived value JS ever sees — LIC-04/T-19-10).
+ *
+ *  Five states (Plan 21-01/21-02 made resolve_status expiry-aware, D-73):
+ *  - `offlineGrace`  — Pro still active: cert verified but past `expiry`, within
+ *    the GRACE_DAYS window (carries the same payload as `licensed`).
+ *  - `refreshNeeded` — Pro dropped to free: expiry + GRACE_DAYS lapsed; a
+ *    successful refresh restores Pro. `hasStoredKey` enables one-click reactivate. */
 export type LicenseStatusPayload =
   | { state: "notActivated"; hasStoredKey: boolean }
   | { state: "licensed"; expiry: string | null; entitlements: string[] }
+  | { state: "offlineGrace"; expiry: string | null; entitlements: string[] }
+  | { state: "refreshNeeded"; hasStoredKey: boolean }
   | { state: "problem"; problem: LicenseProblem; hasStoredKey: boolean };
 
 /** Typed license error codes. Tauri rejects command errors with the serialized

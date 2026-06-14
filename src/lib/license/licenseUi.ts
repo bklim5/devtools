@@ -41,6 +41,18 @@ function payloadsEqual(
       a.entitlements.every((e, i) => e === b.entitlements[i])
     );
   }
+  // offlineGrace carries the same payload shape as licensed (D-73).
+  if (a.state === "offlineGrace" && b.state === "offlineGrace") {
+    return (
+      a.expiry === b.expiry &&
+      a.entitlements.length === b.entitlements.length &&
+      a.entitlements.every((e, i) => e === b.entitlements[i])
+    );
+  }
+  // refreshNeeded compares hasStoredKey, like notActivated.
+  if (a.state === "refreshNeeded" && b.state === "refreshNeeded") {
+    return a.hasStoredKey === b.hasStoredKey;
+  }
   if (a.state === "problem" && b.state === "problem") {
     return a.problem === b.problem && a.hasStoredKey === b.hasStoredKey;
   }

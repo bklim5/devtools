@@ -37,6 +37,17 @@ const PROBLEM: LicenseStatusPayload = {
   hasStoredKey: false,
 };
 
+const OFFLINE_GRACE: LicenseStatusPayload = {
+  state: "offlineGrace",
+  expiry: "2026-07-12T15:14:47.247Z",
+  entitlements: ["pro.theming", "pro.ordering"],
+};
+
+const REFRESH_NEEDED: LicenseStatusPayload = {
+  state: "refreshNeeded",
+  hasStoredKey: true,
+};
+
 describe("licenseUi snapshot store", () => {
   it("defaults to { state: 'notActivated', hasStoredKey: false }", () => {
     expect(getLicenseUiSnapshot()).toEqual({
@@ -93,6 +104,67 @@ describe("licenseUi snapshot store", () => {
     expect(getLicenseUiSnapshot()).toEqual({
       state: "notActivated",
       hasStoredKey: false,
+    });
+    expect(listener).toHaveBeenCalledTimes(2);
+    unsubscribe();
+  });
+
+  // --- 5-state mirror (Plan 21-02): offlineGrace + refreshNeeded ----------
+
+  it("refreshLicenseUi() propagates an offlineGrace payload and change-detects it", async () => {
+    setPlatformForTest(platformWithStatus(OFFLINE_GRACE));
+    const listener = vi.fn();
+    const unsubscribe = subscribeLicenseUi(listener);
+
+    await refreshLicenseUi();
+    expect(getLicenseUiSnapshot()).toEqual(OFFLINE_GRACE);
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    // A second identical refresh is a no-op (payloadsEqual offlineGrace arm).
+    await refreshLicenseUi();
+    expect(listener).toHaveBeenCalledTimes(1);
+    unsubscribe();
+  });
+
+  it("refreshLicenseUi() propagates a refreshNeeded payload and change-detects it", async () => {
+    setPlatformForTest(platformWithStatus(REFRESH_NEEDED));
+    const listener = vi.fn();
+    const unsubscribe = subscribeLicenseUi(listener);
+
+    await refreshLicenseUi();
+    expect(getLicenseUiSnapshot()).toEqual(REFRESH_NEEDED);
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    // Identical refresh short-circuits (payloadsEqual refreshNeeded arm).
+    await refreshLicenseUi();
+    expect(listener).toHaveBeenCalledTimes(1);
+    unsubscribe();
+  });
+
+  it("a state change from offlineGrace to refreshNeeded notifies", () => {
+    const listener = vi.fn();
+    const unsubscribe = subscribeLicenseUi(listener);
+
+    setLicenseUiForTest(OFFLINE_GRACE);
+    expect(getLicenseUiSnapshot()).toEqual(OFFLINE_GRACE);
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    setLicenseUiForTest(REFRESH_NEEDED);
+    expect(getLicenseUiSnapshot()).toEqual(REFRESH_NEEDED);
+    expect(listener).toHaveBeenCalledTimes(2);
+    unsubscribe();
+  });
+
+  it("offlineGrace differing only in entitlements is a change", () => {
+    const listener = vi.fn();
+    const unsubscribe = subscribeLicenseUi(listener);
+
+    setLicenseUiForTest(OFFLINE_GRACE);
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    setLicenseUiForTest({
+      ...OFFLINE_GRACE,
+      entitlements: ["pro.theming"],
     });
     expect(listener).toHaveBeenCalledTimes(2);
     unsubscribe();
