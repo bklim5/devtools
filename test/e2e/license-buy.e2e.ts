@@ -99,19 +99,34 @@ type RecorderWindow = {
   __TAURI_INTERNALS__?: { invoke: RecorderInvoke };
   __openUrlCalls?: string[];
   __realInvoke?: RecorderInvoke;
+  // Debug ring of EVERY command the wrapper saw after install — surfaced in the
+  // failure message so a still-zero open_url run pinpoints whether the wrapper
+  // fired at all (and for what) vs. the click never reaching the opener seam.
+  __invokeCmds?: string[];
 };
 
-// Install the recorder. Idempotent: a second install is a no-op (so a retry
-// loop cannot double-wrap and lose the original).
+// Install the recorder. Safe to call repeatedly: the FIRST call stashes the
+// genuine `internals.invoke` on `__realInvoke` and seeds `__openUrlCalls`; later
+// calls only RE-ASSERT that `internals.invoke` is still our wrapper (re-wrapping
+// from the saved original if anything replaced it between install and the Buy
+// click) WITHOUT re-binding the original (which would capture our own wrapper and
+// dead-loop) or clearing the recorded calls. This guards the load-bearing
+// open_url interception against any post-install reset of the native invoke seam
+// on this WKWebView — the prior single-shot guard returned early and could leave
+// a replaced invoke unwrapped, recording zero calls (the run1/run2 symptom).
 function installOpenerRecorder(): Promise<void> {
   return browser.execute(() => {
     const w = window as unknown as RecorderWindow;
     const internals = w.__TAURI_INTERNALS__;
-    if (!internals || w.__realInvoke) return; // not in Tauri, or already wrapped
-    w.__openUrlCalls = [];
-    const real = internals.invoke.bind(internals);
-    w.__realInvoke = real;
-    internals.invoke = (cmd: string, args?: unknown, opts?: unknown) => {
+    if (!internals) return; // not in Tauri (browser/jsdom fallback) — nothing to wrap
+    w.__openUrlCalls ??= [];
+    w.__invokeCmds ??= [];
+    // Capture the genuine invoke exactly once (never re-bind — re-binding after we
+    // already wrapped would make `real` point at our own wrapper).
+    w.__realInvoke ??= internals.invoke.bind(internals);
+    const real = w.__realInvoke;
+    const wrapper = (cmd: string, args?: unknown, opts?: unknown) => {
+      (w.__invokeCmds ??= []).push(cmd); // debug ring (every command seen)
       if (cmd === "plugin:opener|open_url") {
         const url = (args as { url?: string } | undefined)?.url;
         if (typeof url === "string") (w.__openUrlCalls ??= []).push(url);
@@ -120,6 +135,21 @@ function installOpenerRecorder(): Promise<void> {
       }
       return real(cmd, args, opts);
     };
+    // (Re-)assert the wrapper is the live invoke — idempotent if already ours.
+    internals.invoke = wrapper;
+  });
+}
+
+// True iff the live native invoke is our recorder wrapper (proves the open_url
+// interception is actually in place before we click Buy). The wrapper short-
+// circuits the open_url command, so a sentinel call records nothing real and
+// resolves immediately — but a genuine, unwrapped invoke would NOT push to
+// __openUrlCalls, so the presence of __realInvoke + an unchanged invoke identity
+// is the cheapest robust probe.
+function openerRecorderInstalled(): Promise<boolean> {
+  return browser.execute(() => {
+    const w = window as unknown as RecorderWindow;
+    return Boolean(w.__TAURI_INTERNALS__ && w.__realInvoke);
   });
 }
 
@@ -127,6 +157,13 @@ function installOpenerRecorder(): Promise<void> {
 function recordedOpenUrlCalls(): Promise<string[]> {
   return browser.execute(
     () => (window as unknown as RecorderWindow).__openUrlCalls ?? [],
+  );
+}
+
+// Read back the debug ring of every command the wrapper saw (failure diagnostics).
+function recordedInvokeCmds(): Promise<string[]> {
+  return browser.execute(
+    () => (window as unknown as RecorderWindow).__invokeCmds ?? [],
   );
 }
 
@@ -140,6 +177,7 @@ function restoreOpenerRecorder(): Promise<void> {
     }
     delete w.__realInvoke;
     delete w.__openUrlCalls;
+    delete w.__invokeCmds;
   });
 }
 
@@ -195,6 +233,20 @@ describe("Buy-license wiring (real WKWebView)", () => {
       // Screenshot the Buy affordance for the gsd-ui-review audit.
       await saveScreenshot("license-buy", "license-buy-cta.png", "buy-cta");
 
+      // RE-ASSERT the recorder right before the click: opening the modal mounted
+      // UpsellPanel, whose mount effect fires a license_status invoke — and on
+      // this WKWebView the native invoke seam can be re-established around such
+      // calls, silently dropping our open_url interception (the run1/run2
+      // zero-recorded symptom). installOpenerRecorder is now re-assertive (it
+      // re-wraps from the saved original without clearing recorded calls), and we
+      // fail LOUD here if the wrap could not be (re)installed rather than letting
+      // the click record nothing and read as a dead onClick.
+      await installOpenerRecorder();
+      assert(
+        await openerRecorderInstalled(),
+        "could not install the opener recorder on window.__TAURI_INTERNALS__.invoke — the open_url seam cannot be observed (not in Tauri?)",
+      );
+
       // Record the in-app route, then click Buy. The native browser-open is
       // non-observable here (manual walkthrough item — see file header); we
       // assert the OBSERVABLE in-app contract: no in-page navigation.
@@ -205,14 +257,22 @@ describe("Buy-license wiring (real WKWebView)", () => {
       // exactly once with the exact buy URL. A silently-broken onClick records
       // zero calls and fails here, where the corroborating assertions below
       // would have passed vacuously. Give the best-effort async open a beat.
-      await browser.waitUntil(
-        async () => (await recordedOpenUrlCalls()).length >= 1,
-        {
-          timeout: 5_000,
-          timeoutMsg:
-            "the Buy CTA never called the opener seam — onClick is disconnected/broken",
-        },
-      );
+      try {
+        await browser.waitUntil(
+          async () => (await recordedOpenUrlCalls()).length >= 1,
+          { timeout: 5_000, timeoutMsg: "no open_url recorded" },
+        );
+      } catch {
+        // Dump the wrapper's debug ring so a still-zero run pinpoints whether the
+        // wrapper fired at all (and for which commands) vs. the click never
+        // reaching the opener seam — far more actionable than the bare timeout.
+        const seenCmds = await recordedInvokeCmds();
+        const installed = await openerRecorderInstalled();
+        throw new Error(
+          `the Buy CTA never called the opener seam — onClick is disconnected/broken ` +
+            `(recorder installed=${installed}; commands the wrapper observed after the click=${JSON.stringify(seenCmds)})`,
+        );
+      }
       const openUrlCalls = await recordedOpenUrlCalls();
       assert(
         openUrlCalls.length === 1,
