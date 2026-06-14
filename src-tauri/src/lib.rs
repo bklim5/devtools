@@ -155,6 +155,7 @@ pub fn run() {
             license::commands::license_status,
             license::commands::activate_license,
             license::commands::refresh_license,
+            license::commands::refresh_license_if_needed,
             license::commands::deactivate_machine
         ])
         .run(tauri::generate_context!())

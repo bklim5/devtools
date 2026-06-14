@@ -48,6 +48,21 @@ pub async fn refresh_license(
     state.0.lock().await.refresh().await
 }
 
+/// D-76 silent background refresh — invoked ONLY by the lib.rs scheduler
+/// (launch trigger + 24h poll), never by user-facing UI (the status route's
+/// explicit Refresh button uses `refresh_license`, which DOES surface errors).
+///
+/// Always returns `Ok` (the inner manager method swallows every error): a
+/// failed attempt leaves the on-disk state untouched and surfaces nothing
+/// (D-76/D-77). The `()` error type is unreachable by construction — it exists
+/// only because Tauri commands borrowing `State<'_, T>` must return `Result`.
+#[tauri::command]
+pub async fn refresh_license_if_needed(
+    state: State<'_, LicenseState>,
+) -> Result<LicenseStatusPayload, ()> {
+    Ok(state.0.lock().await.refresh_if_needed().await)
+}
+
 /// Seat-transfer primitive (LIC-07) — callable-but-unwired this phase.
 #[tauri::command]
 pub async fn deactivate_machine(
