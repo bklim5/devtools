@@ -2,7 +2,7 @@
 phase: 21
 plan: 04
 type: execute
-wave: 3
+wave: 4
 depends_on: [21-02, 21-03]
 files_modified:
   - src/lib/entitlements/resolve.ts

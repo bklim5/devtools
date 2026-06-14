@@ -2,12 +2,15 @@
 phase: 21
 plan: 03
 type: execute
-wave: 2
-depends_on: [21-01]
+wave: 3
+depends_on: [21-01, 21-02]
 files_modified:
   - src-tauri/src/license/verify.rs
   - src-tauri/src/license/mod.rs
   - src-tauri/src/license/keychain.rs
+  - src-tauri/src/license/store.rs
+  - src/lib/platform/index.ts
+  - src/lib/license/licenseUi.ts
   - server/webhook/src/keygen.ts
   - server/webhook/src/keygen.test.ts
   - infra/keygen/release-seat.sh
@@ -21,6 +24,7 @@ must_haves:
     - "The Licensed/OfflineGrace payloads carry maskedKey (last-N chars, Rust-side) and email — the raw key never round-trips through JS"
     - "Revocation/suspension propagates: a refresh that returns revoked/suspended drops entitlements to free with no crash"
     - "An admin can free a seat by license key / order ID via a committed infra helper run over SSH against the CE admin API on localhost"
+    - "An offline deactivate() returns the offline error and leaves the Keychain key + machine.lic byte-unchanged (D-79 no-clear, pinned by a cargo test)"
   artifacts:
     - path: "src-tauri/src/license/verify.rs"
       provides: "email extraction from the cert's included license resource"
@@ -72,6 +76,7 @@ Output: extended verify.rs (email), extended payload (maskedKey+email), webhook 
 @.planning/phases/21-license-lifecycle-ship-gate/21-CONTEXT.md
 @.planning/phases/20-purchase-pipeline/20-CONTEXT.md
 @.planning/phases/21-license-lifecycle-ship-gate/21-01-SUMMARY.md
+@.planning/phases/21-license-lifecycle-ship-gate/21-02-SUMMARY.md
 
 <interfaces>
 <!-- verify.rs LicenseData (line 50) already extracts entitlements from `included` entries of
@@ -85,6 +90,10 @@ verify.rs:
 
 mod.rs LicenseStatusPayload::Licensed { expiry, entitlements } — ADD masked_key + email.
   LicenseManager has `keychain` (get_key) — masking reads the key Rust-side, exposes only last-N.
+  NOTE (serialization order): Plan 02 (now a dependency) has ALREADY landed the settled 5-state Rust enum
+  (Licensed/OfflineGrace/RefreshNeeded) + its serde-contract test, AND the TS union licensed/offlineGrace
+  arms + payloadsEqual in src/lib/platform/index.ts + licenseUi.ts. This plan ADDS masked_key/email ONTO
+  those settled arms and OWNS the FINAL serde-contract test shape. No parallel rewrite of the same arm.
 
 webhook keygen.ts:
   createLicense(orderId: string): Promise<{ id; key }>  // POST body: attributes.metadata.{orderId}, relationships.policy
@@ -136,7 +145,8 @@ infra pattern (Phase 20): infra/keygen/{setup.sh,deploy.sh,swap.sh,RUNBOOK.md}, 
   <read_first>
     - src-tauri/src/license/mod.rs (LicenseStatusPayload Licensed variant + the Plan-01 OfflineGrace variant; resolve_status Ok arm; the keychain field; the serde-contract test)
     - src-tauri/src/license/keychain.rs (get_key signature/KeychainError)
-    - src/lib/platform/index.ts (the TS union — must mirror; coordinate with Plan 02's edit to the same file: this plan ADDS fields to licensed/offlineGrace)
+    - src/lib/platform/index.ts (the TS union — Plan 02 has ALREADY landed the licensed/offlineGrace arms; this plan ADDS maskedKey/email fields onto those settled arms, no rewrite)
+    - src/lib/license/licenseUi.ts (payloadsEqual — Plan 02 settled the licensed/offlineGrace arms; this plan EXTENDS them to compare maskedKey/email)
     - .planning/phases/21-license-lifecycle-ship-gate/21-UI-SPEC.md (Field — Key row: recommend `••••••••{last4}`; absent email -> "—")
   </read_first>
   <action>
@@ -145,7 +155,7 @@ infra pattern (Phase 20): infra/keygen/{setup.sh,deploy.sh,swap.sh,RUNBOOK.md}, 
     - Add a pure masking helper `fn mask_key(key: &str) -> String` returning `••••••••{last4}` (D-89 discretion; last-4 recommended in UI-SPEC). For keys shorter than 4 chars, mask all. Cover with a unit test (a normal key -> bullets + last4; a short key -> all bullets).
     - In resolve_status, when building Licensed/OfflineGrace: compute `email = data.email` (from Task 1) and `masked_key` by reading the Keychain key (`self.keychain.get_key()`), masking it Rust-side, and exposing ONLY the masked form. The raw key NEVER enters the payload. If the Keychain read errors or is empty, `masked_key = None` (fail-soft — same posture as has_stored_key). IMPORTANT: respect the per-process Keychain-read discipline — a Licensed launch previously NEVER read the Keychain (Pitfall 5 prompt-flood). Reading it now to mask is acceptable ONLY because the status route is user-initiated; gate the read so it happens at most once per process (reuse/extend the `stored_key_flag` cache mechanism, or cache the masked key similarly). Document the tradeoff: the masked key is shown only on the status route, and the read is cached to avoid prompt-flood.
     - Update the serde-contract test for the new Licensed/OfflineGrace shapes: `{"state":"licensed","expiry":...,"entitlements":[...],"maskedKey":"••••••••AB12","email":"a@b.com"}` (and null cases serialize the fields as null — confirm camelCase `maskedKey`).
-    TS mirror: extend the `licensed` and `offlineGrace` arms in src/lib/platform/index.ts to add `maskedKey: string | null; email: string | null`. Coordinate with Plan 02 (same file, different lines) — depends_on is 21-01 only, so if Plan 02 hasn't merged, add the offlineGrace arm here too; the wave-merge reconciles. Update licenseUi.ts payloadsEqual to compare maskedKey + email on those arms.
+    TS mirror (DETERMINISTIC ORDERING — no hope-it-merges): Plan 02 is a hard dependency (wave 3 after wave 2) and has ALREADY landed the settled 5-state `licensed`/`offlineGrace` union arms in src/lib/platform/index.ts AND `payloadsEqual` in src/lib/license/licenseUi.ts. This plan does NOT re-declare or rewrite those arms — it ADDS `maskedKey: string | null; email: string | null` onto the EXISTING licensed + offlineGrace arms, and EXTENDS the existing payloadsEqual licensed/offlineGrace cases to also compare maskedKey + email. Likewise on the Rust side, this plan OWNS the FINAL serde-contract test shape (the maskedKey/email-bearing licensed/offlineGrace JSON) — Plan 02 landed the 3-field shape, this plan extends it to the 5-field shape. There is no parallel rewrite of the same union arm or the same serde-contract test; the sequencing (21-01 → 21-02 → 21-03) makes the contract evolution append-only.
   </action>
   <verify>
     <automated>cd src-tauri && cargo test license:: 2>&1 | grep -q "test result: ok" && cd .. && pnpm exec tsc --noEmit</automated>
@@ -156,22 +166,26 @@ infra pattern (Phase 20): infra/keygen/{setup.sh,deploy.sh,swap.sh,RUNBOOK.md}, 
     - mod.rs contains a `mask_key` unit test producing `••••••••` + last-4
     - the raw key never appears in any payload: `grep -n "get_key" src-tauri/src/license/mod.rs` usages feed ONLY into mask_key, never into a payload field directly (verify by reading)
     - `grep "maskedKey" src/lib/platform/index.ts` matches
+    - prompt-flood guard PINNED BY A TEST: `cargo test resolve_status_reads_the_keychain_at_most_once_per_process` still passes after the masked-key read is wired (the masked-key read must reuse/extend the existing `stored_key_flag` per-process cache — if a new test name is used, it must assert the Keychain is read at most once per process even when resolve_status is called repeatedly while masking)
     - `cargo test license::` exits 0; `tsc --noEmit` exits 0
   </acceptance_criteria>
 </task>
 
 <task type="auto">
-  <name>Task 3: Revocation propagation test (D-82) + suspended mapping</name>
+  <name>Task 3: Revocation propagation test (D-82) + suspended mapping + D-79 offline-deactivate no-clear gate</name>
   <read_first>
     - src-tauri/src/license/mod.rs (refresh(); the ScriptedClient test harness; LicenseError variants)
     - src-tauri/src/license/keygen_client.rs (how a suspended/revoked license validate/checkout response is classified — does it map to LicenseError::suspended? confirm the code path)
-    - .planning/phases/21-license-lifecycle-ship-gate/21-CONTEXT.md (D-82: revocation propagates only on successful online refresh; D-83 one calm state)
+    - src-tauri/src/license/mod.rs deactivate() (Phase 19: server delete-machine FIRST, then clear Keychain key + machine.lic; the ScriptedClient/keychain test harness)
+    - src-tauri/src/license/keychain.rs + store.rs (get_key / machine.lic read-write — what the no-clear test inspects)
+    - .planning/phases/21-license-lifecycle-ship-gate/21-CONTEXT.md (D-82: revocation propagates only on successful online refresh; D-83 one calm state; D-79: offline deactivate is BLOCKED with a calm message and local state is NEVER cleared until the server delete confirms — a local-only forget would orphan a consumed seat)
   </read_first>
   <action>
     D-82 is "eventual consistency on refresh" — the propagation mechanism is already the re-checkout. Add the proof + the calm-drop path:
     - Add a cargo test: a `refresh()` whose checkout returns a SUSPENDED/revoked outcome (a `LicenseError::suspended` or a checkout that yields a cert that no longer verifies / a server 403) does NOT panic and surfaces a typed error the command layer can map. Confirm the existing keygen_client classification: a revoked license at checkout -> which LicenseError? If it's not already `suspended`, ensure revoked/suspended checkout maps to `LicenseError::suspended` (D-83's calm "no longer active" maps from this + the RefreshNeeded state).
     - Add a manager-level test: when refresh returns `suspended`, the on-disk machine.lic is NOT overwritten with a bad cert (write-after-verify invariant holds — a revoked checkout that fails local verify writes nothing, the user keeps their last-good cert until grace lapses to RefreshNeeded). Document the propagation chain: revoke in Keygen -> next refresh checkout fails/returns revoked -> no fresh cert -> existing cert eventually expires -> grace -> RefreshNeeded (free). The "≤37 day eventual consistency" is this chain.
-    - No new UI here — Plan 04 maps `suspended` + `refreshNeeded` to the one calm "Pro is no longer active" copy (D-83).
+    - D-79 no-clear regression gate (promote from prose+walkthrough to a deterministic Rust test): add a cargo test asserting that an OFFLINE `deactivate()` (the server delete-machine call fails with `LicenseError::offline` / service-unreachable) returns the offline error AND leaves the Keychain key present + `machine.lic` BYTE-UNCHANGED — no local clear happens before the server delete confirms. Use the test harness to record key + machine.lic bytes before, attempt the offline deactivate, assert the error and that key + bytes are identical after. This pins D-79 (the never-orphan-a-seat invariant) at the Rust level, independent of the Plan-04 UI/e2e walkthrough.
+    - No new UI here — Plan 04 maps `suspended` + `refreshNeeded` to the one calm "Pro is no longer active" copy (D-83); Plan 04 also surfaces the D-79 calm offline-deactivate message, but the no-clear invariant itself is now pinned by THIS plan's cargo test.
   </action>
   <verify>
     <automated>cd src-tauri && cargo test license:: 2>&1 | grep -q "test result: ok"</automated>
@@ -179,6 +193,7 @@ infra pattern (Phase 20): infra/keygen/{setup.sh,deploy.sh,swap.sh,RUNBOOK.md}, 
   <acceptance_criteria>
     - mod.rs (or keygen_client tests) contains a test exercising a revoked/suspended refresh that does not panic and yields a typed error
     - the write-after-verify invariant test confirms a bad/revoked checkout writes no cert (`cert_writes` empty)
+    - D-79 PINNED BY A CARGO TEST (not just UI/e2e/walkthrough): a test proves an offline `deactivate()` returns the offline/service-unreachable error AND leaves the Keychain key + `machine.lic` byte-unchanged (no local clear before the server-delete confirms) — grep mod.rs for the test name
     - `cargo test license::` exits 0
     - `suspended` is a reachable LicenseError on the refresh path (grep keygen_client.rs / mod.rs)
   </acceptance_criteria>
@@ -223,6 +238,7 @@ infra pattern (Phase 20): infra/keygen/{setup.sh,deploy.sh,swap.sh,RUNBOOK.md}, 
 | webhook → Keygen (email in license) | The buyer email becomes license metadata; it later round-trips to the client via the signed cert. |
 | Keychain key → masked-key payload | The raw key is read Rust-side to mask; only the masked form crosses to JS (LIC-04). |
 | operator SSH → CE admin API (localhost) | The privileged admin token frees seats; must stay server-side. |
+| webview/UI → deactivate() (offline) | An offline deactivate must block and NEVER clear local state before the server delete confirms (D-79). |
 
 ## STRIDE Threat Register
 
@@ -233,10 +249,11 @@ infra pattern (Phase 20): infra/keygen/{setup.sh,deploy.sh,swap.sh,RUNBOOK.md}, 
 | T-21-09 | Elevation | release-seat.sh admin token | mitigate | The privileged token is read from server-side env on the VPS only (D-55); the script is never client-reachable and never embeds the token. `check-dev-strip.sh`-style grep confirms no token literal committed. |
 | T-21-10 | Spoofing (forged seat-release) | release-seat.sh resolve-by-key/order | accept | The helper runs only by an operator with SSH access to the box (already fully trusted); resolving by key/orderId then deleting machines is the intended privileged operation. No additional auth needed beyond SSH. |
 | T-21-11 | Tampering | revoked cert on refresh | mitigate | Write-after-verify (Phase 19, re-tested here): a revoked/garbled checkout never overwrites the last-good machine.lic; the user simply ages into grace→RefreshNeeded (D-82 eventual consistency), never a crash or a forged-licensed state. |
+| T-21-11b | Data-loss / Repudiation | offline deactivate (D-79) | mitigate | Server-delete-FIRST: an offline `deactivate()` rejects (`offline`/service-unreachable) BEFORE any local clear, so the Keychain key + machine.lic stay byte-unchanged and the seat is never orphaned. Now PINNED by a Task-3 cargo test (key+bytes identical before/after an offline deactivate), not only the Plan-04 UI walkthrough. |
 </threat_model>
 
 <verification>
-- `cargo test license::` green (email extraction, mask_key, revocation/write-after-verify tests).
+- `cargo test license::` green (email extraction, mask_key, revocation/write-after-verify tests, the D-79 offline-deactivate no-clear test, and the keychain-at-most-once test still passing after masking).
 - `tsc --noEmit -p server/webhook/tsconfig.json` + `vitest run server/webhook` green (email embedding); full webview `tsc --noEmit` + `vitest` green (TS union fields).
 - `bash -n infra/keygen/release-seat.sh` clean; RUNBOOK updated.
 - No token literal committed (grep). decoder.ts + 19 tests untouched.

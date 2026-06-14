@@ -2,7 +2,7 @@
 phase: 21
 plan: 05
 type: execute
-wave: 4
+wave: 5
 depends_on: [21-04]
 files_modified:
   - test/e2e/ship-gate.e2e.ts
