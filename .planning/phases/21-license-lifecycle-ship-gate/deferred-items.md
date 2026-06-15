@@ -119,3 +119,53 @@ between them but asserts on `license_status` (notActivated / problem), which the
 entitlement override does NOT affect — so a persisted "full" override does not break
 its "Free at baseline" assertion. If a future spec asserts a FREE *entitlement*
 baseline without calling `ensureFreeTier()` first, it must establish its own tier.
+
+## 21-04 hardening — tier-establishment flake RESOLVED (deterministic DEV seam)
+
+**Type:** [Rule 1 - bug fix: e2e flake] pre-Wave-5 harness hardening.
+
+**The flake (now fixed):** `ensureProTier()` / `ensureFreeTier()` (test/e2e/helpers.ts)
+were intermittently flaky (~1-in-9 real-WKWebView runs; "could not establish the free
+tier via the dev toggle (the 'Unlock Pro' footer never appeared)"). Root cause: both
+helpers drove the entire ⌘K palette dev-toggle dance (`runDevToggle()` — open palette →
+type "toggle free" → ArrowUp → Enter → close → wait for the footer to flip), ~6
+timing-sensitive WKWebView steps. The dev toggle is BIDIRECTIONAL on the EFFECTIVE
+tier, so a lagging entitlements snapshot could read the OLD tier and flip the WRONG
+way, oscillating; and `runDevToggle()` sat OUTSIDE the retry try/catch, so a transient
+mid-dance failure aborted with no retry. Wave 5's 8-case ship-gate matrix leans on
+tier transitions, so this had to be deterministic.
+
+**Fix (deterministic DEV-only tier-set seam):**
+1. `src/lib/entitlements/store.ts`: added `setDevTier("pro"|"free"|"default")` — a
+   DEV-only (`isTestOrDev()`-gated) single state SET (NOT a toggle) that writes the
+   matching `entitlementsOverride` ("full"/"free"/null) via the existing
+   `savePreferences` + `refreshEntitlements` path and awaits the resolved set. No
+   oscillation possible — callers never read-then-flip.
+2. `src/main.tsx`: registered `window.__devSetTier` ONLY under `import.meta.env.DEV`
+   (tree-shaken from every release bundle) → `setDevTier`.
+3. `test/e2e/helpers.ts`: `ensureProTier`/`ensureFreeTier` rewritten on the seam —
+   SET the exact target, waitUntil the footer probe reflects it, bounded retry that
+   RE-SETS the SAME target idempotently (never flips). Helper doc comments updated.
+4. `scripts/check-dev-strip.sh`: extended to assert `__devSetTier` is ABSENT from the
+   release dist (alongside the existing "Toggle free tier" + `entitlementsOverride:"full"`
+   checks). Passing.
+
+**Regression coverage retained:** `entitlements.e2e.ts` STILL exercises the genuine ⌘K
+palette `runDevToggle()` path (the D-31/D-32 searchable-dev-command proof — runDevToggle
++ its assertions are NOT deleted). Other specs (license / license-settings / sidebar)
+use the deterministic seam as a mere precondition.
+
+**Production behavior unchanged:** D-85 flip + D-31 downgrade-only-in-prod invariants
+intact; the seam is DEV-only and stripped from release (check-dev-strip.sh proves
+`__devSetTier` + the "full" override write absent from dist/assets). No new webview
+runtime deps.
+
+**Unit gate:** green — vitest 939/939 (+14, incl. 5 new setDevTier tests), tsc
+(root + server/webhook) 0, eslint 0 errors (the 2 pre-existing SidebarResetMenu.tsx
+react-refresh warnings remain out of scope). `pnpm build` + `check-dev-strip.sh` pass.
+decoder.ts + its 19 tests byte-for-byte untouched.
+
+**STILL OPEN (orchestrator action):** re-run `scripts/e2e-spike.sh` REPEATEDLY (this
+executor is headless and cannot drive the GUI) to confirm the flake is gone across
+multiple real-WKWebView runs. SUMMARY/ROADMAP/STATE NOT finalized — the 21-04
+human-verify gate remains open.

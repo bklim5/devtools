@@ -234,64 +234,82 @@ export function upsellModalOpen(): Promise<boolean> {
   });
 }
 
-// --- DEV-only tier control (post-D-85) --------------------------------------
+// --- DEV-only tier control (post-D-85, deterministic seam 21-04) -------------
 //
 // After the Phase 21 D-85 flip an unlicensed in-Tauri install resolves FREE, so
 // the e2e baseline (the e2e-spike preflight wipes prefs.json + machine.dev.lic)
-// is FREE. The dev "Toggle free tier (dev)" command now flips the EFFECTIVE tier
-// (CommandPalette.tsx): from FREE it grants the DEV-only "full" Pro override, from
-// Pro it forces "free". These two helpers make a spec's required tier explicit and
-// idempotent instead of assuming a baseline — Pro-gated UX (reorder/pin/theming)
-// MUST establish Pro first; locked-UX checks establish FREE.
+// is FREE. Pro-gated UX (reorder/pin/theming) MUST establish Pro first; locked-UX
+// checks establish FREE.
+//
+// HISTORY (the flake these helpers used to carry): the original ensureProTier/
+// ensureFreeTier drove the ⌘K palette `runDevToggle()` — a ~6-step WKWebView dance
+// (open palette → type → ArrowUp → Enter → close → wait for the footer to flip).
+// The dev toggle is BIDIRECTIONAL on the EFFECTIVE tier, so a lagging entitlements
+// snapshot could read the OLD tier and flip the WRONG way, oscillating; the toggle
+// call also sat OUTSIDE the retry try/catch, so a transient mid-dance failure
+// aborted with no retry (~1-in-9 real-run flake — "the 'Unlock Pro' footer never
+// appeared"; see deferred-items.md / [[license-walkthrough-state-pollutes-e2e]]).
+//
+// FIX: these helpers now drive the DETERMINISTIC DEV-only `window.__devSetTier`
+// seam (main.tsx, registered under import.meta.env.DEV; resolves to the same DEV
+// "full"/"free" override the palette command writes, stripped from every release
+// bundle — proven by scripts/check-dev-strip.sh). It is a single state SET to an
+// EXACT target tier (NOT a toggle), so no oscillation is possible. The bounded
+// retry RE-SETS the SAME target idempotently (never flips) before failing loud.
+// runDevToggle() below is retained as the genuine ⌘K-palette regression path,
+// exercised once in entitlements.e2e.ts (the D-31/D-32 searchable-dev-command proof).
 
-// Ensure Pro is live: toggle iff the free-tier footer is currently showing. The
-// dev-toggle→refreshEntitlements() propagation is racy on this WKWebView worker
-// (deferred-items / [[license-walkthrough-state-pollutes-e2e]]), so retry a few
-// times before failing loud rather than depending on one flip landing.
-export async function ensureProTier(): Promise<void> {
-  let free = await unlockProFooterPresent();
-  for (let attempt = 0; attempt < 4 && free; attempt++) {
-    await runDevToggle();
-    try {
-      await browser.waitUntil(async () => !(await unlockProFooterPresent()), {
-        timeout: 8_000,
-        interval: 200,
-        timeoutMsg: "Pro not live yet",
-      });
-      free = false;
-    } catch {
-      free = await unlockProFooterPresent();
-    }
-  }
-  if (free) {
-    throw new Error(
-      "could not establish Pro tier via the dev toggle (the free-tier footer never cleared) — Pro-gated assertions cannot run",
-    );
-  }
+// Set the exact effective tier via the deterministic DEV seam. Returns true once
+// the seam resolved (it awaits refreshEntitlements internally). No-op/false if the
+// hook is somehow absent (a non-DEV bundle — never the case under `tauri dev`).
+function devSetTier(target: "pro" | "free" | "default"): Promise<boolean> {
+  return browser.execute(async (t: "pro" | "free" | "default") => {
+    const hook = (window as unknown as Record<string, unknown>).__devSetTier as
+      | ((tier: "pro" | "free" | "default") => Promise<void>)
+      | undefined;
+    if (typeof hook !== "function") return false;
+    await hook(t);
+    return true;
+  }, target);
 }
 
-// Ensure FREE is live: toggle iff Pro is currently live (footer absent). Same
-// racy-propagation retry as ensureProTier.
-export async function ensureFreeTier(): Promise<void> {
-  let free = await unlockProFooterPresent();
-  for (let attempt = 0; attempt < 4 && !free; attempt++) {
-    await runDevToggle();
+// Establish the EXACT effective tier deterministically: SET the target via the DEV
+// seam, then waitUntil the footer probe reflects it. The bounded retry RE-SETS the
+// SAME target (idempotent — never a toggle, so no oscillation) before failing loud.
+async function establishTier(target: "pro" | "free"): Promise<void> {
+  // `free` is the observable invariant: the "Unlock Pro" footer shows in FREE only.
+  const wantFree = target === "free";
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const set = await devSetTier(target);
+    assert(
+      set,
+      `the DEV __devSetTier("${target}") seam is unavailable — is this a DEV (tauri dev) bundle?`,
+    );
     try {
-      await browser.waitUntil(async () => unlockProFooterPresent(), {
-        timeout: 8_000,
-        interval: 200,
-        timeoutMsg: "free tier not live yet",
-      });
-      free = true;
+      await browser.waitUntil(
+        async () => (await unlockProFooterPresent()) === wantFree,
+        { timeout: 8_000, interval: 200, timeoutMsg: `${target} tier not live yet` },
+      );
+      return; // the live snapshot now matches the requested target
     } catch {
-      free = await unlockProFooterPresent();
+      // Re-set the SAME target on the next loop (idempotent) — never flip.
     }
   }
-  if (!free) {
-    throw new Error(
-      'could not establish the free tier via the dev toggle (the "Unlock Pro" footer never appeared)',
-    );
-  }
+  throw new Error(
+    wantFree
+      ? 'could not establish the free tier via the deterministic DEV seam (the "Unlock Pro" footer never appeared)'
+      : "could not establish Pro tier via the deterministic DEV seam (the free-tier footer never cleared) — Pro-gated assertions cannot run",
+  );
+}
+
+// Ensure Pro is the live effective tier (idempotent — a no-op if already Pro).
+export async function ensureProTier(): Promise<void> {
+  await establishTier("pro");
+}
+
+// Ensure FREE is the live effective tier (idempotent — a no-op if already free).
+export async function ensureFreeTier(): Promise<void> {
+  await establishTier("free");
 }
 
 // --- Sidebar DOM readers (WebKit lesson 3) ----------------------------------
