@@ -63,6 +63,22 @@ export function SettingsModal() {
     dialogRef.current?.focus();
 
     const onKeyDown = (e: KeyboardEvent) => {
+      // Pitfall 6 / Assumption A3: the License pane's Activate/Reactivate opens
+      // the UpsellModal STACKED above this Settings modal (both z-[60]). Both
+      // attach document-level keydown listeners, so a single Esc would otherwise
+      // close BOTH at once — destroying the Reactivate invoker before the upsell
+      // can return focus to it. While the upsell is open (it is uniquely
+      // identified by aria-labelledby="upsell-heading"), Settings yields ALL
+      // keyboard handling to it: the upsell owns Esc + its own focus trap, and on
+      // dismiss restores focus to the still-mounted Reactivate button here.
+      if (
+        document.querySelector(
+          '[role="dialog"][aria-labelledby="upsell-heading"]',
+        )
+      ) {
+        return;
+      }
+
       if (e.key === "Escape") {
         closeSettings();
         return;

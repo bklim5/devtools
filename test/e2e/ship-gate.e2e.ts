@@ -85,31 +85,67 @@ const FOREIGN_FP_FIXTURE = resolve(
 
 // --- DOM probes (single-round-trip reads — WebKit lesson 3) -----------------
 
-/** Navigate to the status route via HashRouter (app chrome, reachable directly
- *  at #/settings/license — D-87). */
+/** Open the License surface via the #/settings/license deep-link. Phase 22 (D-S6):
+ *  the in-window route is GONE — the deep-link now opens the shell Settings modal
+ *  on the License pane (the SettingsDeepLink element calls openSettings then
+ *  redirects). */
 function navigateToLicenseRoute(): Promise<void> {
   return browser.execute(() => {
     window.location.hash = "#/settings/license";
   });
 }
 
-/** The status block heading text (the route's first <h2>), or null when the
- *  route is not mounted. Carries the per-state label: "Free" | "Licensed" |
- *  "Licensed (offline)" | "Pro is no longer active" | "License needs attention". */
+/** Whether the Settings modal (the focus-trapped dialog) is mounted. */
+function settingsModalOpen(): Promise<boolean> {
+  return browser.execute(
+    () => document.querySelector('[role="dialog"][aria-modal="true"]') !== null,
+  );
+}
+
+/** Close the Settings modal (Esc) if open and wait for it to unmount — so the
+ *  next deep-link open REMOUNTS the License pane and re-queries the cert on disk
+ *  (an already-open modal is a no-op for openSettings, leaving a stale pane). */
+async function closeSettingsModal(): Promise<void> {
+  if (await settingsModalOpen()) {
+    await browser.execute(() => {
+      document.activeElement?.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }),
+      );
+    });
+    await browser.waitUntil(async () => !(await settingsModalOpen()), {
+      timeout: 5_000,
+      timeoutMsg: "expected Escape to dismiss the Settings modal",
+    });
+  }
+}
+
+/** The License-pane STATUS heading text, scoped INSIDE the Settings dialog with
+ *  the "Settings" dialog title dropped (Pitfall 4: an unscoped first-h2 read would
+ *  now return "Settings"). Carries the per-state label: "Free" | "Licensed" |
+ *  "Licensed (offline)" | "Pro is no longer active" | "License needs attention".
+ *  Returns null when the modal is not mounted. */
 function statusHeading(): Promise<string | null> {
   return browser.execute(() => {
-    const h = document.querySelector("h2");
-    return h ? (h.textContent ?? "").trim() : null;
+    const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
+    if (!dialog) return null;
+    const h2s = Array.from(dialog.querySelectorAll("h2"))
+      .map((h) => (h.textContent ?? "").trim())
+      .filter((t) => t !== "Settings");
+    return h2s.length > 0 ? h2s[0] : null;
   });
 }
 
-/** Whether the route shows a button with the given visible text. */
+/** Whether the License pane shows a button with the given visible text (scoped
+ *  inside the dialog so the shell's own buttons never match). */
 function routeHasButton(text: string): Promise<boolean> {
   return browser.execute(
-    (label: string) =>
-      Array.from(document.querySelectorAll("button")).some((b) =>
+    (label: string) => {
+      const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
+      if (!dialog) return false;
+      return Array.from(dialog.querySelectorAll("button")).some((b) =>
         (b.textContent ?? "").trim().includes(label),
-      ),
+      );
+    },
     text,
   );
 }
@@ -186,8 +222,18 @@ function restoreLic(token: SeedBackup): void {
 /** Re-mount the route so its mount re-query (pure-local, D-45) re-reads the
  *  seeded machine.dev.lic through the real Rust fail-closed verify path. */
 async function remountLicenseRoute(): Promise<void> {
+  // Close any open Settings modal FIRST so the deep-link below actually REMOUNTS
+  // the License pane (openSettings is a no-op while already open — a stale pane
+  // would keep the previous cert's resolved state, D-S6/Pitfall). Then navigate
+  // to a tool (the deep-link redirects to "/", so the underlying view is real)
+  // and open the modal via the deep-link, waiting for it to mount.
+  await closeSettingsModal();
   await navigateToTool("protobuf-decoder");
   await navigateToLicenseRoute();
+  await browser.waitUntil(async () => settingsModalOpen(), {
+    timeout: 10_000,
+    timeoutMsg: "expected the #/settings/license deep-link to open the Settings modal (D-S6)",
+  });
 }
 
 describe("Ship-gate matrix — fixture-driven cases (real WKWebView)", () => {
@@ -235,6 +281,10 @@ describe("Ship-gate matrix — fixture-driven cases (real WKWebView)", () => {
       // but (a) the footer attention affordance, and (b) LOCKED customization:
       // the Alt+P chord opens the upsell instead of pinning (ordering/theming
       // locked = free). Both are real entitlements-locked observables.
+      // Close the Settings modal before the sidebar-focused checks below (the
+      // modal traps focus + overlays the sidebar; the footer/locked-Alt+P probes
+      // read the underlying shell).
+      await closeSettingsModal();
       await navigateToTool("protobuf-decoder");
       await browser.waitUntil(
         async () => (await footerLabel()) === "License needs attention",
@@ -264,6 +314,7 @@ describe("Ship-gate matrix — fixture-driven cases (real WKWebView)", () => {
           timeoutMsg:
             "Case 4 cleanup: expected the route to return to Free after restoring machine.lic",
         });
+        await closeSettingsModal(); // leave no modal open for the next spec
       } catch (cleanupError) {
         console.error("[ship-gate] case 4 cleanup failed:", cleanupError);
       }
@@ -320,6 +371,10 @@ describe("Ship-gate matrix — fixture-driven cases (real WKWebView)", () => {
       // ("License needs attention", NOT the notActivated-only "Unlock Pro" row)
       // plus the LOCKED customization observable (Alt+P opens the upsell instead
       // of pinning → ordering/theming locked = free).
+      // Close the Settings modal before the sidebar-focused checks below (the
+      // modal traps focus + overlays the sidebar; the footer/locked-Alt+P probes
+      // read the underlying shell).
+      await closeSettingsModal();
       await navigateToTool("protobuf-decoder");
       await browser.waitUntil(
         async () => (await footerLabel()) === "License needs attention",
@@ -349,6 +404,7 @@ describe("Ship-gate matrix — fixture-driven cases (real WKWebView)", () => {
           timeoutMsg:
             "Case 5 cleanup: expected the route to return to Free after restoring machine.lic",
         });
+        await closeSettingsModal(); // leave no modal open for the next spec
       } catch (cleanupError) {
         console.error("[ship-gate] case 5 cleanup failed:", cleanupError);
       }

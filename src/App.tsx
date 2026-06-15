@@ -5,9 +5,11 @@ import { Sidebar } from "./components/Sidebar";
 import { CommandPalette } from "./components/CommandPalette";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { UpsellModal } from "./components/UpsellPanel";
+import { SettingsModal } from "./components/SettingsModal";
 import { useTrackActiveTool } from "./shell/useTrackActiveTool";
 import { usePreferences } from "./shell/usePreferences";
 import { useUpsellOpen } from "./shell/useUpsell";
+import { useSettingsOpen } from "./shell/useSettings";
 import { closeUpsell } from "./shell/upsellStore";
 import {
   checkForUpdate,
@@ -140,6 +142,12 @@ export function App() {
   // navigate). UpsellModal owns Esc/scrim dismiss + focus capture/return.
   const upsellOpen = useUpsellOpen();
 
+  // D-S1: the ONE shell-level Settings modal, mounted once and driven by the
+  // settingsStore so every entry point (app menu ⌘, · tray · sidebar row · ⌘K ·
+  // the #/settings/license deep-link) opens the SAME surface. SettingsModal owns
+  // Esc/backdrop/× dismiss + focus capture/return (cloned from UpsellModal).
+  const settingsOpen = useSettingsOpen();
+
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-bg-app font-sans text-tx">
       <Sidebar />
@@ -160,6 +168,13 @@ export function App() {
         </div>
       </main>
       <CommandPalette />
+
+      {/* D-S1: shell-level Settings modal — ONE mount for every entry point.
+          Mounted BEFORE the UpsellModal (Pitfall 6 / Assumption A3): both are
+          z-[60], so DOM order decides stacking — the upsell (opened from the
+          License pane's Activate/Reactivate) must stack ABOVE Settings and have
+          Esc close it first. */}
+      {settingsOpen ? <SettingsModal /> : null}
 
       {/* D-28/D-29: shared Unlock Pro upsell modal — ONE mount for every opener
           (sidebar footer/affordances + the ⌘K free-tier License command). */}

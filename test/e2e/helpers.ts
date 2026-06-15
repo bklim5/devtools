@@ -222,9 +222,20 @@ export function unlockProFooterPresent(): Promise<boolean> {
 // state shows "Your license file couldn't be verified" (a paying customer never
 // sees the sales pitch). Both ARE the upsell modal, so this probe matches either
 // heading — callers wanting a specific copy can read the dialog text themselves.
+//
+// Phase 22 (D-S1): the shell now mounts a SECOND aria-modal dialog — the Settings
+// modal — whose License pane renders LicenseSettings, which ALSO carries the
+// "Your license file couldn't be verified" copy in its problem state. So a text
+// match alone now false-positives on an open Settings modal. The UpsellModal is
+// uniquely identified by aria-labelledby="upsell-heading" (UpsellPanel's
+// MODAL_HEADING_ID) — the Settings dialog uses a generated useId() title — so we
+// scope to THAT dialog and then confirm the upsell copy inside it. This stays
+// correct whether the upsell is standalone or STACKED above Settings (Pitfall 6).
 export function upsellModalOpen(): Promise<boolean> {
   return browser.execute(() => {
-    const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
+    const dialog = document.querySelector(
+      '[role="dialog"][aria-modal="true"][aria-labelledby="upsell-heading"]',
+    );
     if (!dialog) return false;
     const text = dialog.textContent ?? "";
     return (
