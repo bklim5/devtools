@@ -21,7 +21,7 @@ Milestone: **v1.6 "Licensing"** — started 2026-06-09, roadmap created 2026-06-
 Phase: 22 (settings-modal-shell) — COMPLETE 2026-06-15; next: Phase 23 (Appearance Pane)
 Plan: 3 of 3 complete (22-01 + 22-02 + 22-03)
 Status: Phase 22 complete — verified (15/15 must-haves); awaiting next-phase kickoff (Phase 23)
-Progress: [■■■□] 3/4 v1.6 settings phases scaffolded · Phase 22 complete (Settings modal shell + all four entry points: app menu ⌘, + tray via the platform seam, sidebar row, ⌘K; License pane unchanged) · SET-01..06 Validated · native menu/tray walkthrough approved 2026-06-15. Phase 20 still closes on the live-purchase gate; v1.6 final close parked separately.
+Progress: [■□□□] Settings phases 22–25: 1/4 complete · Phase 22 complete (Settings modal shell + all four entry points: app menu ⌘, + tray via the platform seam, sidebar row, ⌘K; License pane unchanged) · SET-01..06 Validated · native menu/tray walkthrough approved 2026-06-15. Next: Phase 23 (Appearance). Phase 20 still closes on the live-purchase gate; v1.6 final close parked separately.
 Last activity: 2026-06-15 -- Phase 22 complete (SET-01..06; native menu/tray walkthrough approved; verifier 15/15)
 
 **Goal:** one-time-payment lifetime license — MoR checkout → webhook → Keygen (perpetual, node-locked, maxMachines=1); paste-key one-time activation (fingerprint `HMAC-SHA256(IOPlatformUUID, salt)`); offline Ed25519-verified `machine.lic` (~30-day TTL) thereafter; license key in Keychain (Rust-owned); free tier keeps all 11 tools — Pro locks customization (theming + ordering/pinning) behind a central entitlement gate (D-18 pivot; tool-gating mechanism ships dormant). Research: `docs/licensing-research.md`.
