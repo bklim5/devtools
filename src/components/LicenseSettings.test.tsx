@@ -155,17 +155,42 @@ describe("LicenseSettings — state copy + fields", () => {
     expect(getByText("—")).toBeTruthy();
   });
 
-  it("refreshNeeded: calm 'Pro is no longer active' status + Refresh, with the key input + Activate form INLINE below — NO pitch, no modal (D-22.1-7/D-83)", async () => {
+  it("refreshNeeded: visible 'License' header + amber attention card + Refresh, with the 'Activate a license' section + key form INLINE — NO pitch, no modal, no UNVERIFIED pill (D-22.1-7/D-83)", async () => {
     const rn: LicenseStatusPayload = { state: "refreshNeeded", hasStoredKey: true };
     await installPlatform(rn);
     act(() => setLicenseUiForTest(rn));
-    const { getByText, getByRole, queryByText, queryByRole } = renderRoute();
+    const { getByText, getByRole, queryByText, queryByRole, container } =
+      renderRoute();
 
-    // The calm status card + Refresh are KEPT.
+    // Phase 22.1: a prominent visible "License" header + subtitle for the
+    // managed states (free keeps its own pitch heading + the sr-only h1).
+    expect(
+      getByRole("heading", { name: "License", level: 2 }),
+    ).toBeTruthy();
+    expect(
+      getByText("Manage your activation and license key."),
+    ).toBeTruthy();
+
+    // The attention card is KEPT but is now an amber WARNING (not neutral).
     expect(getByText("Pro is no longer active")).toBeTruthy();
     expect(getByRole("button", { name: "Refresh" })).toBeTruthy();
-    // The inline form-only activation surface renders below (pre-revealed) —
-    // the OLD modal-opening Reactivate button is GONE.
+    // The card carries the warn token (amber), proving it is not the old
+    // neutral card.
+    expect(container.querySelector(".border-warn-line")).toBeTruthy();
+    // refreshNeeded does NOT show the UNVERIFIED pill (problem-state only).
+    expect(queryByText("UNVERIFIED")).toBeNull();
+
+    // The "Activate a license" section header + subtitle + the muted recovery
+    // hint wrap the inline form-only surface.
+    expect(getByText("Activate a license")).toBeTruthy();
+    expect(
+      getByText(
+        "Paste the key from your purchase confirmation email to re-verify this device.",
+      ),
+    ).toBeTruthy();
+    expect(getByText("Lost your key? Check your purchase email")).toBeTruthy();
+    // The inline form-only activation surface renders (pre-revealed) — the OLD
+    // modal-opening Reactivate button is GONE.
     expect(getByRole("textbox", { name: "License key" })).toBeTruthy();
     expect(getByRole("button", { name: "Activate" })).toBeTruthy();
     expect(queryByRole("button", { name: "Reactivate" })).toBeNull();
@@ -177,7 +202,7 @@ describe("LicenseSettings — state copy + fields", () => {
     expect(navigateSpy).not.toHaveBeenCalled();
   });
 
-  it("problem: 'License needs attention' status + Refresh, with the key input + Activate form INLINE below — NO pitch, no modal (D-22.1-7/D-44/D-83)", async () => {
+  it("problem: 'License needs attention' amber card + UNVERIFIED pill + Refresh, with the 'Activate a license' section + key form INLINE — NO pitch, no modal (D-22.1-7/D-44/D-83)", async () => {
     const prob: LicenseStatusPayload = {
       state: "problem",
       problem: "foreignMachine",
@@ -185,10 +210,21 @@ describe("LicenseSettings — state copy + fields", () => {
     };
     await installPlatform(prob);
     act(() => setLicenseUiForTest(prob));
-    const { getByText, getByRole, queryByText, queryByRole } = renderRoute();
+    const { getByText, getByRole, queryByText, queryByRole, container } =
+      renderRoute();
 
+    expect(getByRole("heading", { name: "License", level: 2 })).toBeTruthy();
     expect(getByText("License needs attention")).toBeTruthy();
     expect(getByRole("button", { name: "Refresh" })).toBeTruthy();
+    // Amber attention card.
+    expect(container.querySelector(".border-warn-line")).toBeTruthy();
+    // The problem state shows an UNVERIFIED amber pill badge.
+    // The text node reads "Unverified"; CSS uppercases it to UNVERIFIED.
+    expect(getByText("Unverified")).toBeTruthy();
+
+    // "Activate a license" section + recovery hint.
+    expect(getByText("Activate a license")).toBeTruthy();
+    expect(getByText("Lost your key? Check your purchase email")).toBeTruthy();
     // The inline form-only surface — no modal-opening Reactivate button (D-22.1-7).
     expect(getByRole("textbox", { name: "License key" })).toBeTruthy();
     expect(getByRole("button", { name: "Activate" })).toBeTruthy();
@@ -197,6 +233,25 @@ describe("LicenseSettings — state copy + fields", () => {
     expect(queryByText(/Most of TinkerDev is free/)).toBeNull();
     expect(queryByRole("dialog")).toBeNull();
     expect(navigateSpy).not.toHaveBeenCalled();
+  });
+
+  it("the recovery hint is plain muted text, NOT a link/navigation (Phase 22.1)", async () => {
+    const prob: LicenseStatusPayload = {
+      state: "problem",
+      problem: "foreignMachine",
+      hasStoredKey: false,
+    };
+    await installPlatform(prob);
+    act(() => setLicenseUiForTest(prob));
+    const { getByText, queryByRole } = renderRoute();
+
+    const hint = getByText("Lost your key? Check your purchase email");
+    // No account portal: the hint is plain text, never an <a>/button/link.
+    expect(hint.tagName).toBe("P");
+    expect(hint.closest("a")).toBeNull();
+    expect(
+      queryByRole("link", { name: /lost your key/i }),
+    ).toBeNull();
   });
 
   it("problem: the inline form activates with the SAME shared submit chain (key input → activate)", async () => {

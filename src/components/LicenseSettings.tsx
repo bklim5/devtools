@@ -46,7 +46,7 @@
 // — do NOT introduce new sizes/tokens.
 
 import { useEffect, useRef, useState } from "react";
-import { Lock } from "lucide-react";
+import { AlertTriangle, Lock } from "lucide-react";
 import { platform, type LicenseErrorCode } from "@/lib/platform";
 import { refreshEntitlements } from "@/lib/entitlements/store";
 import {
@@ -285,38 +285,105 @@ export function LicenseSettings() {
     );
   }
 
+  // Phase 22.1: problem/refreshNeeded render an AMBER "attention" card (warn
+  // triad), not the neutral card — a calm WARNING with the Refresh action moved
+  // to the card's top-right, and (problem only) an UNVERIFIED amber pill badge.
+  // licensed/offlineGrace keep the neutral card UNCHANGED (Pro is active).
+  const isAttention = ui.state === "problem" || ui.state === "refreshNeeded";
+
   return (
     <div className="flex flex-col gap-12 overflow-auto p-8">
       <h1 className="sr-only">License</h1>
 
+      {/* Phase 22.1: a visible, prominent pane header + subtitle for the managed
+          states (free keeps its own pitch heading + the sr-only h1 above — no
+          double heading). */}
+      <div className="flex flex-col gap-1">
+        <h2 className="text-[20px] font-semibold leading-[1.2] text-tx">
+          License
+        </h2>
+        <p className="text-[12px] leading-[1.5] text-tx-2">
+          Manage your activation and license key.
+        </p>
+      </div>
+
       {dropNotice}
 
       {/* Status block. */}
-      <div className={CARD_CLASS}>
+      <div
+        className={
+          isAttention
+            ? "flex w-full flex-col gap-4 rounded-[7px] border border-warn-line bg-warn-soft p-6"
+            : CARD_CLASS
+        }
+      >
         {/* 21-04 FLAG P6: the status-label transition (e.g. a silent refresh-drop
             "Licensed" → "Pro is no longer active", D-82) must be ANNOUNCED, or a
             screen-reader user hears "Refreshing…" then silence. Wrap the heading
             row in an aria-live="polite" region so the new resting state is read
-            out calmly — polite, NEVER role=alert/assertive (D-77/D-83 calm tone). */}
-        <div className="flex items-center gap-2" aria-live="polite">
-          {/* OK dot (text-ok) ONLY for Pro-active states — the only semantic
-              accent-adjacent glyph (D-24); never accent. Other states stay
-              neutral, no alarm color (D-77/D-83). */}
-          {isProActive ? (
-            <span
-              aria-hidden="true"
-              className="h-2 w-2 flex-none rounded-full bg-ok"
-            />
-          ) : (
-            <Lock aria-hidden="true" className="h-4 w-4 flex-none text-tx-2" />
-          )}
-          <h2 className={HEADING_CLASS}>{statusLabel}</h2>
+            out calmly — polite, NEVER role=alert/assertive (D-77/D-83 calm tone).
+            Phase 22.1: in the attention card the Refresh action sits top-right of
+            this row, so the heading takes the remaining width (justify-between). */}
+        <div
+          className="flex items-start justify-between gap-3"
+          aria-live="polite"
+        >
+          <div className="flex items-center gap-2">
+            {/* OK dot (text-ok) ONLY for Pro-active states — the only semantic
+                accent-adjacent glyph (D-24); never accent. The attention states
+                show an amber AlertTriangle (warn token); other neutral states
+                keep the Lock (D-77/D-83). */}
+            {isProActive ? (
+              <span
+                aria-hidden="true"
+                className="h-2 w-2 flex-none rounded-full bg-ok"
+              />
+            ) : isAttention ? (
+              <AlertTriangle
+                aria-hidden="true"
+                className="h-4 w-4 flex-none text-warn"
+              />
+            ) : (
+              <Lock aria-hidden="true" className="h-4 w-4 flex-none text-tx-2" />
+            )}
+            <h2 className={HEADING_CLASS}>{statusLabel}</h2>
+            {/* UNVERIFIED amber pill — problem state ONLY (a tampered/foreign
+                file). The amber-on-warn-soft text clears AA (warn ~10:1). */}
+            {ui.state === "problem" ? (
+              <span className="rounded-full border border-warn-line bg-warn-soft px-2 py-0.5 font-mono text-[10px] font-semibold uppercase leading-none tracking-wide text-warn">
+                Unverified
+              </span>
+            ) : null}
+          </div>
+          {/* Refresh moves into the card top-right for the attention states; the
+              Pro-active card keeps Refresh in the management block below. */}
+          {isAttention ? (
+            <button
+              type="button"
+              onClick={() => void onRefresh()}
+              disabled={refreshing}
+              aria-busy={refreshing}
+              className={`flex-none ${PRIMARY_BTN_CLASS}`}
+            >
+              Refresh
+            </button>
+          ) : null}
         </div>
         <div className={BODY_CLASS}>
           <p>{statusBody}</p>
           {ui.state === "licensed" || ui.state === "offlineGrace" ? (
             <p className="text-[12px] leading-[1.5] text-tx-3">
               Your license refreshes automatically.
+            </p>
+          ) : null}
+          {/* Attention-card in-flight / calm error line — the SAME aria-live
+              region role the management block uses, kept beside the moved Refresh. */}
+          {isAttention ? (
+            <p
+              aria-live="polite"
+              className="min-h-[18px] text-[12px] leading-[1.5] text-tx-2"
+            >
+              {refreshing ? "Refreshing…" : (refreshError ?? "")}
             </p>
           ) : null}
         </div>
@@ -352,38 +419,59 @@ export function LicenseSettings() {
 
       {/* Management block — 48px (gap-12) below the status block. */}
       <div className="flex max-w-[420px] flex-col gap-4">
-        <div className="flex flex-wrap gap-2">
-          {/* Refresh — present whenever there is a license to manage. The pure
-              free notActivated state never reaches here (it early-returns to the
-              inline upsell above), so this row always renders in this branch. */}
-          <button
-            type="button"
-            onClick={() => void onRefresh()}
-            disabled={refreshing}
-            // 21-04 FLAG P3b: convey the busy state on the control itself, in
-            // parity with the separate aria-live "Refreshing…" line — the
-            // disabled recolor is otherwise a color-only affordance.
-            aria-busy={refreshing}
-            className={PRIMARY_BTN_CLASS}
-          >
-            Refresh
-          </button>
-        </div>
+        {/* Refresh — for the Pro-active states only; the attention states (D-83)
+            moved Refresh into the amber card's top-right (Phase 22.1). The pure
+            free notActivated state never reaches here (it early-returns to the
+            inline upsell above). */}
+        {isProActive ? (
+          <>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => void onRefresh()}
+                disabled={refreshing}
+                // 21-04 FLAG P3b: convey the busy state on the control itself, in
+                // parity with the separate aria-live "Refreshing…" line — the
+                // disabled recolor is otherwise a color-only affordance.
+                aria-busy={refreshing}
+                className={PRIMARY_BTN_CLASS}
+              >
+                Refresh
+              </button>
+            </div>
+            {/* Refresh in-flight / calm error line — ONE aria-live region. */}
+            <p
+              aria-live="polite"
+              className="min-h-[18px] text-[12px] leading-[1.5] text-tx-2"
+            >
+              {refreshing ? "Refreshing…" : (refreshError ?? "")}
+            </p>
+          </>
+        ) : null}
 
-        {/* Refresh in-flight / calm error line — ONE aria-live region. */}
-        <p
-          aria-live="polite"
-          className="min-h-[18px] text-[12px] leading-[1.5] text-tx-2"
-        >
-          {refreshing ? "Refreshing…" : (refreshError ?? "")}
-        </p>
-
-        {/* refreshNeeded / problem (D-22.1-7): the key-input + Activate form INLINE
-            below the status card + Refresh — NO sales pitch (a lapsed/attention
-            paying customer never sees it). The SAME shared activation surface
-            (form-only variant), replacing the old modal-opening Reactivate button.
-            It adapts on hasStoredKey: an empty submit reuses the saved key. */}
-        {showInlineForm ? <InlineActivation variant="form-only" icon={Lock} /> : null}
+        {/* "Activate a license" section (Phase 22.1) — wraps the shared form-only
+            activation surface (D-22.1-7) with a section header + subtitle + the
+            muted recovery hint. NO sales pitch (a lapsed/attention paying customer
+            never sees it). The form adapts on hasStoredKey: an empty submit reuses
+            the saved key. There is no account portal, so "Lost your key?" is a
+            plain muted line (NOT a link) — check the purchase email. */}
+        {showInlineForm ? (
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1">
+              <p className="text-[14px] font-semibold leading-[1.3] text-tx">
+                Activate a license
+              </p>
+              <p className="text-[12px] leading-[1.5] text-tx-2">
+                Paste the key from your purchase confirmation email to re-verify
+                this device.
+              </p>
+            </div>
+            <InlineActivation variant="form-only" icon={Lock} />
+            <p className="text-[12px] leading-[1.5] text-tx-3">
+              Lost your key? Check your purchase email
+            </p>
+          </div>
+        ) : null}
 
         {/* Deactivate (confirm-first inline, D-78) — only when Pro is active. */}
         {isProActive ? (
