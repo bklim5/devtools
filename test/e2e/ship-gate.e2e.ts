@@ -58,7 +58,16 @@ import {
 } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-import { assert, navigateToTool, saveScreenshot } from "./helpers";
+import {
+  assert,
+  dispatchAltP,
+  dispatchKey,
+  focusRow,
+  navigateToTool,
+  readOrder,
+  saveScreenshot,
+  upsellModalOpen,
+} from "./helpers";
 
 // The DEBUG build reads machine.dev.lic (store.rs cfg-split, 260614-nox) — seeding
 // MUST target that filename or the running app never sees the seeded cert.
@@ -112,15 +121,30 @@ function hasDeactivate(): Promise<boolean> {
   return routeHasButton("Deactivate this device");
 }
 
-/** The free-tier footer "Unlock Pro" row — present in the FREE tier only (D-29).
- *  Its presence after seeding a bad cert proves entitlements actually dropped to
- *  free (theming/ordering locked), not merely that a label changed. */
-function unlockProFooterPresent(): Promise<boolean> {
-  return browser.execute(() =>
-    Array.from(document.querySelectorAll("aside button")).some((b) =>
-      (b.textContent ?? "").includes("Unlock Pro"),
-    ),
-  );
+/** Prove entitlements actually dropped to FREE in the problem state — NOT via the
+ *  notActivated-only "Unlock Pro" footer (which a problem-state cert never shows:
+ *  Sidebar.tsx `hasManageableLicense = licenseState !== "notActivated"` is TRUE
+ *  for "problem", so the footer reads "License needs attention" instead). Instead
+ *  use the LOCKED-CUSTOMIZATION observable the entitlements spec relies on
+ *  (D-26/D-28): when ordering is locked (free), focusing a sidebar row and firing
+ *  the real macOS Alt+P chord opens the shared upsell modal rather than pinning.
+ *  This is a true entitlements-locked proof, not a label change. Returns true when
+ *  the locked chord opened the upsell modal — its problem-state copy ("Your license
+ *  file couldn't be verified") is matched by the shared `upsellModalOpen` probe. */
+async function lockedCustomizationOpensUpsell(): Promise<boolean> {
+  await navigateToTool("protobuf-decoder");
+  const order = await readOrder();
+  if (order.length === 0) return false;
+  const focused = await focusRow(order[0]);
+  if (!focused) return false;
+  await dispatchAltP();
+  return upsellModalOpen();
+}
+
+/** Dismiss the upsell modal via Escape so a left-open modal never poisons the
+ *  case's screenshot or the finally cleanup. */
+function dismissUpsell(): Promise<void> {
+  return dispatchKey("Escape", false);
 }
 
 /** The footer attention row label (D-43), or null when absent. */
@@ -170,8 +194,11 @@ describe("Ship-gate matrix — fixture-driven cases (real WKWebView)", () => {
   // CASE 4 — a corrupted machine.dev.lic must FAIL CLOSED: the route shows the
   // calm "License needs attention" problem state, Pro management (Deactivate) is
   // NOT offered, the footer swaps to the attention affordance, and entitlements
-  // drop to free (the "Unlock Pro" footer is present). Proven against the real
-  // Rust Ed25519 fail-closed verify path — T-21-16 (never licensed on a bad cert).
+  // drop to free — proven by LOCKED customization (the Alt+P chord opens the
+  // upsell instead of pinning), NOT the notActivated-only "Unlock Pro" footer
+  // (the problem state never renders that row — D-88/Sidebar.tsx). Proven against
+  // the real Rust Ed25519 fail-closed verify path — T-21-16 (never licensed on a
+  // bad cert).
   it("Case 4 — a corrupted machine.lic fails closed to the calm problem state (LIC-06, T-21-16)", async () => {
     await navigateToTool("protobuf-decoder");
     const firstHandle = await $('button[aria-label^="Reorder "]');
@@ -202,9 +229,12 @@ describe("Ship-gate matrix — fixture-driven cases (real WKWebView)", () => {
         "Case 4: the problem state must offer the calm Reactivate path (D-83)",
       );
 
-      // Entitlements actually dropped to FREE: the footer attention affordance
-      // shows, AND the free-tier "Unlock Pro" footer is present (theming/ordering
-      // locked) — not merely a label change.
+      // Entitlements actually dropped to FREE — proven the problem-state-correct
+      // way (21-05): NOT the notActivated-only "Unlock Pro" footer (problem shows
+      // "License needs attention" instead — Sidebar.tsx hasManageableLicense),
+      // but (a) the footer attention affordance, and (b) LOCKED customization:
+      // the Alt+P chord opens the upsell instead of pinning (ordering/theming
+      // locked = free). Both are real entitlements-locked observables.
       await navigateToTool("protobuf-decoder");
       await browser.waitUntil(
         async () => (await footerLabel()) === "License needs attention",
@@ -214,9 +244,10 @@ describe("Ship-gate matrix — fixture-driven cases (real WKWebView)", () => {
         },
       );
       assert(
-        await unlockProFooterPresent(),
-        "Case 4: a corrupt cert must drop entitlements to free (the Unlock Pro footer must be present)",
+        await lockedCustomizationOpensUpsell(),
+        "Case 4: a corrupt cert must drop entitlements to free — the locked Alt+P customization chord must open the upsell modal (ordering/theming locked), not pin",
       );
+      await dismissUpsell();
 
       await remountLicenseRoute();
       await saveScreenshot(
@@ -284,16 +315,24 @@ describe("Ship-gate matrix — fixture-driven cases (real WKWebView)", () => {
         "Case 5: the foreign-cert problem state must offer the calm Reactivate path",
       );
 
-      // Entitlements dropped to FREE (the case-3/5 fail-closed contract).
+      // Entitlements dropped to FREE (the case-3/5 fail-closed contract) — proven
+      // the problem-state-correct way (21-05): the footer attention affordance
+      // ("License needs attention", NOT the notActivated-only "Unlock Pro" row)
+      // plus the LOCKED customization observable (Alt+P opens the upsell instead
+      // of pinning → ordering/theming locked = free).
       await navigateToTool("protobuf-decoder");
       await browser.waitUntil(
-        async () => (await unlockProFooterPresent()) === true,
+        async () => (await footerLabel()) === "License needs attention",
         {
           timeout: 10_000,
-          timeoutMsg:
-            "Case 5: a foreign cert must drop entitlements to free (the Unlock Pro footer must be present)",
+          timeoutMsg: `Case 5: expected the footer "License needs attention" with a foreign cert, got ${JSON.stringify(await footerLabel())}`,
         },
       );
+      assert(
+        await lockedCustomizationOpensUpsell(),
+        "Case 5: a foreign cert must drop entitlements to free — the locked Alt+P customization chord must open the upsell modal (ordering/theming locked), not pin",
+      );
+      await dismissUpsell();
 
       await remountLicenseRoute();
       await saveScreenshot(
