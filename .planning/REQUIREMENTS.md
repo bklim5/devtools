@@ -52,8 +52,8 @@ A native macOS Settings/Preferences surface (promotes backlog 999.9; absorbs 999
 
 ### Surface & entry points
 
-- [ ] **SET-01**: User can open Settings from the macOS app menu (TinkerDev ▸ Settings…), bound to **⌘,** — the native menu item reaches the webview via the `platform/` event seam (no `@tauri-apps/*` import outside the seam).
-- [ ] **SET-02**: User can open Settings from the tray icon menu (a Settings… item), via the same event seam.
+- [x] **SET-01**: User can open Settings from the macOS app menu (TinkerDev ▸ Settings…), bound to **⌘,** — the native menu item reaches the webview via the `platform/` event seam (no `@tauri-apps/*` import outside the seam).
+- [x] **SET-02**: User can open Settings from the tray icon menu (a Settings… item), via the same event seam.
 - [x] **SET-03**: User can open Settings from a sidebar "Settings" row (above "Unlock Pro") and from the ⌘K command palette.
 - [x] **SET-04**: Settings renders as a full in-window modal overlay (Claude-style), Esc-dismissible, WCAG-AA (focus trap + return-focus to the invoker, `aria-modal`/`aria-labelledby`), reachable by everyone including unlicensed users (the License pane shows the no-license + Unlock-Pro state).
 - [x] **SET-05**: Settings uses a paned layout (left nav list, right content pane), fully keyboard-navigable (move between panes, active pane announced via `aria`).
@@ -110,8 +110,8 @@ A native macOS Settings/Preferences surface (promotes backlog 999.9; absorbs 999
 | PAY-01 | Phase 20 | 20-01 | Done |
 | PAY-02 | Phase 20 | 20-02 | Done |
 | PAY-03 | Phase 20 | 20-02 | Done |
-| SET-01 | Phase 22 | 22-03 | Planned |
-| SET-02 | Phase 22 | 22-03 | Planned |
+| SET-01 | Phase 22 | 22-03 | Validated |
+| SET-02 | Phase 22 | 22-03 | Validated |
 | SET-03 | Phase 22 | 22-02 | Validated |
 | SET-04 | Phase 22 | 22-01 | Validated |
 | SET-05 | Phase 22 | 22-01 | Validated |

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Licensing
 status: executing
-last_updated: "2026-06-15T15:56:00.000Z"
-last_activity: 2026-06-15 -- Phase 22 plan 02 complete (Settings entry points + D-88 re-point)
+last_updated: "2026-06-15T21:20:25.467Z"
+last_activity: 2026-06-15
 progress:
   total_phases: 12
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 19
-  completed_plans: 17
-  percent: 89
+  completed_plans: 19
+  percent: 100
 ---
 
 # Project State
@@ -18,11 +18,11 @@ progress:
 ## Current Position
 
 Milestone: **v1.6 "Licensing"** — started 2026-06-09, roadmap created 2026-06-09.
-Phase: 22 (settings-modal-shell) — EXECUTING
-Plan: 3 of 3 (22-01 + 22-02 complete)
-Status: Executing Phase 22
-Progress: [■■□□] 2/4 phases · Phase 22 plan 2/3 done (Settings modal shell + entry points) · v1.6 plans 14 marked complete + Phase 21 (4 plans) code-complete-pending-signoff; Phase 20 still closes on the live-purchase gate.
-Last activity: 2026-06-15 -- Phase 22 plan 02 complete (Settings entry points + D-88 re-point)
+Phase: 22 (settings-modal-shell) — COMPLETE 2026-06-15; next: Phase 23 (Appearance Pane)
+Plan: 3 of 3 complete (22-01 + 22-02 + 22-03)
+Status: Phase 22 complete — verified (15/15 must-haves); awaiting next-phase kickoff (Phase 23)
+Progress: [■■■□] 3/4 v1.6 settings phases scaffolded · Phase 22 complete (Settings modal shell + all four entry points: app menu ⌘, + tray via the platform seam, sidebar row, ⌘K; License pane unchanged) · SET-01..06 Validated · native menu/tray walkthrough approved 2026-06-15. Phase 20 still closes on the live-purchase gate; v1.6 final close parked separately.
+Last activity: 2026-06-15 -- Phase 22 complete (SET-01..06; native menu/tray walkthrough approved; verifier 15/15)
 
 **Goal:** one-time-payment lifetime license — MoR checkout → webhook → Keygen (perpetual, node-locked, maxMachines=1); paste-key one-time activation (fingerprint `HMAC-SHA256(IOPlatformUUID, salt)`); offline Ed25519-verified `machine.lic` (~30-day TTL) thereafter; license key in Keychain (Rust-owned); free tier keeps all 11 tools — Pro locks customization (theming + ordering/pinning) behind a central entitlement gate (D-18 pivot; tool-gating mechanism ships dormant). Research: `docs/licensing-research.md`.
 
@@ -54,7 +54,7 @@ Last activity: 2026-06-15 -- Phase 22 plan 02 complete (Settings entry points + 
 See: .planning/PROJECT.md (updated 2026-06-09, v1.6 started) · roadmap: .planning/ROADMAP.md · requirements: .planning/REQUIREMENTS.md · research: docs/licensing-research.md
 
 **Core value:** Paste an unknown blob → usable, explorable interpretation in <2s, entirely offline, no mouse.
-**Current focus:** Phase 22 — settings-modal-shell
+**Current focus:** Phase 23 — appearance-pane (Phase 22 complete)
 
 ## v1.5 — Pinned Tools (SHIPPED & ARCHIVED, 2026-06-07)
 

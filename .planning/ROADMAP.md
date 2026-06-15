@@ -99,7 +99,7 @@ One-time-payment lifetime license: MoR checkout → webhook → Keygen (perpetua
 
 A native macOS Settings/Preferences surface (promotes backlog 999.9; absorbs 999.3 theme settings + the parked NAT-01/G-05-1 summon hotkey). **Architecture (locked):** a full **in-window modal overlay** (Claude-style) mounted shell-level via an `openSettings()` store — the Phase-21 upsell-modal pattern (`src/shell/upsellStore.ts`/`useUpsell.ts` + `src/App.tsx` mount) — **NOT a separate OS window** (lowest risk; shares the single React root + prefs/entitlements/HashRouter; no multi-window, no IPC). Native app-menu (`TinkerDev ▸ Settings…`, ⌘,) + tray `Settings…` entry points live in Rust and reach the webview through the `src/lib/platform/` event seam (tools/components never import `@tauri-apps/*` directly). The License pane **reuses `src/components/LicenseSettings.tsx` unchanged**. WCAG-AA mandatory (focus trap + return-focus, `aria-modal`, `aria-live`, full keyboard path); HashRouter only; layout-agnostic; zero new webview runtime deps **except** the autostart plugin needed by SET-09 launch-at-login (a NEW dep → explicit scoped exception, called out in Phase 24); `src/lib/protobuf/decoder.ts` + its 19 tests stay byte-for-byte untouched; the real-WKWebView e2e gate + a phase-boundary human sign-off + `gsd-ui-review` apply to every phase.
 
-- [ ] **Phase 22: Settings Modal Shell, Entry Points & License Pane** — shell-level `openSettings()` store + full in-window modal (Esc-dismiss, focus trap + return-focus, `aria-modal`) + paned layout (left nav / right content, keyboard-navigable); all four entry points (app menu ⌘, + tray via the `platform/` event seam, sidebar "Settings" row above "Unlock Pro", ⌘K); License pane reusing `LicenseSettings` unchanged; SET-01..06
+- [x] **Phase 22: Settings Modal Shell, Entry Points & License Pane** — shell-level `openSettings()` store + full in-window modal (Esc-dismiss, focus trap + return-focus, `aria-modal`) + paned layout (left nav / right content, keyboard-navigable); all four entry points (app menu ⌘, + tray via the `platform/` event seam, sidebar "Settings" row above "Unlock Pro", ⌘K); License pane reusing `LicenseSettings` unchanged; SET-01..06 (completed 2026-06-15)
 - [ ] **Phase 23: Appearance Pane** — theme (light/dark/system) + accent, persisted via the prefs seam and applied live (absorbs backlog 999.3); SET-07
 - [ ] **Phase 24: Hotkeys & General Panes (native-touching)** — rebind the global summon hotkey (Rust global-shortcut re-register + conflict handling, promotes NAT-01/G-05-1) and the ⌘K palette chord (in-webview); General toggles (launch-at-login [autostart plugin → scoped dep exception], start-in-tray, default tool, show-license-in-sidebar); SET-08, SET-09
 - [ ] **Phase 25: Updates Pane & Milestone Ship** — version + last-checked + Check-for-updates over the existing updater seam (mirrors the tray action); milestone polish + human sign-off; SET-10
@@ -198,7 +198,7 @@ Plans:
 Plans:
 - [x] 22-01-PLAN.md — Settings modal foundation: `settingsStore`/`useSettings` (clone upsellStore + sync invoker capture + activePane), `SettingsModal` (paned layout, cloned UpsellModal a11y, `aria-current` button-list pane nav + aria-live), extensible `settingsPanes` (License = `LicenseSettings` unchanged), App.tsx mount (before UpsellModal), `#/settings/license` deep-link migration + e2e (SET-04/05/06; autonomous, wave 1) — **DONE 2026-06-15** (real-WKWebView gate 20/20; vitest 960/960; decoder + LicenseSettings byte-untouched; SET-04/05/06 validated)
 - [x] 22-02-PLAN.md — Webview entry points + D-88 re-point: bottom-anchored sidebar "Settings" row (opens for everyone, no lock badge) + ⌘K "Settings" command, re-point the footer License-attention affordance + ⌘K "License" command to `openSettings('license')` (Unlock-Pro/upsell unchanged), open-from-sidebar/⌘K/footer e2e (SET-03; D-S6/D-S8/D-S9/D-S11; autonomous, wave 2) — **DONE 2026-06-15** (real-WKWebView gate 20/20; vitest 966/966; tsc + eslint clean; decoder + LicenseSettings byte-untouched; SET-03 validated)
-- [ ] 22-03-PLAN.md — Native entry points: app menu `Settings…` (⌘,) via `set_menu()` with reconstructed App/Edit/Window defaults (Pitfall 1 — preserve Copy/Paste/Undo/Select-All/Quit) + tray `Settings…`, both emitting `menu://open-settings` through the platform seam (`onOpenSettings`), App.tsx subscription, manual menu/tray + Edit-menu-regression walkthrough (SET-01/02; D-S7; NOT autonomous, wave 2)
+- [x] 22-03-PLAN.md — Native entry points: app menu `Settings…` (⌘,) via `set_menu()` with reconstructed App/Edit/Window defaults (Pitfall 1 — preserve Copy/Paste/Undo/Select-All/Quit) + tray `Settings…`, both emitting `menu://open-settings` through the platform seam (`onOpenSettings`), App.tsx subscription, manual menu/tray + Edit-menu-regression walkthrough (SET-01/02; D-S7; NOT autonomous, wave 2)
 
 **UI hint**: yes
 
@@ -269,7 +269,7 @@ v1.7 runs 22 → 23 → 24 → 25 (started non-destructively while v1.6 is in fi
 | 19. License Activation & Offline Verification | v1.6 | 4/4 | Complete    | 2026-06-12 |
 | 20. Purchase Pipeline | v1.6 | 2/3 | In progress | PAY-01/02/03 |
 | 21. License Lifecycle & Ship Gate | v1.6 | 3/5 | In Progress|  |
-| 22. Settings Modal Shell, Entry Points & License Pane | v1.7 | 0/3 | Planned | - |
+| 22. Settings Modal Shell, Entry Points & License Pane | v1.7 | 3/3 | Complete    | 2026-06-15 |
 | 23. Appearance Pane | v1.7 | 0/? | Not started | - |
 | 24. Hotkeys & General Panes | v1.7 | 0/? | Not started | - |
 | 25. Updates Pane & Milestone Ship | v1.7 | 0/? | Not started | - |
@@ -297,7 +297,7 @@ Unsequenced ideas captured for future planning. Promote with `/gsd-review-backlo
 Each candidate must still pass the product wedge: offline/no-network, paste-instant (<2s), keyboard-driven, registry-driven, WCAG-AA, and the build+verify harness.
 
 **Requirements:** TBD (remaining wishlist; Cron/URL/Regex requirements now in `.planning/REQUIREMENTS.md` for v1.3)
-**Plans:** TBD (no plans yet)
+**Plans:** 3/3 plans complete
 
 Plans:
 - [ ] TBD (promote remaining wishlist with /gsd-review-backlog when ready)

@@ -1,5 +1,5 @@
 ---
-status: partial
+status: passed
 phase: 22-settings-modal-shell
 plan: 03
 source: [22-03-PLAN.md, 22-01-SUMMARY.md, 22-02-SUMMARY.md, 22-RESEARCH.md]
@@ -9,7 +9,7 @@ updated: 2026-06-15
 
 ## Current Test
 
-[awaiting human walkthrough — native app-menu / tray / Edit-menu regression]
+[complete — human walkthrough APPROVED 2026-06-15; see 22-FOLLOWUP.md]
 
 ## Context
 
@@ -40,13 +40,13 @@ the License pane just shows the no-license/Unlock-Pro state.
 ### 1. App menu opens Settings (SET-01)
 expected: In the menu bar, `TinkerDev ▸ Settings…` opens the Settings modal on the License
 pane. The item shows the `⌘,` accelerator. Pressing `⌘,` (no menu click) also opens the modal.
-result: [pending]
+result: pass (approved 2026-06-15 walkthrough)
 
 ### 2. Tray opens Settings (SET-02)
 expected: Click the tray icon → the tray menu now reads `Show TinkerDev / Settings… /
 Check for Updates… / Quit`. Clicking `Settings…` opens the same Settings modal on the
 License pane.
-result: [pending]
+result: pass (approved 2026-06-15 walkthrough)
 
 ### 3. Edit-menu regression — set_menu did NOT strip the defaults (Pitfall 1, CRITICAL)
 expected: Because `set_menu()` REPLACES the whole macOS menu, verify the rebuilt menu still
@@ -56,26 +56,40 @@ has everything a paste-first app needs:
 - The **App (TinkerDev)** menu has **About TinkerDev**, **Hide**, **Hide Others**, **Show All**,
   and **Quit (⌘Q works)**.
 - A **Window** menu with **Minimize** and **Close**.
-result: [pending]
+result: pass (approved 2026-06-15 walkthrough)
 
 ### 4. Native-opener focus-return
 expected: Open Settings from the app menu (or ⌘,), then press **Esc** → the modal closes
 cleanly and keyboard focus lands on a connected element (not a detached `<body>` trap).
 Backdrop click and the × control also dismiss.
-result: [pending]
+result: pass (approved 2026-06-15 walkthrough)
 
 ### 5. Upsell stacking from the License pane (Pitfall 6)
 expected: From the License pane (unlicensed), click "Activate a license" / "Unlock Pro" →
 the Unlock Pro upsell modal appears ON TOP of the Settings modal (not behind the scrim).
 Pressing **Esc** closes the upsell FIRST (the Settings modal stays open underneath).
-result: [pending]
+result: pass (approved 2026-06-15 walkthrough)
 
 ### 6. No regressions to native summon
 expected: Tray left-click still summons/focuses the main window. A second app launch
 (single-instance) still summons the existing window rather than opening a new one.
-result: [pending]
+result: pass (approved 2026-06-15 walkthrough)
+
+## Summary
+
+total: 6
+passed: 6
+issues: 0
+pending: 0
+skipped: 0
+blocked: 0
+
+All six items APPROVED by human walkthrough on 2026-06-15 (app-menu ⌘, + tray Settings… open
+the modal; Edit menu Copy/Paste/Undo/Quit intact; native-opener focus-return; upsell stacking;
+native single-instance summon). Two non-blocking follow-ups recorded in 22-FOLLOWUP.md
+(app-menu shows "devtools-app" not "TinkerDev"; inline-upsell design preference).
 
 ## Resume Signal
 
 Type **"approved"** when all six pass, or describe any issue — ESPECIALLY a missing Edit-menu
-item (the `set_menu` regression backstop).
+item (the `set_menu` regression backstop). — RESOLVED: approved 2026-06-15.
