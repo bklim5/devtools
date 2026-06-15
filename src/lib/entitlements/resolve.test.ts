@@ -20,9 +20,11 @@ import {
   getEntitlementsSnapshot,
   refreshEntitlements,
   resetEntitlementsForTest,
+  setDevTier,
   setEntitlementsForTest,
   subscribeEntitlements,
 } from "./store";
+import { loadPreferences } from "@/shell/prefsStore";
 
 type TauriWindow = Window & { __TAURI_INTERNALS__?: object };
 const win = window as TauriWindow;
@@ -280,5 +282,78 @@ describe("entitlements snapshot store", () => {
 
     setEntitlementsForTest(FULL_SET);
     expect(calls).toBe(0);
+  });
+});
+
+describe("setDevTier (deterministic DEV-only tier-set seam — 21-04 e2e hardening)", () => {
+  // import.meta.env.DEV is true under vitest (same gate as a dev build), so the
+  // seam is active here. It writes the EXACT target's override then refreshes —
+  // a single state SET, never a toggle (so the e2e helpers can't oscillate).
+
+  it('"pro" writes the DEV-only "full" override and resolves the snapshot to Pro', async () => {
+    setTauriEnv();
+    // Baseline notActivated → FREE; the "full" override must UPGRADE to Pro (DEV).
+    await seedStoredPrefs({}, licenseArm({ state: "notActivated", hasStoredKey: false }));
+    await refreshEntitlements();
+    expect(getEntitlementsSnapshot()).toBe(FREE_SET);
+
+    await setDevTier("pro");
+    expect((await loadPreferences()).entitlementsOverride).toBe("full");
+    expect([...getEntitlementsSnapshot()].sort()).toEqual(
+      [ENT_ORDERING, ENT_THEMING].sort(),
+    );
+  });
+
+  it('"free" writes the downgrade-only "free" override and resolves the snapshot to FREE even when licensed', async () => {
+    setTauriEnv();
+    await seedStoredPrefs({}, licenseArm(LICENSED_BOTH));
+    await refreshEntitlements();
+    expect(getEntitlementsSnapshot().size).toBe(2);
+
+    await setDevTier("free");
+    expect((await loadPreferences()).entitlementsOverride).toBe("free");
+    expect(getEntitlementsSnapshot()).toBe(FREE_SET);
+  });
+
+  it('"default" clears the override so the environment base resolves', async () => {
+    setTauriEnv();
+    await seedStoredPrefs({ entitlementsOverride: "free" }, licenseArm(LICENSED_BOTH));
+    await refreshEntitlements();
+    expect(getEntitlementsSnapshot()).toBe(FREE_SET);
+
+    await setDevTier("default");
+    expect((await loadPreferences()).entitlementsOverride).toBe(null);
+    // Base (licensed BOTH) now resolves Pro.
+    expect([...getEntitlementsSnapshot()].sort()).toEqual(
+      [ENT_ORDERING, ENT_THEMING].sort(),
+    );
+  });
+
+  it("is idempotent — re-setting the same target keeps the override and the snapshot stable (no oscillation)", async () => {
+    setTauriEnv();
+    await seedStoredPrefs({}, licenseArm({ state: "notActivated", hasStoredKey: false }));
+
+    await setDevTier("pro");
+    const first = getEntitlementsSnapshot();
+    await setDevTier("pro");
+    const second = getEntitlementsSnapshot();
+    expect(second).toBe(first); // same Pro set reference — no flip
+    expect((await loadPreferences()).entitlementsOverride).toBe("full");
+  });
+
+  it("sets the EXACT target regardless of the current tier (a state SET, not a toggle)", async () => {
+    setTauriEnv();
+    await seedStoredPrefs({}, licenseArm({ state: "notActivated", hasStoredKey: false }));
+
+    await setDevTier("pro");
+    expect(getEntitlementsSnapshot().size).toBe(2);
+    // From Pro, setting "pro" again stays Pro (a toggle would have dropped to free).
+    await setDevTier("pro");
+    expect(getEntitlementsSnapshot().size).toBe(2);
+    // Explicitly to free, then explicitly back to pro — always the requested target.
+    await setDevTier("free");
+    expect(getEntitlementsSnapshot()).toBe(FREE_SET);
+    await setDevTier("pro");
+    expect(getEntitlementsSnapshot().size).toBe(2);
   });
 });

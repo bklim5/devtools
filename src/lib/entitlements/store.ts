@@ -92,3 +92,47 @@ export function resetEntitlementsForTest(): void {
   current = next;
   notify();
 }
+
+/** A deterministic DEV/e2e tier target — the EXACT effective tier to establish,
+ *  NOT a toggle. `"pro"` writes the DEV-only `"full"` override (→ FULL_SET under
+ *  `import.meta.env.DEV`), `"free"` writes the downgrade-only `"free"` override
+ *  (→ FREE_SET in any build), `"default"` clears the override (→ the environment
+ *  base resolves). */
+export type DevTier = "pro" | "free" | "default";
+
+const TIER_OVERRIDE: Record<DevTier, "free" | "full" | null> = {
+  pro: "full",
+  free: "free",
+  default: null,
+};
+
+/** DEV/e2e seam (post-D-85, 21-04 hardening): SET the effective tier to an EXACT
+ *  target and await the resolved entitlement set, idempotently. This replaces the
+ *  e2e helpers' old read-then-flip dance over the ⌘K palette (~6 timing-sensitive
+ *  WKWebView steps that could lag the entitlements snapshot and oscillate the
+ *  WRONG way). It writes the persisted override that maps to `target` then awaits
+ *  `refreshEntitlements()`, so a caller never depends on reading-then-flipping.
+ *
+ *  Idempotent: re-setting the same target is a cheap no-op refresh (set-equality
+ *  short-circuit). Reuses the SAME `savePreferences` + `refreshEntitlements` path
+ *  the ⌘K dev command uses, so it drives the one live entitlement channel every
+ *  gate consumer reads.
+ *
+ *  STRICTLY DEV-only: no-op (returns without writing) outside `isTestOrDev()`, so
+ *  it can never alter production behavior. The `"full"` value it writes for `"pro"`
+ *  is the same DEV-only Pro override that is tree-shaken + coercer-nulled out of
+ *  every release bundle (resolve.ts / prefsStore.ts) — proven absent from
+ *  dist/assets by scripts/check-dev-strip.sh. The prod downgrade-only invariant
+ *  (T-18-10/T-21-15) is untouched. */
+export async function setDevTier(target: DevTier): Promise<void> {
+  if (!isTestOrDev()) return;
+  const override = TIER_OVERRIDE[target];
+  const prefs = await loadPreferences();
+  if (prefs.entitlementsOverride !== override) {
+    await savePreferences({ ...prefs, entitlementsOverride: override });
+  }
+  // Always refresh — the persisted override is the source of truth and the
+  // live snapshot must reflect the requested target deterministically (a no-op
+  // when the set is already correct, via refreshEntitlements' set-equality).
+  await refreshEntitlements();
+}

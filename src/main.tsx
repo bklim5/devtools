@@ -3,9 +3,26 @@ import { createRoot } from "react-dom/client";
 import { RouterProvider } from "react-router-dom";
 import { router } from "./router";
 import { initPlatform } from "@/lib/platform";
-import { refreshEntitlements } from "@/lib/entitlements/store";
+import { refreshEntitlements, setDevTier } from "@/lib/entitlements/store";
 import { refreshLicenseUi } from "@/lib/license/licenseUi";
 import "./index.css";
+
+// DEV/e2e ONLY (21-04 hardening): a deterministic tier-set seam the real-WKWebView
+// specs reach instead of driving the racy ⌘K palette dev-toggle dance. This whole
+// block is under `import.meta.env.DEV` (statically false in production → tree-shaken
+// out of every release bundle, same gate as the DEV palette command + the "full"
+// override), so the hook NEVER exists in a shipped app. It is a single deterministic
+// state SET (not a toggle): `window.__devSetTier("pro" | "free" | "default")` writes
+// the matching override + awaits the resolved entitlement set, so a spec establishes
+// its exact precondition without reading-then-flipping. setDevTier is itself a no-op
+// outside isTestOrDev(), so even this hook can only write what prod already strips.
+// Verified absent from dist/assets by scripts/check-dev-strip.sh (the __devSetTier
+// name + the "full" override write).
+if (import.meta.env.DEV) {
+  (window as unknown as Record<string, unknown>).__devSetTier = (
+    target: "pro" | "free" | "default",
+  ) => setDevTier(target);
+}
 
 // Kick off resolving the real platform impl (FND-04) early so the lazy
 // `import("./tauri")` is in flight before first paint. The prefs hooks no longer
