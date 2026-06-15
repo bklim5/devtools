@@ -170,9 +170,16 @@ pub fn run() {
                 .select_all()
                 .build()?;
 
-            // Window submenu.
+            // Window submenu — rebuilt with the standard macOS Window items the
+            // 2.11.2 SubmenuBuilder exposes via the shared_menu_builder! macro
+            // (verified against the installed crate source: fullscreen(),
+            // bring_all_to_front()). A bare Minimize+Close stripped Enter Full
+            // Screen / Bring All to Front from the default bar (LOW-22-03).
             let window_menu = SubmenuBuilder::new(app, "Window")
                 .minimize()
+                .fullscreen()
+                .separator()
+                .bring_all_to_front()
                 .separator()
                 .close_window()
                 .build()?;
