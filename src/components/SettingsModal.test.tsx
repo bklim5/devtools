@@ -165,7 +165,8 @@ describe("SettingsModal (paned layout — License pane)", () => {
   it("renders the License pane content (LicenseSettings) — the sr-only 'License' landmark is present", () => {
     seedFreeState();
     const { getByRole } = render(<SettingsModal />);
-    // LicenseSettings carries an <h1 className="sr-only">License</h1> landmark.
-    expect(getByRole("heading", { level: 1, name: "License" })).toBeDefined();
+    // LicenseSettings carries an <h3 className="sr-only">License</h3> landmark —
+    // h3 nests one level under the dialog's "Settings" <h2> (no heading inversion).
+    expect(getByRole("heading", { level: 3, name: "License" })).toBeDefined();
   });
 });
