@@ -315,3 +315,12 @@ Everything else already ports: machine.lic via Tauri app-data dir, pure-Rust Ed2
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.9: Native Settings / Preferences window (BACKLOG)
+
+**Goal:** [Captured for future planning — seed: `docs/seeds/settings-preferences-window/`] — move License + all settings into a **native macOS Preferences window** (the conventional pattern), reachable by everyone incl. unlicensed users (who see a No-license + Unlock-Pro state). Origin: Phase 21 walkthrough — the in-window `#/settings/license` route keeps the sidebar visible while the main pane shows settings (confusing), and a pure-free user has no clean entry (D-88). **Entry points:** `TinkerDev ▸ Settings…` (⌘,) app-menu item + a tray `Settings…` item + a sidebar `Settings` row above "Unlock Pro". **Window:** separate paned window (General · Appearance/Themes · Hotkeys · Updates · License); the **License pane reuses today's `src/components/LicenseSettings.tsx` unchanged** (Phase 21 built the hard part — flip/lifecycle/state machine). Likely **absorbs 999.3 (Theme settings)** as its Appearance pane. **Open questions for promotion:** Tauri multi-window vs a modal-over-main surface; app-menu + tray wiring in Rust; its own UI-SPEC + WCAG-AA audit; whether the upsell/activation lives in the License pane; HashRouter implications for a second window.
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
