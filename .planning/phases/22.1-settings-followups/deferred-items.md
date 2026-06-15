@@ -31,3 +31,27 @@ applied (low value vs. the e2e re-run cost; surfaced at the phase boundary):
 - **Form-only focus-on-mount** (`UpsellPanel.tsx:172`) yanks focus into the key input when Settings
   opens directly on the License pane in problem/refreshNeeded — INTENDED per D-22.1-7. A11y nuance
   (SR users land below the status card) → covered by the human walkthrough item below.
+
+## Code-review advisories (run 2026-06-16, redesign 22.1-03) — non-blocking
+
+No CONFIRMED correctness bugs. One real issue FIXED in-loop (heading-order: pane title was an
+`<h1>` inside the dialog's `<h2>` → demoted to `<h3>`, commit `19f93cb4`). Remaining cosmetic
+advisory, recorded not fixed:
+
+- **Refresh button on the amber attention card uses the neutral PRIMARY_BTN_CLASS disabled tokens**
+  (`bg-input-bg`/`text-tx-2`) — during the brief in-flight `disabled` state the button renders neutral
+  on the amber card. Not an AA failure (the disabled button carries its OWN `bg-input-bg`, not
+  amber-on-amber) and only transient while refreshing — purely aesthetic. Revisit if a warn-toned
+  button variant is ever added.
+
+## Decision record (for PROJECT.md evolution at phase close)
+
+- **D-20 REVERSED (user-approved 2026-06-16 walkthrough):** the in-app upsell now SHOWS pricing
+  ("$9 · once · lifetime license") plus a feature list + footer claims. The prior "no pricing in-app"
+  stance is retired. Price = **$9** (must stay in sync with the Lemon Squeezy product + tinkerdev.io).
+- **New copy claims (all user-confirmed true):** "One-time payment · Free updates forever · 14-day refund".
+  "Lost your key?" → "Check your purchase email" (NO account portal exists; do not link to one).
+- **New design token:** amber `warn` triad (`--color-warn`/`-soft`/`-line`) added to `src/index.css`
+  for the "License needs attention" state (dark-theme only until theming ships).
+- **Website:** `$9` lifetime price added to the TinkerDev Pro card in `../tinkerdev-io`
+  (`components/site/pro.tsx`, commit `a0a92b8`, separate repo — not part of this phase's git history).
