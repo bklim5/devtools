@@ -1,7 +1,7 @@
 mod license;
 
 use tauri::{
-    menu::{Menu, MenuItem},
+    menu::{Menu, MenuBuilder, MenuItem, SubmenuBuilder},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Emitter, Manager,
 };
@@ -125,15 +125,90 @@ pub fn run() {
                 }
             });
 
+            // ── macOS application menu (SET-01) ────────────────────────────────
+            // The app sets NO app menu otherwise — macOS auto-generates the
+            // default bar. `app.set_menu()` REPLACES that wholesale (RESEARCH
+            // Pitfall 1 / tauri#11422), so a partial menu would strip
+            // Copy/Paste/Undo/Select-All/Quit from this paste-first, text-heavy
+            // app. We therefore rebuild a COMPLETE menu — App / Edit / Window —
+            // reconstructing every default submenu via the 2.11.2 SubmenuBuilder
+            // chainable predefined-item methods (verified self->Self, build->Result
+            // against the installed crate source). The Edit-menu regression is the
+            // human-walkthrough backstop (WebDriver can't assert native menus).
+            //
+            // SET-01: the Settings item lives under the FIRST submenu (the macOS
+            // application menu), directly below About, bound to ⌘, per macOS
+            // convention. `CmdOrCtrl+,` is translated to Cmd on macOS by Tauri.
+            let settings_app_i =
+                MenuItem::with_id(app, "open_settings", "Settings…", true, Some("CmdOrCtrl+,"))?;
+
+            // App submenu (first submenu => the macOS application menu).
+            let app_menu = SubmenuBuilder::new(app, "TinkerDev")
+                .about(None)
+                .separator()
+                .item(&settings_app_i)
+                .separator()
+                .services()
+                .separator()
+                .hide()
+                .hide_others()
+                .show_all()
+                .separator()
+                .quit()
+                .build()?;
+
+            // Edit submenu — MUST be reconstructed or the paste-first app loses
+            // Copy/Paste/Undo/Select-All (Pitfall 1). These are native edit
+            // actions via PredefinedMenuItem (real behavior + localized labels).
+            let edit_menu = SubmenuBuilder::new(app, "Edit")
+                .undo()
+                .redo()
+                .separator()
+                .cut()
+                .copy()
+                .paste()
+                .select_all()
+                .build()?;
+
+            // Window submenu.
+            let window_menu = SubmenuBuilder::new(app, "Window")
+                .minimize()
+                .separator()
+                .close_window()
+                .build()?;
+
+            let app_menu_bar = MenuBuilder::new(app)
+                .items(&[&app_menu, &edit_menu, &window_menu])
+                .build()?;
+            app.set_menu(app_menu_bar)?;
+
+            // SET-01: the app-menu Settings item emits the SAME no-payload event
+            // the tray uses (T-22-08: the listener ignores any data, just opens
+            // Settings). Mirrors the tray's `menu://check-updates` channel.
+            app.on_menu_event(move |app, event| {
+                if event.id().as_ref() == "open_settings" {
+                    let _ = app.emit("menu://open-settings", ());
+                }
+            });
+
             let show_i = MenuItem::with_id(app, "show", "Show TinkerDev", true, None::<&str>)?;
             // "Check for Updates…" (DST-02 / D-11a). The actual check() runs in JS
             // through the platform seam (D-12); this just emits an event the JS shell
             // listens for (Plan 04). Manual check is always available regardless of
             // the auto-update opt-in (D-09).
+            // SET-02: the tray Settings… item emits the SAME `menu://open-settings`
+            // event the app-menu item uses (same "open_settings" id — both fire the
+            // identical no-payload event; the webview listener doesn't distinguish
+            // source). No accelerator on the tray item (the ⌘, lives on the app menu).
+            let settings_tray_i =
+                MenuItem::with_id(app, "open_settings", "Settings…", true, None::<&str>)?;
             let check_updates_i =
                 MenuItem::with_id(app, "check_updates", "Check for Updates…", true, None::<&str>)?;
             let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&show_i, &check_updates_i, &quit_i])?;
+            let menu = Menu::with_items(
+                app,
+                &[&show_i, &settings_tray_i, &check_updates_i, &quit_i],
+            )?;
 
             TrayIconBuilder::new()
                 .icon(app.default_window_icon().unwrap().clone())
@@ -146,6 +221,9 @@ pub fn run() {
                             let _ = w.show();
                             let _ = w.set_focus();
                         }
+                    }
+                    "open_settings" => {
+                        let _ = app.emit("menu://open-settings", ());
                     }
                     "check_updates" => {
                         let _ = app.emit("menu://check-updates", ());
