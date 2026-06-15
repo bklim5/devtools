@@ -88,6 +88,15 @@ Gate order is the user's explicit sequence: **simplify → review → unit → u
    The build's final non-zero exit is only the absent updater-signing key
    (`TAURI_SIGNING_PRIVATE_KEY`); confirm success by the presence of the
    `.app`/`.dmg` under `src-tauri/target/release/bundle/macos/`, not the exit code.
+   - **The build MUST be the last step before the walkthrough, after EVERY source
+     change in the phase has landed.** In a multi-plan phase, an early checkpoint
+     plan can trigger `tauri build` *before* later plans land their webview changes —
+     reusing that earlier bundle ships the human a STALE app (they test old behavior
+     and report an already-fixed "bug"). Before presenting ANY phase-boundary
+     walkthrough, **rebuild and verify the bundle binary's mtime is newer than the
+     last source commit**: compare `stat -f %Sm src-tauri/target/release/bundle/macos/TinkerDev.app/Contents/MacOS/devtools-app`
+     against `git log -1 --format=%cd`. Never relay a subagent's "build done" as
+     current without that mtime check.
 2. The agent reports the built-app path; the **human launches the packaged app and
    walks the new tool** through the checkpoint scenarios.
 3. **`gsd-ui-review`** 6-pillar visual audit + WCAG AA a11y pass on the built app.
