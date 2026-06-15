@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Lock } from "lucide-react";
 import { Outlet } from "react-router-dom";
 import { Sidebar } from "./components/Sidebar";
 import { CommandPalette } from "./components/CommandPalette";
 import { UpdateBanner } from "./components/UpdateBanner";
+import { UpsellModal } from "./components/UpsellPanel";
 import { useTrackActiveTool } from "./shell/useTrackActiveTool";
 import { usePreferences } from "./shell/usePreferences";
+import { useUpsellOpen } from "./shell/useUpsell";
+import { closeUpsell } from "./shell/upsellStore";
 import {
   checkForUpdate,
   installUpdate,
@@ -129,6 +133,13 @@ export function App() {
 
   const showOptIn = prefsLoaded && needsOptInPrompt(preferences.autoUpdateCheck);
 
+  // D-28/D-29: the ONE shared "Unlock Pro" upsell modal, mounted once at the
+  // shell and driven by the shared open-state store so BOTH the sidebar footer /
+  // locked customization affordances AND the ⌘K free-tier "License" command open
+  // the SAME surface (21-04 walkthrough fix — no duplicate UI, no silent
+  // navigate). UpsellModal owns Esc/scrim dismiss + focus capture/return.
+  const upsellOpen = useUpsellOpen();
+
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-bg-app font-sans text-tx">
       <Sidebar />
@@ -149,6 +160,10 @@ export function App() {
         </div>
       </main>
       <CommandPalette />
+
+      {/* D-28/D-29: shared Unlock Pro upsell modal — ONE mount for every opener
+          (sidebar footer/affordances + the ⌘K free-tier License command). */}
+      {upsellOpen ? <UpsellModal icon={Lock} onClose={closeUpsell} /> : null}
 
       {/* Updater UX overlay (DST-02). Bottom-right, layout-agnostic, above content. */}
       <div className="pointer-events-none fixed bottom-4 right-4 z-50 flex w-full max-w-md flex-col items-end gap-2">

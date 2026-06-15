@@ -10,9 +10,11 @@
 // and proves the lock UX: registry-default render with stored prefs untouched,
 // every ordering/pinning affordance opening the shared upsell modal, zero writes.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { Lock } from "lucide-react";
 import { act, cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
+import { UpsellModal } from "./UpsellPanel";
 
 // D-88: the footer license-attention affordance routes via useNavigate when there
 // is a license to manage; spy it so the routing target is observable.
@@ -40,6 +42,8 @@ import {
 import { createStoreStub } from "@/lib/platform/stub";
 import { makeMemoryPlatform, noopLicense } from "@/shell/testStore";
 import { PREFERENCES_STORE_KEY } from "@/shell/preferences";
+import { closeUpsell } from "@/shell/upsellStore";
+import { useUpsellOpen } from "@/shell/useUpsell";
 
 let store: Store;
 
@@ -57,12 +61,24 @@ afterEach(() => {
   resetPlatformForTest();
   resetEntitlementsForTest();
   resetLicenseUiForTest();
+  closeUpsell(); // reset the shared upsell-open store between tests
 });
+
+// The shared upsell modal now mounts ONCE at the shell (App.tsx), projected from
+// the shell/upsellStore flag — not inside Sidebar. This host mirrors that shell
+// composition so a Sidebar affordance that calls openUpsell() still renders the
+// dialog under test (parity with the real App).
+function UpsellModalHost() {
+  return useUpsellOpen() ? (
+    <UpsellModal icon={Lock} onClose={closeUpsell} />
+  ) : null;
+}
 
 function renderAt(path: string) {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <Sidebar />
+      <UpsellModalHost />
     </MemoryRouter>,
   );
 }

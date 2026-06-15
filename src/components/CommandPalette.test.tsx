@@ -26,6 +26,7 @@ import {
   resetLicenseUiForTest,
   setLicenseUiForTest,
 } from "@/lib/license/licenseUi";
+import { closeUpsell, getUpsellOpen } from "@/shell/upsellStore";
 
 // Spy on useNavigate so Enter's navigation is observable without a real route.
 const navigateSpy = vi.fn();
@@ -51,6 +52,7 @@ afterEach(() => {
   resetPlatformForTest();
   resetEntitlementsForTest();
   resetLicenseUiForTest();
+  closeUpsell(); // reset the shared upsell-open store between tests
 });
 
 function renderPalette() {
@@ -341,8 +343,9 @@ describe("CommandPalette — License command (D-88, shipped production command)"
     expect(navigateSpy).toHaveBeenCalledWith("/settings/license");
   });
 
-  it("routes free (notActivated) to / where the Unlock Pro panel lives (D-88)", async () => {
+  it("opens the shared Unlock Pro upsell for free (notActivated) — visible feedback, never a silent navigate (21-04 fix)", async () => {
     act(() => setLicenseUiForTest({ state: "notActivated", hasStoredKey: false }));
+    expect(getUpsellOpen()).toBe(false);
     const { findByPlaceholderText, findByText } = renderPalette();
     act(() => pressMetaK());
     await findByPlaceholderText("Search tools…");
@@ -350,7 +353,13 @@ describe("CommandPalette — License command (D-88, shipped production command)"
       target: { value: "license" },
     });
 
-    fireEvent.click(await findByText("License"));
-    expect(navigateSpy).toHaveBeenCalledWith("/");
+    const licenseRow = await findByText("License");
+    act(() => {
+      fireEvent.click(licenseRow);
+    });
+    // The free arm opens the SAME shared upsell surface the sidebar footer uses
+    // (shell/upsellStore) instead of navigating — no silent no-op on "/".
+    expect(getUpsellOpen()).toBe(true);
+    expect(navigateSpy).not.toHaveBeenCalled();
   });
 });

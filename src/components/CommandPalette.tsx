@@ -30,6 +30,7 @@ import { ENABLED_TOOLS, getToolById } from "@/lib/tools/registry";
 import type { ToolDefinition } from "@/lib/tools/types";
 import { rankTools, subsequenceScore } from "@/shell/fuzzy";
 import { loadPreferences, savePreferences } from "@/shell/prefsStore";
+import { openUpsell } from "@/shell/upsellStore";
 import { useEntitlements } from "@/shell/useEntitlements";
 import { useLicenseUi } from "@/shell/useLicenseUi";
 
@@ -188,9 +189,12 @@ export function CommandPalette() {
 
   // D-88: the "License" command — a SHIPPED production command (NOT under the
   // import.meta.env.DEV guard, so check-dev-strip.sh leaves it in the bundle; it
-  // carries no privileged action — it only navigates, T-21-15). Routes by state:
-  // there IS a license to manage (anything but the pure free notActivated) → the
-  // status route; the free tier → "/" where the sidebar's Unlock Pro panel lives.
+  // carries no privileged action, T-21-15). Routes by state: there IS a license
+  // to manage (anything but the pure free notActivated) → the status route; the
+  // free tier OPENS the shared Unlock Pro upsell modal — the SAME surface the
+  // sidebar footer opens (shell/upsellStore). The old free arm did navigate("/"),
+  // which was a silent no-op when already on "/" and read as broken (21-04
+  // walkthrough fix); the upsell gives visible feedback with no duplicate UI.
   const licenseState = useLicenseUi().state;
   const licenseCommand = useMemo<CommandRow>(
     () => ({
@@ -199,7 +203,9 @@ export function CommandPalette() {
       name: "License",
       icon: Lock,
       run: () =>
-        navigate(licenseState === "notActivated" ? "/" : "/settings/license"),
+        licenseState === "notActivated"
+          ? openUpsell()
+          : navigate("/settings/license"),
     }),
     [licenseState, navigate],
   );

@@ -45,9 +45,9 @@ import { useEntitlements } from "@/shell/useEntitlements";
 import { useLicenseUi } from "@/shell/useLicenseUi";
 import { usePreferences } from "@/shell/usePreferences";
 import { moveToolInOrder, partitionTools, resolveRovingTarget } from "@/shell/toolOrder";
+import { openUpsell } from "@/shell/upsellStore";
 import { SidebarResetMenu, useSidebarResetMenu } from "./SidebarResetMenu";
 import { useSidebarDragDrop, type ToolGroup } from "./useSidebarDragDrop";
-import { UpsellModal } from "./UpsellPanel";
 
 export function Sidebar() {
   const { preferences, setToolOrder, setPinnedToolIds, togglePinned } = usePreferences();
@@ -97,10 +97,11 @@ export function Sidebar() {
   // D-28: the upsell modal opened by locked customization affordances (pin click,
   // Alt+↑/↓, Alt+P, reset) and the D-29 footer row — ONE shared surface with
   // fully static copy (D-19 override: lock context comes from the affordance
-  // the user clicked). UpsellModal handles Esc/scrim dismiss + focus-return
-  // internally (Plan 01).
-  const [upsellOpen, setUpsellOpen] = useState(false);
-  const openOrderingUpsell = useCallback(() => setUpsellOpen(true), []);
+  // the user clicked). The open-state now lives in a shared module store
+  // (shell/upsellStore) so the ⌘K free-tier "License" command opens the SAME
+  // surface (21-04 walkthrough fix); the modal mounts ONCE at the shell (App.tsx)
+  // and owns Esc/scrim dismiss + focus-return (Plan 01).
+  const openOrderingUpsell = useCallback(() => openUpsell(), []);
   // D-88: the footer license-attention affordance routes by state — to the
   // status route when there is a license to manage, to the Unlock Pro panel for
   // the pure free tier (the activation pitch). The locked-customization
@@ -643,12 +644,6 @@ export function Sidebar() {
           onUnpinAll={unpinAll}
           showUnpinAll={pinned.length > 0}
         />
-      ) : null}
-
-      {/* D-28: the shared upsell modal for locked ordering/pinning affordances.
-          UpsellModal owns Esc/scrim dismiss + focus capture/return (Plan 01). */}
-      {upsellOpen ? (
-        <UpsellModal icon={Lock} onClose={() => setUpsellOpen(false)} />
       ) : null}
     </aside>
   );
