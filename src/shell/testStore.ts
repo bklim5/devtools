@@ -36,6 +36,10 @@ export const noopUpdater: Platform["updater"] = {
  *  the widened interface without re-drifting the events shape. */
 export const noopEvents: Platform["events"] = {
   onMenuCheckUpdates: async () => () => {},
+  // SET-01/02: the `menu://open-settings` subscription never fires under jsdom; the
+  // returned unsubscribe is a no-op. One source of truth so every inline literal /
+  // makeMemoryPlatform spread satisfies the widened interface without re-drifting.
+  onOpenSettings: async () => () => {},
 };
 
 /** Shared deterministic license arm for test Platform stubs (LIC-01..04):

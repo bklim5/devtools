@@ -40,6 +40,7 @@ describe("platform seam", () => {
       },
       events: {
         onMenuCheckUpdates: vi.fn().mockResolvedValue(() => {}),
+        onOpenSettings: vi.fn().mockResolvedValue(() => {}),
       },
       license: {
         status: vi.fn().mockResolvedValue({
@@ -150,6 +151,7 @@ describe("platform seam — native capabilities (NAT-01)", () => {
       },
       events: {
         onMenuCheckUpdates: vi.fn().mockResolvedValue(() => {}),
+        onOpenSettings: vi.fn().mockResolvedValue(() => {}),
       },
       license: {
         status: vi.fn().mockResolvedValue({
@@ -219,6 +221,7 @@ describe("platform seam — auto-updater (DST-02)", () => {
       },
       events: {
         onMenuCheckUpdates: vi.fn().mockResolvedValue(() => {}),
+        onOpenSettings: vi.fn().mockResolvedValue(() => {}),
       },
       license: {
         status: vi.fn().mockResolvedValue({

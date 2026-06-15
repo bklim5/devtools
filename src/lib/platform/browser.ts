@@ -92,6 +92,12 @@ export const browserPlatform: Platform = {
     async onMenuCheckUpdates() {
       return () => {};
     },
+    // SET-01/02: the `menu://open-settings` event never fires in the browser/jsdom
+    // (no native menu/tray), so the subscription is inert and the returned
+    // unsubscribe is a no-op. This file must NOT import @tauri-apps/*.
+    async onOpenSettings() {
+      return () => {};
+    },
   },
   // Licensing is Tauri-only (LIC-01..04): outside Tauri the deterministic stub
   // resolves notActivated / rejects serviceUnreachable — never a network call

@@ -113,6 +113,12 @@ export const tauriPlatform: Platform = {
   events: {
     onMenuCheckUpdates: (handler) =>
       listen("menu://check-updates", () => handler()),
+    // SET-01/02: subscribe to the app-menu (⌘,) + tray `Settings…` event the Rust
+    // side emits (lib.rs). Same no-payload `listen` shape as check-updates — the
+    // listener ignores any data and just calls openSettings() (T-22-08). This
+    // `listen` import lives ONLY here (D-12); App.tsx reaches it via platform.events.
+    onOpenSettings: (handler) =>
+      listen("menu://open-settings", () => handler()),
   },
   // LIC-01..04: the locked 4-command surface, reached ONLY through this seam.
   // Tauri rejects command errors with the serialized `{ code }` object — pass

@@ -110,6 +110,13 @@ export interface Platform {
    *  unsubscribe fn. No-op (never fires) in the browser fallback. */
   events: {
     onMenuCheckUpdates(handler: () => void): Promise<() => void>;
+    /** App-internal native menu/tray event for the Settings surface (SET-01/02).
+     *  Subscribes the shell to the Rust `menu://open-settings` event (emitted by
+     *  the app-menu `TinkerDev ▸ Settings…` ⌘, item AND the tray `Settings…`
+     *  item); the actual `listen` lives ONLY in tauri.ts (D-12), never in the
+     *  shell. Returns an unsubscribe fn. No-op (never fires) in the browser
+     *  fallback. Mirrors the `onMenuCheckUpdates` no-payload channel. */
+    onOpenSettings(handler: () => void): Promise<() => void>;
   };
   /** Licensing (LIC-01..04). The webview reaches the 4 Rust commands ONLY
    *  through this capability; key material never returns to JS. Rejections
