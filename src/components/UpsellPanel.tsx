@@ -4,6 +4,13 @@
 // affordances + the D-29 footer row). Phase 19 wired the license-key
 // activation form into the D-22 slot; Phase 20 swaps in the real checkout link.
 //
+// Phase 22.1 (D-22.1-4): the activation surface (state + submit chain + key
+// form + success/problem views + the panel-mount refreshLicenseUi effect + the
+// D-44 focus effect) lives ONCE in the internal `ActivationSurface` component.
+// BOTH the standalone `UpsellPanel`/`UpsellModal` (modal entries — unchanged)
+// AND the inline License pane (`InlineActivation`) consume it. No activation
+// logic is duplicated; LIC-04 + T-19-21 are preserved byte-for-byte.
+//
 // Views (D-33: everything inline in this one panel — no new modal/route):
 //   sales      — the Phase-18 copy, byte-for-byte (D-19 override: fully static)
 //   form       — revealed in place by the D-22 button (key input + Activate)
@@ -89,22 +96,42 @@ const PRIMARY_BTN_CLASS =
 const SECONDARY_BTN_CLASS =
   "cursor-pointer rounded-[7px] border border-bd bg-input-bg px-3 py-1 text-[12px] text-tx-2 outline-none transition-colors hover:border-bd-2 hover:text-tx focus-visible:ring-2 focus-visible:ring-accent";
 
-export interface UpsellPanelProps {
-  /** Feature icon (lucide-react component), rendered neutral beside the heading. */
+/**
+ * The ONE activation surface (D-22.1-4). Owns the activation state, the verbatim
+ * submit chain, the key-input form, the success ("Licensed — thank you") state,
+ * the panel-mount refreshLicenseUi re-query, and the D-44 problem-state focus —
+ * with NO logic duplicated anywhere else in the app.
+ *
+ * `variant` controls ONLY the surrounding chrome (which heading/body/CTA wraps
+ * the form); the form + submit are identical across all variants:
+ *   - "panel"     — the standalone UpsellPanel/UpsellModal behavior: sales pitch
+ *                   + Buy CTA + "I have a license key" reveal for free/notActivated,
+ *                   the distinct D-44 problem card for problem, success on activate.
+ *                   (Output is byte-for-byte the pre-22.1 UpsellPanel.)
+ *   - "upsell"    — the FULL pitch inline (License pane free/notActivated, D-22.1-6):
+ *                   same pitch + Buy + reveal-form as "panel" sales, but NO problem
+ *                   card branch (the License pane renders its own status above).
+ *   - "form-only" — ONLY the key-input + Activate form, NO pitch (License pane
+ *                   problem/refreshNeeded, D-22.1-7); the field is pre-revealed +
+ *                   focused for parity with today's D-44 behavior.
+ */
+type ActivationVariant = "panel" | "upsell" | "form-only";
+
+interface ActivationSurfaceProps {
+  variant: ActivationVariant;
   icon: ComponentType<{ className?: string }>;
   /** Optional heading id so a wrapping dialog can point aria-labelledby at it. */
   headingId?: string;
-  /** Optional dismiss (the "Done" button after activation, D-35). UpsellModal
-   *  passes its onClose; in route placement the live entitlement flip re-renders
-   *  the route anyway, so the button is a calm no-op there. */
+  /** Optional dismiss (the "Done" button after activation, D-35). */
   onDismiss?: () => void;
 }
 
-export function UpsellPanel({
+function ActivationSurface({
+  variant,
   icon: Icon,
   headingId,
   onDismiss,
-}: UpsellPanelProps) {
+}: ActivationSurfaceProps) {
   const ui = useLicenseUi();
   const problem = ui.state === "problem";
   // notActivated, problem, and refreshNeeded carry hasStoredKey (the ONLY
@@ -117,7 +144,10 @@ export function UpsellPanel({
       ui.state === "refreshNeeded") &&
     ui.hasStoredKey;
 
-  const [formRevealed, setFormRevealed] = useState(false);
+  // "form-only" pre-reveals the field (D-22.1-7) — the License pane's
+  // problem/refreshNeeded states render their own status card and want the form
+  // immediately, consistent with today's D-44 problem behavior.
+  const [formRevealed, setFormRevealed] = useState(variant === "form-only");
   const [value, setValue] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<LicenseErrorCode | null>(null);
@@ -135,14 +165,17 @@ export function UpsellPanel({
     });
   }, []);
 
-  // D-44: the problem state pre-reveals the form with the key field focused.
-  // queueMicrotask defers past UpsellModal's mount effect (the parent focuses
-  // the dialog AFTER child effects run — a plain .focus() here would be stolen).
+  // D-44 (panel) + D-22.1-7 (form-only): pre-reveal the form with the key field
+  // focused. queueMicrotask defers past UpsellModal's mount effect (the parent
+  // focuses the dialog AFTER child effects run — a plain .focus() here would be
+  // stolen). For "form-only" the field is always revealed, so focus it on mount.
+  const focusOnMount =
+    !activated && (variant === "form-only" || (variant === "panel" && problem));
   useEffect(() => {
-    if (problem && !activated) {
+    if (focusOnMount) {
       queueMicrotask(() => inputRef.current?.focus());
     }
-  }, [problem, activated]);
+  }, [focusOnMount]);
 
   const submit = async () => {
     if (pending) return;
@@ -241,7 +274,7 @@ export function UpsellPanel({
   );
 
   // D-35: the dismissible licensed state — entitlements already refreshed, so
-  // everything behind the panel is unlocked live.
+  // everything behind the panel is unlocked live. Shared by every variant.
   if (activated) {
     return (
       <div className={CARD_CLASS}>
@@ -267,10 +300,19 @@ export function UpsellPanel({
     );
   }
 
-  // D-44: the distinct license-problem state — heading + one calm body line +
-  // the form pre-revealed. NEVER the sales pitch (a paying customer must not
-  // see the upsell copy because their file went bad).
-  if (problem) {
+  // "form-only" (D-22.1-7): just the key-input + Activate form, no card chrome
+  // and NO pitch — the License pane renders its own calm status card above this.
+  if (variant === "form-only") {
+    return keyForm;
+  }
+
+  // D-44 (panel only): the distinct license-problem state — heading + one calm
+  // body line + the form pre-revealed. NEVER the sales pitch (a paying customer
+  // must not see the upsell copy because their file went bad). The "upsell"
+  // variant skips this branch: the License pane never routes problem/refreshNeeded
+  // through InlineActivation("upsell") — those render "form-only" beneath a status
+  // card (D-22.1-7), so a paying customer still never sees the pitch.
+  if (variant === "panel" && problem) {
     return (
       <div className={CARD_CLASS}>
         <div className="flex items-center gap-2">
@@ -290,6 +332,8 @@ export function UpsellPanel({
     );
   }
 
+  // The sales pitch (free/notActivated) — shared by the standalone panel and the
+  // inline "upsell" variant byte-for-byte (D-22.1-6).
   return (
     <div className={CARD_CLASS}>
       <div className="flex items-center gap-2">
@@ -347,6 +391,53 @@ export function UpsellPanel({
         </div>
       )}
     </div>
+  );
+}
+
+export interface UpsellPanelProps {
+  /** Feature icon (lucide-react component), rendered neutral beside the heading. */
+  icon: ComponentType<{ className?: string }>;
+  /** Optional heading id so a wrapping dialog can point aria-labelledby at it. */
+  headingId?: string;
+  /** Optional dismiss (the "Done" button after activation, D-35). UpsellModal
+   *  passes its onClose; in route placement the live entitlement flip re-renders
+   *  the route anyway, so the button is a calm no-op there. */
+  onDismiss?: () => void;
+}
+
+/** The standalone upsell panel (the modal/route surface) — unchanged behavior.
+ *  Thin wrapper over the shared ActivationSurface "panel" variant (D-22.1-4/5). */
+export function UpsellPanel({ icon, headingId, onDismiss }: UpsellPanelProps) {
+  return (
+    <ActivationSurface
+      variant="panel"
+      icon={icon}
+      headingId={headingId}
+      onDismiss={onDismiss}
+    />
+  );
+}
+
+export interface InlineActivationProps {
+  /** "upsell" = full pitch inline (free/notActivated, D-22.1-6); "form-only" =
+   *  just the key-input + Activate form (problem/refreshNeeded, D-22.1-7). */
+  variant: "upsell" | "form-only";
+  icon: ComponentType<{ className?: string }>;
+  /** Optional dismiss for the post-activation "Done" button (D-35). */
+  onDismiss?: () => void;
+}
+
+/** Inline activation surface for the Settings ▸ License pane (D-22.1-6/7) — the
+ *  SAME shared ActivationSurface the modal uses, rendered without a dialog
+ *  wrapper (the SettingsModal owns the focus trap, so none is needed here —
+ *  D-22.1-9). No activation logic is duplicated. */
+export function InlineActivation({
+  variant,
+  icon,
+  onDismiss,
+}: InlineActivationProps) {
+  return (
+    <ActivationSurface variant={variant} icon={icon} onDismiss={onDismiss} />
   );
 }
 
