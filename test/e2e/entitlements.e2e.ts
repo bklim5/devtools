@@ -43,6 +43,7 @@ import {
   assert,
   dispatchAltP,
   dispatchKey,
+  ensureFreeTier,
   ensureProTier,
   focusRow,
   navigateToTool,
@@ -51,6 +52,7 @@ import {
   runDevToggle,
   saveScreenshot,
   unlockProFooterPresent,
+  upsellModalOpen as sharedUpsellModalOpen,
 } from "./helpers";
 
 // Whether the shared upsell modal is open (the [role="dialog"] carrying the
@@ -68,6 +70,79 @@ function upsellModalOpen(): Promise<boolean> {
 // runDevToggle (the ⌘K "Toggle free tier (dev)" drive) moved to helpers.ts in
 // Phase 19 so license.e2e.ts shares the exact same real-user path — see the
 // doc comment there for the 18-04 walkthrough regression it encodes.
+
+// Drive the ⌘K palette's production "License" command (D-88) via the real user
+// path — open the palette, TYPE "License" (the same controlled-input contract
+// runDevToggle uses: native value setter + bubbling "input" event, since a bare
+// .value write is swallowed by React's value tracker), wait for the row to
+// surface, then click it. In the FREE tier its run() opens the shared upsell
+// modal instead of navigating (the pre-fix arm did navigate("/") — a silent
+// no-op on "/", read as broken; 21-04 walkthrough fix).
+async function runLicenseCommand(): Promise<void> {
+  await browser.execute(() => {
+    window.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "k",
+        metaKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+  });
+  const input = await $('input[aria-label="Search tools"]');
+  await input.waitForExist({ timeout: 10_000 });
+
+  await browser.execute(() => {
+    const el = document.querySelector(
+      'input[aria-label="Search tools"]',
+    ) as HTMLInputElement | null;
+    if (!el) return;
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
+    setter?.call(el, "License");
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+
+  // The typed query surfaces the "License" command row inside the palette.
+  await browser.waitUntil(
+    async () =>
+      browser.execute(() => {
+        const dialog = document.querySelector('[aria-label="Command palette"]');
+        return Array.from(dialog?.querySelectorAll("button") ?? []).some(
+          (b) => (b.textContent ?? "").trim() === "License",
+        );
+      }),
+    {
+      timeout: 5_000,
+      timeoutMsg:
+        'expected typing "License" to surface the production "License" command row in the ⌘K palette (D-88)',
+    },
+  );
+
+  // Click the exact "License" row (production command). It is a SHIPPED command
+  // — not under the DEV guard — so it is present in this dev bundle and in prod.
+  await browser.execute(() => {
+    const dialog = document.querySelector('[aria-label="Command palette"]');
+    const row = Array.from(dialog?.querySelectorAll("button") ?? []).find(
+      (b) => (b.textContent ?? "").trim() === "License",
+    ) as HTMLElement | undefined;
+    row?.click();
+  });
+
+  // The palette closes before/while the command's run() lands.
+  await browser
+    .waitUntil(
+      async () =>
+        browser.execute(() => document.querySelector('input[aria-label="Search tools"]') === null),
+      {
+        timeout: 5_000,
+        timeoutMsg: "palette did not close after running the License command",
+      },
+    )
+    .catch(() => {
+      // The upsell modal opening may race the palette teardown poll — the
+      // load-bearing assertion is the modal opening, not the palette closing.
+    });
+}
 
 // Clear any custom order + pins through the SAME Shift+F10 menu gestures the
 // sidebar spec uses, so "registry default" is read from a deterministic state.
@@ -100,8 +175,8 @@ async function resetArrangement(): Promise<void> {
       );
     });
     await browser.execute(() => {
-      const item = Array.from(document.querySelectorAll('[role="menuitem"]')).find(
-        (b) => (b.textContent ?? "").includes("Unpin all"),
+      const item = Array.from(document.querySelectorAll('[role="menuitem"]')).find((b) =>
+        (b.textContent ?? "").includes("Unpin all"),
       ) as HTMLElement | null;
       item?.click();
     });
@@ -149,13 +224,10 @@ describe("Entitlements dev toggle (real WKWebView)", () => {
     const focusedToPin = await focusRow(pinnedTool);
     assert(focusedToPin, `the "${pinnedTool}" row did not accept keyboard focus to pin`);
     await dispatchAltP();
-    await browser.waitUntil(
-      async () => (await readPinnedOrder()).includes(pinnedTool),
-      {
-        timeout: 5_000,
-        timeoutMsg: `expected "${pinnedTool}" pinned while seeding, got ${JSON.stringify(await readPinnedOrder())}`,
-      },
-    );
+    await browser.waitUntil(async () => (await readPinnedOrder()).includes(pinnedTool), {
+      timeout: 5_000,
+      timeoutMsg: `expected "${pinnedTool}" pinned while seeding, got ${JSON.stringify(await readPinnedOrder())}`,
+    });
     const customOrder = await readOrder(); // pinned-then-unpinned flat sequence
     assert(
       JSON.stringify(customOrder) !== JSON.stringify(registryDefault),
@@ -167,8 +239,7 @@ describe("Entitlements dev toggle (real WKWebView)", () => {
     await runDevToggle();
     await browser.waitUntil(async () => unlockProFooterPresent(), {
       timeout: 10_000,
-      timeoutMsg:
-        'expected the free-tier-only "Unlock Pro" footer row after the dev toggle (D-29)',
+      timeoutMsg: 'expected the free-tier-only "Unlock Pro" footer row after the dev toggle (D-29)',
     });
 
     // From here until the toggle-back, the persisted "free" override is live.
@@ -184,8 +255,7 @@ describe("Entitlements dev toggle (real WKWebView)", () => {
         `locked sidebar must render the registry-default order, got ${JSON.stringify(lockedOrder)} (expected ${JSON.stringify(registryDefault)})`,
       );
       const lockedChrome = await browser.execute(() => ({
-        pinnedGroup:
-          document.querySelector('[role="group"][aria-label="Pinned tools"]') !== null,
+        pinnedGroup: document.querySelector('[role="group"][aria-label="Pinned tools"]') !== null,
         divider: document.querySelector("nav hr") !== null,
       }));
       assert(
@@ -237,13 +307,10 @@ describe("Entitlements dev toggle (real WKWebView)", () => {
 
     // The custom order + pinned section restore instantly on unlock — the
     // stored prefs were never deleted while locked (D-26 preservation proof).
-    await browser.waitUntil(
-      async () => (await readPinnedOrder()).includes(pinnedTool),
-      {
-        timeout: 5_000,
-        timeoutMsg: `expected the pinned section (with "${pinnedTool}") to restore on unlock, got ${JSON.stringify(await readPinnedOrder())}`,
-      },
-    );
+    await browser.waitUntil(async () => (await readPinnedOrder()).includes(pinnedTool), {
+      timeout: 5_000,
+      timeoutMsg: `expected the pinned section (with "${pinnedTool}") to restore on unlock, got ${JSON.stringify(await readPinnedOrder())}`,
+    });
     const restoredOrder = await readOrder();
     assert(
       JSON.stringify(restoredOrder) === JSON.stringify(customOrder),
@@ -255,5 +322,59 @@ describe("Entitlements dev toggle (real WKWebView)", () => {
     // Leave the machine the way we found it (clean order + no pins) so the
     // other sidebar specs start deterministic.
     await resetArrangement();
+  });
+
+  // 21-04 walkthrough fix #1 — the ⌘K production "License" command in the FREE
+  // (notActivated) tier opens the SHARED Unlock Pro modal (D-88) rather than
+  // silently navigating. The pre-fix free arm called navigate("/"), a no-op when
+  // already on "/" — it read as "the command does nothing". This proves the real
+  // path on the real WKWebView: type "License", run it, the [aria-modal] dialog
+  // mounts. (The Pro arm routes to #/settings/license instead — covered by
+  // license-settings.e2e.ts; here we pin the FREE-tier upsell arm.)
+  it('the ⌘K "License" command in the free tier opens the shared Unlock Pro modal (D-88)', async () => {
+    await navigateToTool("protobuf-decoder");
+    const firstHandle = await $('button[aria-label^="Reorder "]');
+    await firstHandle.waitForExist({ timeout: 15_000 });
+
+    // Establish FREE explicitly (independent of prior-spec tier state in this
+    // WDIO run — the same real-user path the other tier-touching specs use).
+    await ensureFreeTier();
+    assert(
+      await unlockProFooterPresent(),
+      'expected the free-tier "Unlock Pro" footer after establishing the free tier (D-29)',
+    );
+    assert(
+      !(await sharedUpsellModalOpen()),
+      "no upsell modal should be open before running the License command",
+    );
+
+    try {
+      await runLicenseCommand();
+      await browser.waitUntil(async () => sharedUpsellModalOpen(), {
+        timeout: 5_000,
+        timeoutMsg:
+          'expected the ⌘K "License" command in the free tier to open the shared Unlock Pro modal (D-88) — it must not silently navigate',
+      });
+      await saveScreenshot(
+        "entitlements",
+        "entitlements-license-command-upsell.png",
+        "license-command-upsell",
+      );
+    } finally {
+      // Dismiss any open modal and re-establish Pro so no "free" override is left
+      // behind for later specs in this WDIO run (best-effort — T-18-15).
+      try {
+        if (await sharedUpsellModalOpen()) {
+          await dispatchKey("Escape", false);
+          await browser.waitUntil(async () => !(await sharedUpsellModalOpen()), {
+            timeout: 5_000,
+            timeoutMsg: "expected Escape to dismiss the upsell modal",
+          });
+        }
+        await ensureProTier();
+      } catch (cleanupError) {
+        console.error("[entitlements] license-command cleanup failed:", cleanupError);
+      }
+    }
   });
 });

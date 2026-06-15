@@ -136,10 +136,7 @@ export async function runDevToggle(): Promise<void> {
       'input[aria-label="Search tools"]',
     ) as HTMLInputElement | null;
     if (!el) return;
-    const setter = Object.getOwnPropertyDescriptor(
-      window.HTMLInputElement.prototype,
-      "value",
-    )?.set;
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
     setter?.call(el, "toggle free");
     el.dispatchEvent(new Event("input", { bubbles: true }));
   });
@@ -161,15 +158,13 @@ export async function runDevToggle(): Promise<void> {
 
   // ArrowUp wraps the highlight from row 0 to the LAST row — the command.
   await browser.execute(() => {
-    document
-      .querySelector('input[aria-label="Search tools"]')
-      ?.dispatchEvent(
-        new KeyboardEvent("keydown", {
-          key: "ArrowUp",
-          bubbles: true,
-          cancelable: true,
-        }),
-      );
+    document.querySelector('input[aria-label="Search tools"]')?.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "ArrowUp",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
   });
   // Fail loud if the highlighted row is NOT the dev command (Enter would
   // otherwise navigate to a tool and corrupt the rest of the spec).
@@ -189,22 +184,18 @@ export async function runDevToggle(): Promise<void> {
     },
   );
   await browser.execute(() => {
-    document
-      .querySelector('input[aria-label="Search tools"]')
-      ?.dispatchEvent(
-        new KeyboardEvent("keydown", {
-          key: "Enter",
-          bubbles: true,
-          cancelable: true,
-        }),
-      );
+    document.querySelector('input[aria-label="Search tools"]')?.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Enter",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
   });
   // The palette closes before the async run lands.
   await browser.waitUntil(
     async () =>
-      browser.execute(
-        () => document.querySelector('input[aria-label="Search tools"]') === null,
-      ),
+      browser.execute(() => document.querySelector('input[aria-label="Search tools"]') === null),
     { timeout: 5_000, timeoutMsg: "palette did not close after running the dev toggle" },
   );
 }
@@ -217,6 +208,30 @@ export function unlockProFooterPresent(): Promise<boolean> {
       (b.textContent ?? "").includes("Unlock Pro"),
     ),
   );
+}
+
+// Whether the shared Unlock Pro upsell MODAL is open — the focus-trapped
+// [role="dialog"][aria-modal="true"] UpsellModal mounted at the shell (App.tsx)
+// via the upsellStore. This is the SAME surface the footer "Unlock Pro" row, the
+// locked Alt+P chord, the ⌘K free-tier "License" command, and LicenseSettings'
+// Reactivate/Activate buttons all open (D-88 — no duplicate UI). Distinguished
+// from the ⌘K command palette dialog (which is NOT aria-modal) by the modal flag.
+//
+// The panel inside ADAPTS on the resolved license state (UpsellPanel): the FREE
+// (notActivated) tier shows "Thank you for using TinkerDev"; the D-44 problem
+// state shows "Your license file couldn't be verified" (a paying customer never
+// sees the sales pitch). Both ARE the upsell modal, so this probe matches either
+// heading — callers wanting a specific copy can read the dialog text themselves.
+export function upsellModalOpen(): Promise<boolean> {
+  return browser.execute(() => {
+    const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
+    if (!dialog) return false;
+    const text = dialog.textContent ?? "";
+    return (
+      text.includes("Thank you for using TinkerDev") ||
+      text.includes("Your license file couldn't be verified")
+    );
+  });
 }
 
 // --- DEV-only tier control (post-D-85) --------------------------------------
@@ -292,8 +307,8 @@ export async function ensureFreeTier(): Promise<void> {
 // ("Reorder {name}" -> "{name}"), in DOM order.
 export function readOrder(): Promise<string[]> {
   return browser.execute(() =>
-    Array.from(document.querySelectorAll('button[aria-label^="Reorder "]')).map(
-      (b) => (b.getAttribute("aria-label") ?? "").replace(/^Reorder /, ""),
+    Array.from(document.querySelectorAll('button[aria-label^="Reorder "]')).map((b) =>
+      (b.getAttribute("aria-label") ?? "").replace(/^Reorder /, ""),
     ),
   );
 }
@@ -304,8 +319,8 @@ export function readPinnedOrder(): Promise<string[]> {
   return browser.execute(() => {
     const grp = document.querySelector('[role="group"][aria-label="Pinned tools"]');
     if (!grp) return [];
-    return Array.from(grp.querySelectorAll('button[aria-label^="Reorder "]')).map(
-      (b) => (b.getAttribute("aria-label") ?? "").replace(/^Reorder /, ""),
+    return Array.from(grp.querySelectorAll('button[aria-label^="Reorder "]')).map((b) =>
+      (b.getAttribute("aria-label") ?? "").replace(/^Reorder /, ""),
     );
   });
 }
@@ -317,13 +332,11 @@ export function readPinnedOrder(): Promise<string[]> {
 // down to the <a>. Returns true if the row <a> received focus.
 export function focusRow(name: string): Promise<boolean> {
   return browser.execute((n: string) => {
-    const grip = Array.from(
-      document.querySelectorAll('button[aria-label^="Reorder "]'),
-    ).find((b) => b.getAttribute("aria-label") === `Reorder ${n}`);
+    const grip = Array.from(document.querySelectorAll('button[aria-label^="Reorder "]')).find(
+      (b) => b.getAttribute("aria-label") === `Reorder ${n}`,
+    );
     // The row wrapper is the nearest ancestor that also contains the NavLink <a>.
-    const link = grip?.closest("div")?.querySelector("a") as
-      | HTMLAnchorElement
-      | null;
+    const link = grip?.closest("div")?.querySelector("a") as HTMLAnchorElement | null;
     link?.focus();
     return document.activeElement === link;
   }, name);
