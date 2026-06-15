@@ -20,15 +20,23 @@
 //                drop to free. Offline (D-79): the call rejects `offline` BEFORE
 //                any local clear (server-delete-first, Rust-pinned) — we surface
 //                calm guidance, NEVER text-bad, and local state is untouched.
-//   Reactivate — opens the shared Unlock Pro upsell modal (the activation surface
-//                owns the form, D-88). The old navigate("/") landed the user on a
-//                TOOL (since "/" redirects to the hero) with no activation surface —
-//                it read as "does nothing / bounces to a tool" (21-04 walkthrough
-//                fix, same root cause as the ⌘K free-tier fix). openUpsell() opens
-//                the SAME modal the footer + ⌘K open (shell/upsellStore — no
-//                duplicate UI). UpsellPanel adapts on hasStoredKey: an empty submit
-//                reuses the Keychain key, a pasted key replaces it — so the upsell
-//                is the unified entry for BOTH Reactivate and Activate.
+//   Activate   — INLINE (Phase 22.1, D-22.1-6/7; revises SET-06). The not-Pro
+//                states render the shared activation surface (InlineActivation)
+//                directly in the pane instead of opening the standalone UpsellModal
+//                STACKED above the Settings modal (the old modal-on-modal path):
+//                  • free/notActivated → the FULL pitch inline ("Thank you ❤️" +
+//                    Buy license + "I have a license key" reveal → key input +
+//                    Activate) — variant="upsell" (D-22.1-6).
+//                  • refreshNeeded/problem → the calm status card + Refresh KEPT,
+//                    with ONLY the key-input + Activate form inline below (NO sales
+//                    pitch — a lapsed/attention paying customer never sees it),
+//                    variant="form-only" (D-22.1-7). Replaces the old modal-opening
+//                    Reactivate button.
+//                InlineActivation is the SAME shared surface UpsellModal uses — no
+//                duplicate UI, no duplicated activation logic (D-22.1-4). It adapts
+//                on hasStoredKey: an empty submit reuses the Keychain key, a pasted
+//                key replaces it. The standalone UpsellModal still opens from the
+//                sidebar "Unlock Pro" + ⌘K free-tier entries (D-22.1-5).
 //
 // The masked key + licensee email come from verified cert data (D-89); the RAW
 // key NEVER round-trips through JS (LIC-04) — there is no raw-key field on the
@@ -45,10 +53,10 @@ import {
   refreshLicenseUi,
   refreshLicenseUiDetailed,
 } from "@/lib/license/licenseUi";
-import { openUpsell } from "@/shell/upsellStore";
 import { useLicenseUi } from "@/shell/useLicenseUi";
 import { usePreferences } from "@/shell/usePreferences";
 import { CopyButton } from "./CopyButton";
+import { InlineActivation } from "./UpsellPanel";
 
 // Copied verbatim from UpsellPanel (do not drift — 21-UI-SPEC reuse mandate).
 const CARD_CLASS =
@@ -194,10 +202,18 @@ export function LicenseSettings() {
   const maskedKey = isProActive ? ui.maskedKey : null;
   const email = isProActive ? ui.email : null;
   const renews = isProActive ? renewsLine(ui.expiry) : null;
-  // refreshNeeded lands here too: it is the ONE calm "no longer active" state,
-  // shared with a suspended/revoked drop (D-83).
-  const canReactivate = ui.state === "refreshNeeded" || ui.state === "problem";
+  // refreshNeeded + problem keep their calm status card + Refresh and render the
+  // INLINE form-only activation surface below (D-22.1-7) — it is the ONE calm
+  // "no longer active" path, shared with a suspended/revoked drop (D-83).
+  const showInlineForm = ui.state === "refreshNeeded" || ui.state === "problem";
+  // free/notActivated renders the FULL inline upsell INSTEAD of a status card
+  // (D-22.1-6) — its own pitch heading is the surface (no duplicated "Free"
+  // heading + pitch). The drop notice (D-84) still renders above it.
+  const isFree = ui.state === "notActivated";
 
+  // Status copy for the MANAGED states only — free/notActivated early-returns to
+  // the inline upsell below and never renders a status card (D-22.1-6), so the
+  // notActivated arm is intentionally absent; "Free" falls through the default.
   const statusLabel = ((): string => {
     switch (ui.state) {
       case "licensed":
@@ -208,7 +224,6 @@ export function LicenseSettings() {
         return "Pro is no longer active";
       case "problem":
         return "License needs attention";
-      case "notActivated":
       default:
         return "Free";
     }
@@ -224,40 +239,57 @@ export function LicenseSettings() {
         return "Connect to the internet and refresh to restore Pro. Your themes and tool order are saved and will come right back.";
       case "problem":
         return "Your license file couldn't be verified. Your tools keep working — activate again to restore your license.";
-      case "notActivated":
       default:
-        return "Most of TinkerDev is free. Activate a license to unlock custom themes and tool reordering.";
+        return "Most of TinkerDev is free.";
     }
   })();
+
+  // D-84 one-time drop notice — calm, dismissable, inline (never a toast).
+  // Shared by the free-state branch and the managed-state branch below.
+  const dropNotice = showDropNotice ? (
+    <div className={CARD_CLASS}>
+      <div className="flex items-center gap-2">
+        <Lock className="h-5 w-5 flex-none text-tx-2" aria-hidden="true" />
+        <h2 className={HEADING_CLASS}>Your Pro features turned off</h2>
+      </div>
+      <div className={BODY_CLASS}>
+        <p>
+          Your themes and tool order are saved — reactivate any time to bring
+          them back.
+        </p>
+      </div>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => ackLicenseDropNotice()}
+          className={SECONDARY_BTN_CLASS}
+        >
+          Got it
+        </button>
+      </div>
+    </div>
+  ) : null;
+
+  // free/notActivated (D-22.1-6): render the FULL upsell/activation surface INLINE
+  // ("Thank you ❤️" + Buy + "I have a license key" → key input + Activate) — the
+  // SAME shared surface UpsellModal uses, no stacked modal-on-modal. The inline
+  // pitch heading IS the surface, so there is no separate "Free" status card here
+  // (no duplicated heading). The drop notice (if pending) still renders above.
+  if (isFree) {
+    return (
+      <div className="flex flex-col gap-12 overflow-auto p-8">
+        <h1 className="sr-only">License</h1>
+        {dropNotice}
+        <InlineActivation variant="upsell" icon={Lock} />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-12 overflow-auto p-8">
       <h1 className="sr-only">License</h1>
 
-      {/* D-84 one-time drop notice — calm, dismissable, inline (never a toast). */}
-      {showDropNotice ? (
-        <div className={CARD_CLASS}>
-          <div className="flex items-center gap-2">
-            <Lock className="h-5 w-5 flex-none text-tx-2" aria-hidden="true" />
-            <h2 className={HEADING_CLASS}>Your Pro features turned off</h2>
-          </div>
-          <div className={BODY_CLASS}>
-            <p>
-              Your themes and tool order are saved — reactivate any time to bring
-              them back.
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => ackLicenseDropNotice()}
-              className={SECONDARY_BTN_CLASS}
-            >
-              Got it
-            </button>
-          </div>
-        </div>
-      ) : null}
+      {dropNotice}
 
       {/* Status block. */}
       <div className={CARD_CLASS}>
@@ -321,48 +353,21 @@ export function LicenseSettings() {
       {/* Management block — 48px (gap-12) below the status block. */}
       <div className="flex max-w-[420px] flex-col gap-4">
         <div className="flex flex-wrap gap-2">
-          {/* Refresh — present whenever there is a license to manage (every state
-              except the pure free notActivated, where there is nothing to refresh). */}
-          {ui.state !== "notActivated" ? (
-            <button
-              type="button"
-              onClick={() => void onRefresh()}
-              disabled={refreshing}
-              // 21-04 FLAG P3b: convey the busy state on the control itself, in
-              // parity with the separate aria-live "Refreshing…" line — the
-              // disabled recolor is otherwise a color-only affordance.
-              aria-busy={refreshing}
-              className={PRIMARY_BTN_CLASS}
-            >
-              Refresh
-            </button>
-          ) : null}
-
-          {/* Reactivate (refreshNeeded / problem) — same action regardless of
-              cause (D-83); opens the shared Unlock Pro upsell modal, which owns
-              the activation form (D-88). NOT navigate("/") — that bounced to the
-              hero TOOL with no activation surface (21-04 walkthrough fix). */}
-          {canReactivate ? (
-            <button
-              type="button"
-              onClick={() => openUpsell()}
-              className={PRIMARY_BTN_CLASS}
-            >
-              Reactivate
-            </button>
-          ) : null}
-
-          {/* Activate (free) — opens the SAME shared Unlock Pro upsell modal the
-              footer + ⌘K open (D-88); the panel adapts on hasStoredKey. */}
-          {ui.state === "notActivated" ? (
-            <button
-              type="button"
-              onClick={() => openUpsell()}
-              className={PRIMARY_BTN_CLASS}
-            >
-              Activate a license
-            </button>
-          ) : null}
+          {/* Refresh — present whenever there is a license to manage. The pure
+              free notActivated state never reaches here (it early-returns to the
+              inline upsell above), so this row always renders in this branch. */}
+          <button
+            type="button"
+            onClick={() => void onRefresh()}
+            disabled={refreshing}
+            // 21-04 FLAG P3b: convey the busy state on the control itself, in
+            // parity with the separate aria-live "Refreshing…" line — the
+            // disabled recolor is otherwise a color-only affordance.
+            aria-busy={refreshing}
+            className={PRIMARY_BTN_CLASS}
+          >
+            Refresh
+          </button>
         </div>
 
         {/* Refresh in-flight / calm error line — ONE aria-live region. */}
@@ -372,6 +377,13 @@ export function LicenseSettings() {
         >
           {refreshing ? "Refreshing…" : (refreshError ?? "")}
         </p>
+
+        {/* refreshNeeded / problem (D-22.1-7): the key-input + Activate form INLINE
+            below the status card + Refresh — NO sales pitch (a lapsed/attention
+            paying customer never sees it). The SAME shared activation surface
+            (form-only variant), replacing the old modal-opening Reactivate button.
+            It adapts on hasStoredKey: an empty submit reuses the saved key. */}
+        {showInlineForm ? <InlineActivation variant="form-only" icon={Lock} /> : null}
 
         {/* Deactivate (confirm-first inline, D-78) — only when Pro is active. */}
         {isProActive ? (

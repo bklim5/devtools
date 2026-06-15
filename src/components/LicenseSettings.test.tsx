@@ -36,14 +36,13 @@ vi.mock("react-router-dom", async (importOriginal) => {
   return { ...actual, useNavigate: () => navigateSpy };
 });
 
-// Reactivate (refreshNeeded/problem) + Activate (notActivated) open the SHARED
-// Unlock Pro upsell modal (shell/upsellStore) — the activation surface — NOT
-// navigate("/") (which bounced to the hero tool with no activation surface;
-// 21-04 walkthrough fix, same root cause as the ⌘K free-tier fix).
-const openUpsellSpy = vi.fn();
-vi.mock("@/shell/upsellStore", () => ({
-  openUpsell: () => openUpsellSpy(),
-}));
+// Phase 22.1 (D-22.1-4/5/6/7): the not-Pro states no longer open the standalone
+// UpsellModal STACKED above the Settings modal (the old openUpsell modal-on-modal).
+// They render the SHARED activation surface (InlineActivation, from UpsellPanel)
+// INLINE in the pane. So LicenseSettings no longer imports openUpsell at all —
+// these tests assert the inline surface renders (pitch+form for free, form-only
+// below the status card for refreshNeeded/problem) instead of a modal opening.
+// The standalone UpsellModal is covered (unchanged) by UpsellPanel.test.tsx.
 
 const LICENSED: LicenseStatusPayload = {
   state: "licensed",
@@ -84,7 +83,6 @@ function renderRoute() {
 
 beforeEach(() => {
   navigateSpy.mockClear();
-  openUpsellSpy.mockClear();
 });
 
 afterEach(() => {
@@ -106,19 +104,34 @@ describe("LicenseSettings — state copy + fields", () => {
     expect(getByRole("button", { name: "Deactivate this device" })).toBeTruthy();
   });
 
-  it("notActivated (free): 'Free' heading + Activate OPENS the shared upsell modal (D-88)", async () => {
+  it("notActivated (free): renders the FULL upsell/activation surface INLINE — pitch + Buy + 'I have a license key' → key input — no modal, no navigate (D-22.1-6)", async () => {
     const free: LicenseStatusPayload = { state: "notActivated", hasStoredKey: false };
     await installPlatform(free);
     act(() => setLicenseUiForTest(free));
     const { getByText, getByRole, queryByRole } = renderRoute();
 
-    expect(getByText("Free")).toBeTruthy();
+    // The inline upsell pitch IS the surface (no separate "Free" status card —
+    // its heading would duplicate the pitch heading, D-22.1-6).
+    expect(
+      getByRole("heading", { name: /Thank you for using TinkerDev/ }),
+    ).toBeTruthy();
+    expect(getByText(/Most of TinkerDev is free/)).toBeTruthy();
+    expect(getByRole("button", { name: "Buy license" })).toBeTruthy();
     // No Refresh/Deactivate on the pure free state.
     expect(queryByRole("button", { name: "Refresh" })).toBeNull();
-    fireEvent.click(getByRole("button", { name: "Activate a license" }));
-    // Opens the shared Unlock Pro upsell (the activation surface) — never a
-    // navigate-to-tool (21-04 walkthrough fix).
-    expect(openUpsellSpy).toHaveBeenCalledTimes(1);
+    expect(
+      queryByRole("button", { name: "Deactivate this device" }),
+    ).toBeNull();
+    // No modal-on-modal: the activation form is INLINE — no [role="dialog"]
+    // (the standalone UpsellModal would mount one; here the pane renders inline).
+    expect(queryByRole("dialog")).toBeNull();
+
+    // Revealing the inline form shows the real key input + Activate (the shared
+    // surface), no second modal opens.
+    fireEvent.click(getByRole("button", { name: "I have a license key" }));
+    expect(getByRole("textbox", { name: "License key" })).toBeTruthy();
+    expect(getByRole("button", { name: "Activate" })).toBeTruthy();
+    expect(queryByRole("dialog")).toBeNull();
     expect(navigateSpy).not.toHaveBeenCalled();
   });
 
@@ -142,21 +155,29 @@ describe("LicenseSettings — state copy + fields", () => {
     expect(getByText("—")).toBeTruthy();
   });
 
-  it("refreshNeeded: ONE calm 'Pro is no longer active' state; Reactivate OPENS the upsell (D-83)", async () => {
+  it("refreshNeeded: calm 'Pro is no longer active' status + Refresh, with the key input + Activate form INLINE below — NO pitch, no modal (D-22.1-7/D-83)", async () => {
     const rn: LicenseStatusPayload = { state: "refreshNeeded", hasStoredKey: true };
     await installPlatform(rn);
     act(() => setLicenseUiForTest(rn));
-    const { getByText, getByRole } = renderRoute();
+    const { getByText, getByRole, queryByText, queryByRole } = renderRoute();
 
+    // The calm status card + Refresh are KEPT.
     expect(getByText("Pro is no longer active")).toBeTruthy();
-    expect(getByRole("button", { name: "Reactivate" })).toBeTruthy();
-    fireEvent.click(getByRole("button", { name: "Reactivate" }));
-    // Opens the shared Unlock Pro upsell — never a navigate-to-tool.
-    expect(openUpsellSpy).toHaveBeenCalledTimes(1);
+    expect(getByRole("button", { name: "Refresh" })).toBeTruthy();
+    // The inline form-only activation surface renders below (pre-revealed) —
+    // the OLD modal-opening Reactivate button is GONE.
+    expect(getByRole("textbox", { name: "License key" })).toBeTruthy();
+    expect(getByRole("button", { name: "Activate" })).toBeTruthy();
+    expect(queryByRole("button", { name: "Reactivate" })).toBeNull();
+    // NO sales pitch for a lapsed paying customer (D-22.1-7 / D-44 principle).
+    expect(queryByText(/Most of TinkerDev is free/)).toBeNull();
+    expect(queryByText(/Thank you for using TinkerDev/)).toBeNull();
+    // Inline — no modal-on-modal.
+    expect(queryByRole("dialog")).toBeNull();
     expect(navigateSpy).not.toHaveBeenCalled();
   });
 
-  it("problem: 'License needs attention' + Reactivate OPENS the upsell (D-44/D-83)", async () => {
+  it("problem: 'License needs attention' status + Refresh, with the key input + Activate form INLINE below — NO pitch, no modal (D-22.1-7/D-44/D-83)", async () => {
     const prob: LicenseStatusPayload = {
       state: "problem",
       problem: "foreignMachine",
@@ -164,14 +185,37 @@ describe("LicenseSettings — state copy + fields", () => {
     };
     await installPlatform(prob);
     act(() => setLicenseUiForTest(prob));
-    const { getByText, getByRole } = renderRoute();
+    const { getByText, getByRole, queryByText, queryByRole } = renderRoute();
 
     expect(getByText("License needs attention")).toBeTruthy();
-    fireEvent.click(getByRole("button", { name: "Reactivate" }));
-    // problem shares the calm "no longer active" Reactivate action (D-83) — it
-    // too opens the shared upsell, not navigate-to-tool.
-    expect(openUpsellSpy).toHaveBeenCalledTimes(1);
+    expect(getByRole("button", { name: "Refresh" })).toBeTruthy();
+    // The inline form-only surface — no modal-opening Reactivate button (D-22.1-7).
+    expect(getByRole("textbox", { name: "License key" })).toBeTruthy();
+    expect(getByRole("button", { name: "Activate" })).toBeTruthy();
+    expect(queryByRole("button", { name: "Reactivate" })).toBeNull();
+    // A paying customer in the problem state never sees the sales pitch.
+    expect(queryByText(/Most of TinkerDev is free/)).toBeNull();
+    expect(queryByRole("dialog")).toBeNull();
     expect(navigateSpy).not.toHaveBeenCalled();
+  });
+
+  it("problem: the inline form activates with the SAME shared submit chain (key input → activate)", async () => {
+    const prob: LicenseStatusPayload = {
+      state: "problem",
+      problem: "foreignMachine",
+      hasStoredKey: false,
+    };
+    const activate = vi.fn(() => Promise.resolve(LICENSED));
+    await installPlatform(prob, { activate });
+    act(() => setLicenseUiForTest(prob));
+    const { getByRole } = renderRoute();
+
+    const input = getByRole("textbox", { name: "License key" });
+    fireEvent.change(input, { target: { value: "  KEY-INLINE  " } });
+    fireEvent.click(getByRole("button", { name: "Activate" }));
+    // The shared surface trims + calls activate — proving the inline form is
+    // wired to the SAME activation logic, not a stub (D-22.1-4).
+    await waitFor(() => expect(activate).toHaveBeenCalledWith("KEY-INLINE"));
   });
 });
 
