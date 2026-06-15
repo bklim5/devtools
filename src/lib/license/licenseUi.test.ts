@@ -51,6 +51,14 @@ const REFRESH_NEEDED: LicenseStatusPayload = {
   hasStoredKey: true,
 };
 
+const LICENSED_WITH_KEY: LicenseStatusPayload = {
+  state: "licensed",
+  expiry: "2027-01-01T00:00:00Z",
+  entitlements: ["pro.theming", "pro.ordering"],
+  maskedKey: "••••••••AB12",
+  email: "buyer@example.com",
+};
+
 describe("licenseUi snapshot store", () => {
   it("defaults to { state: 'notActivated', hasStoredKey: false }", () => {
     expect(getLicenseUiSnapshot()).toEqual({
@@ -241,6 +249,153 @@ describe("licenseUi snapshot store", () => {
 
     setLicenseUiForTest({ ...OFFLINE_GRACE, email: "other@example.com" });
     expect(listener).toHaveBeenCalledTimes(2);
+    unsubscribe();
+  });
+
+  // --- maskedKey/email stickiness (Phase 22.1 bug fix) --------------------
+  // A non-detailed refresh (status(), the KEYCHAIN-FREE seam) resolves
+  // maskedKey:null/email:null for a licensed machine. It must NEVER overwrite a
+  // populated key/email from a prior detailed (route) read — otherwise visiting
+  // #/settings/license shows the key, then a footer/panel refreshLicenseUi()
+  // blanks it. The non-detailed payload CARRIES FORWARD current's key/email when
+  // the state is unchanged (licensed/offlineGrace, populated); the user-initiated
+  // detailed read still updates them. payloadsEqual is NOT weakened.
+
+  it("a non-detailed refresh after a detailed read KEEPS the maskedKey/email (no downgrade to null)", async () => {
+    const detailed = LICENSED_WITH_KEY;
+    // status() is keychain-free: same licensed state, but key/email blanked.
+    const keychainFree: LicenseStatusPayload = {
+      ...LICENSED_WITH_KEY,
+      maskedKey: null,
+      email: null,
+    };
+    setPlatformForTest({
+      ...makeMemoryPlatform(),
+      license: {
+        ...noopLicense,
+        status: () => Promise.resolve(keychainFree),
+        statusDetail: () => Promise.resolve(detailed),
+      },
+    });
+
+    // Route reads detailed → key/email populated.
+    await refreshLicenseUiDetailed();
+    const afterDetailed = getLicenseUiSnapshot();
+    expect(afterDetailed.state === "licensed" ? afterDetailed.maskedKey : null).toBe(
+      "••••••••AB12",
+    );
+
+    // A subsequent non-detailed refresh (footer/panel) must NOT blank them.
+    await refreshLicenseUi();
+    const afterPlain = getLicenseUiSnapshot();
+    expect(afterPlain.state === "licensed" ? afterPlain.maskedKey : null).toBe(
+      "••••••••AB12",
+    );
+    expect(afterPlain.state === "licensed" ? afterPlain.email : null).toBe(
+      "buyer@example.com",
+    );
+  });
+
+  it("the carry-forward stickiness applies to offlineGrace too", async () => {
+    const detailed = OFFLINE_GRACE;
+    const keychainFree: LicenseStatusPayload = {
+      ...OFFLINE_GRACE,
+      maskedKey: null,
+      email: null,
+    };
+    setPlatformForTest({
+      ...makeMemoryPlatform(),
+      license: {
+        ...noopLicense,
+        status: () => Promise.resolve(keychainFree),
+        statusDetail: () => Promise.resolve(detailed),
+      },
+    });
+
+    await refreshLicenseUiDetailed();
+    await refreshLicenseUi();
+    const snap = getLicenseUiSnapshot();
+    expect(snap.state === "offlineGrace" ? snap.maskedKey : null).toBe(
+      "••••••••AB12",
+    );
+    expect(snap.state === "offlineGrace" ? snap.email : null).toBe(
+      "buyer@example.com",
+    );
+  });
+
+  it("a detailed read STILL updates the maskedKey/email (carry-forward never blocks a real value)", async () => {
+    // Seed a stale detailed snapshot, then a fresh detailed read with a new key.
+    setLicenseUiForTest(LICENSED_WITH_KEY);
+    expect(
+      (() => {
+        const s = getLicenseUiSnapshot();
+        return s.state === "licensed" ? s.maskedKey : null;
+      })(),
+    ).toBe("••••••••AB12");
+
+    const renewed: LicenseStatusPayload = {
+      ...LICENSED_WITH_KEY,
+      maskedKey: "••••••••ZZ99",
+      email: "renewed@example.com",
+    };
+    setPlatformForTest({
+      ...makeMemoryPlatform(),
+      license: {
+        ...noopLicense,
+        statusDetail: () => Promise.resolve(renewed),
+      },
+    });
+
+    await refreshLicenseUiDetailed();
+    const snap = getLicenseUiSnapshot();
+    expect(snap.state === "licensed" ? snap.maskedKey : null).toBe("••••••••ZZ99");
+    expect(snap.state === "licensed" ? snap.email : null).toBe(
+      "renewed@example.com",
+    );
+  });
+
+  it("a non-detailed refresh that CHANGES state (licensed→refreshNeeded) still flips, no stale carry-forward", async () => {
+    // The carry-forward is ONLY same-state; a real drop must propagate.
+    setLicenseUiForTest(LICENSED_WITH_KEY);
+    const dropped: LicenseStatusPayload = {
+      state: "refreshNeeded",
+      hasStoredKey: true,
+    };
+    setPlatformForTest({
+      ...makeMemoryPlatform(),
+      license: { ...noopLicense, status: () => Promise.resolve(dropped) },
+    });
+
+    const listener = vi.fn();
+    const unsubscribe = subscribeLicenseUi(listener);
+    await refreshLicenseUi();
+    expect(getLicenseUiSnapshot()).toEqual(dropped);
+    expect(listener).toHaveBeenCalledTimes(1);
+    unsubscribe();
+  });
+
+  it("a non-detailed refresh whose key/email already match is still a silent no-op (carry-forward doesn't force a notify)", async () => {
+    // current already has the key (e.g. a prior detailed read); the keychain-free
+    // status() blanks it, but carry-forward restores the SAME values → payloads
+    // equal → no notify.
+    setLicenseUiForTest(LICENSED_WITH_KEY);
+    setPlatformForTest({
+      ...makeMemoryPlatform(),
+      license: {
+        ...noopLicense,
+        status: () =>
+          Promise.resolve<LicenseStatusPayload>({
+            ...LICENSED_WITH_KEY,
+            maskedKey: null,
+            email: null,
+          }),
+      },
+    });
+
+    const listener = vi.fn();
+    const unsubscribe = subscribeLicenseUi(listener);
+    await refreshLicenseUi();
+    expect(listener).not.toHaveBeenCalled();
     unsubscribe();
   });
 });

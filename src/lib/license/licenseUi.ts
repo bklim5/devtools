@@ -100,11 +100,42 @@ export async function refreshLicenseUiDetailed(): Promise<void> {
   await refresh(true);
 }
 
+/** Carry the masked key + email forward from `current` into an incoming
+ *  NON-DETAILED payload (Phase 22.1 bug fix). The keychain-free `status()` seam
+ *  resolves maskedKey/email as null for a licensed machine (T-19-10), so a plain
+ *  refreshLicenseUi() (footer/panel/startup) would otherwise BLANK the values a
+ *  prior route `statusDetail()` read populated — making the License key vanish on
+ *  the licensed route. When the incoming payload is the SAME Pro-active state
+ *  (licensed/offlineGrace) and `current` already holds those values, keep them:
+ *  a keychain-free refresh never DOWNGRADES a value to null. A user-initiated
+ *  detailed read (statusDetail) is authoritative and is never passed through here. */
+function carryForwardKeyEmail(
+  next: LicenseStatusPayload,
+  cur: LicenseStatusPayload,
+): LicenseStatusPayload {
+  if (
+    (next.state === "licensed" && cur.state === "licensed") ||
+    (next.state === "offlineGrace" && cur.state === "offlineGrace")
+  ) {
+    return {
+      ...next,
+      maskedKey: next.maskedKey ?? cur.maskedKey,
+      email: next.email ?? cur.email,
+    };
+  }
+  return next;
+}
+
 async function refresh(detailed: boolean): Promise<void> {
   await initPlatform();
-  const next = detailed
+  // The detailed (route) read is authoritative — it reads the Keychain on a
+  // user action, so its key/email replace whatever is stored. A non-detailed
+  // read is keychain-free and must never downgrade a populated key/email to
+  // null (carry the current values forward when the Pro-active state is unchanged).
+  const fetched = detailed
     ? await platform.license.statusDetail()
     : await platform.license.status();
+  const next = detailed ? fetched : carryForwardKeyEmail(fetched, current);
   if (payloadsEqual(next, current)) return;
   current = next;
   notify();
