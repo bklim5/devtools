@@ -113,14 +113,20 @@ export function Sidebar() {
   // status route when there is a license to manage, to the Unlock Pro panel for
   // the pure free tier (the activation pitch). The locked-customization
   // affordances (pin/reorder/reset) always open the panel via openOrderingUpsell.
-  const openLicenseSurface = useCallback(() => {
-    // D-S11: the manageable-license branch now opens the Settings modal on the
-    // License pane (the single Settings surface, D-S6) instead of navigating to
-    // the superseded #/settings/license route. The free-tier branch is UNCHANGED
-    // — "Unlock Pro" still opens the shared upsell modal.
-    if (hasManageableLicense) openSettings("license");
-    else openOrderingUpsell();
-  }, [hasManageableLicense, openOrderingUpsell]);
+  const openLicenseSurface = useCallback(
+    (invokerEl?: HTMLElement | null) => {
+      // D-S11: the manageable-license branch now opens the Settings modal on the
+      // License pane (the single Settings surface, D-S6) instead of navigating to
+      // the superseded #/settings/license route. The free-tier branch is UNCHANGED
+      // — "Unlock Pro" still opens the shared upsell modal.
+      // MED-22-02: pass the clicked element as the explicit return target — a
+      // WKWebView mouse click leaves document.activeElement unreliable, so the
+      // store's default activeElement capture strands focus on modal close.
+      if (hasManageableLicense) openSettings("license", invokerEl);
+      else openOrderingUpsell(invokerEl);
+    },
+    [hasManageableLicense, openOrderingUpsell],
+  );
 
   // The aria-live announcement text (D-06). Re-set on every successful move/toggle.
   const [announcement, setAnnouncement] = useState("");
@@ -644,7 +650,7 @@ export function Sidebar() {
       {licenseAttention || !ents.has(ENT_ORDERING) || !ents.has(ENT_THEMING) ? (
         <button
           type="button"
-          onClick={openLicenseSurface}
+          onClick={(e) => openLicenseSurface(e.currentTarget)}
           className="flex min-h-6 items-center gap-2 rounded-[6px] px-[11px] py-1 text-left text-[13px] text-tx-2 outline-none transition-colors hover:text-tx focus-visible:ring-2 focus-visible:ring-accent"
         >
           <Lock aria-hidden="true" className="h-3 w-3 flex-none" />
@@ -660,7 +666,7 @@ export function Sidebar() {
           click/Enter/Space. */}
       <button
         type="button"
-        onClick={() => openSettings("license")}
+        onClick={(e) => openSettings("license", e.currentTarget)}
         className="flex min-h-6 items-center gap-2 rounded-[6px] px-[11px] py-1 text-left text-[13px] text-tx-2 outline-none transition-colors hover:text-tx focus-visible:ring-2 focus-visible:ring-accent"
       >
         <Settings aria-hidden="true" className="h-3 w-3 flex-none" />

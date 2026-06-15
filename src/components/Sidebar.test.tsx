@@ -306,7 +306,9 @@ describe("Sidebar bottom-anchored Settings row (SET-03/D-S9/D-S10/D-S11)", () =>
     expect(settingsRow.tabIndex).toBe(0);
 
     fireEvent.click(settingsRow);
-    expect(openSettingsSpy).toHaveBeenCalledWith("license");
+    // MED-22-02: the clicked row is passed as the explicit focus-return target
+    // (e.currentTarget) so focus returns reliably on a WKWebView mouse click.
+    expect(openSettingsSpy).toHaveBeenCalledWith("license", settingsRow);
   });
 
   it("renders the Settings row in the free tier too (opens for everyone, D-S10)", async () => {
@@ -314,8 +316,9 @@ describe("Sidebar bottom-anchored Settings row (SET-03/D-S9/D-S10/D-S11)", () =>
     const { getByRole } = renderAt("/");
     await flushPrefsLoad();
 
-    fireEvent.click(getByRole("button", { name: "Settings" }));
-    expect(openSettingsSpy).toHaveBeenCalledWith("license");
+    const settingsRow = getByRole("button", { name: "Settings" });
+    fireEvent.click(settingsRow);
+    expect(openSettingsSpy).toHaveBeenCalledWith("license", settingsRow);
   });
 
   it("free-tier 'Unlock Pro' STILL opens the upsell modal (unchanged), never the Settings modal (D-S11)", async () => {
@@ -362,8 +365,9 @@ describe("Sidebar license attention footer (D-43/D-88)", () => {
     fireEvent.click(footer);
 
     // D-S11: a manageable license opens the Settings modal on the License pane,
-    // NOT the upsell modal and NOT a route navigation.
-    expect(openSettingsSpy).toHaveBeenCalledWith("license");
+    // NOT the upsell modal and NOT a route navigation. MED-22-02: the clicked
+    // footer is the explicit focus-return target.
+    expect(openSettingsSpy).toHaveBeenCalledWith("license", footer);
     expect(queryByRole("dialog")).toBeNull();
   });
 
@@ -381,7 +385,7 @@ describe("Sidebar license attention footer (D-43/D-88)", () => {
 
     const footer = getByRole("button", { name: "License needs attention" });
     fireEvent.click(footer);
-    expect(openSettingsSpy).toHaveBeenCalledWith("license");
+    expect(openSettingsSpy).toHaveBeenCalledWith("license", footer);
   });
 
   it("offlineGrace adds NO footer nag (D-77 — silent outside the status route)", async () => {
