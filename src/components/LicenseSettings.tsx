@@ -252,7 +252,12 @@ export function LicenseSettings() {
 
       {/* Status block. */}
       <div className={CARD_CLASS}>
-        <div className="flex items-center gap-2">
+        {/* 21-04 FLAG P6: the status-label transition (e.g. a silent refresh-drop
+            "Licensed" → "Pro is no longer active", D-82) must be ANNOUNCED, or a
+            screen-reader user hears "Refreshing…" then silence. Wrap the heading
+            row in an aria-live="polite" region so the new resting state is read
+            out calmly — polite, NEVER role=alert/assertive (D-77/D-83 calm tone). */}
+        <div className="flex items-center gap-2" aria-live="polite">
           {/* OK dot (text-ok) ONLY for Pro-active states — the only semantic
               accent-adjacent glyph (D-24); never accent. Other states stay
               neutral, no alarm color (D-77/D-83). */}
@@ -314,6 +319,10 @@ export function LicenseSettings() {
               type="button"
               onClick={() => void onRefresh()}
               disabled={refreshing}
+              // 21-04 FLAG P3b: convey the busy state on the control itself, in
+              // parity with the separate aria-live "Refreshing…" line — the
+              // disabled recolor is otherwise a color-only affordance.
+              aria-busy={refreshing}
               className={PRIMARY_BTN_CLASS}
             >
               Refresh

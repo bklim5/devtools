@@ -259,6 +259,47 @@ describe("LicenseSettings — Refresh (D-76/D-82)", () => {
     fireEvent.click(getByRole("button", { name: "Refresh" }));
     expect(await findByText("Pro is no longer active")).toBeTruthy();
   });
+
+  // 21-04 FLAG P6: the silent refresh-drop label change must be ANNOUNCED, or an
+  // SR user hears "Refreshing…" then silence. The status-label row lives in an
+  // aria-live="polite" region so the new resting state ("Pro is no longer
+  // active") is read out — politely, never role=alert (D-77/D-83 calm tone).
+  it("announces the status-label transition via a polite aria-live region (P6)", async () => {
+    const dropped: LicenseStatusPayload = { state: "refreshNeeded", hasStoredKey: true };
+    const refresh = vi.fn(() => Promise.resolve(dropped));
+    await installPlatform(dropped, { refresh });
+    act(() => setLicenseUiForTest(LICENSED));
+    const { getByRole, findByText, container } = renderRoute();
+
+    // The status heading lives inside a polite live region (NOT assertive/alert).
+    const region = container.querySelector('[aria-live="polite"]');
+    expect(region).toBeTruthy();
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+    expect(container.querySelector('[aria-live="assertive"]')).toBeNull();
+    expect(region!.textContent).toContain("Licensed");
+
+    fireEvent.click(getByRole("button", { name: "Refresh" }));
+    expect(await findByText("Pro is no longer active")).toBeTruthy();
+    // The NEW resting label is inside the same live region — so it is announced.
+    const after = container.querySelector('[aria-live="polite"]');
+    expect(after!.textContent).toContain("Pro is no longer active");
+  });
+
+  // 21-04 FLAG P3b: the busy state is conveyed on the control itself (aria-busy),
+  // in parity with the separate aria-live "Refreshing…" line — not color-only.
+  it("sets aria-busy on the Refresh button while refreshing (P3b)", async () => {
+    // A refresh that never resolves keeps the in-flight state observable.
+    const refresh = vi.fn(() => new Promise<LicenseStatusPayload>(() => {}));
+    await installPlatform(LICENSED, { refresh });
+    act(() => setLicenseUiForTest(LICENSED));
+    const { getByRole } = renderRoute();
+
+    const btn = getByRole("button", { name: "Refresh" });
+    expect(btn.getAttribute("aria-busy")).toBe("false");
+    fireEvent.click(btn);
+    await waitFor(() => expect(btn.getAttribute("aria-busy")).toBe("true"));
+    expect((btn as HTMLButtonElement).disabled).toBe(true);
+  });
 });
 
 describe("LicenseSettings — drop notice (D-84)", () => {
