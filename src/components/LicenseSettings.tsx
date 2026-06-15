@@ -46,7 +46,7 @@
 // — do NOT introduce new sizes/tokens.
 
 import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, Lock } from "lucide-react";
+import { AlertTriangle, Lock, RefreshCw } from "lucide-react";
 import { platform, type LicenseErrorCode } from "@/lib/platform";
 import { refreshEntitlements } from "@/lib/entitlements/store";
 import {
@@ -292,7 +292,7 @@ export function LicenseSettings() {
   const isAttention = ui.state === "problem" || ui.state === "refreshNeeded";
 
   return (
-    <div className="flex flex-col gap-12 overflow-auto p-8">
+    <div className="flex flex-col gap-6 overflow-auto p-8">
       {/* Phase 22.1: a visible, prominent pane header + subtitle for the managed
           states. It is an <h3> — one level under the SettingsModal dialog title
           ("Settings", an <h2>) so heading-order never inverts (the prior sr-only
@@ -304,120 +304,125 @@ export function LicenseSettings() {
         <h3 className="text-[20px] font-semibold leading-[1.2] text-tx">
           License
         </h3>
-        <p className="text-[12px] leading-[1.5] text-tx-2">
+        <p className="text-[12px] leading-[1.5] text-tx-3">
           Manage your activation and license key.
         </p>
       </div>
 
       {dropNotice}
 
-      {/* Status block. */}
-      <div
-        className={
-          isAttention
-            ? "flex w-full flex-col gap-4 rounded-[7px] border border-warn-line bg-warn-soft p-6"
-            : CARD_CLASS
-        }
-      >
-        {/* 21-04 FLAG P6: the status-label transition (e.g. a silent refresh-drop
-            "Licensed" → "Pro is no longer active", D-82) must be ANNOUNCED, or a
-            screen-reader user hears "Refreshing…" then silence. Wrap the heading
-            row in an aria-live="polite" region so the new resting state is read
-            out calmly — polite, NEVER role=alert/assertive (D-77/D-83 calm tone).
-            Phase 22.1: in the attention card the Refresh action sits top-right of
-            this row, so the heading takes the remaining width (justify-between). */}
-        <div
-          className="flex items-start justify-between gap-3"
-          aria-live="polite"
-        >
-          <div className="flex items-center gap-2">
-            {/* OK dot (text-ok) ONLY for Pro-active states — the only semantic
-                accent-adjacent glyph (D-24); never accent. The attention states
-                show an amber AlertTriangle (warn token); other neutral states
-                keep the Lock (D-77/D-83). */}
-            {isProActive ? (
-              <span
-                aria-hidden="true"
-                className="h-2 w-2 flex-none rounded-full bg-ok"
-              />
-            ) : isAttention ? (
-              <AlertTriangle
-                aria-hidden="true"
-                className="h-4 w-4 flex-none text-warn"
-              />
-            ) : (
-              <Lock aria-hidden="true" className="h-4 w-4 flex-none text-tx-2" />
-            )}
-            <h2 className={HEADING_CLASS}>{statusLabel}</h2>
-            {/* UNVERIFIED amber pill — problem state ONLY (a tampered/foreign
-                file). The amber-on-warn-soft text clears AA (warn ~10:1). */}
-            {ui.state === "problem" ? (
-              <span className="rounded-full border border-warn-line bg-warn-soft px-2 py-0.5 font-mono text-[10px] font-semibold uppercase leading-none tracking-wide text-warn">
-                Unverified
-              </span>
-            ) : null}
-          </div>
-          {/* Refresh moves into the card top-right for the attention states; the
-              Pro-active card keeps Refresh in the management block below. */}
-          {isAttention ? (
-            <button
-              type="button"
-              onClick={() => void onRefresh()}
-              disabled={refreshing}
-              aria-busy={refreshing}
-              className={`flex-none ${PRIMARY_BTN_CLASS}`}
+      {/* Status block. Phase 22.1 walkthrough (2026-06-16): the attention states
+          (problem/refreshNeeded) render a 3-COLUMN amber banner —
+          [AlertTriangle | content | SECONDARY Refresh] — so the icon spans the
+          heading+body and Refresh reads as the calm secondary re-check. Pro-active
+          states keep the neutral card + license fields. */}
+      {isAttention ? (
+        <div className="flex w-full items-start gap-3 rounded-[7px] border border-warn-line bg-warn-soft p-5">
+          <AlertTriangle
+            aria-hidden="true"
+            className="mt-0.5 h-5 w-5 flex-none text-warn"
+          />
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            {/* 21-04 FLAG P6: announce the status-label transition (e.g. a silent
+                refresh-drop "Licensed" → "Pro is no longer active", D-82) — polite,
+                NEVER assertive (D-77/D-83 calm tone). */}
+            <div
+              className="flex flex-wrap items-center gap-2"
+              aria-live="polite"
             >
-              Refresh
-            </button>
-          ) : null}
-        </div>
-        <div className={BODY_CLASS}>
-          <p>{statusBody}</p>
-          {ui.state === "licensed" || ui.state === "offlineGrace" ? (
-            <p className="text-[12px] leading-[1.5] text-tx-3">
-              Your license refreshes automatically.
-            </p>
-          ) : null}
-          {/* Attention-card in-flight / calm error line — the SAME aria-live
-              region role the management block uses, kept beside the moved Refresh. */}
-          {isAttention ? (
+              <h2 className={HEADING_CLASS}>{statusLabel}</h2>
+              {/* UNVERIFIED amber pill — problem state ONLY (a tampered/foreign
+                  file). The amber-on-warn-soft text clears AA (warn ~10:1). */}
+              {ui.state === "problem" ? (
+                <span className="rounded-full border border-warn-line bg-warn-soft px-2 py-0.5 font-mono text-[10px] font-semibold uppercase leading-none tracking-wide text-warn">
+                  Unverified
+                </span>
+              ) : null}
+            </div>
+            <p className="text-[12px] leading-[1.5] text-tx-2">{statusBody}</p>
+            {/* Calm in-flight / error line — its own aria-live region. */}
             <p
               aria-live="polite"
               className="min-h-[18px] text-[12px] leading-[1.5] text-tx-2"
             >
               {refreshing ? "Refreshing…" : (refreshError ?? "")}
             </p>
+          </div>
+          {/* Refresh is the SECONDARY re-check here (panel-toned, not accent) with
+              a spin-on-busy icon — secondary to Activate below. */}
+          <button
+            type="button"
+            onClick={() => void onRefresh()}
+            disabled={refreshing}
+            aria-busy={refreshing}
+            className={`inline-flex flex-none items-center gap-1.5 ${SECONDARY_BTN_CLASS}`}
+          >
+            <RefreshCw
+              aria-hidden="true"
+              className={`h-3.5 w-3.5 flex-none ${refreshing ? "animate-spin" : ""}`}
+            />
+            Refresh
+          </button>
+        </div>
+      ) : (
+        <div className={CARD_CLASS}>
+          {/* OK dot (text-ok) ONLY for Pro-active states — the only semantic
+              accent-adjacent glyph (D-24); never accent. */}
+          <div className="flex items-center gap-2" aria-live="polite">
+            {isProActive ? (
+              <span
+                aria-hidden="true"
+                className="h-2 w-2 flex-none rounded-full bg-ok"
+              />
+            ) : (
+              <Lock aria-hidden="true" className="h-4 w-4 flex-none text-tx-2" />
+            )}
+            <h2 className={HEADING_CLASS}>{statusLabel}</h2>
+          </div>
+          <div className={BODY_CLASS}>
+            <p>{statusBody}</p>
+            {isProActive ? (
+              <p className="text-[12px] leading-[1.5] text-tx-3">
+                Your license refreshes automatically.
+              </p>
+            ) : null}
+          </div>
+
+          {/* Fields — only when Pro data is present (D-89: em-dash, never empty). */}
+          {isProActive ? (
+            <dl className="flex flex-col gap-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-col gap-0.5">
+                  <dt className={LABEL_CLASS}>Licensee</dt>
+                  <dd className={VALUE_CLASS}>{email ?? "—"}</dd>
+                </div>
+                {email ? (
+                  <CopyButton value={email} label="licensee email" />
+                ) : null}
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-col gap-0.5">
+                  <dt className={LABEL_CLASS}>License key</dt>
+                  <dd className={VALUE_CLASS}>{maskedKey ?? "—"}</dd>
+                </div>
+                {maskedKey ? (
+                  <CopyButton value={maskedKey} label="masked license key" />
+                ) : null}
+              </div>
+              {renews ? (
+                <div className="flex flex-col gap-0.5">
+                  <dt className={LABEL_CLASS}>Renews</dt>
+                  <dd className="font-mono text-[12px] text-tx-3">{renews}</dd>
+                </div>
+              ) : null}
+            </dl>
           ) : null}
         </div>
+      )}
 
-        {/* Fields — only when Pro data is present (D-89: em-dash, never empty). */}
-        {isProActive ? (
-          <dl className="flex flex-col gap-3">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex flex-col gap-0.5">
-                <dt className={LABEL_CLASS}>Licensee</dt>
-                <dd className={VALUE_CLASS}>{email ?? "—"}</dd>
-              </div>
-              {email ? <CopyButton value={email} label="licensee email" /> : null}
-            </div>
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex flex-col gap-0.5">
-                <dt className={LABEL_CLASS}>License key</dt>
-                <dd className={VALUE_CLASS}>{maskedKey ?? "—"}</dd>
-              </div>
-              {maskedKey ? (
-                <CopyButton value={maskedKey} label="masked license key" />
-              ) : null}
-            </div>
-            {renews ? (
-              <div className="flex flex-col gap-0.5">
-                <dt className={LABEL_CLASS}>Renews</dt>
-                <dd className="font-mono text-[12px] text-tx-3">{renews}</dd>
-              </div>
-            ) : null}
-          </dl>
-        ) : null}
-      </div>
+      {/* Separator between the attention banner and the Activate section
+          (walkthrough 2026-06-16). */}
+      {showInlineForm ? <hr className="border-t border-bd" /> : null}
 
       {/* Management block — 48px (gap-12) below the status block. */}
       <div className="flex max-w-[420px] flex-col gap-4">
@@ -463,7 +468,7 @@ export function LicenseSettings() {
               <p className="text-[14px] font-semibold leading-[1.3] text-tx">
                 Activate a license
               </p>
-              <p className="text-[12px] leading-[1.5] text-tx-2">
+              <p className="text-[12px] leading-[1.5] text-tx-3">
                 Paste the key from your purchase confirmation email to re-verify
                 this device.
               </p>

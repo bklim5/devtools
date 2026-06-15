@@ -45,7 +45,7 @@ import {
   type ComponentType,
   type FormEvent,
 } from "react";
-import { Heart, Key, ListOrdered, Palette } from "lucide-react";
+import { Check, Heart, Key, ListOrdered, Palette } from "lucide-react";
 import { platform, type LicenseErrorCode } from "@/lib/platform";
 import {
   clearEntitlementsOverride,
@@ -101,11 +101,24 @@ const PRIMARY_BTN_CLASS =
   "cursor-pointer rounded-[7px] border border-accent-line bg-accent-soft px-3 py-1 text-[12px] text-accent outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-default disabled:border-bd disabled:bg-input-bg disabled:text-tx-2";
 const SECONDARY_BTN_CLASS =
   "cursor-pointer rounded-[7px] border border-bd bg-input-bg px-3 py-1 text-[12px] text-tx-2 outline-none transition-colors hover:border-bd-2 hover:text-tx focus-visible:ring-2 focus-visible:ring-accent";
-// Phase 22.1 badge: a rounded-square accent-soft tile holding the lock/feature
-// icon — the accent-soft fill is the ONLY accent surface in the pitch (parity
-// with the CTA), and the AA-bright accent glyph reads on it.
-const BADGE_CLASS =
-  "flex h-9 w-9 flex-none items-center justify-center rounded-[7px] border border-accent-line bg-accent-soft";
+// Phase 22.1 walkthrough (2026-06-16): the pitch is the hero — a soft accent
+// glow from the top fading into the panel, a borderless accent medallion above a
+// LARGER title, and greyer (tx-3) secondary copy. The glow is a CSS background
+// layered over --color-panel (inline so the token stays the source of truth).
+const PITCH_CARD_CLASS =
+  "relative flex w-full flex-col gap-5 overflow-hidden rounded-[7px] border border-bd p-6";
+const PITCH_GLOW_STYLE = {
+  background:
+    "radial-gradient(125% 85% at 50% 0%, color-mix(in srgb, var(--color-accent) 13%, transparent) 0%, transparent 58%), var(--color-panel)",
+};
+// Borderless accent medallion (no blue outline — walkthrough): accent-soft fill
+// only, the AA-bright accent glyph reads on it. Bigger for the hero pitch.
+const MEDALLION_CLASS =
+  "flex h-11 w-11 flex-none items-center justify-center rounded-[10px] bg-accent-soft";
+const PITCH_TITLE_CLASS = "text-[24px] font-semibold leading-[1.2] text-tx";
+// Pitch secondary copy sits on the panel (not the amber card) so tx-3 #868b95 is
+// AA-safe here (~5:1); greyer than the tx-2 used on the amber attention card.
+const PITCH_BODY_CLASS = "text-[13px] leading-[1.5] text-tx-3";
 
 /** The masked key shape shown as the input placeholder when no key is saved —
  *  a hint of the format, NEVER a label (the <label> stays the a11y name). */
@@ -313,7 +326,12 @@ function ActivationSurface({
         </p>
       ) : null}
       <div className="flex gap-2">
-        <button type="submit" disabled={pending} className={PRIMARY_BTN_CLASS}>
+        <button
+          type="submit"
+          disabled={pending}
+          className={`inline-flex items-center gap-1.5 ${PRIMARY_BTN_CLASS}`}
+        >
+          <Check className="h-3.5 w-3.5 flex-none" aria-hidden="true" />
           Activate
         </button>
       </div>
@@ -391,29 +409,28 @@ function ActivationSurface({
   // footer. The "Thank you for using TinkerDev ❤️" heading text is LOCKED (e2e
   // asserts the pitch heading) and the Buy/key-reveal behavior is unchanged.
   return (
-    <div className={CARD_CLASS}>
-      <div className="flex items-start gap-3">
-        <span className={BADGE_CLASS}>
-          <Icon className="h-4 w-4 flex-none text-accent" aria-hidden="true" />
+    <div className={PITCH_CARD_CLASS} style={PITCH_GLOW_STYLE}>
+      {/* Medallion ABOVE a larger title (walkthrough 2026-06-16) — borderless
+          accent-soft tile, then the hero heading on its own line. */}
+      <div className="flex flex-col gap-4">
+        <span className={MEDALLION_CLASS}>
+          <Icon className="h-5 w-5 flex-none text-accent" aria-hidden="true" />
         </span>
-        <h2 id={headingId} className={HEADING_CLASS}>
+        <h2 id={headingId} className={PITCH_TITLE_CLASS}>
           Thank you for using TinkerDev ❤️
         </h2>
       </div>
-      <div className={BODY_CLASS}>
-        <p>
-          Most of TinkerDev is free — built to make your everyday dev tasks
-          faster. A lifetime license unlocks the extras and funds what&apos;s
-          next.
-        </p>
-      </div>
+      <p className={PITCH_BODY_CLASS}>
+        Most of TinkerDev is free — built to make your everyday dev tasks faster.
+        A lifetime license unlocks the extras and funds what&apos;s next.
+      </p>
 
-      {/* Feature list — 3 rows, each a small accent-soft icon square + a bold
-          label + a one-line muted sub. */}
+      {/* Feature list — 3 rows, each a borderless accent-soft icon square + a
+          bold label + a one-line greyer sub. */}
       <ul className="flex flex-col gap-3">
         {PITCH_FEATURES.map(({ icon: FeatureIcon, label, sub }) => (
           <li key={label} className="flex items-start gap-3">
-            <span className="flex h-7 w-7 flex-none items-center justify-center rounded-[6px] border border-accent-line bg-accent-soft">
+            <span className="flex h-7 w-7 flex-none items-center justify-center rounded-[6px] bg-accent-soft">
               <FeatureIcon
                 aria-hidden="true"
                 className="h-3.5 w-3.5 text-accent"
@@ -423,7 +440,7 @@ function ActivationSurface({
               <p className="text-[12px] font-semibold leading-[1.3] text-tx">
                 {label}
               </p>
-              <p className="text-[12px] leading-[1.4] text-tx-2">{sub}</p>
+              <p className="text-[12px] leading-[1.4] text-tx-3">{sub}</p>
             </div>
           </li>
         ))}
@@ -432,14 +449,14 @@ function ActivationSurface({
       {/* Neutral divider. */}
       <hr className="border-t border-bd" />
 
-      {/* Price block — large $9 + a muted "once · lifetime license" sub.
+      {/* Price block — large $9 + a greyer "once · lifetime license" sub.
           (Phase 22.1 reverses the old D-20 "no pricing in-app", per the
           2026-06-15 walkthrough; price = $9.) */}
       <div className="flex items-baseline gap-2">
         <span className="text-[28px] font-semibold leading-none text-tx">
           $9
         </span>
-        <span className="text-[12px] leading-[1.5] text-tx-2">
+        <span className="text-[12px] leading-[1.5] text-tx-3">
           once · lifetime license
         </span>
       </div>
