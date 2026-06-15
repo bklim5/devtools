@@ -9,6 +9,7 @@
 - ✅ **v1.4 Reorderable Tools** — Phase 16 (shipped 2026-06-05) — see `milestones/v1.4-ROADMAP.md`
 - ✅ **v1.5 Pinned Tools** — Phase 17 (shipped 2026-06-07) — see `milestones/v1.5-ROADMAP.md`
 - 🚧 **v1.6 Licensing** — Phases 18–21 (in progress, started 2026-06-09)
+- 🚧 **v1.7 Settings & Preferences** — Phases 22–25 (started 2026-06-15, non-destructively while v1.6 finishes sign-off)
 
 ## Phases
 
@@ -94,6 +95,15 @@ One-time-payment lifetime license: MoR checkout → webhook → Keygen (perpetua
 - [ ] **Phase 20: Purchase Pipeline** - MoR checkout (Lemon Squeezy default) → webhook backend → Keygen license creation → key emailed; privileged tokens server-side only (parallel-capable with Phase 19)
 - [ ] **Phase 21: License Lifecycle & Ship Gate** - TTL refresh + offline grace, self-serve transfer, revocation propagation, license status UI; flip the free-tier default live; full 8-case ship-gate matrix
 
+### 🚧 v1.7 Settings & Preferences (Phases 22–25) — IN PROGRESS
+
+A native macOS Settings/Preferences surface (promotes backlog 999.9; absorbs 999.3 theme settings + the parked NAT-01/G-05-1 summon hotkey). **Architecture (locked):** a full **in-window modal overlay** (Claude-style) mounted shell-level via an `openSettings()` store — the Phase-21 upsell-modal pattern (`src/shell/upsellStore.ts`/`useUpsell.ts` + `src/App.tsx` mount) — **NOT a separate OS window** (lowest risk; shares the single React root + prefs/entitlements/HashRouter; no multi-window, no IPC). Native app-menu (`TinkerDev ▸ Settings…`, ⌘,) + tray `Settings…` entry points live in Rust and reach the webview through the `src/lib/platform/` event seam (tools/components never import `@tauri-apps/*` directly). The License pane **reuses `src/components/LicenseSettings.tsx` unchanged**. WCAG-AA mandatory (focus trap + return-focus, `aria-modal`, `aria-live`, full keyboard path); HashRouter only; layout-agnostic; zero new webview runtime deps **except** the autostart plugin needed by SET-09 launch-at-login (a NEW dep → explicit scoped exception, called out in Phase 24); `src/lib/protobuf/decoder.ts` + its 19 tests stay byte-for-byte untouched; the real-WKWebView e2e gate + a phase-boundary human sign-off + `gsd-ui-review` apply to every phase.
+
+- [ ] **Phase 22: Settings Modal Shell, Entry Points & License Pane** — shell-level `openSettings()` store + full in-window modal (Esc-dismiss, focus trap + return-focus, `aria-modal`) + paned layout (left nav / right content, keyboard-navigable); all four entry points (app menu ⌘, + tray via the `platform/` event seam, sidebar "Settings" row above "Unlock Pro", ⌘K); License pane reusing `LicenseSettings` unchanged; SET-01..06
+- [ ] **Phase 23: Appearance Pane** — theme (light/dark/system) + accent, persisted via the prefs seam and applied live (absorbs backlog 999.3); SET-07
+- [ ] **Phase 24: Hotkeys & General Panes (native-touching)** — rebind the global summon hotkey (Rust global-shortcut re-register + conflict handling, promotes NAT-01/G-05-1) and the ⌘K palette chord (in-webview); General toggles (launch-at-login [autostart plugin → scoped dep exception], start-in-tray, default tool, show-license-in-sidebar); SET-08, SET-09
+- [ ] **Phase 25: Updates Pane & Milestone Ship** — version + last-checked + Check-for-updates over the existing updater seam (mirrors the tray action); milestone polish + human sign-off; SET-10
+
 ## Phase Details (v1.6)
 
 ### Phase 18: Entitlements Seam & Central Gate
@@ -171,10 +181,64 @@ Plans:
 - [ ] 21-05-PLAN.md — 8-case ship-gate matrix on a fresh prod build (D-90; gated on Phase 20 completion for the live cases 1/2/7/8; NOT autonomous, wave 5)
 **UI hint**: yes
 
+## Phase Details (v1.7)
+
+### Phase 22: Settings Modal Shell, Entry Points & License Pane
+**Goal**: Anyone — including unlicensed users — can open a real Settings surface from every conventional entry point, and it renders as an accessible in-window modal with a paned layout whose first pane is the existing License surface unchanged
+**Depends on**: Phase 21 (reuses the Phase-21 upsell-modal shell pattern + the `LicenseSettings` component; v1.6 in final sign-off)
+**Requirements**: SET-01, SET-02, SET-03, SET-04, SET-05, SET-06
+**Success Criteria** (what must be TRUE):
+  1. User can open Settings from the macOS app menu (`TinkerDev ▸ Settings…`, ⌘,) and from the tray `Settings…` item — both arrive in the webview through the `src/lib/platform/` event seam (no `@tauri-apps/*` import outside the seam), and from a sidebar "Settings" row (above "Unlock Pro") and the ⌘K command palette
+  2. Settings renders as a full in-window modal overlay (Claude-style), dismissible with Esc, reachable by everyone including unlicensed users (the License pane shows the no-license + Unlock-Pro state)
+  3. The modal is WCAG-AA: focus is trapped inside while open, returns to the invoking control on close, and it carries `aria-modal` + `aria-labelledby`
+  4. The modal uses a paned layout (left nav list, right content pane) that is fully keyboard-navigable — the user can move between panes by keyboard and the active pane is announced via `aria`
+  5. The License pane reuses the existing `src/components/LicenseSettings.tsx` surface unchanged (all 5 states; activate/upsell for unlicensed) with no behavior regression
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 23: Appearance Pane
+**Goal**: A user can change theme and accent from inside Settings and see it apply immediately and survive a restart
+**Depends on**: Phase 22 (the modal shell + paned nav host the pane)
+**Requirements**: SET-07
+**Success Criteria** (what must be TRUE):
+  1. The Appearance pane lets the user choose a theme — light, dark, or system — and the choice applies live (no restart) across the whole app
+  2. The user can choose an accent and it applies live, with accent reserved for selection per the existing visual system
+  3. Both selections persist through the existing prefs seam and are restored on the next launch
+  4. The pane is keyboard-navigable and WCAG-AA (visible focus, AA contrast in both themes, no opacity-only state)
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 24: Hotkeys & General Panes (native-touching)
+**Goal**: A user can rebind the app's hotkeys and toggle core app-behavior preferences, including the two settings that reach into the OS (global summon + launch-at-login)
+**Depends on**: Phase 22 (modal shell + paned nav); independent of Phase 23
+**Requirements**: SET-08, SET-09
+**Success Criteria** (what must be TRUE):
+  1. The Hotkeys pane lets the user view and rebind the global summon hotkey — the Rust global-shortcut is re-registered to the new chord with conflict handling (a taken/invalid chord is rejected with calm messaging, the prior binding preserved); this promotes the parked NAT-01/G-05-1 summon hotkey
+  2. The Hotkeys pane lets the user view and rebind the ⌘K command-palette chord (in-webview key handler keyed off the configured chord); both hotkey bindings persist through the prefs seam and survive restart
+  3. The General pane exposes app-behavior toggles (final set decided in planning from: launch-at-login, start-in-tray, default tool on open, show-license-status-in-sidebar) — each toggle persists and takes effect
+  4. Launch-at-login works via an autostart plugin — a NEW webview/native dependency that is an **explicit, scoped exception** to the zero-new-dep wedge, decided and recorded in this phase's planning (the only dep added in v1.7)
+  5. Both panes are fully keyboard-reachable and WCAG-AA (rebind capture has an accessible affordance; no mouse-only path)
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 25: Updates Pane & Milestone Ship
+**Goal**: A user can see version + update status and check for updates from inside Settings, and the whole Settings milestone passes its sign-off on a real build
+**Depends on**: Phase 22 (modal shell); Phases 23 + 24 (milestone-close sign-off covers the full pane set)
+**Requirements**: SET-10
+**Success Criteria** (what must be TRUE):
+  1. The Updates pane shows the current app version and the last-checked time
+  2. The pane offers a Check-for-updates action that reuses the existing updater seam (mirroring the tray action) — the result (up-to-date / update available) surfaces in the pane
+  3. The pane is keyboard-reachable and WCAG-AA, consistent with the other panes
+  4. The full Settings surface (all five panes, every entry point) passes a `gsd-ui-review` WCAG-AA audit and a human sign-off on a fresh `tauri build`, with `decoder.ts` + its 19 tests byte-for-byte untouched
+**Plans**: TBD
+**UI hint**: yes
+
 ## Progress
 
 **Execution Order:**
 Phases execute in numeric order. v1.6 runs 18 → 19 → 21 with Phase 20 parallel-capable beside 19 (external infra); Phase 21 requires both 19 and 20.
+
+v1.7 runs 22 → 23 → 24 → 25 (started non-destructively while v1.6 is in final sign-off; numbering continues from Phase 21). Phase 22 is the modal-shell foundation all panes mount into; Phases 23 and 24 are independent pane work (parallel-capable after 22); Phase 25 adds the Updates pane and carries the milestone-close sign-off.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -199,6 +263,10 @@ Phases execute in numeric order. v1.6 runs 18 → 19 → 21 with Phase 20 parall
 | 19. License Activation & Offline Verification | v1.6 | 4/4 | Complete    | 2026-06-12 |
 | 20. Purchase Pipeline | v1.6 | 2/3 | In progress | PAY-01/02/03 |
 | 21. License Lifecycle & Ship Gate | v1.6 | 3/5 | In Progress|  |
+| 22. Settings Modal Shell, Entry Points & License Pane | v1.7 | 0/? | Not started | - |
+| 23. Appearance Pane | v1.7 | 0/? | Not started | - |
+| 24. Hotkeys & General Panes | v1.7 | 0/? | Not started | - |
+| 25. Updates Pane & Milestone Ship | v1.7 | 0/? | Not started | - |
 
 ## Backlog
 
@@ -256,7 +324,9 @@ Plans:
 Plans:
 - [ ] TBD (promote the remaining CI track with /gsd-review-backlog or seed `/gsd-new-milestone` when ready)
 
-### Phase 999.3: Theme settings (BACKLOG)
+### Phase 999.3: Theme settings (✅ PROMOTED → v1.7 Phase 23 Appearance pane)
+
+**Status:** PROMOTED into milestone v1.7 "Settings & Preferences" as the **Appearance pane (Phase 23, SET-07)** — theme (light/dark/system) + accent, persisted via the prefs seam and applied live. Original capture below.
 
 **Goal:** [Captured for future planning] — user-facing theme/appearance settings (beyond the current theme/accent persistence), e.g. light/dark/system toggle and accent customization in a settings surface.
 **Requirements:** TBD
@@ -316,7 +386,9 @@ Everything else already ports: machine.lic via Tauri app-data dir, pure-Rust Ed2
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
 
-### Phase 999.9: Native Settings / Preferences window (BACKLOG)
+### Phase 999.9: Native Settings / Preferences window (✅ PROMOTED → v1.7 Phases 22–25)
+
+**Status:** PROMOTED into milestone v1.7 "Settings & Preferences" (Phases 22–25, started 2026-06-15). Requirements SET-01..10. **Architecture revised at promotion:** an in-window **modal overlay** (Claude-style, reusing the Phase-21 upsell-modal pattern) — NOT a separate OS window (the seed's open question resolved to the lowest-risk single-React-root approach; no multi-window/IPC). Native app-menu (⌘,) + tray entry points reach it through the `platform/` event seam. The License pane reuses `LicenseSettings.tsx` unchanged. Absorbs 999.3 (Theme settings) as the Appearance pane and the parked NAT-01/G-05-1 summon hotkey as the Hotkeys pane. See the v1.7 section above for the live phases. Original capture below.
 
 **Goal:** [Captured for future planning — seed: `docs/seeds/settings-preferences-window/`] — move License + all settings into a **native macOS Preferences window** (the conventional pattern), reachable by everyone incl. unlicensed users (who see a No-license + Unlock-Pro state). Origin: Phase 21 walkthrough — the in-window `#/settings/license` route keeps the sidebar visible while the main pane shows settings (confusing), and a pure-free user has no clean entry (D-88). **Entry points:** `TinkerDev ▸ Settings…` (⌘,) app-menu item + a tray `Settings…` item + a sidebar `Settings` row above "Unlock Pro". **Window:** separate paned window (General · Appearance/Themes · Hotkeys · Updates · License); the **License pane reuses today's `src/components/LicenseSettings.tsx` unchanged** (Phase 21 built the hard part — flip/lifecycle/state machine). Likely **absorbs 999.3 (Theme settings)** as its Appearance pane. **Open questions for promotion:** Tauri multi-window vs a modal-over-main surface; app-menu + tray wiring in Rust; its own UI-SPEC + WCAG-AA audit; whether the upsell/activation lives in the License pane; HashRouter implications for a second window.
 **Requirements:** TBD

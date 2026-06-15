@@ -110,3 +110,13 @@ A native macOS Settings/Preferences surface (promotes backlog 999.9; absorbs 999
 | PAY-01 | Phase 20 | 20-01 | Done |
 | PAY-02 | Phase 20 | 20-02 | Done |
 | PAY-03 | Phase 20 | 20-02 | Done |
+| SET-01 | Phase 22 | — | Pending |
+| SET-02 | Phase 22 | — | Pending |
+| SET-03 | Phase 22 | — | Pending |
+| SET-04 | Phase 22 | — | Pending |
+| SET-05 | Phase 22 | — | Pending |
+| SET-06 | Phase 22 | — | Pending |
+| SET-07 | Phase 23 | — | Pending |
+| SET-08 | Phase 24 | — | Pending |
+| SET-09 | Phase 24 | — | Pending |
+| SET-10 | Phase 25 | — | Pending |
