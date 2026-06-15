@@ -4,7 +4,7 @@ milestone: v1.6
 milestone_name: Licensing
 status: executing
 last_updated: "2026-06-15T13:00:00.000Z"
-last_activity: 2026-06-15 -- v1.7 Phase 22 context gathered (22-CONTEXT.md, Settings modal shell) — ready to plan. v1.6 Phase 21 still AWAITING human UAT (21-HUMAN-UAT.md) + Phase-20-gated live ship-gate cases (Current Position below stays pinned to the v1.6 close).
+last_activity: 2026-06-15 -- v1.7 Phase 22 PLANNED & VERIFIED (UI-SPEC approved 6/6; RESEARCH + VALIDATION; 3 plans / 2 waves, plan-checker PASSED 0 blockers) — ready to execute (/gsd-execute-phase 22). v1.6 Phase 21 still AWAITING human UAT (21-HUMAN-UAT.md) + Phase-20-gated live ship-gate cases (Current Position below stays pinned to the v1.6 close).
 progress:
   total_phases: 11
   completed_phases: 3
