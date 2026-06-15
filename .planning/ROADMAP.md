@@ -100,6 +100,7 @@ One-time-payment lifetime license: MoR checkout → webhook → Keygen (perpetua
 A native macOS Settings/Preferences surface (promotes backlog 999.9; absorbs 999.3 theme settings + the parked NAT-01/G-05-1 summon hotkey). **Architecture (locked):** a full **in-window modal overlay** (Claude-style) mounted shell-level via an `openSettings()` store — the Phase-21 upsell-modal pattern (`src/shell/upsellStore.ts`/`useUpsell.ts` + `src/App.tsx` mount) — **NOT a separate OS window** (lowest risk; shares the single React root + prefs/entitlements/HashRouter; no multi-window, no IPC). Native app-menu (`TinkerDev ▸ Settings…`, ⌘,) + tray `Settings…` entry points live in Rust and reach the webview through the `src/lib/platform/` event seam (tools/components never import `@tauri-apps/*` directly). The License pane **reuses `src/components/LicenseSettings.tsx` unchanged**. WCAG-AA mandatory (focus trap + return-focus, `aria-modal`, `aria-live`, full keyboard path); HashRouter only; layout-agnostic; zero new webview runtime deps **except** the autostart plugin needed by SET-09 launch-at-login (a NEW dep → explicit scoped exception, called out in Phase 24); `src/lib/protobuf/decoder.ts` + its 19 tests stay byte-for-byte untouched; the real-WKWebView e2e gate + a phase-boundary human sign-off + `gsd-ui-review` apply to every phase.
 
 - [x] **Phase 22: Settings Modal Shell, Entry Points & License Pane** — shell-level `openSettings()` store + full in-window modal (Esc-dismiss, focus trap + return-focus, `aria-modal`) + paned layout (left nav / right content, keyboard-navigable); all four entry points (app menu ⌘, + tray via the `platform/` event seam, sidebar "Settings" row above "Unlock Pro", ⌘K); License pane reusing `LicenseSettings` unchanged; SET-01..06 (completed 2026-06-15)
+- [ ] **Phase 22.1: Settings Follow-ups (INSERTED)** — gap closure from `22-FOLLOWUP.md`: (1) app-menu product-name labels (App submenu title "TinkerDev" + explicit About/Hide/Quit text, not the `devtools-app` bin name); (2) inline upsell/activation in the Settings ▸ License pane via a shared upsell-content component extracted from `UpsellPanel` (revises SET-06; the standalone `UpsellModal` stays for sidebar "Unlock Pro" / ⌘K free-tier entries); WCAG-AA + native menu re-verify
 - [ ] **Phase 23: Appearance Pane** — theme (light/dark/system) + accent, persisted via the prefs seam and applied live (absorbs backlog 999.3); SET-07
 - [ ] **Phase 24: Hotkeys & General Panes (native-touching)** — rebind the global summon hotkey (Rust global-shortcut re-register + conflict handling, promotes NAT-01/G-05-1) and the ⌘K palette chord (in-webview); General toggles (launch-at-login [autostart plugin → scoped dep exception], start-in-tray, default tool, show-license-in-sidebar); SET-08, SET-09
 - [ ] **Phase 25: Updates Pane & Milestone Ship** — version + last-checked + Check-for-updates over the existing updater seam (mirrors the tray action); milestone polish + human sign-off; SET-10
@@ -193,13 +194,26 @@ Plans:
   3. The modal is WCAG-AA: focus is trapped inside while open, returns to the invoking control on close, and it carries `aria-modal` + `aria-labelledby`
   4. The modal uses a paned layout (left nav list, right content pane) that is fully keyboard-navigable — the user can move between panes by keyboard and the active pane is announced via `aria`
   5. The License pane reuses the existing `src/components/LicenseSettings.tsx` surface unchanged (all 5 states; activate/upsell for unlicensed) with no behavior regression
-**Plans**: 3 plans (planned 2026-06-15) — 2/3 complete
+**Plans**: 3 plans (planned 2026-06-15) — 3/3 complete (phase complete 2026-06-15; verifier 15/15)
 
 Plans:
 - [x] 22-01-PLAN.md — Settings modal foundation: `settingsStore`/`useSettings` (clone upsellStore + sync invoker capture + activePane), `SettingsModal` (paned layout, cloned UpsellModal a11y, `aria-current` button-list pane nav + aria-live), extensible `settingsPanes` (License = `LicenseSettings` unchanged), App.tsx mount (before UpsellModal), `#/settings/license` deep-link migration + e2e (SET-04/05/06; autonomous, wave 1) — **DONE 2026-06-15** (real-WKWebView gate 20/20; vitest 960/960; decoder + LicenseSettings byte-untouched; SET-04/05/06 validated)
 - [x] 22-02-PLAN.md — Webview entry points + D-88 re-point: bottom-anchored sidebar "Settings" row (opens for everyone, no lock badge) + ⌘K "Settings" command, re-point the footer License-attention affordance + ⌘K "License" command to `openSettings('license')` (Unlock-Pro/upsell unchanged), open-from-sidebar/⌘K/footer e2e (SET-03; D-S6/D-S8/D-S9/D-S11; autonomous, wave 2) — **DONE 2026-06-15** (real-WKWebView gate 20/20; vitest 966/966; tsc + eslint clean; decoder + LicenseSettings byte-untouched; SET-03 validated)
 - [x] 22-03-PLAN.md — Native entry points: app menu `Settings…` (⌘,) via `set_menu()` with reconstructed App/Edit/Window defaults (Pitfall 1 — preserve Copy/Paste/Undo/Select-All/Quit) + tray `Settings…`, both emitting `menu://open-settings` through the platform seam (`onOpenSettings`), App.tsx subscription, manual menu/tray + Edit-menu-regression walkthrough (SET-01/02; D-S7; NOT autonomous, wave 2)
 
+**UI hint**: yes
+
+### Phase 22.1: Settings Follow-ups (INSERTED)
+**Goal**: The two non-blocking follow-ups from Phase 22's walkthrough are closed — the macOS app menu reads "TinkerDev" everywhere, and the Settings ▸ License pane shows the upsell/activation inline (no modal-on-modal) while the standalone upsell modal stays for the non-Settings entry points
+**Depends on**: Phase 22 (the set_menu app menu + the Settings modal shell + `LicenseSettings`/`UpsellPanel`)
+**Requirements**: SET-06 (revised — inline upsell in the License pane); no new requirement ID (app-menu label fix is a bug)
+**Source**: `.planning/phases/22-settings-modal-shell/22-FOLLOWUP.md` (Follow-up 1 BUG, Follow-up 2 DESIGN)
+**Success Criteria** (what must be TRUE):
+  1. The macOS app menu shows the product name **TinkerDev** — the bold app-menu title plus **About TinkerDev / Hide TinkerDev / Quit TinkerDev** — instead of the `devtools-app` Cargo bin name (set via the App `SubmenuBuilder` title + explicit predefined-item text); verified on a rebuilt `.app` (manual menu re-check, since native chrome is not WebDriver-drivable)
+  2. The Settings ▸ License pane renders the upsell/activation content **inline** for the not-Pro states (free / notActivated / problem / refreshNeeded) — "Thank you for using TinkerDev ❤️" + Buy CTA + license-key input + Activate — with NO stacked `UpsellModal` opening on top of the Settings modal
+  3. The upsell/activation surface is extracted from `UpsellPanel` into a **shared content component** consumed BOTH by the standalone `UpsellModal` (sidebar "Unlock Pro" / ⌘K free-tier entries — unchanged behavior) AND inline in the License pane; no logic duplicated
+  4. WCAG-AA preserved (focus order, labels, live regions); full unit suite + real-WKWebView e2e green; `decoder.ts` + its 19 tests and the activation logic byte-for-byte behavior-unchanged
+**Plans**: not planned yet
 **UI hint**: yes
 
 ### Phase 23: Appearance Pane
