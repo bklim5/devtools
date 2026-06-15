@@ -217,7 +217,7 @@ Plans:
 
 Plans:
 - [ ] 22.1-01-PLAN.md — App-menu product name (Follow-up 1, BUG): explicit PredefinedMenuItem About/Hide/Quit "TinkerDev" text in set_menu(); Edit/Window + ⌘, Settings intact; cargo build/test + manual menu re-verify on the rebuilt .app (no REQ-ID; NOT autonomous, wave 1)
-- [ ] 22.1-02-PLAN.md — Inline upsell/activation in the License pane (Follow-up 2, revises SET-06): extract the shared activation surface from UpsellPanel (no logic dup; UpsellModal unchanged), render it inline for free/notActivated (full pitch) + problem/refreshNeeded (form-only); licensed/offlineGrace unchanged; LIC-04/T-19-21 preserved; unit + real-WKWebView e2e (SET-06; autonomous, wave 1)
+- [x] 22.1-02-PLAN.md — Inline upsell/activation in the License pane (Follow-up 2, revises SET-06) ✓ 2026-06-15: shared `ActivationSurface` extracted from UpsellPanel (no logic dup, activate-chain grep == 1; UpsellModal byte-unchanged); `InlineActivation` rendered inline for free/notActivated (full pitch) + problem/refreshNeeded (form-only); licensed/offlineGrace unchanged; LIC-04/T-19-21 preserved; suite 968/968 + real-WKWebView 20/20 spec files (SET-06 Validated; autonomous, wave 1)
 **UI hint**: yes
 
 ### Phase 23: Appearance Pane
@@ -288,7 +288,7 @@ v1.7 runs 22 → 23 → 24 → 25 (started non-destructively while v1.6 is in fi
 | 20. Purchase Pipeline | v1.6 | 2/3 | In progress | PAY-01/02/03 |
 | 21. License Lifecycle & Ship Gate | v1.6 | 3/5 | In Progress|  |
 | 22. Settings Modal Shell, Entry Points & License Pane | v1.7 | 3/3 | Complete    | 2026-06-15 |
-| 22.1 Settings Follow-ups | v1.7 | 0/2 | Not started | - |
+| 22.1 Settings Follow-ups | v1.7 | 1/2 | In progress | Plan 02 done (inline License upsell, SET-06); Plan 01 paused at native-menu human checkpoint |
 | 23. Appearance Pane | v1.7 | 0/? | Not started | - |
 | 24. Hotkeys & General Panes | v1.7 | 0/? | Not started | - |
 | 25. Updates Pane & Milestone Ship | v1.7 | 0/? | Not started | - |

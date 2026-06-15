@@ -60,7 +60,7 @@ A native macOS Settings/Preferences surface (promotes backlog 999.9; absorbs 999
 
 ### Panes
 
-- [x] **SET-06**: The **License** pane reuses the existing `LicenseSettings` surface unchanged (all 5 states; activate/upsell for unlicensed).
+- [x] **SET-06** (revised by Phase 22.1, Follow-up 2): The **License** pane hosts `LicenseSettings` (all 5 states). The not-Pro states (free/notActivated/problem/refreshNeeded) render the upsell/activation surface INLINE — free shows the full pitch + Buy + key-input + Activate; problem/refreshNeeded keep the calm status + Refresh with the key-input + Activate form inline below (no stacked modal-on-modal). licensed/offlineGrace unchanged. The standalone `UpsellModal` still opens from the sidebar "Unlock Pro" + ⌘K free-tier entries (D-22.1-5).
 - [ ] **SET-07**: The **Appearance** pane lets the user choose theme (light/dark/system) and accent, persisted via the existing prefs seam and applied live (absorbs backlog 999.3).
 - [ ] **SET-08**: The **Hotkeys** pane lets the user view and rebind (a) the global summon hotkey (Rust global-shortcut re-register + conflict handling — promotes NAT-01/G-05-1) and (b) the ⌘K command-palette hotkey (in-webview key handler keyed off the configured chord); both persist via the prefs seam.
 - [ ] **SET-09**: The **General** pane exposes app-behavior toggles — candidates: launch-at-login, start-in-tray, default tool on open, show-license-status-in-sidebar (exact set finalized in planning; launch-at-login needs an autostart plugin → an explicit, scoped exception to the zero-new-dep wedge, decided at planning).
@@ -115,7 +115,7 @@ A native macOS Settings/Preferences surface (promotes backlog 999.9; absorbs 999
 | SET-03 | Phase 22 | 22-02 | Validated |
 | SET-04 | Phase 22 | 22-01 | Validated |
 | SET-05 | Phase 22 | 22-01 | Validated |
-| SET-06 | Phase 22 | 22-01 | Validated |
+| SET-06 | Phase 22 → revised Phase 22.1 | 22-01 → 22.1-02 | Validated (revised: inline upsell) |
 | SET-07 | Phase 23 | — | Pending |
 | SET-08 | Phase 24 | — | Pending |
 | SET-09 | Phase 24 | — | Pending |
