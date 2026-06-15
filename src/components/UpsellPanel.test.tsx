@@ -25,6 +25,11 @@ import { makeMemoryPlatform, noopLicense } from "@/shell/testStore";
 import { refreshEntitlements } from "@/lib/entitlements/store";
 import { createStoreStub } from "@/lib/platform/stub";
 import { PREFERENCES_STORE_KEY } from "@/shell/preferences";
+import {
+  closeUpsell,
+  getUpsellInvoker,
+  openUpsell,
+} from "@/shell/upsellStore";
 
 // Spy seam for the D-35 success path: UpsellPanel must call the REAL
 // refreshEntitlements (the proven live-flip path) — the mock wraps the actual
@@ -212,6 +217,31 @@ describe("UpsellModal (dialog wrapper)", () => {
 
     unmount();
     expect(document.activeElement).toBe(invoker);
+  });
+
+  // 21-04 FLAG E1: via the store path the modal mounts decoupled from the
+  // trigger, so document.activeElement at mount-effect time is unreliable. The
+  // modal must instead restore focus to the invoker captured SYNCHRONOUSLY by
+  // openUpsell() — even if focus has since moved off the trigger. Proves the
+  // store→modal seam returns focus to the recorded opener, not <body>.
+  it("returns focus to the store-captured invoker even if focus moved before mount (E1)", () => {
+    const { getByRole: getInvoker } = render(
+      <button type="button">store invoker</button>,
+    );
+    const invoker = getInvoker("button", { name: "store invoker" });
+    invoker.focus();
+    // openUpsell() captures the invoker NOW (its click-handler moment).
+    openUpsell();
+    expect(getUpsellInvoker()).toBe(invoker);
+
+    // Focus churns away before the modal mounts (the decoupled-mount gap).
+    document.body.focus();
+
+    const { unmount } = render(<UpsellModal icon={Lock} onClose={() => {}} />);
+    unmount();
+    // Restored to the recorded opener, not the churned-to <body>.
+    expect(document.activeElement).toBe(invoker);
+    closeUpsell(); // clear the module singleton for the next test
   });
 });
 

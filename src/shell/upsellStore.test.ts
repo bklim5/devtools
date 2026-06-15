@@ -5,6 +5,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 import {
   closeUpsell,
+  getUpsellInvoker,
   getUpsellOpen,
   openUpsell,
   subscribeUpsell,
@@ -54,4 +55,17 @@ it("unsubscribed listeners stop receiving updates", () => {
   unsub();
   openUpsell();
   expect(fn).not.toHaveBeenCalled();
+});
+
+// 21-04 FLAG E1 (invoker capture seam). The store captures the focused element
+// SYNCHRONOUSLY at openUpsell() time so the modal can restore focus there on
+// close — decoupled from the modal's mount timing. In the node env `document` is
+// absent, so the capture safely no-ops to null (the modal then falls back to its
+// own document.activeElement read — exercised in the jsdom UpsellModal test).
+it("captures no invoker in a DOM-less env and clears it on close", () => {
+  expect(getUpsellInvoker()).toBeNull();
+  openUpsell();
+  expect(getUpsellInvoker()).toBeNull(); // no `document` to read in node env
+  closeUpsell();
+  expect(getUpsellInvoker()).toBeNull();
 });

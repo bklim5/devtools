@@ -11,11 +11,22 @@
 // ONCE at the shell (App.tsx) and every opener flips this one flag.
 //
 // This is open-state ONLY — no entitlement logic, no copy. The modal itself
-// owns Esc/scrim dismiss + focus capture/return (UpsellModal, Plan 01); the
+// owns Esc/scrim dismiss + focus trap/return (UpsellModal, Plan 01); the
 // upsell COPY lives in UpsellPanel (D-19). Closing is also routed here so the
 // shell mount stays a pure projection of this flag.
+//
+// 21-04 FLAG E1 — focus-return-to-invoker via the store path. The modal mounts
+// ONCE at the shell and is decoupled from the trigger (openUpsell flips a flag;
+// the modal mounts a tick later). Relying on document.activeElement INSIDE the
+// modal's mount effect is fragile across that gap (any focus churn between the
+// click and the mount commit loses the invoker). So we capture the invoker
+// SYNCHRONOUSLY here, at openUpsell() time — the exact moment the trigger's
+// click handler runs and it is still the focused element — and hand it to the
+// modal to restore on close. The modal still falls back to its own capture when
+// no invoker was recorded (e.g. a keyboard chord with focus already elsewhere).
 
 let open = false;
+let invoker: HTMLElement | null = null;
 const listeners = new Set<() => void>();
 
 function notify(): void {
@@ -33,16 +44,33 @@ export function subscribeUpsell(fn: () => void): () => void {
   };
 }
 
-/** Open the shared Unlock Pro upsell modal (no-op if already open). */
+/** The element to return focus to on close — captured synchronously at
+ *  openUpsell() time (the trigger is still focused inside its click handler). */
+export function getUpsellInvoker(): HTMLElement | null {
+  return invoker;
+}
+
+/** Open the shared Unlock Pro upsell modal (no-op if already open). Captures the
+ *  currently-focused element as the invoker so focus returns there on close —
+ *  for ALL openers (footer, ⌘K License, LicenseSettings Reactivate/Activate). */
 export function openUpsell(): void {
   if (open) return;
+  // Guard the DOM read so the store stays importable/testable in the node env
+  // (vite.config default) where `document`/`HTMLElement` are absent.
+  const active = typeof document === "undefined" ? null : document.activeElement;
+  invoker =
+    typeof HTMLElement !== "undefined" && active instanceof HTMLElement
+      ? active
+      : null;
   open = true;
   notify();
 }
 
-/** Close the shared upsell modal (no-op if already closed). */
+/** Close the shared upsell modal (no-op if already closed). The modal restores
+ *  focus to the captured invoker before this clears it. */
 export function closeUpsell(): void {
   if (!open) return;
   open = false;
+  invoker = null;
   notify();
 }

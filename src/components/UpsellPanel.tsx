@@ -45,6 +45,7 @@ import {
 } from "@/lib/entitlements/store";
 import { refreshLicenseUi } from "@/lib/license/licenseUi";
 import { useLicenseUi } from "@/shell/useLicenseUi";
+import { getUpsellInvoker } from "@/shell/upsellStore";
 
 /** D-68: the own-domain redirect the user controls (Cloudflare/Caddy) forwards
  *  to the live MoR checkout. ONE https constant so a store/MoR change never
@@ -370,7 +371,13 @@ export function UpsellModal({ icon, onClose }: UpsellModalProps) {
   }, [onClose]);
 
   useEffect(() => {
-    const invoker = document.activeElement;
+    // 21-04 FLAG E1: prefer the invoker captured SYNCHRONOUSLY at openUpsell()
+    // time (store path) — it survives any focus churn between the trigger's
+    // click and this mount commit. Fall back to document.activeElement for the
+    // direct-render case (tests, or an opener that did not route through the
+    // store). Read it ONCE here so the close path is not affected by the store
+    // clearing it on closeUpsell() (which fires before this effect's cleanup).
+    const invoker = getUpsellInvoker() ?? document.activeElement;
     dialogRef.current?.focus();
 
     const onKeyDown = (e: KeyboardEvent) => {
