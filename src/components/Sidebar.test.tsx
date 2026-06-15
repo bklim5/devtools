@@ -16,12 +16,13 @@ import { MemoryRouter } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { UpsellModal } from "./UpsellPanel";
 
-// D-88: the footer license-attention affordance routes via useNavigate when there
-// is a license to manage; spy it so the routing target is observable.
-const navigateSpy = vi.fn();
-vi.mock("react-router-dom", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("react-router-dom")>();
-  return { ...actual, useNavigate: () => navigateSpy };
+// D-S11: the footer license-attention affordance + the bottom-anchored Settings
+// row open the single Settings modal via openSettings (was navigate); spy it so
+// the open target/pane is observable. (navigate is no longer used by Sidebar.)
+const openSettingsSpy = vi.fn();
+vi.mock("@/shell/settingsStore", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/shell/settingsStore")>();
+  return { ...actual, openSettings: (...args: unknown[]) => openSettingsSpy(...args) };
 });
 import { ENABLED_TOOLS } from "@/lib/tools/registry";
 import { FREE_SET, FULL_SET } from "@/lib/entitlements/entitlements";
@@ -48,7 +49,7 @@ import { useUpsellOpen } from "@/shell/useUpsell";
 let store: Store;
 
 beforeEach(() => {
-  navigateSpy.mockClear();
+  openSettingsSpy.mockClear();
   store = createStoreStub();
   setPlatformForTest(makeMemoryPlatform(store));
   // Pitfall 5: jsdom's environment default is FREE — inject FULL so the existing
@@ -290,8 +291,52 @@ describe("Sidebar free tier (D-26/D-28)", () => {
   });
 });
 
+describe("Sidebar bottom-anchored Settings row (SET-03/D-S9/D-S10/D-S11)", () => {
+  it("renders an unconditional Settings row even under FULL_SET (no Unlock-Pro/attention row), opening the Settings modal on the License pane", async () => {
+    // FULL_SET + notActivated → the Unlock-Pro / attention footer row is ABSENT,
+    // so this proves the Settings row is UNCONDITIONAL (D-S10), not nested under
+    // the licenseAttention ternary.
+    const { getByRole, queryByRole } = renderAt("/");
+    await flushPrefsLoad();
+
+    expect(queryByRole("button", { name: /Unlock Pro|needs attention/ })).toBeNull();
+
+    const settingsRow = getByRole("button", { name: "Settings" });
+    // Keyboard-reachable native button (in the Tab order by default), no lock badge.
+    expect(settingsRow.tabIndex).toBe(0);
+
+    fireEvent.click(settingsRow);
+    expect(openSettingsSpy).toHaveBeenCalledWith("license");
+  });
+
+  it("renders the Settings row in the free tier too (opens for everyone, D-S10)", async () => {
+    act(() => setEntitlementsForTest(FREE_SET));
+    const { getByRole } = renderAt("/");
+    await flushPrefsLoad();
+
+    fireEvent.click(getByRole("button", { name: "Settings" }));
+    expect(openSettingsSpy).toHaveBeenCalledWith("license");
+  });
+
+  it("free-tier 'Unlock Pro' STILL opens the upsell modal (unchanged), never the Settings modal (D-S11)", async () => {
+    act(() => setEntitlementsForTest(FREE_SET));
+    const { getByRole } = renderAt("/");
+    await flushPrefsLoad();
+
+    fireEvent.click(getByRole("button", { name: "Unlock Pro" }));
+
+    // The shared upsell dialog opens (UpsellModalHost renders it); openSettings is
+    // NOT called for the free-tier Unlock-Pro affordance.
+    expect(getByRole("dialog")).toBeDefined();
+    expect(
+      getByRole("heading", { name: /Thank you for using TinkerDev/ }),
+    ).toBeDefined();
+    expect(openSettingsSpy).not.toHaveBeenCalled();
+  });
+});
+
 describe("Sidebar license attention footer (D-43/D-88)", () => {
-  it("renders 'License needs attention' under FULL_SET when the license has a problem, and ROUTES to the status route (D-88)", async () => {
+  it("renders 'License needs attention' under FULL_SET when the license has a problem, and OPENS the Settings modal on the License pane (D-S11)", async () => {
     // FULL_SET on purpose: a Phase-19 release build has everything unlocked —
     // the attention surface must NOT depend on the free-tier flip.
     const PROBLEM = {
@@ -316,12 +361,13 @@ describe("Sidebar license attention footer (D-43/D-88)", () => {
 
     fireEvent.click(footer);
 
-    // D-88: a manageable license routes to the status route, NOT the upsell modal.
-    expect(navigateSpy).toHaveBeenCalledWith("/settings/license");
+    // D-S11: a manageable license opens the Settings modal on the License pane,
+    // NOT the upsell modal and NOT a route navigation.
+    expect(openSettingsSpy).toHaveBeenCalledWith("license");
     expect(queryByRole("dialog")).toBeNull();
   });
 
-  it("renders 'License needs attention' for refreshNeeded and routes to the status route (D-84/D-88)", async () => {
+  it("renders 'License needs attention' for refreshNeeded and opens the Settings modal on the License pane (D-84/D-S11)", async () => {
     const REFRESH_NEEDED = { state: "refreshNeeded", hasStoredKey: true } as const;
     setPlatformForTest({
       ...makeMemoryPlatform(store),
@@ -335,7 +381,7 @@ describe("Sidebar license attention footer (D-43/D-88)", () => {
 
     const footer = getByRole("button", { name: "License needs attention" });
     fireEvent.click(footer);
-    expect(navigateSpy).toHaveBeenCalledWith("/settings/license");
+    expect(openSettingsSpy).toHaveBeenCalledWith("license");
   });
 
   it("offlineGrace adds NO footer nag (D-77 — silent outside the status route)", async () => {

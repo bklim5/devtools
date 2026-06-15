@@ -37,14 +37,15 @@
 // carries "Reset order" (D-12) and "Unpin all" (D-16/PIN-09). Each change persists
 // immediately via setToolOrder / setPinnedToolIds and survives restart.
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { GripVertical, Lock, Pin } from "lucide-react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { GripVertical, Lock, Pin, Settings } from "lucide-react";
+import { NavLink } from "react-router-dom";
 import { ENT_ORDERING, ENT_THEMING, isToolLocked } from "@/lib/entitlements/entitlements";
 import { ENABLED_TOOLS, getToolById } from "@/lib/tools/registry";
 import { useEntitlements } from "@/shell/useEntitlements";
 import { useLicenseUi } from "@/shell/useLicenseUi";
 import { usePreferences } from "@/shell/usePreferences";
 import { moveToolInOrder, partitionTools, resolveRovingTarget } from "@/shell/toolOrder";
+import { openSettings } from "@/shell/settingsStore";
 import { openUpsell } from "@/shell/upsellStore";
 import { SidebarResetMenu, useSidebarResetMenu } from "./SidebarResetMenu";
 import { useSidebarDragDrop, type ToolGroup } from "./useSidebarDragDrop";
@@ -63,7 +64,6 @@ export function Sidebar() {
   // touched, so unlocking restores the arrangement instantly. With `pinned`
   // forced empty, the pinned group, divider, and "Unpin all" item hide for free.
   const ents = useEntitlements();
-  const navigate = useNavigate();
   const orderingUnlocked = ents.has(ENT_ORDERING);
   // D-43/D-84: a corrupt/tampered/foreign machine.lic (problem) OR a lapsed
   // grace (refreshNeeded) surfaces as the quiet footer attention hint (no launch
@@ -114,9 +114,13 @@ export function Sidebar() {
   // the pure free tier (the activation pitch). The locked-customization
   // affordances (pin/reorder/reset) always open the panel via openOrderingUpsell.
   const openLicenseSurface = useCallback(() => {
-    if (hasManageableLicense) navigate("/settings/license");
+    // D-S11: the manageable-license branch now opens the Settings modal on the
+    // License pane (the single Settings surface, D-S6) instead of navigating to
+    // the superseded #/settings/license route. The free-tier branch is UNCHANGED
+    // — "Unlock Pro" still opens the shared upsell modal.
+    if (hasManageableLicense) openSettings("license");
     else openOrderingUpsell();
-  }, [hasManageableLicense, navigate, openOrderingUpsell]);
+  }, [hasManageableLicense, openOrderingUpsell]);
 
   // The aria-live announcement text (D-06). Re-set on every successful move/toggle.
   const [announcement, setAnnouncement] = useState("");
@@ -647,6 +651,21 @@ export function Sidebar() {
           {licenseAttention ? "License needs attention" : "Unlock Pro"}
         </button>
       ) : null}
+
+      {/* D-S9/D-S10: bottom-anchored Settings row — anchored at the very bottom of
+          the footer, BELOW the Unlock-Pro / "License needs attention" affordance.
+          UNCONDITIONAL: opens for everyone, including unlicensed (SET-04), with NO
+          lock badge. Opens the single Settings modal on the License pane
+          (openSettings — the one Settings surface, D-S6). Native button:
+          click/Enter/Space. */}
+      <button
+        type="button"
+        onClick={() => openSettings("license")}
+        className="flex min-h-6 items-center gap-2 rounded-[6px] px-[11px] py-1 text-left text-[13px] text-tx-2 outline-none transition-colors hover:text-tx focus-visible:ring-2 focus-visible:ring-accent"
+      >
+        <Settings aria-hidden="true" className="h-3 w-3 flex-none" />
+        Settings
+      </button>
 
       {/* Reorder / pin announcements for screen readers (D-06). Visually hidden. */}
       <div aria-live="polite" className="sr-only">
