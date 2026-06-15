@@ -35,10 +35,20 @@ vi.mock("react-router-dom", async (importOriginal) => {
   return { ...actual, useNavigate: () => navigateSpy };
 });
 
+// D-S8/D-S11: the Settings command + the License command (manageable state) open
+// the single Settings modal via openSettings; spy it so the open pane + return
+// target are observable.
+const openSettingsSpy = vi.fn();
+vi.mock("@/shell/settingsStore", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/shell/settingsStore")>();
+  return { ...actual, openSettings: (...args: unknown[]) => openSettingsSpy(...args) };
+});
+
 let store: Store;
 
 beforeEach(() => {
   navigateSpy.mockClear();
+  openSettingsSpy.mockClear();
   store = createStoreStub();
   setPlatformForTest(makeMemoryPlatform(store));
   // Pitfall 5: jsdom's environment default is FREE — inject FULL so existing
@@ -322,7 +332,7 @@ describe("CommandPalette — License command (D-88, shipped production command)"
     expect(await findByText("License")).toBeTruthy();
   });
 
-  it("navigates to the status route when there is a license to manage (licensed)", async () => {
+  it("opens the Settings modal on the License pane when there is a license to manage (licensed) — D-S11, not a route navigation", async () => {
     act(() =>
       setLicenseUiForTest({
         state: "licensed",
@@ -340,7 +350,10 @@ describe("CommandPalette — License command (D-88, shipped production command)"
     });
 
     fireEvent.click(await findByText("License"));
-    expect(navigateSpy).toHaveBeenCalledWith("/settings/license");
+    // D-S11: opens the single Settings surface on the License pane, passing the
+    // pre-palette focus as the explicit return target; never a route navigation.
+    expect(openSettingsSpy).toHaveBeenCalledWith("license", expect.anything());
+    expect(navigateSpy).not.toHaveBeenCalled();
   });
 
   it("opens the shared Unlock Pro upsell for free (notActivated) — visible feedback, never a silent navigate (21-04 fix)", async () => {
@@ -358,8 +371,53 @@ describe("CommandPalette — License command (D-88, shipped production command)"
       fireEvent.click(licenseRow);
     });
     // The free arm opens the SAME shared upsell surface the sidebar footer uses
-    // (shell/upsellStore) instead of navigating — no silent no-op on "/".
+    // (shell/upsellStore) instead of navigating — no silent no-op on "/". It must
+    // NOT open the Settings modal (that is the manageable-license arm, D-S11).
     expect(getUpsellOpen()).toBe(true);
+    expect(openSettingsSpy).not.toHaveBeenCalled();
     expect(navigateSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("CommandPalette — Settings command (D-S8)", () => {
+  it("is findable by typing 'settings'", async () => {
+    const { findByPlaceholderText, findByText } = renderPalette();
+    act(() => pressMetaK());
+    await findByPlaceholderText("Search tools…");
+
+    fireEvent.change(await findByPlaceholderText("Search tools…"), {
+      target: { value: "settings" },
+    });
+    expect(await findByText("Settings")).toBeTruthy();
+  });
+
+  it("appears in the empty-query list (sibling to the License command)", async () => {
+    const { findByPlaceholderText, getAllByRole } = renderPalette();
+    act(() => pressMetaK());
+    await findByPlaceholderText("Search tools…");
+
+    const labels = getAllByRole("button").map((b) => b.textContent ?? "");
+    expect(labels.some((t) => t.includes("Settings"))).toBe(true);
+    expect(labels.some((t) => t.includes("License"))).toBe(true);
+  });
+
+  it("running it opens the Settings modal on the License pane with the pre-palette focus as the return target", async () => {
+    const { findByPlaceholderText, findByText, queryByPlaceholderText } =
+      renderPalette();
+    act(() => pressMetaK());
+    await findByPlaceholderText("Search tools…");
+    fireEvent.change(await findByPlaceholderText("Search tools…"), {
+      target: { value: "settings" },
+    });
+
+    fireEvent.click(await findByText("Settings"));
+
+    // Opens the single Settings surface on the License pane (D-S8), passing the
+    // explicit return target; the palette closes and never navigates.
+    expect(openSettingsSpy).toHaveBeenCalledWith("license", expect.anything());
+    expect(navigateSpy).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(queryByPlaceholderText("Search tools…")).toBeNull(),
+    );
   });
 });

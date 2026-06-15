@@ -20,7 +20,7 @@ import {
   type ComponentType,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import { Lock } from "lucide-react";
+import { Lock, Settings } from "lucide-react";
 import { ENT_ORDERING, isToolLocked } from "@/lib/entitlements/entitlements";
 import {
   getEntitlementsSnapshot,
@@ -30,6 +30,7 @@ import { ENABLED_TOOLS, getToolById } from "@/lib/tools/registry";
 import type { ToolDefinition } from "@/lib/tools/types";
 import { rankTools, subsequenceScore } from "@/shell/fuzzy";
 import { loadPreferences, savePreferences } from "@/shell/prefsStore";
+import { openSettings } from "@/shell/settingsStore";
 import { openUpsell } from "@/shell/upsellStore";
 import { useEntitlements } from "@/shell/useEntitlements";
 import { useLicenseUi } from "@/shell/useLicenseUi";
@@ -200,14 +201,16 @@ export function CommandPalette() {
   // central predicate — the one resolved set, no per-feature checks (ENT-01).
   const ents = useEntitlements();
 
-  // D-88: the "License" command — a SHIPPED production command (NOT under the
+  // D-88/D-S11: the "License" command — a SHIPPED production command (NOT under the
   // import.meta.env.DEV guard, so check-dev-strip.sh leaves it in the bundle; it
   // carries no privileged action, T-21-15). Routes by state: there IS a license
-  // to manage (anything but the pure free notActivated) → the status route; the
-  // free tier OPENS the shared Unlock Pro upsell modal — the SAME surface the
-  // sidebar footer opens (shell/upsellStore). The old free arm did navigate("/"),
-  // which was a silent no-op when already on "/" and read as broken (21-04
-  // walkthrough fix); the upsell gives visible feedback with no duplicate UI.
+  // to manage (anything but the pure free notActivated) → opens the single
+  // Settings modal on the License pane (openSettings — the one Settings surface,
+  // D-S6, replacing the superseded navigate('/settings/license')); the free tier
+  // OPENS the shared Unlock Pro upsell modal — the SAME surface the sidebar footer
+  // opens (shell/upsellStore). Both arms pass the PRE-PALETTE focus as the explicit
+  // return target: the palette button the user selected unmounts on close, so it
+  // can't be the modal's focus-return element (finding 3).
   const licenseState = useLicenseUi().state;
   const licenseCommand = useMemo<CommandRow>(
     () => ({
@@ -217,19 +220,31 @@ export function CommandPalette() {
       icon: Lock,
       run: () =>
         licenseState === "notActivated"
-          ? // Pass the PRE-PALETTE focus as the explicit return target: the
-            // palette button the user selected unmounts on close, so it can't be
-            // the upsell modal's focus-return element (finding 3).
-            openUpsell(preOpenFocus)
-          : navigate("/settings/license"),
+          ? openUpsell(preOpenFocus)
+          : openSettings("license", preOpenFocus),
     }),
-    [licenseState, navigate, preOpenFocus],
+    [licenseState, preOpenFocus],
+  );
+
+  // D-S8: the "Settings" command — sibling to the License command, opens the
+  // single Settings modal on the License pane (the only pane this phase). Passes
+  // the pre-palette focus as the explicit return target (the palette row unmounts
+  // on close — finding 3).
+  const settingsCommand = useMemo<CommandRow>(
+    () => ({
+      kind: "command",
+      id: "settings",
+      name: "Settings",
+      icon: Settings,
+      run: () => openSettings("license", preOpenFocus),
+    }),
+    [preOpenFocus],
   );
 
   // Production commands first, then DEV commands (dev tooling always last).
   const commands = useMemo<CommandRow[]>(
-    () => [licenseCommand, ...DEV_COMMANDS],
-    [licenseCommand],
+    () => [licenseCommand, settingsCommand, ...DEV_COMMANDS],
+    [licenseCommand, settingsCommand],
   );
 
   const groups = useMemo(
