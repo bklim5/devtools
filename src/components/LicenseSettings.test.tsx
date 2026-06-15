@@ -36,6 +36,15 @@ vi.mock("react-router-dom", async (importOriginal) => {
   return { ...actual, useNavigate: () => navigateSpy };
 });
 
+// Reactivate (refreshNeeded/problem) + Activate (notActivated) open the SHARED
+// Unlock Pro upsell modal (shell/upsellStore) — the activation surface — NOT
+// navigate("/") (which bounced to the hero tool with no activation surface;
+// 21-04 walkthrough fix, same root cause as the ⌘K free-tier fix).
+const openUpsellSpy = vi.fn();
+vi.mock("@/shell/upsellStore", () => ({
+  openUpsell: () => openUpsellSpy(),
+}));
+
 const LICENSED: LicenseStatusPayload = {
   state: "licensed",
   expiry: "2027-01-01T00:00:00Z",
@@ -71,6 +80,7 @@ function renderRoute() {
 
 beforeEach(() => {
   navigateSpy.mockClear();
+  openUpsellSpy.mockClear();
 });
 
 afterEach(() => {
@@ -92,7 +102,7 @@ describe("LicenseSettings — state copy + fields", () => {
     expect(getByRole("button", { name: "Deactivate this device" })).toBeTruthy();
   });
 
-  it("notActivated (free): 'Free' heading + an activation route to the panel (D-88)", async () => {
+  it("notActivated (free): 'Free' heading + Activate OPENS the shared upsell modal (D-88)", async () => {
     const free: LicenseStatusPayload = { state: "notActivated", hasStoredKey: false };
     await installPlatform(free);
     act(() => setLicenseUiForTest(free));
@@ -102,7 +112,10 @@ describe("LicenseSettings — state copy + fields", () => {
     // No Refresh/Deactivate on the pure free state.
     expect(queryByRole("button", { name: "Refresh" })).toBeNull();
     fireEvent.click(getByRole("button", { name: "Activate a license" }));
-    expect(navigateSpy).toHaveBeenCalledWith("/");
+    // Opens the shared Unlock Pro upsell (the activation surface) — never a
+    // navigate-to-tool (21-04 walkthrough fix).
+    expect(openUpsellSpy).toHaveBeenCalledTimes(1);
+    expect(navigateSpy).not.toHaveBeenCalled();
   });
 
   it("offlineGrace: 'Licensed (offline)' + calm neutral body (no countdown)", async () => {
@@ -125,7 +138,7 @@ describe("LicenseSettings — state copy + fields", () => {
     expect(getByText("—")).toBeTruthy();
   });
 
-  it("refreshNeeded: ONE calm 'Pro is no longer active' state with Reactivate (D-83)", async () => {
+  it("refreshNeeded: ONE calm 'Pro is no longer active' state; Reactivate OPENS the upsell (D-83)", async () => {
     const rn: LicenseStatusPayload = { state: "refreshNeeded", hasStoredKey: true };
     await installPlatform(rn);
     act(() => setLicenseUiForTest(rn));
@@ -134,10 +147,12 @@ describe("LicenseSettings — state copy + fields", () => {
     expect(getByText("Pro is no longer active")).toBeTruthy();
     expect(getByRole("button", { name: "Reactivate" })).toBeTruthy();
     fireEvent.click(getByRole("button", { name: "Reactivate" }));
-    expect(navigateSpy).toHaveBeenCalledWith("/");
+    // Opens the shared Unlock Pro upsell — never a navigate-to-tool.
+    expect(openUpsellSpy).toHaveBeenCalledTimes(1);
+    expect(navigateSpy).not.toHaveBeenCalled();
   });
 
-  it("problem: 'License needs attention' (reuses the D-44 copy)", async () => {
+  it("problem: 'License needs attention' + Reactivate OPENS the upsell (D-44/D-83)", async () => {
     const prob: LicenseStatusPayload = {
       state: "problem",
       problem: "foreignMachine",
@@ -145,9 +160,14 @@ describe("LicenseSettings — state copy + fields", () => {
     };
     await installPlatform(prob);
     act(() => setLicenseUiForTest(prob));
-    const { getByText } = renderRoute();
+    const { getByText, getByRole } = renderRoute();
 
     expect(getByText("License needs attention")).toBeTruthy();
+    fireEvent.click(getByRole("button", { name: "Reactivate" }));
+    // problem shares the calm "no longer active" Reactivate action (D-83) — it
+    // too opens the shared upsell, not navigate-to-tool.
+    expect(openUpsellSpy).toHaveBeenCalledTimes(1);
+    expect(navigateSpy).not.toHaveBeenCalled();
   });
 });
 

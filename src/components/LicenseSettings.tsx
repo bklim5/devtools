@@ -20,7 +20,15 @@
 //                drop to free. Offline (D-79): the call rejects `offline` BEFORE
 //                any local clear (server-delete-first, Rust-pinned) — we surface
 //                calm guidance, NEVER text-bad, and local state is untouched.
-//   Reactivate — routes to / (the Unlock Pro panel owns the activation form, D-88).
+//   Reactivate — opens the shared Unlock Pro upsell modal (the activation surface
+//                owns the form, D-88). The old navigate("/") landed the user on a
+//                TOOL (since "/" redirects to the hero) with no activation surface —
+//                it read as "does nothing / bounces to a tool" (21-04 walkthrough
+//                fix, same root cause as the ⌘K free-tier fix). openUpsell() opens
+//                the SAME modal the footer + ⌘K open (shell/upsellStore — no
+//                duplicate UI). UpsellPanel adapts on hasStoredKey: an empty submit
+//                reuses the Keychain key, a pasted key replaces it — so the upsell
+//                is the unified entry for BOTH Reactivate and Activate.
 //
 // The masked key + licensee email come from verified cert data (D-89); the RAW
 // key NEVER round-trips through JS (LIC-04) — there is no raw-key field on the
@@ -31,10 +39,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Lock } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 import { platform, type LicenseErrorCode } from "@/lib/platform";
 import { refreshEntitlements } from "@/lib/entitlements/store";
 import { refreshLicenseUi } from "@/lib/license/licenseUi";
+import { openUpsell } from "@/shell/upsellStore";
 import { useLicenseUi } from "@/shell/useLicenseUi";
 import { usePreferences } from "@/shell/usePreferences";
 import { CopyButton } from "./CopyButton";
@@ -80,7 +88,6 @@ function renewsLine(expiry: string | null): string | null {
 
 export function LicenseSettings() {
   const ui = useLicenseUi();
-  const navigate = useNavigate();
   const { preferences, prefsLoaded, ackLicenseDropNotice } = usePreferences();
 
   // D-76 status-open trigger: re-query the local status on mount so the route
@@ -314,22 +321,25 @@ export function LicenseSettings() {
           ) : null}
 
           {/* Reactivate (refreshNeeded / problem) — same action regardless of
-              cause (D-83); the panel owns the activation form (D-88). */}
+              cause (D-83); opens the shared Unlock Pro upsell modal, which owns
+              the activation form (D-88). NOT navigate("/") — that bounced to the
+              hero TOOL with no activation surface (21-04 walkthrough fix). */}
           {canReactivate ? (
             <button
               type="button"
-              onClick={() => navigate("/")}
+              onClick={() => openUpsell()}
               className={PRIMARY_BTN_CLASS}
             >
               Reactivate
             </button>
           ) : null}
 
-          {/* Activate (free) — routes to the Unlock Pro panel (D-88). */}
+          {/* Activate (free) — opens the SAME shared Unlock Pro upsell modal the
+              footer + ⌘K open (D-88); the panel adapts on hasStoredKey. */}
           {ui.state === "notActivated" ? (
             <button
               type="button"
-              onClick={() => navigate("/")}
+              onClick={() => openUpsell()}
               className={PRIMARY_BTN_CLASS}
             >
               Activate a license
