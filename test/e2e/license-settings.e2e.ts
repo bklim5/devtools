@@ -14,9 +14,10 @@
 //   2. statusHeading() reads the License-pane status heading INSIDE the dialog,
 //      dropping the "Settings" dialog title — an unscoped first-h2 read would now
 //      return "Settings" and break every status assertion (Pitfall 4).
-// Footer-routing assertions (the footer OPENING the modal) move to Plan 02's scope
-// (the footer re-point is Plan 02 work) — this spec keeps the deep-link + license
-// problem/free coverage only.
+// Plan 02 (D-S11) ADDS the footer-routing coverage: the footer "License needs
+// attention" affordance now OPENS THE MODAL on the License pane (it used to
+// navigate('/settings/license')). The assertion is the modal mounting, NOT a hash
+// change — the route is gone (D-S6).
 //
 // The e2e-spike preflight resets the DEV prefs.json + machine.dev.lic to a
 // deterministic baseline (no override, no cert → notActivated/FREE under the live
@@ -121,6 +122,29 @@ function dismissModal(): Promise<void> {
 /** The trimmed text of the currently-focused element (to assert focus-return). */
 function activeText(): Promise<string> {
   return browser.execute(() => (document.activeElement?.textContent ?? "").trim());
+}
+
+/** Whether the sidebar footer "License needs attention" affordance is present
+ *  (it surfaces only in a problem / refreshNeeded state — D-43/D-84). */
+function footerAttentionPresent(): Promise<boolean> {
+  return browser.execute(() =>
+    Array.from(document.querySelectorAll("aside button")).some(
+      (b) => (b.textContent ?? "").trim() === "License needs attention",
+    ),
+  );
+}
+
+/** Focus + click the sidebar footer "License needs attention" affordance. */
+function clickFooterAttention(): Promise<boolean> {
+  return browser.execute(() => {
+    const btn = Array.from(document.querySelectorAll("aside button")).find(
+      (b) => (b.textContent ?? "").trim() === "License needs attention",
+    ) as HTMLElement | undefined;
+    if (!btn) return false;
+    btn.focus();
+    btn.click();
+    return true;
+  });
 }
 
 /** Close the Settings modal (Esc) and wait for it to unmount — keeps each spec
@@ -353,6 +377,75 @@ describe("License pane in the Settings modal (real WKWebView)", () => {
         await closeSettingsModal();
       } catch (cleanupError) {
         console.error("[license-settings] reactivate-modal cleanup failed:", cleanupError);
+      }
+    }
+  });
+
+  // D-S11: the sidebar footer "License needs attention" affordance now OPENS the
+  // Settings modal on the License pane (was navigate('/settings/license') — the
+  // route is gone, D-S6). A corrupt machine.dev.lic puts the license in the
+  // problem state, which is what surfaces the footer affordance (D-43).
+  it('the footer "License needs attention" affordance OPENS the Settings modal on the License pane (D-S11), not a route', async () => {
+    await navigateToTool("protobuf-decoder");
+    const firstHandle = await $('button[aria-label^="Reorder "]');
+    await firstHandle.waitForExist({ timeout: 15_000 });
+
+    let licSeeded = false;
+    let licExisted = false;
+    let licBackup: Buffer | null = null;
+    try {
+      // Seed garbage into the REAL machine.dev.lic to force the problem state, so
+      // the footer surfaces the "License needs attention" affordance.
+      licExisted = existsSync(LIC_PATH);
+      if (licExisted) licBackup = readFileSync(LIC_PATH);
+      mkdirSync(LIC_DIR, { recursive: true });
+      writeFileSync(LIC_PATH, "not a machine file");
+      licSeeded = true;
+
+      // Reload so the license UI re-reads the seeded cert through the real Rust
+      // verify and the footer surfaces the attention affordance.
+      await browser.execute(() => window.location.reload());
+      await browser.waitUntil(async () => footerAttentionPresent(), {
+        timeout: 15_000,
+        timeoutMsg:
+          'expected the footer "License needs attention" affordance after seeding a corrupt machine.lic (D-43)',
+      });
+
+      assert(!(await settingsModalOpen()), "no Settings modal should be open before clicking the footer");
+
+      // Clicking the footer OPENS the modal (D-S11), NOT a hash navigation.
+      assert(await clickFooterAttention(), 'expected to click the "License needs attention" footer affordance');
+      await browser.waitUntil(async () => settingsModalOpen(), {
+        timeout: 10_000,
+        timeoutMsg:
+          "expected the footer affordance to OPEN the Settings modal (D-S11), not navigate to a route",
+      });
+      // The pane shows the problem-state status heading (scoped inside the dialog).
+      await browser.waitUntil(
+        async () => (await statusHeading()) === "License needs attention",
+        {
+          timeout: 10_000,
+          timeoutMsg: `expected the License pane problem state in the modal, got ${JSON.stringify(await statusHeading())}`,
+        },
+      );
+      await saveScreenshot(
+        "license-settings",
+        "license-settings-footer-opens-modal.png",
+        "footer-opens-modal",
+      );
+      await closeSettingsModal();
+    } finally {
+      try {
+        await dismissModal();
+        await closeSettingsModal();
+        if (licSeeded) {
+          if (licExisted && licBackup) writeFileSync(LIC_PATH, licBackup);
+          else rmSync(LIC_PATH, { force: true });
+        }
+        // Reload so the footer attention clears for the next spec.
+        await browser.execute(() => window.location.reload());
+      } catch (cleanupError) {
+        console.error("[license-settings] footer-routing cleanup failed:", cleanupError);
       }
     }
   });
