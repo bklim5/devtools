@@ -193,7 +193,13 @@ Plans:
   3. The modal is WCAG-AA: focus is trapped inside while open, returns to the invoking control on close, and it carries `aria-modal` + `aria-labelledby`
   4. The modal uses a paned layout (left nav list, right content pane) that is fully keyboard-navigable — the user can move between panes by keyboard and the active pane is announced via `aria`
   5. The License pane reuses the existing `src/components/LicenseSettings.tsx` surface unchanged (all 5 states; activate/upsell for unlicensed) with no behavior regression
-**Plans**: TBD
+**Plans**: 3 plans (planned 2026-06-15)
+
+Plans:
+- [ ] 22-01-PLAN.md — Settings modal foundation: `settingsStore`/`useSettings` (clone upsellStore + sync invoker capture + activePane), `SettingsModal` (paned layout, cloned UpsellModal a11y, `aria-current` button-list pane nav + aria-live), extensible `settingsPanes` (License = `LicenseSettings` unchanged), App.tsx mount (before UpsellModal), `#/settings/license` deep-link migration + e2e (SET-04/05/06; autonomous, wave 1)
+- [ ] 22-02-PLAN.md — Webview entry points + D-88 re-point: bottom-anchored sidebar "Settings" row (opens for everyone, no lock badge) + ⌘K "Settings" command, re-point the footer License-attention affordance + ⌘K "License" command to `openSettings('license')` (Unlock-Pro/upsell unchanged), open-from-sidebar/⌘K/footer e2e (SET-03; D-S6/D-S8/D-S9/D-S11; autonomous, wave 2)
+- [ ] 22-03-PLAN.md — Native entry points: app menu `Settings…` (⌘,) via `set_menu()` with reconstructed App/Edit/Window defaults (Pitfall 1 — preserve Copy/Paste/Undo/Select-All/Quit) + tray `Settings…`, both emitting `menu://open-settings` through the platform seam (`onOpenSettings`), App.tsx subscription, manual menu/tray + Edit-menu-regression walkthrough (SET-01/02; D-S7; NOT autonomous, wave 2)
+
 **UI hint**: yes
 
 ### Phase 23: Appearance Pane
@@ -238,7 +244,7 @@ Plans:
 **Execution Order:**
 Phases execute in numeric order. v1.6 runs 18 → 19 → 21 with Phase 20 parallel-capable beside 19 (external infra); Phase 21 requires both 19 and 20.
 
-v1.7 runs 22 → 23 → 24 → 25 (started non-destructively while v1.6 is in final sign-off; numbering continues from Phase 21). Phase 22 is the modal-shell foundation all panes mount into; Phases 23 and 24 are independent pane work (parallel-capable after 22); Phase 25 adds the Updates pane and carries the milestone-close sign-off.
+v1.7 runs 22 → 23 → 24 → 25 (started non-destructively while v1.6 is in final sign-off; numbering continues from Phase 21). Phase 22 is the modal-shell foundation all panes mount into; Phases 23 and 24 are independent pane work (parallel-capable after 22); Phase 25 adds the Updates pane and carries the milestone-close sign-off. Within Phase 22: wave 1 = the modal foundation (22-01); wave 2 = the webview entry points (22-02) + the native menu/tray (22-03) in parallel (no file overlap).
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -263,7 +269,7 @@ v1.7 runs 22 → 23 → 24 → 25 (started non-destructively while v1.6 is in fi
 | 19. License Activation & Offline Verification | v1.6 | 4/4 | Complete    | 2026-06-12 |
 | 20. Purchase Pipeline | v1.6 | 2/3 | In progress | PAY-01/02/03 |
 | 21. License Lifecycle & Ship Gate | v1.6 | 3/5 | In Progress|  |
-| 22. Settings Modal Shell, Entry Points & License Pane | v1.7 | 0/? | Not started | - |
+| 22. Settings Modal Shell, Entry Points & License Pane | v1.7 | 0/3 | Planned | - |
 | 23. Appearance Pane | v1.7 | 0/? | Not started | - |
 | 24. Hotkeys & General Panes | v1.7 | 0/? | Not started | - |
 | 25. Updates Pane & Milestone Ship | v1.7 | 0/? | Not started | - |
