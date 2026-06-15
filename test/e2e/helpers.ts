@@ -234,71 +234,82 @@ export function upsellModalOpen(): Promise<boolean> {
   });
 }
 
-// --- DEV-only tier control (post-D-85, deterministic seam 21-04) -------------
+// --- DEV-only tier control (post-D-85) --------------------------------------
 //
 // After the Phase 21 D-85 flip an unlicensed in-Tauri install resolves FREE, so
 // the e2e baseline (the e2e-spike preflight wipes prefs.json + machine.dev.lic)
 // is FREE. Pro-gated UX (reorder/pin/theming) MUST establish Pro first; locked-UX
-// checks establish FREE.
+// checks establish FREE. These two helpers make a spec's required tier EXPLICIT
+// and idempotent instead of assuming a baseline.
 //
-// HISTORY (the flake these helpers used to carry): the original ensureProTier/
-// ensureFreeTier drove the ⌘K palette `runDevToggle()` — a ~6-step WKWebView dance
-// (open palette → type → ArrowUp → Enter → close → wait for the footer to flip).
-// The dev toggle is BIDIRECTIONAL on the EFFECTIVE tier, so a lagging entitlements
-// snapshot could read the OLD tier and flip the WRONG way, oscillating; the toggle
-// call also sat OUTSIDE the retry try/catch, so a transient mid-dance failure
-// aborted with no retry (~1-in-9 real-run flake — "the 'Unlock Pro' footer never
-// appeared"; see deferred-items.md / [[license-walkthrough-state-pollutes-e2e]]).
+// WHY runDevToggle (not a `window.__devSetTier` JS seam):
+// An earlier 21-04 hardening attempt added a deterministic `window.__devSetTier`
+// hook in main.tsx (under `import.meta.env.DEV`) and drove it from here. It
+// REGRESSED the real-WKWebView gate DETERMINISTICALLY: every run threw "the DEV
+// __devSetTier seam is unavailable" because `browser.execute` read
+// `window.__devSetTier` as undefined in the served `tauri dev` page (the hook is
+// reached via `browser.execute(async fn)`, whose returned Promise WDIO's sync
+// executeScript does not await — and the hook never registered observably on the
+// realm `browser.execute` runs in). It could not be made reliable HEADLESS, so the
+// seam (+ its main.tsx wiring + its check-dev-strip.sh line) was REMOVED. The
+// PROVEN path is the ⌘K palette dev-toggle (`runDevToggle()` passed in 5 prior
+// real-WKWebView runs), so both helpers drive that — with the original ~1-in-9
+// flake HARDENED out (see below).
 //
-// FIX: these helpers now drive the DETERMINISTIC DEV-only `window.__devSetTier`
-// seam (main.tsx, registered under import.meta.env.DEV; resolves to the same DEV
-// "full"/"free" override the palette command writes, stripped from every release
-// bundle — proven by scripts/check-dev-strip.sh). It is a single state SET to an
-// EXACT target tier (NOT a toggle), so no oscillation is possible. The bounded
-// retry RE-SETS the SAME target idempotently (never flips) before failing loud.
-// runDevToggle() below is retained as the genuine ⌘K-palette regression path,
-// exercised once in entitlements.e2e.ts (the D-31/D-32 searchable-dev-command proof).
+// THE ORIGINAL FLAKE — and the hardening here:
+// The dev "Toggle free tier (dev)" command flips the EFFECTIVE tier
+// (CommandPalette.tsx): from FREE it grants the DEV-only "full" Pro override, from
+// Pro it forces "free". The old helpers had two defects: (1) `runDevToggle()` sat
+// OUTSIDE the retry try/catch, so a transient mid-dance WKWebView failure aborted
+// the whole helper with NO retry; (2) the toggle is BIDIRECTIONAL on a possibly-
+// lagging snapshot, so an over-toggle could leave the WRONG tier. The fix:
+//   - runDevToggle() runs INSIDE the try/catch — a transient failure RETRIES.
+//   - the effective tier is RE-READ from the footer at the TOP of every attempt,
+//     and the toggle only fires when the live tier differs from the target — so a
+//     prior over-toggle SELF-CORRECTS on the next pass (it toggles back).
+//   - a generous bounded waitUntil lets refreshEntitlements() propagate to the
+//     footer before the attempt is judged.
+// Only after all bounded attempts fail does the helper throw loud.
+//
+// runDevToggle() is ALSO exercised on its own in entitlements.e2e.ts as the
+// genuine ⌘K-palette regression proof (D-31/D-32 searchable-dev-command).
 
-// Set the exact effective tier via the deterministic DEV seam. Returns true once
-// the seam resolved (it awaits refreshEntitlements internally). No-op/false if the
-// hook is somehow absent (a non-DEV bundle — never the case under `tauri dev`).
-function devSetTier(target: "pro" | "free" | "default"): Promise<boolean> {
-  return browser.execute(async (t: "pro" | "free" | "default") => {
-    const hook = (window as unknown as Record<string, unknown>).__devSetTier as
-      | ((tier: "pro" | "free" | "default") => Promise<void>)
-      | undefined;
-    if (typeof hook !== "function") return false;
-    await hook(t);
-    return true;
-  }, target);
-}
-
-// Establish the EXACT effective tier deterministically: SET the target via the DEV
-// seam, then waitUntil the footer probe reflects it. The bounded retry RE-SETS the
-// SAME target (idempotent — never a toggle, so no oscillation) before failing loud.
+// Establish the EXACT effective tier via the proven ⌘K dev-toggle, hardened
+// against transient mid-dance failures and over-toggle. `target === "free"` means
+// the "Unlock Pro" footer MUST be present (the free-only observable invariant);
+// `target === "pro"` means it MUST be absent.
 async function establishTier(target: "pro" | "free"): Promise<void> {
-  // `free` is the observable invariant: the "Unlock Pro" footer shows in FREE only.
   const wantFree = target === "free";
-  for (let attempt = 0; attempt < 4; attempt++) {
-    const set = await devSetTier(target);
-    assert(
-      set,
-      `the DEV __devSetTier("${target}") seam is unavailable — is this a DEV (tauri dev) bundle?`,
-    );
+  for (let attempt = 0; attempt < 5; attempt++) {
     try {
+      // Re-read the EFFECTIVE tier each attempt so an earlier over-toggle (or a
+      // lagging snapshot from the last pass) self-corrects: only toggle when the
+      // live tier differs from the requested target.
+      const free = await unlockProFooterPresent();
+      if (free === wantFree) return; // already at the target — idempotent no-op
+
+      // The toggle and the footer wait are BOTH inside the try: a transient
+      // mid-dance WKWebView failure (the ~1-in-9 flake) RETRIES instead of
+      // aborting the helper.
+      await runDevToggle();
       await browser.waitUntil(
         async () => (await unlockProFooterPresent()) === wantFree,
-        { timeout: 8_000, interval: 200, timeoutMsg: `${target} tier not live yet` },
+        {
+          timeout: 8_000,
+          interval: 200,
+          timeoutMsg: `${target} tier not live yet (footer did not propagate)`,
+        },
       );
       return; // the live snapshot now matches the requested target
     } catch {
-      // Re-set the SAME target on the next loop (idempotent) — never flip.
+      // Transient failure or non-propagation — loop and re-read the tier; the
+      // next pass toggles only if still off-target (so over-toggle self-corrects).
     }
   }
   throw new Error(
     wantFree
-      ? 'could not establish the free tier via the deterministic DEV seam (the "Unlock Pro" footer never appeared)'
-      : "could not establish Pro tier via the deterministic DEV seam (the free-tier footer never cleared) — Pro-gated assertions cannot run",
+      ? 'could not establish the free tier via the ⌘K dev toggle (the "Unlock Pro" footer never appeared)'
+      : "could not establish Pro tier via the ⌘K dev toggle (the free-tier footer never cleared) — Pro-gated assertions cannot run",
   );
 }
 

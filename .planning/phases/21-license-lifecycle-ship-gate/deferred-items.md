@@ -120,7 +120,76 @@ entitlement override does NOT affect — so a persisted "full" override does not
 its "Free at baseline" assertion. If a future spec asserts a FREE *entitlement*
 baseline without calling `ensureFreeTier()` first, it must establish its own tier.
 
-## 21-04 hardening — tier-establishment flake RESOLVED (deterministic DEV seam)
+## 21-04 hardening — `__devSetTier` seam REGRESSED the gate; REVERTED to hardened runDevToggle
+
+**Type:** [Rule 1 - bug fix: regression] — supersedes the "deterministic DEV seam" entry below.
+
+**What broke:** The deterministic `window.__devSetTier` seam (commits 2d580b49 +
+ca029417) REGRESSED the real-WKWebView e2e DETERMINISTICALLY — 14 pass / 4 fail on all
+3 of 3 runs. Every tier-establishing call threw "the DEV __devSetTier(...) seam is
+unavailable — is this a DEV (tauri dev) bundle?". The 4 failing specs: entitlements,
+license, license-buy, sidebar.
+
+**Root-cause conclusion (stated for the record):** In the running `tauri dev --features
+webdriver` page, `window.__devSetTier` was genuinely UNDEFINED at `browser.execute` call
+time — the helper's `typeof hook !== "function"` guard returned `false` BEFORE any await
+(verified in __logs__/e2e-harden-1.log: the executed script returns `false`, then the
+helper's `assert` throws). The asymmetry the brief flagged — the SAME-gated
+`import.meta.env.DEV` palette command (`DEV_COMMANDS` in CommandPalette.tsx) DEMONSTRABLY
+works in this exact bundle (runDevToggle passed 5 prior runs) while the main.tsx
+top-level `window.__devSetTier` assignment did not take effect on the realm
+`browser.execute` observes. Entry is confirmed single (index.html → /src/main.tsx, vite
+dev :1420, no alt entry); the assignment is at module top before initPlatform, so it
+should run — yet it was not observable from `browser.execute`. Compounding it, the helper
+reached the hook via `browser.execute(async fn)`, whose returned Promise WDIO's
+synchronous executeScript does not await. The seam could NOT be made reliable HEADLESS
+(this executor cannot drive the GUI to confirm registration), so per the two-pronged
+directive's fallback it was REMOVED ENTIRELY rather than left as broken/dead code.
+
+**Fix (two-pronged, landed):**
+1. **Resilient helpers on the PROVEN path.** `ensureProTier()`/`ensureFreeTier()`
+   (test/e2e/helpers.ts) now drive the ⌘K `runDevToggle()` path (the proven one), with
+   the original ~1-in-9 flake hardened out: `runDevToggle()` runs INSIDE the retry
+   try/catch (a transient mid-dance failure RETRIES, not aborts); the EFFECTIVE tier is
+   RE-READ from the footer at the TOP of every attempt and the toggle fires only when the
+   live tier differs from the target, so a prior over-toggle SELF-CORRECTS next pass; a
+   generous bounded `waitUntil` lets `refreshEntitlements()` propagate to the footer;
+   throws loud only after all 5 bounded attempts fail.
+2. **Seam fully removed (no dead/broken code):**
+   - `src/main.tsx`: deleted the `window.__devSetTier` registration block + the
+     `setDevTier` import.
+   - `src/lib/entitlements/store.ts`: deleted `setDevTier`, the `DevTier` type, and
+     `TIER_OVERRIDE` (the `"full"` override RESOLUTION + downgrade-only
+     `clearEntitlementsOverride` STAY — those serve the live ⌘K dev toggle + license
+     activation, not the removed seam).
+   - `src/lib/entitlements/resolve.test.ts`: removed the 5 `setDevTier` unit tests + its
+     import (now 934 vitest, was 939).
+   - `scripts/check-dev-strip.sh`: removed the now-moot `__devSetTier` dist-grep line
+     (the "Toggle free tier" + `entitlementsOverride:"full"` strip checks remain).
+
+**Regression coverage retained:** `entitlements.e2e.ts` STILL drives the genuine ⌘K
+`runDevToggle()` directly (D-31/D-32 searchable-dev-command proof — not deleted).
+
+**Production behavior unchanged:** D-85 flip + D-31 downgrade-only-in-prod invariants
+intact; no new DEV seam ships. check-dev-strip.sh green (consistent with the seam being
+gone).
+
+**Unit gate:** green — vitest 934/934, tsc (root + server/webhook) 0, eslint 0 errors
+(2 pre-existing SidebarResetMenu.tsx react-refresh warnings remain out of scope).
+`pnpm build` + `check-dev-strip.sh` pass. decoder.ts + its 19 tests byte-for-byte
+untouched.
+
+**STILL OPEN (orchestrator action):** re-run `scripts/e2e-spike.sh` 3× (this executor is
+headless and cannot drive the GUI) to confirm the 4 specs are GREEN and STABLE. The
+21-04 human-verify gate remains open. SUMMARY/ROADMAP/STATE NOT finalized.
+
+---
+
+## 21-04 hardening — tier-establishment flake RESOLVED (deterministic DEV seam) [SUPERSEDED]
+
+> SUPERSEDED by the entry ABOVE — the `__devSetTier` seam this describes regressed the
+> real-WKWebView gate and was reverted. Kept for history only.
+
 
 **Type:** [Rule 1 - bug fix: e2e flake] pre-Wave-5 harness hardening.
 
