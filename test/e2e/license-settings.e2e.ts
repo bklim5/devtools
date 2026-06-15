@@ -115,6 +115,11 @@ function dismissUpsell(): Promise<void> {
   });
 }
 
+/** The trimmed text of the currently-focused element (to assert focus-return). */
+function activeText(): Promise<string> {
+  return browser.execute(() => (document.activeElement?.textContent ?? "").trim());
+}
+
 describe("License status route (real WKWebView)", () => {
   it("renders #/settings/license, shows the free state, and surfaces a corrupt machine.lic as the problem state with footer routing (D-87/D-88)", async () => {
     // Land on a deterministic tool so the shell + sidebar are mounted.
@@ -340,6 +345,80 @@ describe("License status route (real WKWebView)", () => {
         });
       } catch (cleanupError) {
         console.error("[license-settings] reactivate-modal cleanup failed:", cleanupError);
+      }
+    }
+  });
+
+  // 21-04 FLAG E1 (real-WKWebView focus-return) — the modal mounts ONCE at the
+  // shell decoupled from its trigger (upsellStore), so this is the ONE place that
+  // proves focus actually lands back on the invoking button (not <body>) after
+  // dismiss. openUpsell() captures the focused element synchronously at click
+  // time; on Esc the modal restores it. Drives the PROBLEM-state "Reactivate"
+  // button (seeded via a corrupt machine.dev.lic, same as above).
+  it("returns focus to the invoking Reactivate button after the modal is dismissed (E1)", async () => {
+    await navigateToTool("protobuf-decoder");
+    const firstHandle = await $('button[aria-label^="Reorder "]');
+    await firstHandle.waitForExist({ timeout: 15_000 });
+
+    let licSeeded = false;
+    let licExisted = false;
+    let licBackup: Buffer | null = null;
+    try {
+      licExisted = existsSync(LIC_PATH);
+      if (licExisted) licBackup = readFileSync(LIC_PATH);
+      mkdirSync(LIC_DIR, { recursive: true });
+      writeFileSync(LIC_PATH, "not a machine file");
+      licSeeded = true;
+
+      await navigateToTool("protobuf-decoder");
+      await navigateToLicenseRoute();
+      await browser.waitUntil(async () => (await statusHeading()) === "License needs attention", {
+        timeout: 10_000,
+        timeoutMsg: `expected the problem state, got ${JSON.stringify(await statusHeading())}`,
+      });
+
+      // Focus the Reactivate button explicitly, THEN click it — so the invoker is
+      // unambiguously the focused element openUpsell() captures.
+      await browser.execute(() => {
+        const btn = Array.from(document.querySelectorAll("button")).find((b) =>
+          (b.textContent ?? "").trim().includes("Reactivate"),
+        ) as HTMLElement | undefined;
+        btn?.focus();
+        btn?.click();
+      });
+      await browser.waitUntil(async () => upsellModalOpen(), {
+        timeout: 5_000,
+        timeoutMsg: "expected Reactivate to open the shared Unlock Pro modal",
+      });
+
+      // Dismiss via Escape; focus must return to the Reactivate button.
+      await dismissUpsell();
+      await browser.waitUntil(async () => !(await upsellModalOpen()), {
+        timeout: 5_000,
+        timeoutMsg: "expected Escape to dismiss the upsell modal",
+      });
+      await browser.waitUntil(async () => (await activeText()) === "Reactivate", {
+        timeout: 5_000,
+        timeoutMsg: `expected focus to return to the Reactivate button after dismiss (E1), focused text was ${JSON.stringify(await activeText())}`,
+      });
+    } finally {
+      try {
+        if (await upsellModalOpen()) {
+          await dismissUpsell();
+          await browser.waitUntil(async () => !(await upsellModalOpen()), { timeout: 5_000 });
+        }
+        if (licSeeded) {
+          if (licExisted && licBackup) writeFileSync(LIC_PATH, licBackup);
+          else rmSync(LIC_PATH, { force: true });
+        }
+        await navigateToTool("protobuf-decoder");
+        await navigateToLicenseRoute();
+        await browser.waitUntil(async () => (await statusHeading()) === "Free", {
+          timeout: 10_000,
+          timeoutMsg: "expected the route to return to Free after restoring machine.lic",
+        });
+      } catch (cleanupError) {
+        console.error("[license-settings] focus-return cleanup failed:", cleanupError);
       }
     }
   });
