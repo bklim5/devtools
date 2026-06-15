@@ -65,6 +65,10 @@ async function installPlatform(
   const license: Platform["license"] = {
     ...createLicenseStub(),
     status: () => Promise.resolve(status),
+    // The route mounts via refreshLicenseUiDetailed() → statusDetail() (D-89,
+    // codex finding 2 — the route is the ONLY licensed Keychain-reading path).
+    // Mirror `status` so the masked-key/email fields render in these tests.
+    statusDetail: () => Promise.resolve(status),
     ...overrides,
   };
   setPlatformForTest(makeMemoryPlatform(store, license));

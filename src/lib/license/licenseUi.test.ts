@@ -13,6 +13,7 @@ import { makeMemoryPlatform, noopLicense } from "@/shell/testStore";
 import {
   getLicenseUiSnapshot,
   refreshLicenseUi,
+  refreshLicenseUiDetailed,
   resetLicenseUiForTest,
   setLicenseUiForTest,
   subscribeLicenseUi,
@@ -68,6 +69,53 @@ describe("licenseUi snapshot store", () => {
     expect(getLicenseUiSnapshot()).toEqual(PROBLEM);
     expect(listener).toHaveBeenCalledTimes(1);
     unsubscribe();
+  });
+
+  it("refreshLicenseUi() reads the KEYCHAIN-FREE status() seam, NOT statusDetail() (T-19-10, finding 2)", async () => {
+    // The startup/footer/panel path must use status() (no masked-key Keychain
+    // read on a licensed launch). Prove it never calls statusDetail().
+    const status = vi.fn(() => Promise.resolve(PROBLEM));
+    const statusDetail = vi.fn(() => Promise.resolve(PROBLEM));
+    setPlatformForTest({
+      ...makeMemoryPlatform(),
+      license: { ...noopLicense, status, statusDetail },
+    });
+
+    await refreshLicenseUi();
+
+    expect(status).toHaveBeenCalledTimes(1);
+    expect(statusDetail).not.toHaveBeenCalled();
+  });
+
+  it("refreshLicenseUiDetailed() reads the ROUTE-ONLY statusDetail() seam (D-89 masked key)", async () => {
+    // The license settings route resolves the masked key via statusDetail() —
+    // the ONLY licensed path allowed to read the Keychain.
+    const LICENSED_WITH_KEY: LicenseStatusPayload = {
+      state: "licensed",
+      expiry: null,
+      entitlements: ["pro.theming"],
+      maskedKey: "••••••••AB12",
+      email: "buyer@example.com",
+    };
+    const status = vi.fn(() =>
+      Promise.resolve<LicenseStatusPayload>({
+        ...LICENSED_WITH_KEY,
+        maskedKey: null,
+        email: null,
+      }),
+    );
+    const statusDetail = vi.fn(() => Promise.resolve(LICENSED_WITH_KEY));
+    setPlatformForTest({
+      ...makeMemoryPlatform(),
+      license: { ...noopLicense, status, statusDetail },
+    });
+
+    await refreshLicenseUiDetailed();
+
+    expect(statusDetail).toHaveBeenCalledTimes(1);
+    expect(status).not.toHaveBeenCalled();
+    const snap = getLicenseUiSnapshot();
+    expect(snap.state === "licensed" ? snap.maskedKey : null).toBe("••••••••AB12");
   });
 
   it("notifies ONLY on change — an unchanged refresh is silent", async () => {

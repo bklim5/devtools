@@ -41,7 +41,10 @@ import { useEffect, useRef, useState } from "react";
 import { Lock } from "lucide-react";
 import { platform, type LicenseErrorCode } from "@/lib/platform";
 import { refreshEntitlements } from "@/lib/entitlements/store";
-import { refreshLicenseUi } from "@/lib/license/licenseUi";
+import {
+  refreshLicenseUi,
+  refreshLicenseUiDetailed,
+} from "@/lib/license/licenseUi";
 import { openUpsell } from "@/shell/upsellStore";
 import { useLicenseUi } from "@/shell/useLicenseUi";
 import { usePreferences } from "@/shell/usePreferences";
@@ -92,8 +95,12 @@ export function LicenseSettings() {
 
   // D-76 status-open trigger: re-query the local status on mount so the route
   // always shows fresh state (pure-local file read + verify — never network).
+  // ROUTE path (D-89, codex finding 2): use the DETAILED refresh so the masked
+  // key + email are populated — this is the ONLY licensed path that reads the
+  // Keychain, and it is user-initiated (visiting this route), so it never
+  // contributes to the licensed-launch prompt (T-19-10 restored).
   useEffect(() => {
-    void refreshLicenseUi().catch((err) => {
+    void refreshLicenseUiDetailed().catch((err) => {
       console.error("[license] status refresh failed:", err);
     });
   }, []);
@@ -118,7 +125,9 @@ export function LicenseSettings() {
     } finally {
       // Always re-read local status + re-resolve entitlements: the cert on disk
       // may have changed (renewed OR dropped) — live flip, no restart (D-76).
-      await refreshLicenseUi().catch(() => {});
+      // DETAILED on the route so the masked key/email stay populated after a
+      // user-initiated Refresh (D-89; this is still a user action, not launch).
+      await refreshLicenseUiDetailed().catch(() => {});
       await refreshEntitlements().catch(() => {});
       setRefreshing(false);
     }

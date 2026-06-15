@@ -120,6 +120,9 @@ export const tauriPlatform: Platform = {
   // codes to messages). Key material flows IN via activate(key) and never out.
   license: {
     status: () => invoke<LicenseStatusPayload>("license_status"),
+    // Route-only masked-key path (D-89) — the ONLY licensed status that reads
+    // the Keychain; called solely from the license settings route (finding 2).
+    statusDetail: () => invoke<LicenseStatusPayload>("license_status_detail"),
     activate: (key) => invoke<LicenseStatusPayload>("activate_license", { key }),
     refresh: () => invoke<LicenseStatusPayload>("refresh_license"),
     deactivate: () => invoke<LicenseStatusPayload>("deactivate_machine"),

@@ -189,10 +189,13 @@ pub fn run() {
     let builder = builder.plugin(tauri_plugin_webdriver::init());
 
     builder
-        // The locked 4-command licensing surface (Phase 19). App-defined
+        // The locked licensing command surface (Phase 19 + 21). App-defined
         // commands registered via generate_handler! need no capability entries.
+        // `license_status_detail` is the route-only masked-key path (D-89);
+        // `license_status` stays Keychain-free for startup (T-19-10, finding 2).
         .invoke_handler(tauri::generate_handler![
             license::commands::license_status,
+            license::commands::license_status_detail,
             license::commands::activate_license,
             license::commands::refresh_license,
             license::commands::refresh_license_if_needed,

@@ -46,6 +46,10 @@ describe("platform seam", () => {
           state: "notActivated",
           hasStoredKey: false,
         }),
+        statusDetail: vi.fn().mockResolvedValue({
+          state: "notActivated",
+          hasStoredKey: false,
+        }),
         activate: vi.fn(),
         refresh: vi.fn(),
         deactivate: vi.fn(),
@@ -152,6 +156,10 @@ describe("platform seam — native capabilities (NAT-01)", () => {
           state: "notActivated",
           hasStoredKey: false,
         }),
+        statusDetail: vi.fn().mockResolvedValue({
+          state: "notActivated",
+          hasStoredKey: false,
+        }),
         activate: vi.fn(),
         refresh: vi.fn(),
         deactivate: vi.fn(),
@@ -214,6 +222,10 @@ describe("platform seam — auto-updater (DST-02)", () => {
       },
       license: {
         status: vi.fn().mockResolvedValue({
+          state: "notActivated",
+          hasStoredKey: false,
+        }),
+        statusDetail: vi.fn().mockResolvedValue({
           state: "notActivated",
           hasStoredKey: false,
         }),
@@ -292,7 +304,13 @@ describe("platform seam — license (LIC-01..04)", () => {
     });
     const stub: Platform = {
       ...browserPlatform,
-      license: { status, activate, refresh: vi.fn(), deactivate: vi.fn() },
+      license: {
+        status,
+        statusDetail: vi.fn(),
+        activate,
+        refresh: vi.fn(),
+        deactivate: vi.fn(),
+      },
     };
     setPlatformForTest(stub);
 

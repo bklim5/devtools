@@ -117,8 +117,16 @@ export interface Platform {
    *  Browser/test arms are deterministic: status -> notActivated, mutations
    *  reject serviceUnreachable — never a network call (ENT-03 mirror). */
   license: {
-    /** Pure-local status (file read + Ed25519 verify) — never network (D-45). */
+    /** Pure-local status (file read + Ed25519 verify) — never network (D-45).
+     *  KEYCHAIN-FREE on a licensed launch (T-19-10): `maskedKey` stays null here.
+     *  Used by every startup/footer/panel refresh. */
     status(): Promise<LicenseStatusPayload>;
+    /** ROUTE-ONLY status (D-89): same pure-local read as `status()` PLUS the
+     *  masked license key for Licensed/OfflineGrace. The ONLY licensed path that
+     *  reads the Keychain — invoked solely by the user-initiated license settings
+     *  route, never at startup (so a licensed launch never prompts). LIC-04: only
+     *  the masked form crosses to JS; the raw key never round-trips. */
+    statusDetail(): Promise<LicenseStatusPayload>;
     /** One-time online activation — the phase's ONLY network call. `null` key
      *  => Rust uses the Keychain-stored key (D-44, LIC-04-safe). */
     activate(key: string | null): Promise<LicenseStatusPayload>;

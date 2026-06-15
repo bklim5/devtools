@@ -35,9 +35,13 @@ export function createLicenseStub(): Platform["license"] {
     // Same rejection shape as a serialized Rust LicenseError — callers handle
     // one contract in both environments (intentionally not an Error instance).
     Promise.reject({ code: "serviceUnreachable" as const });
+  const notActivated = () =>
+    Promise.resolve({ state: "notActivated" as const, hasStoredKey: false });
   return {
-    status: () =>
-      Promise.resolve({ state: "notActivated" as const, hasStoredKey: false }),
+    status: notActivated,
+    // Route-only masked-key path (D-89) — same deterministic free stub outside
+    // Tauri (no Keychain, no masked key); identical contract to `status`.
+    statusDetail: notActivated,
     activate: reject,
     refresh: reject,
     deactivate: reject,

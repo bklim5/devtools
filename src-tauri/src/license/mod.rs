@@ -191,10 +191,37 @@ impl<C: LicenseApi> LicenseManager<C> {
     /// Every verify failure is a typed Problem — fail closed, never licensed
     /// on error (LIC-06).
     ///
-    /// `has_stored_key` is computed lazily, ONLY for the NotActivated/Problem
-    /// variants — a licensed launch never touches the Keychain (avoids the
-    /// Pitfall 5 dev-build prompt on every start).
+    /// KEYCHAIN-FREE for the licensed path (Phase-19 invariant restored,
+    /// T-19-10): `has_stored_key` is computed lazily ONLY for the
+    /// NotActivated/Problem/RefreshNeeded variants; Licensed/OfflineGrace carry
+    /// `masked_key: None` here so a LICENSED LAUNCH NEVER TOUCHES THE KEYCHAIN
+    /// (the macOS auth-prompt-on-every-start regression — D-89 reintroduced this
+    /// when it read the masked key on the startup status path; codex finding 2).
+    ///
+    /// The masked key is resolved ONLY by [`Self::resolve_status_with_masked_key`],
+    /// called from the user-initiated license ROUTE (a dedicated command), never
+    /// at startup or on the footer/panel refresh.
     pub fn resolve_status(&mut self) -> LicenseStatusPayload {
+        self.resolve_status_inner(false)
+    }
+
+    /// ROUTE-ONLY status: identical to [`Self::resolve_status`] but additionally
+    /// resolves the masked license key (D-89) for the Licensed/OfflineGrace
+    /// arms. This is the ONLY status path allowed to read the Keychain for the
+    /// licensed case, and it is reached ONLY from the user-initiated license
+    /// settings route (the `license_status_detail` command) — so the Phase-19
+    /// "licensed launch never reads the Keychain" invariant holds for every
+    /// startup/footer/panel refresh, while the route can still show the key.
+    /// LIC-04: only the masked form ever crosses to JS (the raw key is masked
+    /// Rust-side and never retained); the read reuses the per-process cache.
+    pub fn resolve_status_with_masked_key(&mut self) -> LicenseStatusPayload {
+        self.resolve_status_inner(true)
+    }
+
+    /// Shared status core. `with_masked_key` gates the (Keychain-reading) masked
+    /// key resolution to the route-only path — the default startup path passes
+    /// `false` and so never touches the Keychain on the licensed arm.
+    fn resolve_status_inner(&mut self, with_masked_key: bool) -> LicenseStatusPayload {
         let Some(cert) = self.store.read() else {
             return LicenseStatusPayload::NotActivated {
                 has_stored_key: self.has_stored_key(),
@@ -207,23 +234,29 @@ impl<C: LicenseApi> LicenseManager<C> {
             // `classify_expiry` helper does the date math against the real
             // clock — no network on this path (D-45).
             Ok(data) => {
+                // The masked key is read ONLY on the route path (with_masked_key);
+                // the startup/footer/panel path leaves it None so a licensed
+                // launch never touches the Keychain (T-19-10 invariant restored,
+                // codex finding 2). The raw key is masked Rust-side (LIC-04).
+                let masked = if with_masked_key {
+                    self.masked_key()
+                } else {
+                    None
+                };
                 // RefreshNeeded needs `has_stored_key`; compute it lazily only
                 // when the classifier actually lands in that arm (Licensed /
-                // OfflineGrace never touch the Keychain).
+                // OfflineGrace never touch the Keychain on the startup path).
                 match classify_expiry(data.expiry.as_deref(), Utc::now()) {
-                    // Licensed/OfflineGrace expose the masked key (D-89) — read
-                    // the Keychain at most once per process (Pitfall 5); the raw
-                    // key is masked Rust-side and never enters the payload (LIC-04).
                     ExpiryClass::Active => LicenseStatusPayload::Licensed {
                         expiry: data.expiry,
                         entitlements: data.entitlements,
-                        masked_key: self.masked_key(),
+                        masked_key: masked,
                         email: data.email,
                     },
                     ExpiryClass::Grace => LicenseStatusPayload::OfflineGrace {
                         expiry: data.expiry,
                         entitlements: data.entitlements,
-                        masked_key: self.masked_key(),
+                        masked_key: masked,
                         email: data.email,
                     },
                     ExpiryClass::Lapsed => LicenseStatusPayload::RefreshNeeded {
@@ -783,8 +816,11 @@ mod tests {
 
     #[test]
     fn licensed_payload_exposes_only_the_masked_key_never_the_raw() {
-        // WithKey -> "KEY-AAAA-BBBB"; the payload must carry the masked form only.
-        let status = manager(Some(REAL_CERT), MockKeychain::WithKey, REAL_FP).resolve_status();
+        // WithKey -> "KEY-AAAA-BBBB"; the ROUTE payload must carry the masked
+        // form only. The masked key is resolved ONLY on the route-only path
+        // (resolve_status_with_masked_key) — codex finding 2 / T-19-10.
+        let status =
+            manager(Some(REAL_CERT), MockKeychain::WithKey, REAL_FP).resolve_status_with_masked_key();
         match status {
             LicenseStatusPayload::Licensed { masked_key, .. } => {
                 assert_eq!(masked_key.as_deref(), Some("••••••••BBBB"));
@@ -796,10 +832,12 @@ mod tests {
     }
 
     #[test]
-    fn masking_reuses_the_per_process_keychain_read_cache_at_most_once() {
-        // The masked-key read must obey the same prompt-flood discipline as
-        // has_stored_key: repeated status queries on a Licensed session read the
-        // Keychain AT MOST ONCE (Pitfall 5). Counting keychain proves it.
+    fn startup_status_path_never_reads_the_keychain_for_a_licensed_launch() {
+        // T-19-10 invariant (Phase-19), RE-PINNED after the D-89 regression
+        // (codex finding 2): a licensed launch — every startup/footer/panel
+        // refresh goes through resolve_status() — must NOT touch the Keychain,
+        // or macOS raises the auth prompt on every start. The route-only
+        // resolve_status_with_masked_key() is the ONLY licensed path that reads.
         let reads = Arc::new(Mutex::new(0));
         let mut mgr = LicenseManager::new(
             Box::new(MockStore(Some(REAL_CERT))),
@@ -812,6 +850,37 @@ mod tests {
         );
         for _ in 0..3 {
             match mgr.resolve_status() {
+                LicenseStatusPayload::Licensed { masked_key, .. } => {
+                    // No masked key on the startup path — and crucially no read.
+                    assert_eq!(masked_key, None);
+                }
+                other => panic!("expected Licensed, got {other:?}"),
+            }
+        }
+        assert_eq!(
+            *reads.lock().unwrap(),
+            0,
+            "a licensed launch must NEVER read the Keychain (T-19-10; D-89 regression)"
+        );
+    }
+
+    #[test]
+    fn masking_reuses_the_per_process_keychain_read_cache_at_most_once() {
+        // The masked-key read must obey the same prompt-flood discipline as
+        // has_stored_key: repeated ROUTE status queries on a Licensed session
+        // read the Keychain AT MOST ONCE (Pitfall 5). Counting keychain proves it.
+        let reads = Arc::new(Mutex::new(0));
+        let mut mgr = LicenseManager::new(
+            Box::new(MockStore(Some(REAL_CERT))),
+            Box::new(CountingKeychain {
+                inner: MockKeychain::WithKey,
+                reads: Arc::clone(&reads),
+            }),
+            NoNetwork,
+            REAL_FP.to_string(),
+        );
+        for _ in 0..3 {
+            match mgr.resolve_status_with_masked_key() {
                 LicenseStatusPayload::Licensed { masked_key, .. } => {
                     assert_eq!(masked_key.as_deref(), Some("••••••••BBBB"));
                 }
@@ -828,8 +897,9 @@ mod tests {
     #[test]
     fn masked_key_is_none_when_the_keychain_read_fails() {
         // Fail-soft (same posture as has_stored_key): an erroring Keychain ->
-        // masked_key None, status still Licensed (verify path unaffected).
-        let status = manager(Some(REAL_CERT), MockKeychain::Erroring, REAL_FP).resolve_status();
+        // masked_key None, status still Licensed (verify path unaffected). Route path.
+        let status =
+            manager(Some(REAL_CERT), MockKeychain::Erroring, REAL_FP).resolve_status_with_masked_key();
         match status {
             LicenseStatusPayload::Licensed { masked_key, .. } => assert_eq!(masked_key, None),
             other => panic!("expected Licensed, got {other:?}"),

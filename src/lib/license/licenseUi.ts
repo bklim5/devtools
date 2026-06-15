@@ -82,10 +82,29 @@ export function subscribeLicenseUi(fn: () => void): () => void {
 /** Re-query platform.license.status() (LOCAL file read + verify only — zero
  *  network, D-45) and propagate to subscribers ONLY when the payload actually
  *  changed. Awaits initPlatform() so the read can never race the seam's lazy
- *  Tauri-impl swap (the prefs split-brain lesson). */
+ *  Tauri-impl swap (the prefs split-brain lesson).
+ *
+ *  KEYCHAIN-FREE (T-19-10, codex finding 2): uses the `status()` seam, which
+ *  leaves `maskedKey` null on a licensed launch — so the startup refresh
+ *  (main.tsx) and the footer/upsell-panel refresh never prompt the Keychain.
+ *  The license settings route uses `refreshLicenseUiDetailed()` for the key. */
 export async function refreshLicenseUi(): Promise<void> {
+  await refresh(false);
+}
+
+/** ROUTE-ONLY refresh (D-89): like `refreshLicenseUi()` but reads the masked
+ *  key via the `statusDetail()` seam. Called ONLY from the user-initiated
+ *  license settings route — the ONLY licensed path allowed to read the Keychain
+ *  (LIC-04: only the masked form crosses to JS). */
+export async function refreshLicenseUiDetailed(): Promise<void> {
+  await refresh(true);
+}
+
+async function refresh(detailed: boolean): Promise<void> {
   await initPlatform();
-  const next = await platform.license.status();
+  const next = detailed
+    ? await platform.license.statusDetail()
+    : await platform.license.status();
   if (payloadsEqual(next, current)) return;
   current = next;
   notify();

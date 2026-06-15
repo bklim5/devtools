@@ -22,11 +22,29 @@ pub struct LicenseState(pub tauri::async_runtime::Mutex<LicenseManager<KeygenCli
 /// PURE-LOCAL status (D-45): file read + Ed25519 verify only. The single
 /// `.await` is the state-mutex lock — there is NO client/network call on this
 /// path, every launch works fully offline.
+///
+/// KEYCHAIN-FREE (T-19-10, codex finding 2): this is the STARTUP/footer/panel
+/// path, so it never reads the Keychain on a licensed launch (the masked key is
+/// NOT resolved here — it stays `null`). The license settings ROUTE uses
+/// [`license_status_detail`] to additionally show the masked key.
 #[tauri::command]
 pub async fn license_status(
     state: State<'_, LicenseState>,
 ) -> Result<LicenseStatusPayload, LicenseError> {
     Ok(state.0.lock().await.resolve_status())
+}
+
+/// ROUTE-ONLY status (D-89): same pure-local read as [`license_status`] but also
+/// resolves the masked license key for the Licensed/OfflineGrace arms. This is
+/// the ONLY licensed status path that reads the Keychain, and it is invoked
+/// ONLY by the user-initiated license settings route — so a licensed LAUNCH
+/// never prompts (T-19-10 invariant restored). LIC-04: only the masked form
+/// ever crosses to JS; the raw key is masked Rust-side and never retained.
+#[tauri::command]
+pub async fn license_status_detail(
+    state: State<'_, LicenseState>,
+) -> Result<LicenseStatusPayload, LicenseError> {
+    Ok(state.0.lock().await.resolve_status_with_masked_key())
 }
 
 /// The phase's ONLY user-triggerable network call (D-45). `key: None` =
