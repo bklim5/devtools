@@ -56,18 +56,50 @@ describe("UpsellPanel (card)", () => {
     expect(heading.tagName).toBe("H2");
   });
 
-  it("renders the final two-paragraph body copy with no pricing (D-20) and no feature meta line (D-19 override)", () => {
-    const { getByText, queryByText, container } = render(
-      <UpsellPanel icon={Lock} />,
-    );
+  it("renders the redesigned pitch body copy (Phase 22.1 walkthrough)", () => {
+    const { getByText } = render(<UpsellPanel icon={Lock} />);
     expect(getByText(/Most of TinkerDev is free/)).toBeDefined();
     expect(
-      getByText(/consider supporting it with a lifetime license/),
+      getByText(/A lifetime license unlocks the extras and funds what's next/),
     ).toBeDefined();
-    // D-19 override (walkthrough 2026-06-10): NO "Unlocks:" meta line — lock
-    // context comes from the affordance the user clicked.
-    expect(queryByText(/Unlocks:/)).toBeNull();
-    expect(container.textContent).not.toMatch(/\$|price/i);
+  });
+
+  it("renders the 3-row feature list with bold labels + muted subs (Phase 22.1)", () => {
+    const { getByText } = render(<UpsellPanel icon={Lock} />);
+    // Each row: a bold label + a one-line muted sub.
+    expect(getByText("Custom themes")).toBeDefined();
+    expect(getByText("Recolor the whole app to taste.")).toBeDefined();
+    expect(getByText("Reorder & pin tools")).toBeDefined();
+    expect(
+      getByText("Arrange the sidebar around your workflow."),
+    ).toBeDefined();
+    expect(getByText("Fund what's next")).toBeDefined();
+    expect(
+      getByText("Directly support maintenance and new tools."),
+    ).toBeDefined();
+  });
+
+  it("shows the $9 price block + 'once · lifetime license' sub (Phase 22.1 — REVERSES D-20)", () => {
+    // Walkthrough 2026-06-15 (user decision): pricing IS now shown in-app — this
+    // intentionally reverses the old D-20 "no pricing in-app". Price = $9.
+    const { getByText } = render(<UpsellPanel icon={Lock} />);
+    expect(getByText("$9")).toBeDefined();
+    expect(getByText(/once · lifetime license/)).toBeDefined();
+  });
+
+  it("shows the claims footer line (Phase 22.1)", () => {
+    const { getByText } = render(<UpsellPanel icon={Lock} />);
+    expect(
+      getByText("One-time payment · Free updates forever · 14-day refund"),
+    ).toBeDefined();
+  });
+
+  it("renders the lock badge in an accent-soft square (Phase 22.1)", () => {
+    const { container } = render(<UpsellPanel icon={Lock} />);
+    // The pitch leads with a rounded-square badge (accent-soft bg, accent icon).
+    const badge = container.querySelector(".bg-accent-soft");
+    expect(badge).toBeTruthy();
+    expect(badge!.querySelector("svg")).toBeTruthy();
   });
 
   it("renders the 'Buy license' CTA as a Tab-reachable button that opens the checkout via the opener seam (PAY-01/D-67)", async () => {
@@ -322,6 +354,19 @@ describe("UpsellPanel activation form (D-33/D-34/D-39)", () => {
       utils.getByRole("heading", { name: /Thank you for using TinkerDev/ }),
     ).toBeDefined();
     expect(utils.queryByRole("dialog")).toBeNull();
+  });
+
+  it("the key input carries the masked placeholder + a key-icon prefix (Phase 22.1)", () => {
+    const utils = render(<UpsellPanel icon={Lock} />);
+    const input = revealForm(utils);
+    // Without a stored key the field shows the masked key shape.
+    expect(input.placeholder).toBe("XXXX-XXXX-XXXX-XXXX");
+    // A decorative key icon sits inside the field wrapper (aria-hidden — the
+    // <label> remains the accessible name, WCAG 3.3.2).
+    const wrapper = input.parentElement!;
+    const icon = wrapper.querySelector("svg");
+    expect(icon).toBeTruthy();
+    expect(icon!.getAttribute("aria-hidden")).toBe("true");
   });
 
   it("disables submit and announces 'Activating…' via aria-live while pending (D-34)", async () => {

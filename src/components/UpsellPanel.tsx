@@ -45,6 +45,7 @@ import {
   type ComponentType,
   type FormEvent,
 } from "react";
+import { Heart, Key, ListOrdered, Palette } from "lucide-react";
 import { platform, type LicenseErrorCode } from "@/lib/platform";
 import {
   clearEntitlementsOverride,
@@ -87,14 +88,52 @@ function toErrorCode(err: unknown): LicenseErrorCode {
     : "activationFailed";
 }
 
+// Layout-agnostic (Phase 22.1): the surface FILLS its container — `w-full`, NO
+// fixed max-width — so it has no dead space in the wide License pane AND looks
+// right inside the narrower UpsellModal (the dialog wrapper bounds the width
+// there, D-22.1). The card chrome is shared by the pitch + the success/problem
+// states.
 const CARD_CLASS =
-  "flex max-w-[420px] flex-col gap-4 rounded-[7px] border border-bd bg-panel p-6";
+  "flex w-full flex-col gap-4 rounded-[7px] border border-bd bg-panel p-6";
 const HEADING_CLASS = "text-[16px] font-semibold leading-[1.2] text-tx";
 const BODY_CLASS = "flex flex-col gap-2 text-[12px] leading-[1.5] text-tx-2";
 const PRIMARY_BTN_CLASS =
   "cursor-pointer rounded-[7px] border border-accent-line bg-accent-soft px-3 py-1 text-[12px] text-accent outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-default disabled:border-bd disabled:bg-input-bg disabled:text-tx-2";
 const SECONDARY_BTN_CLASS =
   "cursor-pointer rounded-[7px] border border-bd bg-input-bg px-3 py-1 text-[12px] text-tx-2 outline-none transition-colors hover:border-bd-2 hover:text-tx focus-visible:ring-2 focus-visible:ring-accent";
+// Phase 22.1 badge: a rounded-square accent-soft tile holding the lock/feature
+// icon — the accent-soft fill is the ONLY accent surface in the pitch (parity
+// with the CTA), and the AA-bright accent glyph reads on it.
+const BADGE_CLASS =
+  "flex h-9 w-9 flex-none items-center justify-center rounded-[7px] border border-accent-line bg-accent-soft";
+
+/** The masked key shape shown as the input placeholder when no key is saved —
+ *  a hint of the format, NEVER a label (the <label> stays the a11y name). */
+const KEY_PLACEHOLDER = "XXXX-XXXX-XXXX-XXXX";
+
+/** Phase 22.1 pitch feature list (walkthrough 2026-06-15) — the three Pro
+ *  unlocks, each a fitting lucide icon + bold label + one-line muted sub. */
+const PITCH_FEATURES: ReadonlyArray<{
+  icon: ComponentType<{ className?: string }>;
+  label: string;
+  sub: string;
+}> = [
+  {
+    icon: Palette,
+    label: "Custom themes",
+    sub: "Recolor the whole app to taste.",
+  },
+  {
+    icon: ListOrdered,
+    label: "Reorder & pin tools",
+    sub: "Arrange the sidebar around your workflow.",
+  },
+  {
+    icon: Heart,
+    label: "Fund what's next",
+    sub: "Directly support maintenance and new tools.",
+  },
+];
 
 /**
  * The ONE activation surface (D-22.1-4). Owns the activation state, the verbatim
@@ -230,26 +269,40 @@ function ActivationSurface({
       <label htmlFor={inputId} className="text-[12px] text-tx-2">
         License key
       </label>
-      <input
-        id={inputId}
-        ref={inputRef}
-        type="text"
-        autoComplete="off"
-        autoCapitalize="off"
-        spellCheck={false}
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        // readOnly, NOT disabled (19-UI-REVIEW fix 2): disabling the focused
-        // element drops keyboard focus to <body> mid-activation; readOnly
-        // freezes edits while keeping focus (the submit button is disabled,
-        // and submit() re-entry is guarded on `pending`).
-        readOnly={pending}
-        placeholder={hasStoredKey ? "Your saved key will be used" : undefined}
-        aria-describedby={showStoredKeyHint ? storedKeyHintId : undefined}
-        // placeholder:text-tx-3 — #868b95 on bg-input-bg #0d0f13 ≈ 5.6:1 (AA);
-        // the WebKit default placeholder gray was unverified (19-UI-REVIEW).
-        className="w-full rounded-[7px] border border-bd bg-input-bg px-2.5 py-1.5 font-mono text-[12px] text-tx outline-none transition-colors placeholder:text-tx-3 focus-visible:ring-2 focus-visible:ring-accent"
-      />
+      {/* Phase 22.1: a Key-icon prefix sits inside the field; the input keeps
+          left padding clear of it. The icon is decorative (aria-hidden) — the
+          <label> above is the accessible name (WCAG 3.3.2). */}
+      <div className="relative">
+        <Key
+          aria-hidden="true"
+          className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-tx-3"
+        />
+        <input
+          id={inputId}
+          ref={inputRef}
+          type="text"
+          autoComplete="off"
+          autoCapitalize="off"
+          spellCheck={false}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          // readOnly, NOT disabled (19-UI-REVIEW fix 2): disabling the focused
+          // element drops keyboard focus to <body> mid-activation; readOnly
+          // freezes edits while keeping focus (the submit button is disabled,
+          // and submit() re-entry is guarded on `pending`).
+          readOnly={pending}
+          // Phase 22.1: the masked key shape when empty; the saved-key affordance
+          // (D-44) still wins when a key is stored (an empty submit reuses it).
+          placeholder={
+            hasStoredKey ? "Your saved key will be used" : KEY_PLACEHOLDER
+          }
+          aria-describedby={showStoredKeyHint ? storedKeyHintId : undefined}
+          // placeholder:text-tx-3 — #868b95 on bg-input-bg #0d0f13 ≈ 5.6:1 (AA);
+          // the WebKit default placeholder gray was unverified (19-UI-REVIEW).
+          // pl-8 clears the Key-icon prefix.
+          className="w-full rounded-[7px] border border-bd bg-input-bg py-1.5 pl-8 pr-2.5 font-mono text-[12px] text-tx outline-none transition-colors placeholder:text-tx-3 focus-visible:ring-2 focus-visible:ring-accent"
+        />
+      </div>
       {showStoredKeyHint ? (
         <p
           id={storedKeyHintId}
@@ -333,11 +386,16 @@ function ActivationSurface({
   }
 
   // The sales pitch (free/notActivated) — shared by the standalone panel and the
-  // inline "upsell" variant byte-for-byte (D-22.1-6).
+  // inline "upsell" variant byte-for-byte (D-22.1-6). Redesigned Phase 22.1
+  // (walkthrough 2026-06-15): lock badge, feature list, $9 price block, claims
+  // footer. The "Thank you for using TinkerDev ❤️" heading text is LOCKED (e2e
+  // asserts the pitch heading) and the Buy/key-reveal behavior is unchanged.
   return (
     <div className={CARD_CLASS}>
-      <div className="flex items-center gap-2">
-        <Icon className="h-5 w-5 flex-none text-tx-2" aria-hidden="true" />
+      <div className="flex items-start gap-3">
+        <span className={BADGE_CLASS}>
+          <Icon className="h-4 w-4 flex-none text-accent" aria-hidden="true" />
+        </span>
         <h2 id={headingId} className={HEADING_CLASS}>
           Thank you for using TinkerDev ❤️
         </h2>
@@ -345,21 +403,53 @@ function ActivationSurface({
       <div className={BODY_CLASS}>
         <p>
           Most of TinkerDev is free — built to make your everyday dev tasks
-          faster.
-        </p>
-        <p>
-          If TinkerDev has earned a spot in your toolkit, consider supporting
-          it with a lifetime license. You&apos;ll unlock extras like custom
-          themes and tool reordering, and fund ongoing maintenance and new
-          features.
+          faster. A lifetime license unlocks the extras and funds what&apos;s
+          next.
         </p>
       </div>
+
+      {/* Feature list — 3 rows, each a small accent-soft icon square + a bold
+          label + a one-line muted sub. */}
+      <ul className="flex flex-col gap-3">
+        {PITCH_FEATURES.map(({ icon: FeatureIcon, label, sub }) => (
+          <li key={label} className="flex items-start gap-3">
+            <span className="flex h-7 w-7 flex-none items-center justify-center rounded-[6px] border border-accent-line bg-accent-soft">
+              <FeatureIcon
+                aria-hidden="true"
+                className="h-3.5 w-3.5 text-accent"
+              />
+            </span>
+            <div className="flex flex-col gap-0.5">
+              <p className="text-[12px] font-semibold leading-[1.3] text-tx">
+                {label}
+              </p>
+              <p className="text-[12px] leading-[1.4] text-tx-2">{sub}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
+
+      {/* Neutral divider. */}
+      <hr className="border-t border-bd" />
+
+      {/* Price block — large $9 + a muted "once · lifetime license" sub.
+          (Phase 22.1 reverses the old D-20 "no pricing in-app", per the
+          2026-06-15 walkthrough; price = $9.) */}
+      <div className="flex items-baseline gap-2">
+        <span className="text-[28px] font-semibold leading-none text-tx">
+          $9
+        </span>
+        <span className="text-[12px] leading-[1.5] text-tx-2">
+          once · lifetime license
+        </span>
+      </div>
+
       {formRevealed ? (
         // D-33: the form is revealed IN PLACE of the button row — same panel,
         // no new modal/route.
         keyForm
       ) : (
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => {
@@ -372,7 +462,7 @@ function ActivationSurface({
                 console.error("[buy] open failed:", err),
               );
             }}
-            className="cursor-pointer rounded-[7px] border border-accent-line bg-accent-soft px-3 py-1 text-[12px] text-accent outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent"
+            className={PRIMARY_BTN_CLASS}
           >
             Buy license
           </button>
@@ -390,6 +480,12 @@ function ActivationSurface({
           </button>
         </div>
       )}
+
+      {/* Claims footer — all true (one-time / free updates / 14-day refund).
+          Muted; mono reads fine here for the · separators. */}
+      <p className="font-mono text-[11px] leading-[1.5] text-tx-3">
+        One-time payment · Free updates forever · 14-day refund
+      </p>
     </div>
   );
 }
@@ -531,7 +627,11 @@ export function UpsellModal({ icon, onClose }: UpsellModalProps) {
         aria-modal="true"
         aria-labelledby={MODAL_HEADING_ID}
         tabIndex={-1}
-        className="outline-none"
+        // The card is now w-full (layout-agnostic, Phase 22.1) — the dialog
+        // wrapper bounds the standalone modal's width (with a viewport margin)
+        // so the pitch reads as a compact card here, and fills the wide License
+        // pane inline.
+        className="w-full max-w-[420px] px-4 outline-none"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <UpsellPanel
