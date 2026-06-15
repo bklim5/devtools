@@ -18,7 +18,7 @@ import {
   needsOptInPrompt,
   shouldAutoCheck,
 } from "./shell/update";
-import { platform, type UpdateInfo } from "@/lib/platform";
+import { initPlatform, platform, type UpdateInfo } from "@/lib/platform";
 
 // The registry-driven application shell (SHL-01/02). All layout chrome lives
 // HERE — tools stay layout-agnostic and render inside <main>'s <Outlet/> with no
@@ -89,10 +89,19 @@ export function App() {
   useEffect(() => {
     let unlisten: (() => void) | undefined;
     let alive = true;
-    void platform.events.onMenuCheckUpdates(() => void runCheck(true)).then((u) => {
+    // `platform.events` is a getter over the CURRENT impl, which is the browser
+    // stub until initPlatform() resolves the real Tauri impl (HIGH-22-01). Await
+    // it FIRST so the listener binds to the real platform — otherwise the native
+    // tray `menu://check-updates` event reaches the no-op browser stub and the
+    // manual-check tray item is dead in the packaged app. initPlatform is
+    // memoised/idempotent.
+    void (async () => {
+      await initPlatform();
+      if (!alive) return;
+      const u = await platform.events.onMenuCheckUpdates(() => void runCheck(true));
       if (alive) unlisten = u;
       else u();
-    });
+    })();
     return () => {
       alive = false;
       unlisten?.();
@@ -110,12 +119,20 @@ export function App() {
   useEffect(() => {
     let unlisten: (() => void) | undefined;
     let alive = true;
-    void platform.events
-      .onOpenSettings(() => openSettings("license", document.body))
-      .then((u) => {
-        if (alive) unlisten = u;
-        else u();
-      });
+    // Same race as onMenuCheckUpdates (HIGH-22-01): await initPlatform() so the
+    // listener binds to the REAL Tauri impl, not the browser stub `platform.events`
+    // returns before init resolves — otherwise the native menu/tray
+    // `menu://open-settings` event never reaches this handler and the native
+    // Settings entry is dead in the packaged app.
+    void (async () => {
+      await initPlatform();
+      if (!alive) return;
+      const u = await platform.events.onOpenSettings(() =>
+        openSettings("license", document.body),
+      );
+      if (alive) unlisten = u;
+      else u();
+    })();
     return () => {
       alive = false;
       unlisten?.();

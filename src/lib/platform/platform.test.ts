@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   platform,
   createPlatform,
+  initPlatform,
   setPlatformForTest,
   resetPlatformForTest,
   type Platform,
@@ -242,6 +243,67 @@ describe("platform seam — auto-updater (DST-02)", () => {
 
     await expect(platform.updater.check()).resolves.toMatchObject({ version: "0.3.0" });
     expect(checkUpdate).toHaveBeenCalledTimes(1);
+  });
+});
+
+// SET-01/02 + HIGH-22-01: App.tsx subscribes the native menu/tray Settings +
+// Check-Updates events through the seam, but `platform.events` is a getter over
+// the CURRENT impl (the browser stub until initPlatform() resolves). The fix is
+// to `await initPlatform()` BEFORE reading `platform.events` — so the listener
+// binds to the RESOLVED impl, never the pre-init stub. This asserts that
+// contract: reading the accessor AFTER awaiting init routes to the resolved impl.
+describe("platform seam — events bind to the resolved impl (HIGH-22-01)", () => {
+  it("platform.events after `await initPlatform()` routes to the resolved impl, not the browser stub (Test 15)", async () => {
+    const onOpenSettings = vi.fn().mockResolvedValue(() => {});
+    const onMenuCheckUpdates = vi.fn().mockResolvedValue(() => {});
+    const stub: Platform = {
+      clipboard: { writeText: vi.fn(), readText: vi.fn() },
+      store: { get: vi.fn(), set: vi.fn() },
+      window: {
+        show: vi.fn(),
+        setFocus: vi.fn(),
+        unminimize: vi.fn(),
+        minimize: vi.fn(),
+        isVisible: vi.fn(),
+      },
+      nativeShortcut: {
+        register: vi.fn(),
+        unregister: vi.fn(),
+        isRegistered: vi.fn(),
+      },
+      updater: {
+        check: vi.fn().mockResolvedValue(null),
+        downloadAndInstall: vi.fn().mockResolvedValue(undefined),
+      },
+      events: { onMenuCheckUpdates, onOpenSettings },
+      license: {
+        status: vi.fn().mockResolvedValue({
+          state: "notActivated",
+          hasStoredKey: false,
+        }),
+        statusDetail: vi.fn().mockResolvedValue({
+          state: "notActivated",
+          hasStoredKey: false,
+        }),
+        activate: vi.fn(),
+        refresh: vi.fn(),
+        deactivate: vi.fn(),
+      },
+      opener: { openUrl: vi.fn().mockResolvedValue(undefined) },
+    };
+    // setPlatformForTest seeds the memoised init promise with the stub, so
+    // `await initPlatform()` resolves to it — mirroring how App.tsx awaits init
+    // before reading the events accessor.
+    setPlatformForTest(stub);
+
+    const handler = () => {};
+    // The App.tsx pattern: await init FIRST, THEN read platform.events.
+    await initPlatform();
+    await platform.events.onOpenSettings(handler);
+    await platform.events.onMenuCheckUpdates(handler);
+
+    expect(onOpenSettings).toHaveBeenCalledWith(handler);
+    expect(onMenuCheckUpdates).toHaveBeenCalledWith(handler);
   });
 });
 
