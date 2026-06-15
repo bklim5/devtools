@@ -1,7 +1,7 @@
 mod license;
 
 use tauri::{
-    menu::{Menu, MenuBuilder, MenuItem, SubmenuBuilder},
+    menu::{Menu, MenuBuilder, MenuItem, PredefinedMenuItem, SubmenuBuilder},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Emitter, Manager,
 };
@@ -142,19 +142,28 @@ pub fn run() {
             let settings_app_i =
                 MenuItem::with_id(app, "open_settings", "Settings…", true, Some("CmdOrCtrl+,"))?;
 
+            // Follow-up 1 (BUG, 22.1): the no-text chainable .about(None)/.hide()/.quit()
+            // derive their label from the Cargo bin name (devtools-app). Build explicit
+            // PredefinedMenuItems with the product name so the menu reads "TinkerDev"
+            // (D-22.1-1/D-22.1-2; API verified vs tauri-2.11.2 predefined.rs). about
+            // metadata stays None (unchanged behavior).
+            let about_i = PredefinedMenuItem::about(app, Some("About TinkerDev"), None)?;
+            let hide_i = PredefinedMenuItem::hide(app, Some("Hide TinkerDev"))?;
+            let quit_i = PredefinedMenuItem::quit(app, Some("Quit TinkerDev"))?;
+
             // App submenu (first submenu => the macOS application menu).
             let app_menu = SubmenuBuilder::new(app, "TinkerDev")
-                .about(None)
+                .item(&about_i)
                 .separator()
                 .item(&settings_app_i)
                 .separator()
                 .services()
                 .separator()
-                .hide()
+                .item(&hide_i)
                 .hide_others()
                 .show_all()
                 .separator()
-                .quit()
+                .item(&quit_i)
                 .build()?;
 
             // Edit submenu — MUST be reconstructed or the paste-first app loses
