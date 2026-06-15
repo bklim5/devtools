@@ -5,6 +5,8 @@
 // store propagates flips to subscribers exactly when the set changes.
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  initPlatform,
+  platform,
   resetPlatformForTest,
   setPlatformForTest,
   type LicenseStatusPayload,
@@ -119,6 +121,36 @@ describe("resolveEntitlements (ENT-03 — the LIVE Phase 21 D-85 flip point)", (
       licenseArm({ state: "problem", problem: "foreignMachine", hasStoredKey: false }),
     );
     expect((await resolveEntitlements()).size).toBe(0);
+  });
+
+  it("awaits initPlatform() BEFORE reading license status — no Pro→FREE boot flash (store-init race)", async () => {
+    // The race (tauri-store-async-init-race): `platform` starts as the browser
+    // fallback and is swapped to the real impl only after initPlatform() resolves.
+    // resolveEntitlements() must await init first, or a licensed launch reads the
+    // browser stub (notActivated → FREE) and boots into the locked free state.
+    //
+    // Pin the ordering: the licensed seam must NOT be read until the init promise
+    // has resolved. We register an init observer through the SAME public seam the
+    // production code awaits; status() records whether init had resolved when it
+    // ran. With the fix (await initPlatform() before the read), it always has.
+    setTauriEnv();
+    await seedStoredPrefs({}, {
+      ...createLicenseStub(),
+      status: () => Promise.resolve(LICENSED_BOTH),
+    });
+
+    let initResolved = false;
+    const initObserver = initPlatform().then(() => {
+      initResolved = true;
+    });
+    // resolveEntitlements() must internally await the SAME memoised init promise,
+    // so by the time it reads status() and returns, init has resolved.
+    const ents = await resolveEntitlements();
+    await initObserver;
+    expect(initResolved).toBe(true);
+    expect([...ents].sort()).toEqual([ENT_ORDERING, ENT_THEMING].sort());
+    // Sanity: the resolve went through the live (post-init) seam, not the fallback.
+    expect((await platform.license.status()).state).toBe("licensed");
   });
 
   it("entitlements drive the set, not a blanket FULL (a licensed cert with ONLY theming grants theming, not ordering)", async () => {

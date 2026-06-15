@@ -3,7 +3,7 @@
 // Mirrors the platform seam's Tauri detection (src/lib/platform/index.ts) so
 // the gate and the capability seam can never disagree about the environment.
 
-import { platform } from "@/lib/platform";
+import { initPlatform, platform } from "@/lib/platform";
 import { loadPreferences } from "@/shell/prefsStore";
 import {
   ALL_ENTITLEMENTS,
@@ -52,6 +52,16 @@ export async function resolveEntitlements(): Promise<EntitlementSet> {
   // Outside Tauri: deterministic free, no licensing/network path (jsdom/preview).
   // Inside Tauri: the live license_status (pure-local file read + Ed25519 verify,
   // D-45 — never network) drives the base entitlement set.
+  //
+  // store-race fix (Pitfall: tauri-store-async-init-race): `platform` starts as
+  // the browser fallback and is swapped to the real Tauri impl only after
+  // initPlatform() resolves. main.tsx fires this AND initPlatform() concurrently,
+  // so we MUST await init here before reading platform.license.status() — otherwise
+  // a licensed launch reads the browser stub (notActivated → FREE_SET) and boots
+  // into the locked free state until some later refresh happens to re-fire. This
+  // mirrors refreshLicenseUi() (licenseUi.ts) and the prefs hooks, which all await
+  // initPlatform() before touching the seam.
+  if (isTauriEnv()) await initPlatform();
   const base = isTauriEnv()
     ? baseFromLicense(await platform.license.status())
     : FREE_SET;
