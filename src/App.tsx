@@ -11,6 +11,7 @@ import { usePreferences } from "./shell/usePreferences";
 import { useUpsellOpen } from "./shell/useUpsell";
 import { useSettingsOpen } from "./shell/useSettings";
 import { closeUpsell } from "./shell/upsellStore";
+import { openSettings } from "./shell/settingsStore";
 import {
   checkForUpdate,
   installUpdate,
@@ -97,6 +98,29 @@ export function App() {
       unlisten?.();
     };
   }, [runCheck]);
+
+  // SET-01/02: the native app-menu (⌘,) + tray "Settings…" items open the shell
+  // Settings modal through the platform event seam (menu://open-settings →
+  // platform.events.onOpenSettings), so App.tsx imports no @tauri-apps package
+  // (D-12). Mirrors the onMenuCheckUpdates effect above. Registered at mount so
+  // the listener is live before any user clicks a native item (Pitfall 2 — no
+  // startup emit, no race). The native opener is not a DOM element, so pass an
+  // explicit persistent return target (document.body) for the modal's
+  // focus-return path. The callback closes over nothing reactive (no extra deps).
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    let alive = true;
+    void platform.events
+      .onOpenSettings(() => openSettings("license", document.body))
+      .then((u) => {
+        if (alive) unlisten = u;
+        else u();
+      });
+    return () => {
+      alive = false;
+      unlisten?.();
+    };
+  }, []);
 
   // A resolving "up to date"/error toast auto-clears so it never lingers.
   useEffect(() => {
