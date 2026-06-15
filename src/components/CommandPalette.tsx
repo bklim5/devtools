@@ -138,6 +138,14 @@ export function CommandPalette() {
   const [query, setQuery] = useState("");
   const [highlight, setHighlight] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  // The element focused BEFORE the palette opened, captured at open time. The
+  // palette button the user selects unmounts when the palette closes, so it
+  // can't be the upsell modal's focus-return target (codex finding 3) — the
+  // License command passes THIS persistent pre-palette element to openUpsell(),
+  // so focus returns to a still-connected control on modal close, never <body>.
+  // State (not a ref) so the License command's `run` closure stays render-safe
+  // (no ref reads flowing through buildGroups during render).
+  const [preOpenFocus, setPreOpenFocus] = useState<HTMLElement | null>(null);
 
   const navigate = useNavigate();
   // Recents are READ-ONLY here — recording happens centrally on navigation
@@ -167,6 +175,11 @@ export function CommandPalette() {
           if (!o) {
             setQuery("");
             setHighlight(0);
+            // Remember where focus was before the palette opened, so a command
+            // that opens the upsell modal (License) can return focus there on
+            // close (the palette button itself unmounts — finding 3).
+            const active = document.activeElement;
+            setPreOpenFocus(active instanceof HTMLElement ? active : null);
           }
           return !o;
         });
@@ -204,10 +217,13 @@ export function CommandPalette() {
       icon: Lock,
       run: () =>
         licenseState === "notActivated"
-          ? openUpsell()
+          ? // Pass the PRE-PALETTE focus as the explicit return target: the
+            // palette button the user selected unmounts on close, so it can't be
+            // the upsell modal's focus-return element (finding 3).
+            openUpsell(preOpenFocus)
           : navigate("/settings/license"),
     }),
-    [licenseState, navigate],
+    [licenseState, navigate, preOpenFocus],
   );
 
   // Production commands first, then DEV commands (dev tooling always last).

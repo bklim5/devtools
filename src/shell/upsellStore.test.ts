@@ -69,3 +69,21 @@ it("captures no invoker in a DOM-less env and clears it on close", () => {
   closeUpsell();
   expect(getUpsellInvoker()).toBeNull();
 });
+
+// Finding 3: TRANSIENT openers (the ⌘K palette command, the Sidebar reset menu
+// item) unmount on open, so their captured element is about to detach. Those
+// callers pass an EXPLICIT return-focus element which the store records VERBATIM
+// — bypassing the document.activeElement capture entirely (works even DOM-less).
+it("openUpsell(invoker) records the explicit return target verbatim (transient openers)", () => {
+  const explicit = { tagName: "BUTTON" } as unknown as HTMLElement;
+  openUpsell(explicit);
+  expect(getUpsellInvoker()).toBe(explicit);
+  closeUpsell();
+  expect(getUpsellInvoker()).toBeNull();
+});
+
+it("openUpsell(null) records null explicitly (no implicit activeElement capture)", () => {
+  openUpsell(null);
+  expect(getUpsellInvoker()).toBeNull();
+  closeUpsell();
+});

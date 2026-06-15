@@ -101,7 +101,14 @@ export function Sidebar() {
   // (shell/upsellStore) so the ⌘K free-tier "License" command opens the SAME
   // surface (21-04 walkthrough fix); the modal mounts ONCE at the shell (App.tsx)
   // and owns Esc/scrim dismiss + focus-return (Plan 01).
-  const openOrderingUpsell = useCallback(() => openUpsell(), []);
+  // Most callers (pin click, Alt chords, drag) are invoked from a persistent,
+  // currently-focused control, so they open with the default activeElement
+  // capture. The reset MENU path passes an explicit return target because its
+  // menu item unmounts on open (finding 3).
+  const openOrderingUpsell = useCallback(
+    (invokerEl?: HTMLElement | null) => openUpsell(invokerEl),
+    [],
+  );
   // D-88: the footer license-attention affordance routes by state — to the
   // status route when there is a license to manage, to the Unlock Pro panel for
   // the pure free tier (the activation pitch). The locked-customization
@@ -364,22 +371,34 @@ export function Sidebar() {
     openResetMenuFromMouse,
     openResetMenuFromKeyboard,
     closeResetMenu,
+    resolveMenuReturnFocus,
   } = useSidebarResetMenu({ navRef, rowRefs });
 
   const resetOrder = useCallback(() => {
     // D-28: the menu item stays reachable (visible affordance), but locked it
-    // opens the upsell instead of clearing the stored order. restoreFocus puts
-    // focus back on the invoking row BEFORE the modal mounts, so the modal's
-    // own focus-return lands there on dismiss.
+    // opens the upsell instead of clearing the stored order.
     if (!orderingUnlocked) {
-      openOrderingUpsell();
+      // Finding 3: the reset MENU item is about to unmount, so it can't be the
+      // upsell modal's focus-return target. Resolve the menu's intended
+      // return-focus element (the invoking row / nav, the SAME place a normal
+      // close restores to) BEFORE closing, and hand it to openUpsell explicitly
+      // so focus lands there on modal dismiss — not on the detached menu item.
+      const returnTarget = resolveMenuReturnFocus();
+      openOrderingUpsell(returnTarget);
       closeResetMenu({ restoreFocus: true });
       return;
     }
     setToolOrder([]); // clears to default registry order
     announce("Sidebar order reset to default");
     closeResetMenu({ restoreFocus: true });
-  }, [orderingUnlocked, openOrderingUpsell, setToolOrder, announce, closeResetMenu]);
+  }, [
+    orderingUnlocked,
+    openOrderingUpsell,
+    resolveMenuReturnFocus,
+    setToolOrder,
+    announce,
+    closeResetMenu,
+  ]);
 
   const unpinAll = useCallback(() => {
     setPinnedToolIds([]); // clears the whole pinned set (PIN-09)

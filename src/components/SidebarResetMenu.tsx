@@ -63,6 +63,24 @@ export function useSidebarResetMenu({ navRef, rowRefs }: SidebarResetMenuRefs) {
     [openResetMenu],
   );
 
+  // Resolve the element focus should return to when the menu closes: the saved
+  // open-from element if it is still a genuinely-focusable connected control,
+  // otherwise a stable anchor (the <nav>, then any live row). Shared by the
+  // close-restore path AND the upsell hand-off (so a locked menu action that
+  // opens the upsell modal returns focus to the SAME place a normal close would
+  // — never the doomed menu item, codex finding 3).
+  const resolveMenuReturnFocus = useCallback((): HTMLElement | null => {
+    const el = menuReturnFocusRef.current;
+    const usable =
+      el && el.isConnected && el !== document.body && el.tabIndex >= 0;
+    if (usable) return el;
+    return (
+      navRef.current ??
+      [...rowRefs.current.values()].find((r) => r?.isConnected) ??
+      null
+    );
+  }, [navRef, rowRefs]);
+
   const closeResetMenu = useCallback(
     (opts?: { restoreFocus?: boolean }) => {
       setResetMenu(null);
@@ -72,24 +90,15 @@ export function useSidebarResetMenu({ navRef, rowRefs }: SidebarResetMenuRefs) {
         // is a no-op that silently strands focus on <body>. A right-click open also
         // captures document.activeElement as <body> (a right-click does not focus the
         // row), which IS connected — restoring to it would strand keyboard focus on
-        // <body> just the same. Only restore to a still-connected, genuinely focusable
-        // element (not <body>, tabIndex >= 0); otherwise fall back to a stable anchor
-        // (the <nav>, then any live grip) so keyboard users are never left adrift.
-        const el = menuReturnFocusRef.current;
-        const usable = el && el.isConnected && el !== document.body && el.tabIndex >= 0;
-        if (usable) {
-          el.focus();
-        } else {
-          const fallback =
-            navRef.current ??
-            [...rowRefs.current.values()].find((r) => r?.isConnected) ??
-            null;
-          fallback?.focus();
-        }
+        // <body> just the same. resolveMenuReturnFocus() restores only to a
+        // still-connected, genuinely focusable element (not <body>, tabIndex >= 0);
+        // otherwise a stable anchor (the <nav>, then any live grip) so keyboard
+        // users are never left adrift.
+        resolveMenuReturnFocus()?.focus();
       }
       menuReturnFocusRef.current = null;
     },
-    [navRef, rowRefs],
+    [resolveMenuReturnFocus],
   );
 
   // Move focus to the first menu item when the menu opens, so an open menu is
@@ -128,6 +137,7 @@ export function useSidebarResetMenu({ navRef, rowRefs }: SidebarResetMenuRefs) {
     openResetMenuFromMouse,
     openResetMenuFromKeyboard,
     closeResetMenu,
+    resolveMenuReturnFocus,
   };
 }
 

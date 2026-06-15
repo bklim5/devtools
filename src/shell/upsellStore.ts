@@ -50,18 +50,33 @@ export function getUpsellInvoker(): HTMLElement | null {
   return invoker;
 }
 
-/** Open the shared Unlock Pro upsell modal (no-op if already open). Captures the
- *  currently-focused element as the invoker so focus returns there on close —
- *  for ALL openers (footer, ⌘K License, LicenseSettings Reactivate/Activate). */
-export function openUpsell(): void {
+/** Open the shared Unlock Pro upsell modal (no-op if already open). Records the
+ *  element focus should return to on close — for ALL openers (footer, ⌘K
+ *  License, LicenseSettings Reactivate/Activate, Sidebar reset menu).
+ *
+ *  Most openers (a persistent footer/route button) are focused when their click
+ *  handler runs, so the default capture of `document.activeElement` is the right
+ *  return target. But TRANSIENT openers — the ⌘K palette command and the Sidebar
+ *  reset MENU item — unmount before/while opening, so their captured element is
+ *  about to detach (codex finding 3). Those callers pass an EXPLICIT `invokerEl`
+ *  (a persistent element that survives the close, e.g. the pre-palette focus or
+ *  the sidebar row) so focus returns to a still-connected control, not <body>. */
+export function openUpsell(invokerEl?: HTMLElement | null): void {
   if (open) return;
-  // Guard the DOM read so the store stays importable/testable in the node env
-  // (vite.config default) where `document`/`HTMLElement` are absent.
-  const active = typeof document === "undefined" ? null : document.activeElement;
-  invoker =
-    typeof HTMLElement !== "undefined" && active instanceof HTMLElement
-      ? active
-      : null;
+  if (invokerEl !== undefined) {
+    // Explicit return target from a transient opener — use it verbatim.
+    invoker = invokerEl;
+  } else {
+    // Default: the currently-focused (persistent) opener. Guard the DOM read so
+    // the store stays importable/testable in the node env (vite.config default)
+    // where `document`/`HTMLElement` are absent.
+    const active =
+      typeof document === "undefined" ? null : document.activeElement;
+    invoker =
+      typeof HTMLElement !== "undefined" && active instanceof HTMLElement
+        ? active
+        : null;
+  }
   open = true;
   notify();
 }

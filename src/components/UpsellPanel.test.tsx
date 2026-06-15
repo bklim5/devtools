@@ -243,6 +243,40 @@ describe("UpsellModal (dialog wrapper)", () => {
     expect(document.activeElement).toBe(invoker);
     closeUpsell(); // clear the module singleton for the next test
   });
+
+  // Finding 3: TRANSIENT openers (⌘K command, Sidebar reset menu) — the focused
+  // element at click time UNMOUNTS, so it can't be the return target. The caller
+  // passes an EXPLICIT persistent return element to openUpsell(invoker); the
+  // modal must restore focus THERE, not to the detached/focused element.
+  it("returns focus to an EXPLICIT invoker even when the focused element is a different (transient) control", () => {
+    // A persistent return target (e.g. the pre-palette focus / a sidebar row).
+    const { getByRole: getPersistent } = render(
+      <button type="button">return target</button>,
+    );
+    const returnTarget = getPersistent("button", { name: "return target" });
+
+    // A separate "transient" control is what is actually focused at open time
+    // (the palette command button / reset menu item) — it will go away.
+    const { getByRole: getTransient, unmount: unmountTransient } = render(
+      <button type="button">transient opener</button>,
+    );
+    const transient = getTransient("button", { name: "transient opener" });
+    transient.focus();
+    expect(document.activeElement).toBe(transient);
+
+    // The caller hands the PERSISTENT element to openUpsell explicitly.
+    openUpsell(returnTarget);
+    expect(getUpsellInvoker()).toBe(returnTarget);
+
+    // The transient opener unmounts (palette/menu closes).
+    unmountTransient();
+
+    const { unmount } = render(<UpsellModal icon={Lock} onClose={() => {}} />);
+    unmount();
+    // Focus returns to the explicit persistent target — never the detached opener.
+    expect(document.activeElement).toBe(returnTarget);
+    closeUpsell();
+  });
 });
 
 // --- Phase 19: inline activation flow (D-33..D-39, D-44) --------------------
