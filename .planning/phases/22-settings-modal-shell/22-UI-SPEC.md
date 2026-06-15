@@ -1,10 +1,12 @@
 ---
 phase: 22
 slug: settings-modal-shell
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-06-15
+reviewed_at: 2026-06-15
+review: gsd-ui-checker 6/6 PASS (APPROVED). Planner note — lock the aria-current-list vs tablist/tabpanel choice + nav-rail width in the plan so Phases 23–25 inherit it.
 ---
 
 # Phase 22 — UI Design Contract
