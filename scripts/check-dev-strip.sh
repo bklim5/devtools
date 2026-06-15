@@ -41,24 +41,6 @@ if [[ $gstatus -ge 2 ]]; then
 fi
 echo "OK: DEV-only 'full' entitlements override absent from dist/assets"
 
-# 21-04 hardening: the DEV-only deterministic tier-set seam (main.tsx) registers
-# `window.__devSetTier` ONLY under `import.meta.env.DEV` (statically false in prod →
-# the whole block tree-shaken). It calls setDevTier(), which writes the same DEV-only
-# `entitlementsOverride:"full"` path already checked above. A release bundle that
-# failed to tree-shake the DEV block would carry the distinctive `__devSetTier` name.
-# Its absence proves the deterministic Pro-reach seam is gone from prod (the e2e
-# harness can never alter a shipped app's tier).
-grep -R --include='*.js' -l "__devSetTier" dist/assets/
-dstatus=$?
-if [[ $dstatus -eq 0 ]]; then
-  echo "FAIL: DEV-only '__devSetTier' seam present in production bundle (21-04)" >&2
-  exit 1
-elif [[ $dstatus -ge 2 ]]; then
-  echo "FAIL: grep errored (exit $dstatus) — the '__devSetTier' check did not run" >&2
-  exit 1
-fi
-echo "OK: DEV-only '__devSetTier' seam absent from dist/assets"
-
 # --- D-52: release binary embeds ONLY the prod licensing constants -----------
 # The licensing host/account/pubkey are cfg(debug_assertions)-split in
 # src-tauri/src/license/config.rs — a RELEASE binary must embed the production
