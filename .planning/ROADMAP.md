@@ -213,7 +213,11 @@ Plans:
   2. The Settings ▸ License pane renders the upsell/activation content **inline** for the not-Pro states (free / notActivated / problem / refreshNeeded) — "Thank you for using TinkerDev ❤️" + Buy CTA + license-key input + Activate — with NO stacked `UpsellModal` opening on top of the Settings modal
   3. The upsell/activation surface is extracted from `UpsellPanel` into a **shared content component** consumed BOTH by the standalone `UpsellModal` (sidebar "Unlock Pro" / ⌘K free-tier entries — unchanged behavior) AND inline in the License pane; no logic duplicated
   4. WCAG-AA preserved (focus order, labels, live regions); full unit suite + real-WKWebView e2e green; `decoder.ts` + its 19 tests and the activation logic byte-for-byte behavior-unchanged
-**Plans**: not planned yet
+**Plans**: 2 plans (planned 2026-06-15) — both wave 1, no file overlap
+
+Plans:
+- [ ] 22.1-01-PLAN.md — App-menu product name (Follow-up 1, BUG): explicit PredefinedMenuItem About/Hide/Quit "TinkerDev" text in set_menu(); Edit/Window + ⌘, Settings intact; cargo build/test + manual menu re-verify on the rebuilt .app (no REQ-ID; NOT autonomous, wave 1)
+- [ ] 22.1-02-PLAN.md — Inline upsell/activation in the License pane (Follow-up 2, revises SET-06): extract the shared activation surface from UpsellPanel (no logic dup; UpsellModal unchanged), render it inline for free/notActivated (full pitch) + problem/refreshNeeded (form-only); licensed/offlineGrace unchanged; LIC-04/T-19-21 preserved; unit + real-WKWebView e2e (SET-06; autonomous, wave 1)
 **UI hint**: yes
 
 ### Phase 23: Appearance Pane
@@ -284,6 +288,7 @@ v1.7 runs 22 → 23 → 24 → 25 (started non-destructively while v1.6 is in fi
 | 20. Purchase Pipeline | v1.6 | 2/3 | In progress | PAY-01/02/03 |
 | 21. License Lifecycle & Ship Gate | v1.6 | 3/5 | In Progress|  |
 | 22. Settings Modal Shell, Entry Points & License Pane | v1.7 | 3/3 | Complete    | 2026-06-15 |
+| 22.1 Settings Follow-ups | v1.7 | 0/2 | Not started | - |
 | 23. Appearance Pane | v1.7 | 0/? | Not started | - |
 | 24. Hotkeys & General Panes | v1.7 | 0/? | Not started | - |
 | 25. Updates Pane & Milestone Ship | v1.7 | 0/? | Not started | - |
