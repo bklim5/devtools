@@ -92,16 +92,38 @@ afterEach(() => {
 });
 
 describe("LicenseSettings — state copy + fields", () => {
-  it("licensed: shows 'Licensed', the licensee/key line, and Refresh + Deactivate", async () => {
+  it("licensed: shows the GREEN success banner ('Licensed' + PRO pill) + Licensee/masked key + Refresh + Deactivate (Phase 22.1 walkthrough 2026-06-16)", async () => {
     await installPlatform(LICENSED);
     act(() => setLicenseUiForTest(LICENSED));
-    const { getByText, getByRole } = renderRoute();
+    const { getByText, getByRole, container, queryByText } = renderRoute();
 
     expect(getByText("Licensed")).toBeTruthy();
+    // The green PRO pill on the success banner — the text node reads "Pro"; CSS
+    // uppercases it to PRO (same pattern as the amber UNVERIFIED pill).
+    expect(getByText("Pro")).toBeTruthy();
+    // The banner carries the green ok token (not the neutral panel card).
+    expect(container.querySelector(".border-ok-line")).toBeTruthy();
+    expect(container.querySelector(".bg-ok-soft")).toBeTruthy();
+    // Compact details: Licensee + License key only — Plan/Renews/Activated GONE.
+    expect(getByText("Licensee")).toBeTruthy();
     expect(getByText("buyer@example.com")).toBeTruthy();
+    expect(getByText("License key")).toBeTruthy();
     expect(getByText("••••••••AB12")).toBeTruthy();
+    expect(queryByText("Renews")).toBeNull();
+    expect(queryByText("Plan")).toBeNull();
+    expect(queryByText("Activated")).toBeNull();
+    // The masked key is display-only now — NO copy button on it (LIC-04: the
+    // masked dots are useless to copy), and no reveal/eye toggle.
+    expect(
+      queryByText(/Renews around/),
+    ).toBeNull();
     expect(getByRole("button", { name: "Refresh" })).toBeTruthy();
     expect(getByRole("button", { name: "Deactivate this device" })).toBeTruthy();
+    // No copy button for the masked license key (its accessible name would
+    // include "license key"); the licensee email copy is also removed.
+    expect(
+      container.querySelector('[aria-label*="license key" i]'),
+    ).toBeNull();
   });
 
   it("notActivated (free): renders the FULL upsell/activation surface INLINE — pitch + Buy + 'I have a license key' → key input — no modal, no navigate (D-22.1-6)", async () => {
@@ -145,12 +167,14 @@ describe("LicenseSettings — state copy + fields", () => {
     };
     await installPlatform(grace);
     act(() => setLicenseUiForTest(grace));
-    const { getByText } = renderRoute();
+    const { getByText, container } = renderRoute();
 
     expect(getByText("Licensed (offline)")).toBeTruthy();
+    // The Pro-active states share the GREEN success banner + auto-refresh body.
     expect(
-      getByText(/refresh your license automatically the next time you're online/i),
+      getByText(/your license refreshes automatically/i),
     ).toBeTruthy();
+    expect(container.querySelector(".border-ok-line")).toBeTruthy();
     // email absent -> em dash, never empty (D-89).
     expect(getByText("—")).toBeTruthy();
   });
@@ -277,30 +301,41 @@ describe("LicenseSettings — state copy + fields", () => {
 });
 
 describe("LicenseSettings — Deactivate confirm-first (D-78)", () => {
-  it("reveals an inline confirm with the calm copy + Deactivate / Keep Pro here, focusing the confirm", async () => {
+  it("reveals a reddish confirm CARD (warning icon + heading + Cancel / destructive Deactivate), focusing the confirm", async () => {
     await installPlatform(LICENSED);
     act(() => setLicenseUiForTest(LICENSED));
-    const { getByRole, getByText } = renderRoute();
+    const { getByRole, getByText, container } = renderRoute();
 
     fireEvent.click(getByRole("button", { name: "Deactivate this device" }));
+    // The approved confirm copy (walkthrough 2026-06-16).
+    expect(getByText("Deactivate Pro on this device?")).toBeTruthy();
     expect(
-      getByText(/This frees your seat so you can activate another device/i),
+      getByText(/You'll drop back to the free tier here/i),
     ).toBeTruthy();
     const confirm = getByRole("button", { name: "Deactivate" });
     expect(confirm).toBeTruthy();
-    expect(getByRole("button", { name: "Keep Pro here" })).toBeTruthy();
+    // The destructive Deactivate button carries the bad (red) token + text-bad,
+    // proving it is not the neutral secondary button.
+    expect(confirm.className).toContain("text-bad");
+    // The confirm card itself is reddish (bad-tinted surface).
+    expect(
+      Array.from(container.querySelectorAll("*")).some((el) =>
+        Array.from(el.classList).some((c) => c.startsWith("bg-bad")),
+      ),
+    ).toBe(true);
+    expect(getByRole("button", { name: "Cancel" })).toBeTruthy();
     await waitFor(() => expect(document.activeElement).toBe(confirm));
   });
 
-  it("Cancel ('Keep Pro here') closes the confirm and returns focus to the trigger", async () => {
+  it("Cancel closes the confirm and returns focus to the trigger", async () => {
     await installPlatform(LICENSED);
     act(() => setLicenseUiForTest(LICENSED));
     const { getByRole, queryByRole } = renderRoute();
 
     fireEvent.click(getByRole("button", { name: "Deactivate this device" }));
-    fireEvent.click(getByRole("button", { name: "Keep Pro here" }));
+    fireEvent.click(getByRole("button", { name: "Cancel" }));
     await waitFor(() =>
-      expect(queryByRole("button", { name: "Keep Pro here" })).toBeNull(),
+      expect(queryByRole("button", { name: "Cancel" })).toBeNull(),
     );
     // Focus returns to the re-rendered trigger (a fresh DOM node — the trigger
     // is conditionally re-mounted when the confirm collapses), so assert by

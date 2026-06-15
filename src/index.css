@@ -64,6 +64,18 @@
   --color-warn-soft: color-mix(in srgb, var(--color-warn) 15%, transparent);
   --color-warn-line: color-mix(in srgb, var(--color-warn) 75%, transparent);
 
+  /* Green "ok" success triad (Phase 22.1) — the License pane's LICENSED
+     (Pro-active) banner is a calm SUCCESS, so the green dot + label render on a
+     soft-green card. Mirrors the warn/accent triads EXACTLY: the existing base
+     --color-ok (#34d399) + a 15% soft fill + a 75% line, all derived via
+     color-mix so ok-soft/ok-line shift together with the base.
+     --color-ok (#34d399) clears WCAG-AA wherever the banner renders: green text
+     (and the dot) on bg-ok-soft is ~7.1:1 over bg-pane (#14161b, the License
+     pane) and ~6.7:1 over bg-panel — AA for both the label and the glyph.
+     Dark-theme only (theming ships later); a light theme can re-derive. */
+  --color-ok-soft: color-mix(in srgb, var(--color-ok) 15%, transparent);
+  --color-ok-line: color-mix(in srgb, var(--color-ok) 75%, transparent);
+
   --font-sans: "IBM Plex Sans", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 }

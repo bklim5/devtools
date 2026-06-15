@@ -40,7 +40,12 @@
 //
 // The masked key + licensee email come from verified cert data (D-89); the RAW
 // key NEVER round-trips through JS (LIC-04) — there is no raw-key field on the
-// payload. A CopyButton (no hover-only copy) is offered for each.
+// payload. Phase 22.1 walkthrough (2026-06-16): the masked License key is now
+// DISPLAY-ONLY — no CopyButton (copying the masked dots is useless) and no
+// reveal/eye toggle (the raw key must never cross into JS). The compact details
+// show ONLY Licensee (email) + License key (masked); Plan/Renews/Activated are
+// dropped (a lifetime license has no subscription renewal, and neither a plan
+// nor an activated-date is in the verified payload — we don't invent them).
 //
 // Class constants are copied VERBATIM from UpsellPanel (21-UI-SPEC reuse mandate)
 // — do NOT introduce new sizes/tokens.
@@ -55,7 +60,6 @@ import {
 } from "@/lib/license/licenseUi";
 import { useLicenseUi } from "@/shell/useLicenseUi";
 import { usePreferences } from "@/shell/usePreferences";
-import { CopyButton } from "./CopyButton";
 import { InlineActivation } from "./UpsellPanel";
 
 // Copied verbatim from UpsellPanel (do not drift — 21-UI-SPEC reuse mandate).
@@ -63,10 +67,15 @@ const CARD_CLASS =
   "flex max-w-[420px] flex-col gap-4 rounded-[7px] border border-bd bg-panel p-6";
 const HEADING_CLASS = "text-[16px] font-semibold leading-[1.2] text-tx";
 const BODY_CLASS = "flex flex-col gap-2 text-[12px] leading-[1.5] text-tx-2";
-const PRIMARY_BTN_CLASS =
-  "cursor-pointer rounded-[7px] border border-accent-line bg-accent-soft px-3 py-1 text-[12px] text-accent outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-default disabled:border-bd disabled:bg-input-bg disabled:text-tx-2";
 const SECONDARY_BTN_CLASS =
   "cursor-pointer rounded-[7px] border border-bd bg-input-bg px-3 py-1 text-[12px] text-tx-2 outline-none transition-colors hover:border-bd-2 hover:text-tx focus-visible:ring-2 focus-visible:ring-accent";
+// Destructive button (Phase 22.1 walkthrough 2026-06-16) — the confirm card's
+// real "Deactivate". Mirrors the primary/secondary triad SHAPE (soft fill + line
+// border + colored text) but in the existing red --color-bad token: bg-bad/10 +
+// border-bad/75 + text-bad reads ~5.7:1 (AA) on the bad-tinted card, and the
+// focus ring is the bad token (not accent) so the destructive intent is explicit.
+const DESTRUCTIVE_BTN_CLASS =
+  "cursor-pointer rounded-[7px] border border-bad/75 bg-bad/10 px-3 py-1 text-[12px] font-medium text-bad outline-none transition-colors hover:bg-bad/20 focus-visible:ring-2 focus-visible:ring-bad disabled:cursor-default disabled:border-bd disabled:bg-input-bg disabled:text-tx-2";
 
 const LABEL_CLASS = "text-[12px] text-tx-2";
 const VALUE_CLASS = "font-mono text-[12px] text-tx";
@@ -82,19 +91,6 @@ const REFRESH_ERROR_COPY: Partial<Record<LicenseErrorCode, string>> = {
 function errorCode(err: unknown): LicenseErrorCode | null {
   const code = (err as { code?: string } | null)?.code;
   return (code ?? null) as LicenseErrorCode | null;
-}
-
-/** Human "Renews around {date}" from an RFC3339 expiry (D-89). null/unparseable
- *  -> null (the row is then omitted). */
-function renewsLine(expiry: string | null): string | null {
-  if (!expiry) return null;
-  const d = new Date(expiry);
-  if (Number.isNaN(d.getTime())) return null;
-  return `Renews around ${d.toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  })}`;
 }
 
 export function LicenseSettings() {
@@ -201,7 +197,6 @@ export function LicenseSettings() {
   const isProActive = ui.state === "licensed" || ui.state === "offlineGrace";
   const maskedKey = isProActive ? ui.maskedKey : null;
   const email = isProActive ? ui.email : null;
-  const renews = isProActive ? renewsLine(ui.expiry) : null;
   // refreshNeeded + problem keep their calm status card + Refresh and render the
   // INLINE form-only activation surface below (D-22.1-7) — it is the ONE calm
   // "no longer active" path, shared with a suspended/revoked drop (D-83).
@@ -229,12 +224,11 @@ export function LicenseSettings() {
     }
   })();
 
+  // Attention-card body (refreshNeeded/problem only). The Pro-active banner uses
+  // its own fixed success copy below (walkthrough 2026-06-16), so the
+  // licensed/offlineGrace arms are intentionally absent here.
   const statusBody = ((): string => {
     switch (ui.state) {
-      case "licensed":
-        return "Pro is active on this device.";
-      case "offlineGrace":
-        return "Pro is active. We'll refresh your license automatically the next time you're online.";
       case "refreshNeeded":
         return "Connect to the internet and refresh to restore Pro. Your themes and tool order are saved and will come right back.";
       case "problem":
@@ -365,58 +359,73 @@ export function LicenseSettings() {
           </button>
         </div>
       ) : (
-        <div className={CARD_CLASS}>
-          {/* OK dot (text-ok) ONLY for Pro-active states — the only semantic
-              accent-adjacent glyph (D-24); never accent. */}
-          <div className="flex items-center gap-2" aria-live="polite">
-            {isProActive ? (
-              <span
-                aria-hidden="true"
-                className="h-2 w-2 flex-none rounded-full bg-ok"
-              />
-            ) : (
-              <Lock aria-hidden="true" className="h-4 w-4 flex-none text-tx-2" />
-            )}
-            <h2 className={HEADING_CLASS}>{statusLabel}</h2>
-          </div>
-          <div className={BODY_CLASS}>
-            <p>{statusBody}</p>
-            {isProActive ? (
-              <p className="text-[12px] leading-[1.5] text-tx-3">
-                Your license refreshes automatically.
+        // Pro-active (licensed/offlineGrace) — Phase 22.1 walkthrough (2026-06-16):
+        // a GREEN success banner (parallels the amber attention banner's 3-column
+        // structure exactly, but green) over a separator + a compact details card.
+        <div className="flex w-full flex-col gap-4 rounded-[7px] border border-ok-line bg-ok-soft p-5">
+          <div className="flex items-start gap-3">
+            {/* Green dot — the calm success glyph (text-ok on bg-ok-soft is AA). */}
+            <span
+              aria-hidden="true"
+              className="mt-1.5 h-2 w-2 flex-none rounded-full bg-ok"
+            />
+            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+              {/* P6: announce the status-label transition (D-82) — polite. */}
+              <div
+                className="flex flex-wrap items-center gap-2"
+                aria-live="polite"
+              >
+                <h2 className={HEADING_CLASS}>{statusLabel}</h2>
+                {/* Green PRO pill — the Pro-active badge (mirrors the amber
+                    UNVERIFIED pill, but in the ok token). */}
+                <span className="rounded-full border border-ok-line bg-ok-soft px-2 py-0.5 font-mono text-[10px] font-semibold uppercase leading-none tracking-wide text-ok">
+                  Pro
+                </span>
+              </div>
+              <p className="text-[12px] leading-[1.5] text-tx-2">
+                Pro is active on this device — your license refreshes
+                automatically.
               </p>
-            ) : null}
+              {/* Calm in-flight / error line — its own aria-live region. */}
+              <p
+                aria-live="polite"
+                className="min-h-[18px] text-[12px] leading-[1.5] text-tx-2"
+              >
+                {refreshing ? "Refreshing…" : (refreshError ?? "")}
+              </p>
+            </div>
+            {/* Refresh is SECONDARY here (panel-toned, not accent) with a
+                spin-on-busy icon — same as the attention banner's Refresh. */}
+            <button
+              type="button"
+              onClick={() => void onRefresh()}
+              disabled={refreshing}
+              aria-busy={refreshing}
+              className={`inline-flex flex-none items-center gap-1.5 ${SECONDARY_BTN_CLASS}`}
+            >
+              <RefreshCw
+                aria-hidden="true"
+                className={`h-3.5 w-3.5 flex-none ${refreshing ? "animate-spin" : ""}`}
+              />
+              Refresh
+            </button>
           </div>
 
-          {/* Fields — only when Pro data is present (D-89: em-dash, never empty). */}
-          {isProActive ? (
-            <dl className="flex flex-col gap-3">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex flex-col gap-0.5">
-                  <dt className={LABEL_CLASS}>Licensee</dt>
-                  <dd className={VALUE_CLASS}>{email ?? "—"}</dd>
-                </div>
-                {email ? (
-                  <CopyButton value={email} label="licensee email" />
-                ) : null}
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex flex-col gap-0.5">
-                  <dt className={LABEL_CLASS}>License key</dt>
-                  <dd className={VALUE_CLASS}>{maskedKey ?? "—"}</dd>
-                </div>
-                {maskedKey ? (
-                  <CopyButton value={maskedKey} label="masked license key" />
-                ) : null}
-              </div>
-              {renews ? (
-                <div className="flex flex-col gap-0.5">
-                  <dt className={LABEL_CLASS}>Renews</dt>
-                  <dd className="font-mono text-[12px] text-tx-3">{renews}</dd>
-                </div>
-              ) : null}
-            </dl>
-          ) : null}
+          {/* Separator, then the compact details card — Licensee + masked License
+              key ONLY (Plan/Renews/Activated dropped). The masked key is
+              DISPLAY-ONLY: no CopyButton (the dots are useless), no reveal toggle
+              (the raw key never crosses into JS — LIC-04). em-dash when null (D-89). */}
+          <hr className="border-t border-ok-line/60" />
+          <dl className="flex flex-col gap-3 rounded-[7px] border border-bd bg-panel p-4">
+            <div className="flex flex-col gap-0.5">
+              <dt className={LABEL_CLASS}>Licensee</dt>
+              <dd className={VALUE_CLASS}>{email ?? "—"}</dd>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <dt className={LABEL_CLASS}>License key</dt>
+              <dd className={VALUE_CLASS}>{maskedKey ?? "—"}</dd>
+            </div>
+          </dl>
         </div>
       )}
 
@@ -424,38 +433,11 @@ export function LicenseSettings() {
           (walkthrough 2026-06-16). */}
       {showInlineForm ? <hr className="border-t border-bd" /> : null}
 
-      {/* Management block — 48px (gap-12) below the status block. */}
+      {/* Management block — below the status block. The Pro-active Refresh now
+          lives in the green banner's top-right (parallel to the attention banner,
+          walkthrough 2026-06-16); only the attention states render the Activate
+          section here. The pure free notActivated state early-returns above. */}
       <div className="flex max-w-[420px] flex-col gap-4">
-        {/* Refresh — for the Pro-active states only; the attention states (D-83)
-            moved Refresh into the amber card's top-right (Phase 22.1). The pure
-            free notActivated state never reaches here (it early-returns to the
-            inline upsell above). */}
-        {isProActive ? (
-          <>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => void onRefresh()}
-                disabled={refreshing}
-                // 21-04 FLAG P3b: convey the busy state on the control itself, in
-                // parity with the separate aria-live "Refreshing…" line — the
-                // disabled recolor is otherwise a color-only affordance.
-                aria-busy={refreshing}
-                className={PRIMARY_BTN_CLASS}
-              >
-                Refresh
-              </button>
-            </div>
-            {/* Refresh in-flight / calm error line — ONE aria-live region. */}
-            <p
-              aria-live="polite"
-              className="min-h-[18px] text-[12px] leading-[1.5] text-tx-2"
-            >
-              {refreshing ? "Refreshing…" : (refreshError ?? "")}
-            </p>
-          </>
-        ) : null}
-
         {/* "Activate a license" section (Phase 22.1) — wraps the shared form-only
             activation surface (D-22.1-7) with a section header + subtitle + the
             muted recovery hint. NO sales pitch (a lapsed/attention paying customer
@@ -480,31 +462,48 @@ export function LicenseSettings() {
           </div>
         ) : null}
 
-        {/* Deactivate (confirm-first inline, D-78) — only when Pro is active. */}
+        {/* Deactivate (confirm-first inline, D-78) — only when Pro is active.
+            Phase 22.1 walkthrough (2026-06-16): the default is a muted helper line
+            + a SECONDARY trigger; confirming swaps in a reddish WARNING card with a
+            Cancel (secondary) + a DESTRUCTIVE Deactivate (red --color-bad). The
+            confirm-first focus contract (focus → confirm on reveal, → trigger on
+            cancel) and the D-79 offline aria-live line are preserved. */}
         {isProActive ? (
           confirming ? (
-            <div className="flex flex-col gap-2">
-              <p className={BODY_CLASS}>
-                This frees your seat so you can activate another device. Pro turns
-                off here until you reactivate.
-              </p>
+            <div className="flex flex-col gap-3 rounded-[7px] border border-bad/75 bg-bad/10 p-5">
+              <div className="flex items-start gap-3">
+                <AlertTriangle
+                  aria-hidden="true"
+                  className="mt-0.5 h-5 w-5 flex-none text-bad"
+                />
+                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                  <h2 className={HEADING_CLASS}>
+                    Deactivate Pro on this device?
+                  </h2>
+                  <p className="text-[12px] leading-[1.5] text-tx-2">
+                    You&apos;ll drop back to the free tier here. Your seat is freed
+                    for another device — reactivate anytime with your key.
+                  </p>
+                </div>
+              </div>
               <div className="flex gap-2">
-                <button
-                  type="button"
-                  ref={confirmBtnRef}
-                  onClick={() => void onDeactivate()}
-                  disabled={deactivating}
-                  className={SECONDARY_BTN_CLASS}
-                >
-                  Deactivate
-                </button>
                 <button
                   type="button"
                   onClick={cancelConfirm}
                   disabled={deactivating}
                   className={SECONDARY_BTN_CLASS}
                 >
-                  Keep Pro here
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  ref={confirmBtnRef}
+                  onClick={() => void onDeactivate()}
+                  disabled={deactivating}
+                  aria-busy={deactivating}
+                  className={DESTRUCTIVE_BTN_CLASS}
+                >
+                  Deactivate
                 </button>
               </div>
               {/* D-79: offline guidance lands in this calm region (tx-2, NOT
@@ -517,15 +516,21 @@ export function LicenseSettings() {
               </p>
             </div>
           ) : (
-            <div>
-              <button
-                type="button"
-                ref={deactivateBtnRef}
-                onClick={revealConfirm}
-                className={SECONDARY_BTN_CLASS}
-              >
-                Deactivate this device
-              </button>
+            <div className="flex flex-col gap-2">
+              <p className="text-[12px] leading-[1.5] text-tx-3">
+                Deactivating frees this seat so you can activate TinkerDev on
+                another device.
+              </p>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  ref={deactivateBtnRef}
+                  onClick={revealConfirm}
+                  className={SECONDARY_BTN_CLASS}
+                >
+                  Deactivate this device
+                </button>
+              </div>
             </div>
           )
         ) : null}
