@@ -163,9 +163,11 @@ describe("LicenseSettings — state copy + fields", () => {
       renderRoute();
 
     // Phase 22.1: a prominent visible "License" header + subtitle for the
-    // managed states (free keeps its own pitch heading + the sr-only h1).
+    // managed states. This IS the pane's sole <h1> (the duplicate sr-only
+    // "License" was dropped); the status heading below stays <h2> so the e2e
+    // statusHeading() probe still reads "License needs attention".
     expect(
-      getByRole("heading", { name: "License", level: 2 }),
+      getByRole("heading", { name: "License", level: 1 }),
     ).toBeTruthy();
     expect(
       getByText("Manage your activation and license key."),
@@ -213,7 +215,7 @@ describe("LicenseSettings — state copy + fields", () => {
     const { getByText, getByRole, queryByText, queryByRole, container } =
       renderRoute();
 
-    expect(getByRole("heading", { name: "License", level: 2 })).toBeTruthy();
+    expect(getByRole("heading", { name: "License", level: 1 })).toBeTruthy();
     expect(getByText("License needs attention")).toBeTruthy();
     expect(getByRole("button", { name: "Refresh" })).toBeTruthy();
     // Amber attention card.

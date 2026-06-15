@@ -293,15 +293,15 @@ export function LicenseSettings() {
 
   return (
     <div className="flex flex-col gap-12 overflow-auto p-8">
-      <h1 className="sr-only">License</h1>
-
       {/* Phase 22.1: a visible, prominent pane header + subtitle for the managed
-          states (free keeps its own pitch heading + the sr-only h1 above — no
-          double heading). */}
+          states. This IS the pane's sole <h1> (no separate sr-only "License" —
+          that duplicated the SR heading). The status block heading below stays an
+          <h2>, so the e2e statusHeading() probe (first non-"Settings" <h2>) still
+          reads "License needs attention" / "Licensed", not this pane title. */}
       <div className="flex flex-col gap-1">
-        <h2 className="text-[20px] font-semibold leading-[1.2] text-tx">
+        <h1 className="text-[20px] font-semibold leading-[1.2] text-tx">
           License
-        </h2>
+        </h1>
         <p className="text-[12px] leading-[1.5] text-tx-2">
           Manage your activation and license key.
         </p>
