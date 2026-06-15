@@ -55,12 +55,12 @@ A native macOS Settings/Preferences surface (promotes backlog 999.9; absorbs 999
 - [ ] **SET-01**: User can open Settings from the macOS app menu (TinkerDev ▸ Settings…), bound to **⌘,** — the native menu item reaches the webview via the `platform/` event seam (no `@tauri-apps/*` import outside the seam).
 - [ ] **SET-02**: User can open Settings from the tray icon menu (a Settings… item), via the same event seam.
 - [ ] **SET-03**: User can open Settings from a sidebar "Settings" row (above "Unlock Pro") and from the ⌘K command palette.
-- [ ] **SET-04**: Settings renders as a full in-window modal overlay (Claude-style), Esc-dismissible, WCAG-AA (focus trap + return-focus to the invoker, `aria-modal`/`aria-labelledby`), reachable by everyone including unlicensed users (the License pane shows the no-license + Unlock-Pro state).
-- [ ] **SET-05**: Settings uses a paned layout (left nav list, right content pane), fully keyboard-navigable (move between panes, active pane announced via `aria`).
+- [x] **SET-04**: Settings renders as a full in-window modal overlay (Claude-style), Esc-dismissible, WCAG-AA (focus trap + return-focus to the invoker, `aria-modal`/`aria-labelledby`), reachable by everyone including unlicensed users (the License pane shows the no-license + Unlock-Pro state).
+- [x] **SET-05**: Settings uses a paned layout (left nav list, right content pane), fully keyboard-navigable (move between panes, active pane announced via `aria`).
 
 ### Panes
 
-- [ ] **SET-06**: The **License** pane reuses the existing `LicenseSettings` surface unchanged (all 5 states; activate/upsell for unlicensed).
+- [x] **SET-06**: The **License** pane reuses the existing `LicenseSettings` surface unchanged (all 5 states; activate/upsell for unlicensed).
 - [ ] **SET-07**: The **Appearance** pane lets the user choose theme (light/dark/system) and accent, persisted via the existing prefs seam and applied live (absorbs backlog 999.3).
 - [ ] **SET-08**: The **Hotkeys** pane lets the user view and rebind (a) the global summon hotkey (Rust global-shortcut re-register + conflict handling — promotes NAT-01/G-05-1) and (b) the ⌘K command-palette hotkey (in-webview key handler keyed off the configured chord); both persist via the prefs seam.
 - [ ] **SET-09**: The **General** pane exposes app-behavior toggles — candidates: launch-at-login, start-in-tray, default tool on open, show-license-status-in-sidebar (exact set finalized in planning; launch-at-login needs an autostart plugin → an explicit, scoped exception to the zero-new-dep wedge, decided at planning).
