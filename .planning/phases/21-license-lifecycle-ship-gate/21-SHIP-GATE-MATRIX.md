@@ -6,12 +6,17 @@ The binding ship gate beyond the standard per-task harness: the whole license
 lifecycle proven on a fresh build before release. D-90's eight cases, each with
 an honest **method** + **evidence** + **status**.
 
-> **STATUS: PARTIAL — fixture/clock-driven cases (3/4/5/6) authored; live prod-CE
-> cases (1/2/7/8) BLOCKED on a real prod-CE key.** The fixture cases are driven
-> on the real WKWebView (dev arm) by `test/e2e/ship-gate.e2e.ts` + the pure-Rust
-> cargo suite; the orchestrator runs `scripts/e2e-spike.sh` to execute the spec
-> and capture screenshots, then fills the evidence cells below. The 21-05 SUMMARY
-> + the Wave-5 human-verify sign-off remain OPEN.
+> **STATUS: PARTIAL — fixture/clock-driven cases (3/4/5/6) PASS; live prod-CE
+> cases (1/2/7/8) BLOCKED on a real prod-CE key.** The fixture cases were driven
+> GREEN on the real WKWebView (dev arm) by `test/e2e/ship-gate.e2e.ts` via
+> `scripts/e2e-spike.sh` (full suite **19/19**, exit 0, 2026-06-15) + the pure-Rust
+> cargo suite (`license::` **82/82**); screenshots captured. The 21-05 SUMMARY
+> + the Wave-5 human-verify sign-off (live cases + `gsd-ui-review`) remain OPEN.
+
+## Prod build verification (2026-06-15)
+
+- Fresh PROD-pointed `pnpm tauri build` → `src-tauri/target/release/bundle/macos/TinkerDev.app` + `dmg/TinkerDev_0.3.1_aarch64.dmg` (final non-zero exit is only the absent updater-signing key — bundles confirmed present).
+- `check-dev-strip.sh` (`CHECK_PROD_BINARY`): dev toggle ABSENT ✓ · DEV-only `"full"` override ABSENT ✓ · release binary embeds prod constant `license.tinkerdev.io` ✓ (real prod constants, not placeholders — the live cases CAN run against prod CE once a real key exists). **WARN:** a `localhost` string is present in the release binary — almost certainly a dependency string (the Keygen host constant is confirmed prod); verify it is NOT the Keygen host before release.
 
 ## Storage isolation (why the dev arm is safe for fixture cases)
 
@@ -38,10 +43,10 @@ arm without ever touching a shipped buyer's release `machine.lic`**, and the
 |---|------|-------------|--------|----------|--------|
 | 1 | Valid activation on first device → Pro unlocks (theming + ordering) | LIC-01 | release-manual | _BLOCKED — needs a real prod-CE key (see below)_ | **blocked** |
 | 2 | Second device rejected → calm seat-limit + self-serve path (D-80) | LIC-02 | release-manual | _BLOCKED — needs the same real key + a second fingerprint_ | **blocked** |
-| 3 | Offline launch / valid LOCAL verify → Licensed, network-free | LIC-03 | cargo-clock-injection + `dev-harness-auto` (foreign-FP branch) + release-manual (Licensed UI) | cargo: `license::tests::valid_cert_with_matching_fingerprint_resolves_to_licensed`, `resolve_status_never_touches_network_on_the_expiry_path` (D-45 `NoNetwork` panics on any call) · e2e: the network-free local-verify path on the real WKWebView (Case 5 fixture is the same pure-local branch) → `test/e2e/__screenshots__/ship-gate-case5-foreign.png` _(orchestrator: confirm after the e2e run)_ · Licensed UI on a genuine cert → live walkthrough | **pending** |
-| 4 | Corrupted `machine.lic` → fail closed to free, calm problem state | LIC-06 | dev-harness-auto | `test/e2e/__screenshots__/ship-gate-case4-corrupt.png` + `ship-gate.e2e.ts` "Case 4" assertions (problem state, no Deactivate, footer attention, Unlock-Pro footer) _(orchestrator: confirm green via `scripts/e2e-spike.sh`)_ | **pending** |
-| 5 | Copied `machine.lic` → fail closed on foreign fingerprint | LIC-06 | dev-harness-auto | `test/e2e/__screenshots__/ship-gate-case5-foreign.png` + `ship-gate.e2e.ts` "Case 5" assertions (ForeignMachine → problem → free) · also cargo `license::tests::valid_cert_with_wrong_fingerprint_resolves_to_foreign_machine` _(orchestrator: confirm green)_ | **pending** |
-| 6 | TTL-expired → grace → refresh | LIC-05 | cargo-clock-injection | cargo: `license::tests::classify_within_grace_is_grace`, `classify_past_grace_is_lapsed`, `classify_boundaries_are_inclusive_active_then_grace`, `needs_refresh_*` (injected `now`) — the authoritative grace→lapsed→refresh proof · Licensed-offline / refresh-restores UI → live walkthrough on a genuine expiring cert | **pending** |
+| 3 | Offline launch / valid LOCAL verify → Licensed, network-free | LIC-03 | cargo-clock-injection + `dev-harness-auto` (foreign-FP branch) + release-manual (Licensed UI) | cargo **82/82** incl. `resolve_status` network-free (D-45 `NoNetwork` panics on any call) · e2e: the network-free local-verify path ran GREEN on the real WKWebView (Case 5 is the same pure-local branch) → `test/e2e/__screenshots__/ship-gate-case5-foreign.png` ✓ · Licensed-UI-on-a-genuine-cert → live walkthrough (needs real key) | **auto ✓ / live UI pending** |
+| 4 | Corrupted `machine.lic` → fail closed to free, calm problem state | LIC-06 | dev-harness-auto | ✓ GREEN on real WKWebView (`scripts/e2e-spike.sh`, 2026-06-15) — `ship-gate.e2e.ts` "Case 4" (problem state "License needs attention", locked customization opens upsell = free) + `test/e2e/__screenshots__/ship-gate-case4-corrupt.png` | **pass ✓** |
+| 5 | Copied `machine.lic` → fail closed on foreign fingerprint | LIC-06 | dev-harness-auto | ✓ GREEN on real WKWebView — `ship-gate.e2e.ts` "Case 5" (ForeignMachine → problem → free) + `test/e2e/__screenshots__/ship-gate-case5-foreign.png` · also cargo `valid_cert_with_wrong_fingerprint_resolves_to_foreign_machine` | **pass ✓** |
+| 6 | TTL-expired → grace → refresh | LIC-05 | cargo-clock-injection | ✓ cargo **82/82**: `classify_within_grace_is_grace`, `classify_past_grace_is_lapsed`, `classify_boundaries_are_inclusive_active_then_grace`, `needs_refresh_*` (injected `now`) — authoritative grace→lapsed→refresh proof · Licensed-offline / refresh-restores UI → live walkthrough on a genuine expiring cert | **auto ✓ / live UI pending** |
 | 7 | Deactivate / transfer end-to-end → seat freed, reactivates on new device | LIC-07 | release-manual | _BLOCKED — needs a real prod-CE key + `infra/keygen/release-seat.sh` (D-81) against prod CE_ | **blocked** |
 | 8 | Revocation propagates on refresh → entitlements drop to free, calm | LIC-08 | release-manual | _BLOCKED — needs a real prod-CE key + CE admin revoke/suspend_ | **blocked** |
 
