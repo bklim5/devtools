@@ -220,8 +220,18 @@ impl<C: LicenseApi> LicenseManager<C> {
 
     /// Shared status core. `with_masked_key` gates the (Keychain-reading) masked
     /// key resolution to the route-only path — the default startup path passes
-    /// `false` and so never touches the Keychain on the licensed arm.
+    /// `false` and so never touches the Keychain on the licensed arm. `now` is
+    /// injected so the expiry classification is deterministic in tests (the
+    /// public `resolve_status*` entry points pass the real `Utc::now()`).
     fn resolve_status_inner(&mut self, with_masked_key: bool) -> LicenseStatusPayload {
+        self.resolve_status_at(Utc::now(), with_masked_key)
+    }
+
+    /// Clock-injectable status core (the testable seam — D-73): identical to
+    /// `resolve_status_inner` but takes an explicit `now` so the expiry
+    /// classification is wall-clock-independent in tests (no flake as the real
+    /// date drifts toward a fixture's expiry — codex finding 4).
+    fn resolve_status_at(&mut self, now: DateTime<Utc>, with_masked_key: bool) -> LicenseStatusPayload {
         let Some(cert) = self.store.read() else {
             return LicenseStatusPayload::NotActivated {
                 has_stored_key: self.has_stored_key(),
@@ -231,7 +241,7 @@ impl<C: LicenseApi> LicenseManager<C> {
             // D-73: a verified cert is now expiry-aware. The verify step
             // (signature + fingerprint) precedes ANY expiry check, so a
             // tampered/foreign cert is still a Problem (never grace). The pure
-            // `classify_expiry` helper does the date math against the real
+            // `classify_expiry` helper does the date math against the injected
             // clock — no network on this path (D-45).
             Ok(data) => {
                 // The masked key is read ONLY on the route path (with_masked_key);
@@ -246,7 +256,7 @@ impl<C: LicenseApi> LicenseManager<C> {
                 // RefreshNeeded needs `has_stored_key`; compute it lazily only
                 // when the classifier actually lands in that arm (Licensed /
                 // OfflineGrace never touch the Keychain on the startup path).
-                match classify_expiry(data.expiry.as_deref(), Utc::now()) {
+                match classify_expiry(data.expiry.as_deref(), now) {
                     ExpiryClass::Active => LicenseStatusPayload::Licensed {
                         expiry: data.expiry,
                         entitlements: data.entitlements,
@@ -288,11 +298,20 @@ impl<C: LicenseApi> LicenseManager<C> {
     /// Plan 02 wires this: `refresh_if_needed` (the scheduler entry point) calls
     /// it to gate the network.
     pub fn needs_refresh(&mut self) -> bool {
-        match self.resolve_status() {
+        self.needs_refresh_at(Utc::now())
+    }
+
+    /// Clock-injectable `needs_refresh` (the testable seam — codex finding 4):
+    /// both the status classification AND the renew-ahead window are computed
+    /// against the SAME injected `now`, so the test is wall-clock-independent
+    /// (no flake as the real date drifts into a fixture's renew-ahead window).
+    /// `resolve_status_at(now, false)` keeps the path Keychain-free.
+    fn needs_refresh_at(&mut self, now: DateTime<Utc>) -> bool {
+        match self.resolve_status_at(now, false) {
             LicenseStatusPayload::OfflineGrace { .. }
             | LicenseStatusPayload::RefreshNeeded { .. } => true,
             LicenseStatusPayload::Licensed { expiry, .. } => {
-                within_renew_ahead(expiry.as_deref(), Utc::now())
+                within_renew_ahead(expiry.as_deref(), now)
             }
             LicenseStatusPayload::NotActivated { .. } | LicenseStatusPayload::Problem { .. } => {
                 false
@@ -705,8 +724,11 @@ mod tests {
     #[test]
     fn valid_cert_with_matching_fingerprint_resolves_to_licensed() {
         // MockKeychain::Empty -> no raw key -> masked_key None; REAL_CERT carries
-        // no metadata.email -> email None.
-        let status = manager(Some(REAL_CERT), MockKeychain::Empty, REAL_FP).resolve_status();
+        // no metadata.email -> email None. CONTROLLED clock (finding 4): fixed
+        // `now` before the fixture's 2026-07-12 expiry so this never flakes once
+        // the wall clock passes it.
+        let status = manager(Some(REAL_CERT), MockKeychain::Empty, REAL_FP)
+            .resolve_status_at(at("2026-07-01T00:00:00Z"), false);
         assert_eq!(
             status,
             LicenseStatusPayload::Licensed {
@@ -819,8 +841,10 @@ mod tests {
         // WithKey -> "KEY-AAAA-BBBB"; the ROUTE payload must carry the masked
         // form only. The masked key is resolved ONLY on the route-only path
         // (resolve_status_with_masked_key) — codex finding 2 / T-19-10.
-        let status =
-            manager(Some(REAL_CERT), MockKeychain::WithKey, REAL_FP).resolve_status_with_masked_key();
+        // CONTROLLED clock (finding 4): fixed `now` before EXP so the Licensed
+        // arm never flakes once the wall clock passes the fixture expiry.
+        let status = manager(Some(REAL_CERT), MockKeychain::WithKey, REAL_FP)
+            .resolve_status_at(at("2026-07-01T00:00:00Z"), true);
         match status {
             LicenseStatusPayload::Licensed { masked_key, .. } => {
                 assert_eq!(masked_key.as_deref(), Some("••••••••BBBB"));
@@ -835,9 +859,11 @@ mod tests {
     fn startup_status_path_never_reads_the_keychain_for_a_licensed_launch() {
         // T-19-10 invariant (Phase-19), RE-PINNED after the D-89 regression
         // (codex finding 2): a licensed launch — every startup/footer/panel
-        // refresh goes through resolve_status() — must NOT touch the Keychain,
-        // or macOS raises the auth prompt on every start. The route-only
+        // refresh goes through resolve_status() (with_masked_key=false) — must
+        // NOT touch the Keychain, or macOS raises the auth prompt on every start.
         // resolve_status_with_masked_key() is the ONLY licensed path that reads.
+        // CONTROLLED clock (finding 4) so the Licensed arm is wall-clock-stable.
+        let now = at("2026-07-01T00:00:00Z");
         let reads = Arc::new(Mutex::new(0));
         let mut mgr = LicenseManager::new(
             Box::new(MockStore(Some(REAL_CERT))),
@@ -849,7 +875,7 @@ mod tests {
             REAL_FP.to_string(),
         );
         for _ in 0..3 {
-            match mgr.resolve_status() {
+            match mgr.resolve_status_at(now, false) {
                 LicenseStatusPayload::Licensed { masked_key, .. } => {
                     // No masked key on the startup path — and crucially no read.
                     assert_eq!(masked_key, None);
@@ -869,6 +895,8 @@ mod tests {
         // The masked-key read must obey the same prompt-flood discipline as
         // has_stored_key: repeated ROUTE status queries on a Licensed session
         // read the Keychain AT MOST ONCE (Pitfall 5). Counting keychain proves it.
+        // CONTROLLED clock (finding 4) so the Licensed arm is wall-clock-stable.
+        let now = at("2026-07-01T00:00:00Z");
         let reads = Arc::new(Mutex::new(0));
         let mut mgr = LicenseManager::new(
             Box::new(MockStore(Some(REAL_CERT))),
@@ -880,7 +908,7 @@ mod tests {
             REAL_FP.to_string(),
         );
         for _ in 0..3 {
-            match mgr.resolve_status_with_masked_key() {
+            match mgr.resolve_status_at(now, true) {
                 LicenseStatusPayload::Licensed { masked_key, .. } => {
                     assert_eq!(masked_key.as_deref(), Some("••••••••BBBB"));
                 }
@@ -897,9 +925,10 @@ mod tests {
     #[test]
     fn masked_key_is_none_when_the_keychain_read_fails() {
         // Fail-soft (same posture as has_stored_key): an erroring Keychain ->
-        // masked_key None, status still Licensed (verify path unaffected). Route path.
-        let status =
-            manager(Some(REAL_CERT), MockKeychain::Erroring, REAL_FP).resolve_status_with_masked_key();
+        // masked_key None, status still Licensed (verify path unaffected). Route
+        // path, CONTROLLED clock (finding 4) so the Licensed arm never flakes.
+        let status = manager(Some(REAL_CERT), MockKeychain::Erroring, REAL_FP)
+            .resolve_status_at(at("2026-07-01T00:00:00Z"), true);
         match status {
             LicenseStatusPayload::Licensed { masked_key, .. } => assert_eq!(masked_key, None),
             other => panic!("expected Licensed, got {other:?}"),
@@ -1017,8 +1046,11 @@ mod tests {
     #[test]
     fn resolve_status_maps_active_class_to_licensed() {
         // A not-yet-expired verified cert is Licensed (D-73 unchanged path),
-        // carrying expiry + entitlements verbatim.
-        let status = manager(Some(REAL_CERT), MockKeychain::Empty, REAL_FP).resolve_status();
+        // carrying expiry + entitlements verbatim. CONTROLLED clock (finding 4):
+        // `now` is fixed before EXP so this never flakes once the wall clock
+        // passes the fixture's 2026-07-12 expiry.
+        let status = manager(Some(REAL_CERT), MockKeychain::Empty, REAL_FP)
+            .resolve_status_at(at("2026-07-01T00:00:00Z"), false);
         assert_eq!(
             status,
             LicenseStatusPayload::Licensed {
@@ -1061,14 +1093,27 @@ mod tests {
 
     #[test]
     fn needs_refresh_false_for_freshly_licensed_far_from_expiry() {
-        // REAL_CERT today (2026-06-14) is ~28 days from its 2026-07-12 expiry,
-        // outside the 7-day renew-ahead window.
+        // codex finding 4: drive off a CONTROLLED clock — REAL_CERT's expiry is
+        // 2026-07-12, so a wall-clock test would flake once `now` entered the
+        // 7-day renew-ahead window (~2026-07-05). `needs_refresh_at`/`*_at`
+        // classify against the injected `now`, so this is wall-clock-independent.
+        // Fixed `now` = 2026-06-12 (~30 days out, well outside renew-ahead).
+        let now = at("2026-06-12T00:00:00Z");
         let mut mgr = manager(Some(REAL_CERT), MockKeychain::Empty, REAL_FP);
         assert!(matches!(
-            mgr.resolve_status(),
+            mgr.resolve_status_at(now, false),
             LicenseStatusPayload::Licensed { .. }
         ));
-        assert!(!mgr.needs_refresh());
+        assert!(!mgr.needs_refresh_at(now));
+
+        // And the renew-ahead boundary: 6 days out (inside the 7-day window) ->
+        // true, proving the Licensed arm delegates to within_renew_ahead(now).
+        let near = at("2026-07-06T15:14:47.247Z");
+        assert!(matches!(
+            mgr.resolve_status_at(near, false),
+            LicenseStatusPayload::Licensed { .. }
+        ));
+        assert!(mgr.needs_refresh_at(near));
     }
 
     #[test]
@@ -1091,7 +1136,10 @@ mod tests {
     fn resolve_status_never_touches_network_on_the_expiry_path() {
         // D-45: the NoNetwork client panics on any call; resolving a verified
         // cert (which now runs the expiry classifier) must complete silently.
-        let status = manager(Some(REAL_CERT), MockKeychain::Empty, REAL_FP).resolve_status();
+        // CONTROLLED clock (finding 4): the Licensed assertion is wall-clock-
+        // stable regardless of how close the real date is to the fixture expiry.
+        let status = manager(Some(REAL_CERT), MockKeychain::Empty, REAL_FP)
+            .resolve_status_at(at("2026-07-01T00:00:00Z"), false);
         assert!(matches!(status, LicenseStatusPayload::Licensed { .. }));
     }
 
