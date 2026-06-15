@@ -52,6 +52,18 @@
   --color-accent-soft: color-mix(in srgb, var(--color-accent) 15%, transparent);
   --color-accent-line: color-mix(in srgb, var(--color-accent) 75%, transparent);
 
+  /* Amber "attention" triad (Phase 22.1) — the License pane's problem/refreshNeeded
+     card is a calm WARNING (not the text-bad alarm orange #f0876b, and not the
+     blue accent). Mirrors the accent triad EXACTLY: a base amber + a 15% soft fill
+     + a 75% line, all derived via color-mix so warn-soft/warn-line shift together.
+     --color-warn (#fbbf24, Tailwind amber-400) clears WCAG-AA on every surface it
+     renders on: ~10.8:1 on bg-pane (#14161b, the License pane), ~10.3:1 on bg-panel
+     (#181b21, the card), ~11.8:1 on bg-app — so warn text + the icon glyph are AA.
+     Dark-theme only (theming ships later); a light theme can re-derive from the base. */
+  --color-warn: #fbbf24;
+  --color-warn-soft: color-mix(in srgb, var(--color-warn) 15%, transparent);
+  --color-warn-line: color-mix(in srgb, var(--color-warn) 75%, transparent);
+
   --font-sans: "IBM Plex Sans", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 }
