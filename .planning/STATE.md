@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Licensing
 status: executing
-last_updated: "2026-06-15T00:10:00.000Z"
-last_activity: 2026-06-15 -- Phase 21 plan 04 Tasks 1-3 landed (D-85 flip LIVE + #/settings/license route + footer/palette routing); AWAITING Task 4 human-verify gate
+last_updated: "2026-06-15T10:40:00.000Z"
+last_activity: 2026-06-15 -- Phase 21 ALL 5 plans implemented + goal-verified (human_needed); automated gates all green; AWAITING human UAT (21-HUMAN-UAT.md) + Phase-20-gated live ship-gate cases
 progress:
   total_phases: 11
   completed_phases: 3
@@ -18,11 +18,11 @@ progress:
 ## Current Position
 
 Milestone: **v1.6 "Licensing"** — started 2026-06-09, roadmap created 2026-06-09.
-Phase: 21 (license-lifecycle-ship-gate) — EXECUTING
-Plan: 4 of 5 (plans 01–03 complete; 04 Tasks 1–3 landed, Task 4 human-verify gate PENDING)
-Status: AWAITING human-verify checkpoint (21-04 Task 4)
-Progress: [■■□□] 2/4 phases · v1.6 plans 14 executed (Phase 20 closes on the live-purchase gate; Phase 21 plans 01–03 done; 04 at its gate)
-Last activity: 2026-06-15 -- Phase 21 plan 04 Tasks 1–3 landed (D-85 flip LIVE + #/settings/license route + footer/palette routing); AWAITING Task 4 human-verify gate
+Phase: 21 (license-lifecycle-ship-gate) — IMPLEMENTED + VERIFIED (human_needed); AWAITING human UAT
+Plan: 5 of 5 implemented (01–05 all landed; SUMMARYs written). Goal-verifier: 5/5 success criteria code-verified, no genuine gaps → status human_needed.
+Status: AWAITING human UAT (21-HUMAN-UAT.md, 7 items) + Phase-20-gated live ship-gate cases 1/2/7/8. NOT marked phase-complete (binding human sign-off pending).
+Progress: [■■□□] 2/4 phases · v1.6 plans 14 marked complete + Phase 21 (4 plans) code-complete-pending-signoff; Phase 20 still closes on the live-purchase gate.
+Last activity: 2026-06-15 -- Phase 21 all 5 plans implemented + goal-verified (human_needed); automated gates green (vitest 940, cargo 82, e2e 19/19, WCAG 24/24, decoder untouched); ship-gate fixture cases 4/5 green + 3/6 cargo-proven; live cases 1/2/7/8 blocked on a real prod-CE key. Codex review: 4 findings (incl. 2 real regressions) fixed.
 
 **Goal:** one-time-payment lifetime license — MoR checkout → webhook → Keygen (perpetual, node-locked, maxMachines=1); paste-key one-time activation (fingerprint `HMAC-SHA256(IOPlatformUUID, salt)`); offline Ed25519-verified `machine.lic` (~30-day TTL) thereafter; license key in Keychain (Rust-owned); free tier keeps all 11 tools — Pro locks customization (theming + ordering/pinning) behind a central entitlement gate (D-18 pivot; tool-gating mechanism ships dormant). Research: `docs/licensing-research.md`.
 
