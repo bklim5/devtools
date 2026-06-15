@@ -19,6 +19,20 @@
 // navigate('/settings/license')). The assertion is the modal mounting, NOT a hash
 // change — the route is gone (D-S6).
 //
+// PHASE 22.1 (D-22.1-4/5/6/7, revises SET-06): the License pane's not-Pro states
+// NO LONGER open the standalone UpsellModal STACKED above the Settings modal. The
+// upsell/activation surface is rendered INLINE inside the Settings dialog:
+//   • free/notActivated → full inline pitch ("Thank you for using TinkerDev") +
+//     Buy + "I have a license key" → key input + Activate (NO second dialog).
+//   • problem/refreshNeeded → calm status card + Refresh, with the key input +
+//     Activate form inline below (NO pitch, NO modal). The old Reactivate button
+//     that opened the stacked modal is GONE.
+// So this spec asserts the inline form is INSIDE the [role=dialog][aria-modal]
+// Settings dialog AND that upsellModalOpen() stays FALSE throughout the License-
+// pane flow (no aria-labelledby="upsell-heading" dialog ever stacks). The
+// standalone UpsellModal's sidebar/⌘K entries stay green in settings.e2e.ts +
+// entitlements.e2e.ts (D-22.1-5, unchanged).
+//
 // The e2e-spike preflight resets the DEV prefs.json + machine.dev.lic to a
 // deterministic baseline (no override, no cert → notActivated/FREE under the live
 // D-85 flip), so this spec starts from a known state and is not history-dependent.
@@ -26,14 +40,16 @@
 // The load-bearing real-runtime checks — only the real WKWebView truly proves:
 //   1. The #/settings/license deep-link opens the Settings modal on the License
 //      pane (D-S6) — no duplicate in-window License surface.
-//   2. The free (notActivated) state shows "Free" + "Activate a license" inside
-//      the License pane.
+//   2. The free (notActivated) state renders the inline upsell ("Thank you for
+//      using TinkerDev") + the inline "License key" input INSIDE the Settings
+//      dialog — and NO second upsell modal stacks (D-22.1-6).
 //   3. A corrupt machine.dev.lic makes the pane render the "License needs
-//      attention" problem state with Refresh + Reactivate — proven against the
-//      real Rust fail-closed verify path.
+//      attention" problem state with Refresh + the inline "License key" input +
+//      Activate (NO pitch, NO modal) — proven against the real Rust fail-closed
+//      verify path (D-22.1-7).
 //   4. Clicking Refresh shows the calm aria-live "Refreshing…" line (no spinner).
-//   5. The problem-state "Reactivate" opens the SHARED Unlock Pro modal and
-//      returns focus to the invoker on dismiss (E1).
+//   5. Activation happens INLINE — upsellModalOpen() stays false throughout the
+//      License-pane flow (no modal-on-modal; D-22.1-4/5).
 //
 // The Pro-active states + the confirm-first Deactivate flow + the dormant-restore
 // round-trip need a real activated cert and are covered by the human walkthrough +
@@ -105,6 +121,31 @@ function clickPaneButton(text: string): Promise<void> {
   }, text);
 }
 
+/** Whether the License pane renders the INLINE "License key" input (the shared
+ *  activation surface) — scoped inside the Settings dialog. Matched by the
+ *  <label>'s htmlFor → the input id, the same accessible-name path the unit
+ *  tests use. */
+function paneHasKeyInput(): Promise<boolean> {
+  return browser.execute(() => {
+    const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
+    if (!dialog) return false;
+    const label = Array.from(dialog.querySelectorAll("label")).find(
+      (l) => (l.textContent ?? "").trim() === "License key",
+    );
+    if (!label) return false;
+    const forId = label.getAttribute("for");
+    return !!forId && dialog.querySelector(`#${forId}`) instanceof HTMLInputElement;
+  });
+}
+
+/** Whether the License pane shows the given visible text (scoped to the dialog). */
+function paneHasText(text: string): Promise<boolean> {
+  return browser.execute((needle: string) => {
+    const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
+    return (dialog?.textContent ?? "").includes(needle);
+  }, text);
+}
+
 /** Dismiss whatever modal is open via Escape (the dialog's document-level
  *  listener) so a left-open modal never poisons the next assertion. */
 function dismissModal(): Promise<void> {
@@ -117,11 +158,6 @@ function dismissModal(): Promise<void> {
       }),
     );
   });
-}
-
-/** The trimmed text of the currently-focused element (to assert focus-return). */
-function activeText(): Promise<string> {
-  return browser.execute(() => (document.activeElement?.textContent ?? "").trim());
 }
 
 /** Whether the sidebar footer "License needs attention" affordance is present
@@ -160,7 +196,7 @@ async function closeSettingsModal(): Promise<void> {
 }
 
 describe("License pane in the Settings modal (real WKWebView)", () => {
-  it("the #/settings/license deep-link opens the modal on the License pane, shows the free state, and surfaces a corrupt machine.lic as the problem state (D-S6/D-88)", async () => {
+  it("the #/settings/license deep-link opens the modal on the License pane, renders the free inline upsell, and surfaces a corrupt machine.lic as the inline problem-state form (D-S6/D-22.1-6/D-22.1-7)", async () => {
     // Land on a deterministic tool so the shell + sidebar are mounted.
     await navigateToTool("protobuf-decoder");
     const firstHandle = await $('button[aria-label^="Reorder "]');
@@ -176,15 +212,40 @@ describe("License pane in the Settings modal (real WKWebView)", () => {
         timeout: 10_000,
         timeoutMsg: "expected #/settings/license to open the Settings modal (D-S6)",
       });
-      await browser.waitUntil(async () => (await statusHeading()) === "Free", {
-        timeout: 10_000,
-        timeoutMsg: `expected the License pane to show "Free" at baseline, got ${JSON.stringify(await statusHeading())}`,
+      // The free state renders the INLINE upsell pitch (its heading is the pane's
+      // first non-title h2 now — there is no "Free" status card; D-22.1-6).
+      await browser.waitUntil(
+        async () => (await statusHeading()) === "Thank you for using TinkerDev ❤️",
+        {
+          timeout: 10_000,
+          timeoutMsg: `expected the free inline upsell pitch heading, got ${JSON.stringify(await statusHeading())}`,
+        },
+      );
+      assert(
+        await paneHasButton("Buy license"),
+        "the free inline upsell must offer the Buy license CTA (D-22.1-6)",
+      );
+      // Reveal the inline key form (the "I have a license key" affordance) — the
+      // SAME shared surface, rendered inline. NO stacked upsell modal opens.
+      assert(
+        await paneHasButton("I have a license key"),
+        "the free inline upsell must offer the 'I have a license key' reveal (D-22.1-6)",
+      );
+      await clickPaneButton("I have a license key");
+      await browser.waitUntil(async () => paneHasKeyInput(), {
+        timeout: 5_000,
+        timeoutMsg:
+          'expected the inline "License key" input after revealing the form (D-22.1-6)',
       });
       assert(
-        await paneHasButton("Activate a license"),
-        'the free state must offer "Activate a license" (D-88)',
+        !(await upsellModalOpen()),
+        "the free inline activation must NOT stack a standalone upsell modal (D-22.1-4/5)",
       );
-      await saveScreenshot("license-settings", "license-settings-free.png", "free-state");
+      await saveScreenshot(
+        "license-settings",
+        "license-settings-free-inline.png",
+        "free-inline",
+      );
       await closeSettingsModal();
 
       // 2. PROBLEM STATE: seed garbage into the REAL machine.dev.lic.
@@ -206,7 +267,28 @@ describe("License pane in the Settings modal (real WKWebView)", () => {
         timeoutMsg: `expected "License needs attention" after seeding a corrupt machine.lic, got ${JSON.stringify(await statusHeading())}`,
       });
       assert(await paneHasButton("Refresh"), "the problem state must offer Refresh");
-      assert(await paneHasButton("Reactivate"), "the problem state must offer Reactivate (D-83)");
+      // D-22.1-7: the key-input + Activate form renders INLINE below the status
+      // card — NO modal-opening Reactivate button, and NO sales pitch.
+      assert(
+        await paneHasKeyInput(),
+        'the problem state must render the inline "License key" input (D-22.1-7)',
+      );
+      assert(
+        await paneHasButton("Activate"),
+        "the problem state must offer the inline Activate button (D-22.1-7)",
+      );
+      assert(
+        !(await paneHasButton("Reactivate")),
+        "the modal-opening Reactivate button must be GONE (D-22.1-7)",
+      );
+      assert(
+        !(await paneHasText("Most of TinkerDev is free")),
+        "a paying customer in the problem state must NOT see the sales pitch (D-22.1-7)",
+      );
+      assert(
+        !(await upsellModalOpen()),
+        "the problem-state inline form must NOT stack a standalone upsell modal (D-22.1-4/5)",
+      );
 
       // 3. Refresh shows the calm aria-live "Refreshing…" line (no spinner).
       await clickPaneButton("Refresh");
@@ -228,7 +310,7 @@ describe("License pane in the Settings modal (real WKWebView)", () => {
           // line is transient. Don't fail the spec on the race; the unit test pins
           // the in-flight copy. (Best-effort real-runtime smoke.)
         });
-      await saveScreenshot("license-settings", "license-settings-problem.png", "problem-state");
+      await saveScreenshot("license-settings", "license-settings-problem-inline.png", "problem-inline");
       await closeSettingsModal();
     } finally {
       // Cleanup MUST leave the machine as found (T-18-15 discipline).
@@ -238,12 +320,17 @@ describe("License pane in the Settings modal (real WKWebView)", () => {
           else rmSync(LIC_PATH, { force: true });
         }
         // Re-open the modal so its re-query clears the problem state, then close.
+        // The restored FREE state shows the inline upsell pitch heading (no "Free"
+        // status card now — D-22.1-6), so wait for that heading.
         await openLicenseDeepLink();
         await browser.waitUntil(async () => settingsModalOpen(), { timeout: 10_000 });
-        await browser.waitUntil(async () => (await statusHeading()) === "Free", {
-          timeout: 10_000,
-          timeoutMsg: "expected the pane to return to Free after restoring machine.lic",
-        });
+        await browser.waitUntil(
+          async () => (await statusHeading()) === "Thank you for using TinkerDev ❤️",
+          {
+            timeout: 10_000,
+            timeoutMsg: "expected the pane to return to the free inline upsell after restoring machine.lic",
+          },
+        );
         await closeSettingsModal();
       } catch (cleanupError) {
         console.error("[license-settings] cleanup failed:", cleanupError);
@@ -251,11 +338,13 @@ describe("License pane in the Settings modal (real WKWebView)", () => {
     }
   });
 
-  // The FREE (notActivated) state's "Activate a license" button opens the SHARED
-  // Unlock Pro upsell modal (D-88: the upsell owns the activation form, no
-  // duplicate UI). Opening it STACKS the upsell above the Settings modal (Pitfall
-  // 6 — both z-[60], DOM order puts the upsell on top).
-  it('the free state "Activate a license" opens the shared Unlock Pro modal stacked above Settings (D-88)', async () => {
+  // PHASE 22.1 (D-22.1-6, INVERTS the old D-88 stacked-modal test): the FREE
+  // (notActivated) state renders the upsell/activation surface INLINE inside the
+  // Settings dialog — it does NOT open a standalone upsell modal stacked on top.
+  // Proves: the inline pitch + key input are INSIDE [role=dialog][aria-modal] AND
+  // upsellModalOpen() (the aria-labelledby="upsell-heading" dialog) stays FALSE
+  // throughout — no modal-on-modal.
+  it("the free state renders the upsell/activation INLINE in the Settings dialog — no stacked upsell modal (D-22.1-6)", async () => {
     await navigateToTool("protobuf-decoder");
     const firstHandle = await $('button[aria-label^="Reorder "]');
     await firstHandle.waitForExist({ timeout: 15_000 });
@@ -266,45 +355,60 @@ describe("License pane in the Settings modal (real WKWebView)", () => {
         timeout: 10_000,
         timeoutMsg: "expected the deep-link to open the Settings modal",
       });
-      await browser.waitUntil(async () => (await statusHeading()) === "Free", {
-        timeout: 10_000,
-        timeoutMsg: `expected the License pane to show "Free", got ${JSON.stringify(await statusHeading())}`,
-      });
-      assert(!(await upsellModalOpen()), "no upsell modal should be open before clicking Activate");
-
-      await clickPaneButton("Activate a license");
-      await browser.waitUntil(async () => upsellModalOpen(), {
+      // The inline upsell pitch is the pane's status heading inside the dialog.
+      await browser.waitUntil(
+        async () => (await statusHeading()) === "Thank you for using TinkerDev ❤️",
+        {
+          timeout: 10_000,
+          timeoutMsg: `expected the free inline upsell pitch, got ${JSON.stringify(await statusHeading())}`,
+        },
+      );
+      // No upsell modal stacks before OR after revealing the inline form.
+      assert(
+        !(await upsellModalOpen()),
+        "no standalone upsell modal should be open in the inline free state",
+      );
+      assert(
+        await paneHasButton("I have a license key"),
+        "the free inline upsell must offer the 'I have a license key' reveal (D-22.1-6)",
+      );
+      await clickPaneButton("I have a license key");
+      // The key input appears INLINE inside the SAME Settings dialog (no second
+      // dialog) — prove both: the input exists, and upsellModalOpen() is false.
+      await browser.waitUntil(async () => paneHasKeyInput(), {
         timeout: 5_000,
         timeoutMsg:
-          'expected "Activate a license" to open the shared Unlock Pro modal (D-88)',
+          'expected the inline "License key" input inside the Settings dialog (D-22.1-6)',
       });
+      assert(
+        await paneHasButton("Activate"),
+        "the revealed inline form must offer the Activate button (D-22.1-6)",
+      );
+      assert(
+        !(await upsellModalOpen()),
+        "revealing the inline form must NOT stack a standalone upsell modal (D-22.1-4/5)",
+      );
       await saveScreenshot(
         "license-settings",
-        "license-settings-free-activate-modal.png",
-        "free-activate-modal",
+        "license-settings-free-inline-form.png",
+        "free-inline-form",
       );
-      // Dismiss the upsell (Esc closes the topmost dialog first — Pitfall 6).
-      await dismissModal();
-      await browser.waitUntil(async () => !(await upsellModalOpen()), {
-        timeout: 5_000,
-        timeoutMsg: "expected Escape to dismiss the upsell modal",
-      });
     } finally {
       try {
-        await dismissModal(); // close the upsell if still open
         await closeSettingsModal();
       } catch (cleanupError) {
-        console.error("[license-settings] activate-modal cleanup failed:", cleanupError);
+        console.error("[license-settings] free-inline cleanup failed:", cleanupError);
       }
     }
   });
 
-  // In the PROBLEM state (a corrupt machine.lic) the "Reactivate" button opens the
-  // SAME shared Unlock Pro modal (D-83/D-88) AND returns focus to the invoking
-  // button on dismiss (E1) — the modal mounts decoupled from its trigger
-  // (settingsStore/upsellStore), so this is the one place that proves real focus
-  // return on the WKWebView.
-  it('the problem state "Reactivate" opens the shared Unlock Pro modal and returns focus to the invoker on dismiss (D-83/D-88/E1)', async () => {
+  // PHASE 22.1 (D-22.1-7, INVERTS the old D-83/D-88 Reactivate-modal test): in the
+  // PROBLEM state (a corrupt machine.lic) the pane keeps the calm "License needs
+  // attention" status + Refresh, and renders the key-input + Activate form INLINE
+  // below — NO modal-opening Reactivate button, NO sales pitch, and NO stacked
+  // upsell modal. Proves the inline activation surface against the real Rust
+  // fail-closed verify path with NO modal-on-modal.
+  it("the problem state renders the key-input + Activate form INLINE below the status card — no stacked upsell modal, no pitch (D-22.1-7)", async () => {
     await navigateToTool("protobuf-decoder");
     const firstHandle = await $('button[aria-label^="Reorder "]');
     await firstHandle.waitForExist({ timeout: 15_000 });
@@ -326,54 +430,52 @@ describe("License pane in the Settings modal (real WKWebView)", () => {
         timeout: 10_000,
         timeoutMsg: `expected the problem state, got ${JSON.stringify(await statusHeading())}`,
       });
-      assert(await paneHasButton("Reactivate"), "the problem state must offer Reactivate (D-83)");
-      assert(!(await upsellModalOpen()), "no upsell modal should be open before clicking Reactivate");
-
-      // Focus the Reactivate button explicitly, THEN click it — so the invoker is
-      // unambiguously the focused element openUpsell() captures.
-      await browser.execute(() => {
-        const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
-        const btn = Array.from(dialog?.querySelectorAll("button") ?? []).find((b) =>
-          (b.textContent ?? "").trim().includes("Reactivate"),
-        ) as HTMLElement | undefined;
-        btn?.focus();
-        btn?.click();
-      });
-      await browser.waitUntil(async () => upsellModalOpen(), {
-        timeout: 5_000,
-        timeoutMsg: "expected Reactivate to open the shared Unlock Pro modal",
-      });
+      // The calm status card + Refresh are kept; the inline form is BELOW.
+      assert(await paneHasButton("Refresh"), "the problem state must keep Refresh");
+      assert(
+        await paneHasKeyInput(),
+        'the problem state must render the inline "License key" input (D-22.1-7)',
+      );
+      assert(
+        await paneHasButton("Activate"),
+        "the problem state must offer the inline Activate button (D-22.1-7)",
+      );
+      // The modal-opening Reactivate button is GONE, and no upsell modal stacks.
+      assert(
+        !(await paneHasButton("Reactivate")),
+        "the modal-opening Reactivate button must be GONE (D-22.1-7)",
+      );
+      assert(
+        !(await paneHasText("Most of TinkerDev is free")),
+        "a paying customer must NOT see the sales pitch in the problem state (D-22.1-7)",
+      );
+      assert(
+        !(await upsellModalOpen()),
+        "the problem-state inline form must NOT stack a standalone upsell modal (D-22.1-4/5)",
+      );
       await saveScreenshot(
         "license-settings",
-        "license-settings-problem-reactivate-modal.png",
-        "problem-reactivate-modal",
+        "license-settings-problem-inline-form.png",
+        "problem-inline-form",
       );
-
-      // Dismiss the upsell via Escape; focus must return to the Reactivate button.
-      await dismissModal();
-      await browser.waitUntil(async () => !(await upsellModalOpen()), {
-        timeout: 5_000,
-        timeoutMsg: "expected Escape to dismiss the upsell modal",
-      });
-      await browser.waitUntil(async () => (await activeText()) === "Reactivate", {
-        timeout: 5_000,
-        timeoutMsg: `expected focus to return to the Reactivate button after dismiss (E1), focused text was ${JSON.stringify(await activeText())}`,
-      });
     } finally {
       try {
-        await dismissModal(); // close the upsell if still open
         await closeSettingsModal();
         if (licSeeded) {
           if (licExisted && licBackup) writeFileSync(LIC_PATH, licBackup);
           else rmSync(LIC_PATH, { force: true });
         }
         // Re-open so the pane's re-query clears the problem state, then close.
+        // The restored FREE state shows the inline upsell pitch heading (D-22.1-6).
         await openLicenseDeepLink();
         await browser.waitUntil(async () => settingsModalOpen(), { timeout: 10_000 });
-        await browser.waitUntil(async () => (await statusHeading()) === "Free", {
-          timeout: 10_000,
-          timeoutMsg: "expected the pane to return to Free after restoring machine.lic",
-        });
+        await browser.waitUntil(
+          async () => (await statusHeading()) === "Thank you for using TinkerDev ❤️",
+          {
+            timeout: 10_000,
+            timeoutMsg: "expected the pane to return to the free inline upsell after restoring machine.lic",
+          },
+        );
         await closeSettingsModal();
       } catch (cleanupError) {
         console.error("[license-settings] reactivate-modal cleanup failed:", cleanupError);

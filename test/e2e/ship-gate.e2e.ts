@@ -150,6 +150,24 @@ function routeHasButton(text: string): Promise<boolean> {
   );
 }
 
+/** Whether the License pane renders the INLINE "License key" input (the shared
+ *  activation surface) — scoped inside the Settings dialog. Phase 22.1 (D-22.1-7):
+ *  the problem state no longer offers a modal-opening "Reactivate" button; it
+ *  renders the key-input + Activate form INLINE below the status card. This probe
+ *  is the calm-reactivation-path proof that replaces the old Reactivate assertion. */
+function routeHasKeyInput(): Promise<boolean> {
+  return browser.execute(() => {
+    const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
+    if (!dialog) return false;
+    const label = Array.from(dialog.querySelectorAll("label")).find(
+      (l) => (l.textContent ?? "").trim() === "License key",
+    );
+    if (!label) return false;
+    const forId = label.getAttribute("for");
+    return !!forId && dialog.querySelector(`#${forId}`) instanceof HTMLInputElement;
+  });
+}
+
 /** Whether the route shows a confirm-first Deactivate trigger — the Pro-active
  *  affordance (only rendered for licensed/offlineGrace). Its ABSENCE is the
  *  fail-closed proof: a corrupt/foreign cert must NEVER expose Pro management. */
@@ -264,15 +282,17 @@ describe("Ship-gate matrix — fixture-driven cases (real WKWebView)", () => {
         },
       );
 
-      // Fail-closed: NO Pro management surface, but the calm Reactivate path IS
+      // Fail-closed: NO Pro management surface, but the calm reactivation path IS
       // offered (D-83). A corrupt cert must never read as licensed (T-21-16).
+      // Phase 22.1 (D-22.1-7): the calm path is the INLINE key-input + Activate
+      // form below the status card (the old modal-opening Reactivate button is gone).
       assert(
         !(await hasDeactivate()),
         "Case 4: a corrupt cert must NOT expose Pro management (Deactivate) — fail-closed (T-21-16)",
       );
       assert(
-        await routeHasButton("Reactivate"),
-        "Case 4: the problem state must offer the calm Reactivate path (D-83)",
+        await routeHasKeyInput(),
+        "Case 4: the problem state must offer the calm inline reactivation form (License key input, D-22.1-7/D-83)",
       );
 
       // Entitlements actually dropped to FREE — proven the problem-state-correct
@@ -309,11 +329,16 @@ describe("Ship-gate matrix — fixture-driven cases (real WKWebView)", () => {
       try {
         restoreLic(token);
         await remountLicenseRoute();
-        await browser.waitUntil(async () => (await statusHeading()) === "Free", {
-          timeout: 10_000,
-          timeoutMsg:
-            "Case 4 cleanup: expected the route to return to Free after restoring machine.lic",
-        });
+        // Phase 22.1 (D-22.1-6): the restored free state shows the inline upsell
+        // pitch heading (no "Free" status card now).
+        await browser.waitUntil(
+          async () => (await statusHeading()) === "Thank you for using TinkerDev ❤️",
+          {
+            timeout: 10_000,
+            timeoutMsg:
+              "Case 4 cleanup: expected the route to return to the free inline upsell after restoring machine.lic",
+          },
+        );
         await closeSettingsModal(); // leave no modal open for the next spec
       } catch (cleanupError) {
         console.error("[ship-gate] case 4 cleanup failed:", cleanupError);
@@ -356,14 +381,15 @@ describe("Ship-gate matrix — fixture-driven cases (real WKWebView)", () => {
       );
 
       // Fail-closed: a signature-valid but foreign cert must NEVER expose Pro
-      // management, and must offer the calm Reactivate path instead (T-21-16).
+      // management, and must offer the calm reactivation path instead (T-21-16).
+      // Phase 22.1 (D-22.1-7): the calm path is the INLINE key-input + Activate form.
       assert(
         !(await hasDeactivate()),
         "Case 5: a foreign-fingerprint cert must NOT expose Pro management — fail-closed (T-21-16)",
       );
       assert(
-        await routeHasButton("Reactivate"),
-        "Case 5: the foreign-cert problem state must offer the calm Reactivate path",
+        await routeHasKeyInput(),
+        "Case 5: the foreign-cert problem state must offer the calm inline reactivation form (License key input, D-22.1-7)",
       );
 
       // Entitlements dropped to FREE (the case-3/5 fail-closed contract) — proven
@@ -399,11 +425,16 @@ describe("Ship-gate matrix — fixture-driven cases (real WKWebView)", () => {
       try {
         restoreLic(token);
         await remountLicenseRoute();
-        await browser.waitUntil(async () => (await statusHeading()) === "Free", {
-          timeout: 10_000,
-          timeoutMsg:
-            "Case 5 cleanup: expected the route to return to Free after restoring machine.lic",
-        });
+        // Phase 22.1 (D-22.1-6): the restored free state shows the inline upsell
+        // pitch heading (no "Free" status card now).
+        await browser.waitUntil(
+          async () => (await statusHeading()) === "Thank you for using TinkerDev ❤️",
+          {
+            timeout: 10_000,
+            timeoutMsg:
+              "Case 5 cleanup: expected the route to return to the free inline upsell after restoring machine.lic",
+          },
+        );
         await closeSettingsModal(); // leave no modal open for the next spec
       } catch (cleanupError) {
         console.error("[ship-gate] case 5 cleanup failed:", cleanupError);
