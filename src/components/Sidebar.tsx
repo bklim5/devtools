@@ -139,6 +139,15 @@ export function Sidebar() {
     rowRefs.current.get(id)?.focus();
   }, []);
 
+  // Resolve a tool's row element by id — the STABLE focus-return target threaded
+  // into the locked drag path (the grip is pointer-only chrome that hides off-hover,
+  // so it can't be the return target). Stable identity (rowRefs is a ref) so it
+  // never churns the drag hook's onDragStart callback.
+  const getRowEl = useCallback(
+    (id: string) => rowRefs.current.get(id) ?? null,
+    [],
+  );
+
   useLayoutEffect(() => {
     const id = focusAfterMoveRef.current;
     if (!id) return;
@@ -216,12 +225,14 @@ export function Sidebar() {
   // focus on the toggled tool's handle across the cross-group re-render (Pitfall 3),
   // and announces with the registry NAME (Pitfall 4).
   const togglePin = useCallback(
-    (id: string) => {
+    (id: string, invokerEl?: HTMLElement | null) => {
       // D-28: locked → the affordance stays visible but invoking it opens the
       // upsell instead of writing prefs. Returning BEFORE any setter makes prefs
-      // preservation structural (T-18-12).
+      // preservation structural (T-18-12). Thread the explicit invoker (the pin
+      // button / focused row) so Settings restores focus there on close — a
+      // WKWebView click leaves document.activeElement unreliable (MED-22-02).
       if (!orderingUnlocked) {
-        openOrderingUpsell();
+        openOrderingUpsell(invokerEl);
         return;
       }
       const tool = getToolById(id);
@@ -254,7 +265,14 @@ export function Sidebar() {
     onNavDragOver,
     onDrop,
     onDragEnd,
-  } = useSidebarDragDrop({ orderingUnlocked, openOrderingUpsell, groupOrder, commitMove });
+  } = useSidebarDragDrop({
+    orderingUnlocked,
+    openOrderingUpsell,
+    // Stable focus-return target for a locked drag (MED-22-02) — see getRowEl above.
+    getRowEl,
+    groupOrder,
+    commitMove,
+  });
 
   // --- Row keyboard model: plain ↑/↓/Home/End focus nav, Alt+↑/↓ reorder,
   //     Alt+P toggle (D-04/D-13/PIN-05/PIN-06). Bound on the NavLink row (every row
@@ -298,7 +316,9 @@ export function Sidebar() {
           e.key === "ArrowDown"
         ) {
           e.preventDefault();
-          openOrderingUpsell();
+          // Focus is on this row (e.currentTarget) — hand it to Settings as the
+          // explicit return target so focus lands back here on close.
+          openOrderingUpsell(e.currentTarget as HTMLElement);
         }
         return;
       }
@@ -312,7 +332,7 @@ export function Sidebar() {
       // as a cross-platform / synthetic-event fallback.
       if (e.code === "KeyP" || e.key === "p" || e.key === "P") {
         e.preventDefault();
-        togglePin(id);
+        togglePin(id, e.currentTarget as HTMLElement);
         return;
       }
 
@@ -523,7 +543,7 @@ export function Sidebar() {
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                togglePin(tool.id);
+                togglePin(tool.id, e.currentTarget);
               }}
               aria-label={isPinned ? `Unpin ${tool.name}` : `Pin ${tool.name}`}
               aria-pressed={isPinned}

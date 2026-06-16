@@ -248,6 +248,24 @@ export function settingsLicensePaneOpen(): Promise<boolean> {
   });
 }
 
+/** The License-pane STATUS heading text, scoped INSIDE the Settings dialog. Phase
+ *  22.1 a11y fix: status headings are now <h4> (dialog title "Settings" = h2, pane
+ *  title "License" = h3, status heading = h4 — no heading-order inversion), so the
+ *  status heading is the first content <h4> in the dialog. Carries the per-state
+ *  label: "Thank you for using TinkerDev ❤️" (free pitch) | "Licensed" | "Licensed
+ *  (offline)" | "Pro is no longer active" | "License needs attention". Returns null
+ *  when the dialog is not mounted. */
+export function statusHeading(): Promise<string | null> {
+  return browser.execute(() => {
+    const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
+    if (!dialog) return null;
+    const h4s = Array.from(dialog.querySelectorAll("h4"))
+      .map((h) => (h.textContent ?? "").trim())
+      .filter((t) => t.length > 0);
+    return h4s.length > 0 ? h4s[0] : null;
+  });
+}
+
 // Back-compat alias: the former "is the upsell modal open?" probe now resolves to
 // "is the Settings ▸ License pane open?" (the single upsell surface, post-22.1-04).
 export const upsellModalOpen = settingsLicensePaneOpen;

@@ -66,6 +66,7 @@ import {
   navigateToTool,
   readOrder,
   saveScreenshot,
+  statusHeading,
   upsellModalOpen,
 } from "./helpers";
 
@@ -117,22 +118,6 @@ async function closeSettingsModal(): Promise<void> {
       timeoutMsg: "expected Escape to dismiss the Settings modal",
     });
   }
-}
-
-/** The License-pane STATUS heading text, scoped INSIDE the Settings dialog with
- *  the "Settings" dialog title dropped (Pitfall 4: an unscoped first-h2 read would
- *  now return "Settings"). Carries the per-state label: "Free" | "Licensed" |
- *  "Licensed (offline)" | "Pro is no longer active" | "License needs attention".
- *  Returns null when the modal is not mounted. */
-function statusHeading(): Promise<string | null> {
-  return browser.execute(() => {
-    const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
-    if (!dialog) return null;
-    const h2s = Array.from(dialog.querySelectorAll("h2"))
-      .map((h) => (h.textContent ?? "").trim())
-      .filter((t) => t !== "Settings");
-    return h2s.length > 0 ? h2s[0] : null;
-  });
 }
 
 /** Whether the License pane shows a button with the given visible text (scoped

@@ -64,6 +64,7 @@ import {
   navigateToTool,
   saveScreenshot,
   stackedUpsellModalPresent,
+  statusHeading,
 } from "./helpers";
 
 // The DEBUG build reads machine.dev.lic (store.rs cfg-split, 260614-nox).
@@ -86,22 +87,6 @@ function settingsModalOpen(): Promise<boolean> {
   return browser.execute(
     () => document.querySelector('[role="dialog"][aria-modal="true"]') !== null,
   );
-}
-
-/** The License-pane STATUS heading text, scoped INSIDE the Settings dialog and
- *  with the "Settings" dialog title dropped (Pitfall 4). The status heading is the
- *  remaining <h2> after removing the title — LicenseSettings's <h1> is sr-only
- *  ("License") and the status block heading is its first <h2>. Returns null when
- *  the dialog is not mounted. */
-function statusHeading(): Promise<string | null> {
-  return browser.execute(() => {
-    const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
-    if (!dialog) return null;
-    const h2s = Array.from(dialog.querySelectorAll("h2"))
-      .map((h) => (h.textContent ?? "").trim())
-      .filter((t) => t !== "Settings"); // drop the dialog title
-    return h2s.length > 0 ? h2s[0] : null;
-  });
 }
 
 /** Whether the License pane shows a button with the given visible text (scoped

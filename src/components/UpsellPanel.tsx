@@ -56,7 +56,10 @@ import {
   clearEntitlementsOverride,
   refreshEntitlements,
 } from "@/lib/entitlements/store";
-import { refreshLicenseUi } from "@/lib/license/licenseUi";
+import {
+  refreshLicenseUi,
+  refreshLicenseUiDetailed,
+} from "@/lib/license/licenseUi";
 import { useLicenseUi } from "@/shell/useLicenseUi";
 
 /** D-68: the own-domain redirect the user controls (Cloudflare/Caddy) forwards
@@ -192,6 +195,14 @@ function ActivationSurface({
 }: ActivationSurfaceProps) {
   const ui = useLicenseUi();
   const problem = ui.state === "problem";
+  // The status heading level adapts to WHERE the surface renders (22.1 a11y fix):
+  //   • "panel" — the standalone UpsellPanel placed by ToolRoute in place of a
+  //     locked tool's UI (D-30, dormant per D-18). It is top-level page chrome with
+  //     NO dialog/pane heading above it, so its heading stays h2 (its pre-22.1
+  //     level — a lone h4 there would itself be a heading-order skip).
+  //   • inline ("upsell"/"form-only") — rendered inside Settings (dialog title h2 →
+  //     pane title h3), so the status heading is h4, one level under the pane title.
+  const StatusHeading = variant === "panel" ? "h2" : "h4";
   // notActivated, problem, and refreshNeeded carry hasStoredKey (the ONLY
   // Keychain-derived value JS ever sees — T-19-10/LIC-04). licensed and
   // offlineGrace carry expiry+entitlements instead (Pro is active), so they
@@ -256,7 +267,14 @@ function ActivationSurface({
       await clearEntitlementsOverride();
       // D-35: refresh BOTH snapshots so the unlock is live behind the panel —
       // no restart. refreshEntitlements is the proven D-32 live-flip path.
-      await refreshLicenseUi();
+      // DETAILED refresh (Phase 22.1 fix): a notActivated/problem → licensed
+      // TRANSITION is NOT carried forward by carryForwardKeyEmail (it only keeps
+      // key/email when the Pro-active state is UNCHANGED), so a plain keychain-free
+      // refreshLicenseUi() would leave maskedKey/email null and the License pane
+      // would show "License key —" until the route reopened. statusDetail() reads
+      // the masked_key_cache already seeded by verify_then_persist during activate,
+      // so this populates the key/email with NO extra Keychain prompt.
+      await refreshLicenseUiDetailed();
       await refreshEntitlements();
       setValue(""); // T-19-21: drop the key from component state on success
       setActivated(true);
@@ -368,22 +386,29 @@ function ActivationSurface({
       <div className={CARD_CLASS}>
         <div className="flex items-center gap-2">
           <Icon className="h-5 w-5 flex-none text-tx-2" aria-hidden="true" />
-          <h2 id={headingId} className={HEADING_CLASS}>
+          {/* Level adapts to context (StatusHeading): h4 inline (under the h3 pane
+              title), h2 for the standalone panel route — no heading-order skip. */}
+          <StatusHeading id={headingId} className={HEADING_CLASS}>
             Licensed — thank you
-          </h2>
+          </StatusHeading>
         </div>
         <div className={BODY_CLASS}>
           <p>This device is activated. Your Pro features are unlocked.</p>
         </div>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => onDismiss?.()}
-            className={SECONDARY_BTN_CLASS}
-          >
-            Done
-          </button>
-        </div>
+        {/* The inline variants (License pane) render WITHOUT onDismiss — the live
+            entitlement flip re-renders behind the surface, so a "Done" that no-ops
+            would be a dead control. Show it ONLY when a dismiss handler exists. */}
+        {onDismiss ? (
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => onDismiss()}
+              className={SECONDARY_BTN_CLASS}
+            >
+              Done
+            </button>
+          </div>
+        ) : null}
       </div>
     );
   }
@@ -405,9 +430,10 @@ function ActivationSurface({
       <div className={CARD_CLASS}>
         <div className="flex items-center gap-2">
           <Icon className="h-5 w-5 flex-none text-tx-2" aria-hidden="true" />
-          <h2 id={headingId} className={HEADING_CLASS}>
+          {/* Level adapts to context — see the licensed-state heading note above. */}
+          <StatusHeading id={headingId} className={HEADING_CLASS}>
             Your license file couldn&apos;t be verified
-          </h2>
+          </StatusHeading>
         </div>
         <div className={BODY_CLASS}>
           <p>
@@ -433,9 +459,11 @@ function ActivationSurface({
         <span className={MEDALLION_CLASS}>
           <Icon className="h-5 w-5 flex-none text-accent" aria-hidden="true" />
         </span>
-        <h2 id={headingId} className={PITCH_TITLE_CLASS}>
+        {/* Level adapts to context (StatusHeading) — h4 inline under the h3 pane
+            title, h2 for the standalone panel route. */}
+        <StatusHeading id={headingId} className={PITCH_TITLE_CLASS}>
           Thank you for using TinkerDev ❤️
-        </h2>
+        </StatusHeading>
       </div>
       <p className={PITCH_BODY_CLASS}>
         Most of TinkerDev is free — built to make your everyday dev tasks faster.

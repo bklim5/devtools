@@ -13,8 +13,13 @@ export type ToolGroup = "pinned" | "unpinned";
 export interface SidebarDragDropInputs {
   /** ENT-02/D-26: ordering gates through the ONE resolved entitlement set. */
   orderingUnlocked: boolean;
-  /** D-28: the shared upsell surface opened by locked customization affordances. */
-  openOrderingUpsell: () => void;
+  /** D-28: the shared upsell surface opened by locked customization affordances.
+   *  Takes the explicit focus-return target (the dragged tool's row) — the grip
+   *  is pointer-only chrome that hides on blur, so it can't be the return target. */
+  openOrderingUpsell: (invokerEl?: HTMLElement | null) => void;
+  /** Resolve a tool's row element by id — the STABLE focus-return target for a
+   *  locked drag attempt (the grip itself is aria-hidden/opacity-0 off-hover). */
+  getRowEl: (id: string) => HTMLElement | null;
   /** The active group's ordered array (drag/keyboard scope to it). */
   groupOrder: (group: ToolGroup) => string[];
   /** Commit a reorder WITHIN a group (Sidebar owns the setters + announce). */
@@ -24,6 +29,7 @@ export interface SidebarDragDropInputs {
 export function useSidebarDragDrop({
   orderingUnlocked,
   openOrderingUpsell,
+  getRowEl,
   groupOrder,
   commitMove,
 }: SidebarDragDropInputs) {
@@ -40,7 +46,9 @@ export function useSidebarDragDrop({
       // the upsell and the drag never starts (no prefs write path exists).
       if (!orderingUnlocked) {
         e.preventDefault();
-        openOrderingUpsell();
+        // The grip (e.currentTarget) hides on blur, so pass the dragged tool's
+        // ROW as the stable focus-return target for when Settings closes.
+        openOrderingUpsell(getRowEl(id));
         return;
       }
       e.dataTransfer.effectAllowed = "move";
@@ -48,7 +56,7 @@ export function useSidebarDragDrop({
       setDraggingId(id);
       setDraggingGroup(group);
     },
-    [orderingUnlocked, openOrderingUpsell],
+    [orderingUnlocked, openOrderingUpsell, getRowEl],
   );
 
   // While dragging over a row, set the insertion line above or below it based on

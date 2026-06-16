@@ -39,6 +39,7 @@ import {
   navigateToTool,
   saveScreenshot,
   setDevLicenseState,
+  statusHeading,
 } from "./helpers";
 
 // --- DOM probes (single-round-trip reads — WebKit lesson 3) -----------------
@@ -56,21 +57,6 @@ function settingsModalOpen(): Promise<boolean> {
   return browser.execute(
     () => document.querySelector('[role="dialog"][aria-modal="true"]') !== null,
   );
-}
-
-/** The License-pane STATUS heading, scoped INSIDE the Settings dialog with the
- *  "Settings" dialog title dropped (Pitfall 4: an unscoped first-h2 read would now
- *  return "Settings"). The status block heading is the first non-"Settings" <h2>.
- *  Returns null when the modal is not mounted. */
-function statusHeading(): Promise<string | null> {
-  return browser.execute(() => {
-    const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
-    if (!dialog) return null;
-    const h2s = Array.from(dialog.querySelectorAll("h2"))
-      .map((h) => (h.textContent ?? "").trim())
-      .filter((t) => t !== "Settings");
-    return h2s.length > 0 ? h2s[0] : null;
-  });
 }
 
 /** Whether the License pane shows a button with the given visible text (scoped

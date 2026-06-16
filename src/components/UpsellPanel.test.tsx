@@ -10,7 +10,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { Lock } from "lucide-react";
-import { BUY_LICENSE_URL, UpsellPanel } from "./UpsellPanel";
+import { BUY_LICENSE_URL, InlineActivation, UpsellPanel } from "./UpsellPanel";
 import {
   resetPlatformForTest,
   setPlatformForTest,
@@ -18,6 +18,7 @@ import {
   type Platform,
 } from "@/lib/platform";
 import {
+  getLicenseUiSnapshot,
   resetLicenseUiForTest,
   setLicenseUiForTest,
 } from "@/lib/license/licenseUi";
@@ -43,12 +44,27 @@ afterEach(() => {
 });
 
 describe("UpsellPanel (card)", () => {
-  it("renders the thank-you heading as a real heading element", () => {
+  it("renders the standalone-panel thank-you heading as a top-level h2 (route placement, no dialog/pane above)", () => {
     const { getByRole } = render(<UpsellPanel icon={Lock} />);
     const heading = getByRole("heading", {
       name: /Thank you for using TinkerDev/,
     });
+    // The standalone panel (ToolRoute placement, D-30) is top-level page chrome
+    // with no dialog/pane heading above it, so it stays h2 — a lone h4 there would
+    // itself be a heading-order skip (22.1: the level is variant-specific).
     expect(heading.tagName).toBe("H2");
+  });
+
+  it("renders the INLINE pitch heading as an h4 (under the License pane's h3 title — 22.1 a11y fix)", () => {
+    const { getByRole } = render(<InlineActivation variant="upsell" icon={Lock} />);
+    // Inline in Settings: dialog title h2 → pane title h3 → this status heading h4,
+    // so heading order never inverts (the bug this fix closes).
+    expect(
+      getByRole("heading", {
+        name: /Thank you for using TinkerDev/,
+        level: 4,
+      }),
+    ).toBeTruthy();
   });
 
   it("renders the redesigned pitch body copy (Phase 22.1 walkthrough)", () => {
@@ -287,6 +303,70 @@ describe("UpsellPanel activation success (D-35)", () => {
     // Dismissible: the Done button wires through to the caller.
     fireEvent.click(utils.getByRole("button", { name: "Done" }));
     expect(onDismiss).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses the DETAILED refresh on success so the masked key/email populate the License pane (Phase 22.1 fix)", async () => {
+    // The bug: submit()'s success path called the keychain-free refreshLicenseUi()
+    // (status() → maskedKey null). A notActivated → licensed TRANSITION is NOT
+    // carried forward by carryForwardKeyEmail (it only keeps key/email when the
+    // Pro-active state is UNCHANGED), so the License pane showed "License key —"
+    // until the route reopened. The fix calls refreshLicenseUiDetailed()
+    // (statusDetail) — authoritative, populates the masked key/email immediately.
+    const LICENSED_DETAILED: LicenseStatusPayload = {
+      state: "licensed",
+      expiry: null,
+      entitlements: ["pro.theming", "pro.ordering"],
+      maskedKey: "••••••••V3",
+      email: "buyer@tinkerdev.io",
+    };
+    const activate = vi.fn(() => Promise.resolve(LICENSED));
+    // status() (keychain-free, used by the mount refresh) stays null-key; only the
+    // DETAILED seam carries the masked key — proving the success path reads it.
+    const status = vi.fn(() => Promise.resolve(LICENSED));
+    const statusDetail = vi.fn(() => Promise.resolve(LICENSED_DETAILED));
+    setPlatformForTest(platformWith({ activate, status, statusDetail }));
+    const utils = render(<UpsellPanel icon={Lock} onDismiss={() => {}} />);
+    const input = revealForm(utils);
+    fireEvent.change(input, { target: { value: "KEY-OK" } });
+    fireEvent.click(utils.getByRole("button", { name: "Activate" }));
+
+    await waitFor(() =>
+      expect(
+        utils.getByRole("heading", { name: /Licensed — thank you/ }),
+      ).toBeDefined(),
+    );
+    // The success path reads the DETAILED seam (NOT the keychain-free status()).
+    await waitFor(() => expect(statusDetail).toHaveBeenCalled());
+    // The shared snapshot now carries the masked key/email — the License pane
+    // renders them instead of the "—" placeholder.
+    const snap = getLicenseUiSnapshot();
+    expect(snap.state).toBe("licensed");
+    if (snap.state === "licensed") {
+      expect(snap.maskedKey).toBe("••••••••V3");
+      expect(snap.email).toBe("buyer@tinkerdev.io");
+    }
+  });
+
+  it("InlineActivation (no onDismiss) hides the dead 'Done' button after activation (gsd-ui #3)", async () => {
+    // InlineActivation is rendered WITHOUT onDismiss (the live entitlement flip
+    // re-renders behind the License pane), so a "Done" that no-ops is a dead
+    // control — it must not render. The standalone panel (onDismiss passed) keeps
+    // Done, asserted by the success test above.
+    const activate = vi.fn(() => Promise.resolve(LICENSED));
+    setPlatformForTest(
+      platformWith({ activate, status: () => Promise.resolve(LICENSED) }),
+    );
+    const utils = render(<InlineActivation variant="upsell" icon={Lock} />);
+    const input = revealForm(utils);
+    fireEvent.change(input, { target: { value: "KEY-OK" } });
+    fireEvent.click(utils.getByRole("button", { name: "Activate" }));
+
+    await waitFor(() =>
+      expect(
+        utils.getByRole("heading", { name: /Licensed — thank you/ }),
+      ).toBeDefined(),
+    );
+    expect(utils.queryByRole("button", { name: "Done" })).toBeNull();
   });
 
   it("clears the persisted D-31 free-tier override on success so Pro unlocks live (walkthrough 2026-06-12)", async () => {

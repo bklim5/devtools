@@ -189,8 +189,9 @@ describe("LicenseSettings — state copy + fields", () => {
 
     // Phase 22.1: a prominent visible "License" header + subtitle for the
     // managed states. It is an <h3> — one level under the dialog's "Settings"
-    // <h2> so heading-order never inverts; the status heading below stays <h2>
-    // so the e2e statusHeading() probe still reads "License needs attention".
+    // <h2> so heading-order never inverts; the status heading below is an <h4>
+    // (one level under this h3 — a11y fix) so the e2e statusHeading() probe
+    // (now an <h4> read) still reads "License needs attention".
     expect(
       getByRole("heading", { name: "License", level: 3 }),
     ).toBeTruthy();

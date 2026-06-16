@@ -244,7 +244,7 @@ export function LicenseSettings() {
     <div className={CARD_CLASS}>
       <div className="flex items-center gap-2">
         <Lock className="h-5 w-5 flex-none text-tx-2" aria-hidden="true" />
-        <h2 className={HEADING_CLASS}>Your Pro features turned off</h2>
+        <h4 className={HEADING_CLASS}>Your Pro features turned off</h4>
       </div>
       <div className={BODY_CLASS}>
         <p>
@@ -290,10 +290,10 @@ export function LicenseSettings() {
       {/* Phase 22.1: a visible, prominent pane header + subtitle for the managed
           states. It is an <h3> — one level under the SettingsModal dialog title
           ("Settings", an <h2>) so heading-order never inverts (the prior sr-only
-          <h1> sat ABOVE the dialog's h2). The status block heading below stays an
-          <h2> (shipped convention + the e2e statusHeading() probe reads the first
-          non-"Settings" <h2>) — a decrease from this h3 to that h2 is permitted by
-          axe heading-order. */}
+          <h1> sat ABOVE the dialog's h2). The status block headings below are
+          <h4> (22.1 a11y fix — one level under THIS h3; the prior <h2> was a
+          level INCREASE under the h3, which axe heading-order flags). The e2e
+          statusHeading() probe reads the first status <h4> inside the dialog. */}
       <div className="flex flex-col gap-1">
         <h3 className="text-[20px] font-semibold leading-[1.2] text-tx">
           License
@@ -324,7 +324,7 @@ export function LicenseSettings() {
               className="flex flex-wrap items-center gap-2"
               aria-live="polite"
             >
-              <h2 className={HEADING_CLASS}>{statusLabel}</h2>
+              <h4 className={HEADING_CLASS}>{statusLabel}</h4>
               {/* UNVERIFIED amber pill — problem state ONLY (a tampered/foreign
                   file). The amber-on-warn-soft text clears AA (warn ~10:1). */}
               {ui.state === "problem" ? (
@@ -377,7 +377,7 @@ export function LicenseSettings() {
                 className="flex flex-wrap items-center gap-2"
                 aria-live="polite"
               >
-                <h2 className={HEADING_CLASS}>{statusLabel}</h2>
+                <h4 className={HEADING_CLASS}>{statusLabel}</h4>
                 {/* Green PRO pill — the Pro-active badge (mirrors the amber
                     UNVERIFIED pill, but in the ok token). */}
                 <span className="rounded-full border border-ok-line bg-ok-soft px-2 py-0.5 font-mono text-[10px] font-semibold uppercase leading-none tracking-wide text-ok">
@@ -472,7 +472,7 @@ export function LicenseSettings() {
               className="mt-0.5 h-5 w-5 flex-none text-bad"
             />
             <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-              <h2 className={HEADING_CLASS}>Deactivate Pro on this device?</h2>
+              <h4 className={HEADING_CLASS}>Deactivate Pro on this device?</h4>
               <p className="text-[12px] leading-[1.5] text-tx-2">
                 You&apos;ll drop back to the free tier here. Your seat is freed
                 for another device — reactivate anytime with your key.

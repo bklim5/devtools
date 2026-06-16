@@ -196,10 +196,13 @@ describe("Sidebar free tier (D-26/D-28)", () => {
     await flushPrefsLoad();
     const setSpy = vi.spyOn(store, "set");
 
-    fireEvent.click(getByLabelText(`Pin ${ENABLED_TOOLS[0].name}`));
+    const pinBtn = getByLabelText(`Pin ${ENABLED_TOOLS[0].name}`);
+    fireEvent.click(pinBtn);
 
-    // The locked affordance redirects to the License pane instead of writing prefs.
-    expect(openSettingsSpy).toHaveBeenCalledWith("license", undefined);
+    // The locked affordance redirects to the License pane instead of writing prefs,
+    // threading the clicked control as the explicit focus-return target (MED-22-02
+    // — a WKWebView click leaves document.activeElement unreliable).
+    expect(openSettingsSpy).toHaveBeenCalledWith("license", pinBtn);
     expect(setSpy).not.toHaveBeenCalled();
   });
 
@@ -209,13 +212,15 @@ describe("Sidebar free tier (D-26/D-28)", () => {
     const setSpy = vi.spyOn(store, "set");
 
     // Mirror real macOS: Option+P arrives as key "π" with code "KeyP" (Pitfall 9).
-    fireEvent.keyDown(getAllByRole("link")[0], {
+    const row = getAllByRole("link")[0];
+    fireEvent.keyDown(row, {
       altKey: true,
       code: "KeyP",
       key: "π",
     });
 
-    expect(openSettingsSpy).toHaveBeenCalledWith("license", undefined);
+    // The focused row is threaded as the explicit focus-return target (MED-22-02).
+    expect(openSettingsSpy).toHaveBeenCalledWith("license", row);
     expect(setSpy).not.toHaveBeenCalled();
   });
 
@@ -224,9 +229,11 @@ describe("Sidebar free tier (D-26/D-28)", () => {
     await flushPrefsLoad();
     const setSpy = vi.spyOn(store, "set");
 
-    fireEvent.keyDown(getAllByRole("link")[0], { altKey: true, key: "ArrowDown" });
+    const row = getAllByRole("link")[0];
+    fireEvent.keyDown(row, { altKey: true, key: "ArrowDown" });
 
-    expect(openSettingsSpy).toHaveBeenCalledWith("license", undefined);
+    // The focused row is threaded as the explicit focus-return target (MED-22-02).
+    expect(openSettingsSpy).toHaveBeenCalledWith("license", row);
     expect(setSpy).not.toHaveBeenCalled();
   });
 
