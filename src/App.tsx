@@ -7,6 +7,7 @@ import { UpdateBanner } from "./components/UpdateBanner";
 import { SettingsModal } from "./components/SettingsModal";
 import { UpsellModal } from "./components/UpsellPanel";
 import { useTrackActiveTool } from "./shell/useTrackActiveTool";
+import { useAppearance } from "./shell/useAppearance";
 import { usePreferences } from "./shell/usePreferences";
 import { useSettingsOpen } from "./shell/useSettings";
 import { useUpsellOpen } from "./shell/useUpsell";
@@ -44,6 +45,12 @@ export function App() {
   // Persist the open tool as last-used on every route change (sidebar, palette,
   // deep-link) so the app reopens to it next launch — see useTrackActiveTool.
   useTrackActiveTool();
+
+  // D-23-9/D-23-5: apply the GATED whole-app theme+accent to documentElement on
+  // every prefs/ents change (free → dark + #5b9bf8) and live-flip on an OS
+  // appearance change in system mode. Reads the same prefs/ents this body does,
+  // so no prop drilling; the index.html pre-paint script owns the launch frame.
+  useAppearance();
 
   const { preferences, prefsLoaded, setAutoUpdateCheck } = usePreferences();
 

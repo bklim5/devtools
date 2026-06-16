@@ -5,6 +5,26 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TinkerDev</title>
+    <script>
+      // No-flash theme (D-23-5). The authoritative theme lives in the async Tauri
+      // store (unreadable at first paint — MEMORY: tauri-store-async-init-race), so
+      // we read a synchronous localStorage paint-hint written from the GATED value
+      // by useAppearance (key "td-theme-hint" — MUST match THEME_HINT_KEY). dark =
+      // absence of data-theme; we stamp "light" only when the hint (or system
+      // preference for the "system" hint) resolves to light. The App-root effect
+      // re-applies the real gated value once prefs load, correcting any drift
+      // (e.g. a downgrade forces dark). A plain (non-module) <script> in <head>
+      // runs synchronously BEFORE the module bundle, so React never paints a frame
+      // with the wrong theme.
+      (function () {
+        try {
+          var hint = localStorage.getItem("td-theme-hint"); // "light" | "dark" | "system" | null
+          var sysDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+          var light = hint === "light" || (hint === "system" && !sysDark);
+          if (light) document.documentElement.dataset.theme = "light";
+        } catch (e) { /* never block paint on a storage error */ }
+      })();
+    </script>
   </head>
 
   <body>
