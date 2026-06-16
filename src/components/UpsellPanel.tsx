@@ -50,7 +50,7 @@ import {
   type ComponentType,
   type FormEvent,
 } from "react";
-import { Check, Heart, Key, ListOrdered, Palette } from "lucide-react";
+import { Check, Heart, Key, ListOrdered, Lock, Palette } from "lucide-react";
 import { platform, type LicenseErrorCode } from "@/lib/platform";
 import {
   clearEntitlementsOverride,
@@ -342,6 +342,16 @@ function ActivationSurface({
           Activate
         </button>
       </div>
+      {/* Walkthrough 2026-06-16: pre-empt the macOS Keychain prompt that fires
+          when activation writes the key, so it isn't a surprise. Static muted
+          guidance (not the aria-live status line below). */}
+      <p className="flex items-start gap-1.5 text-[12px] leading-[1.5] text-tx-3">
+        <Lock aria-hidden="true" className="mt-0.5 h-3 w-3 flex-none" />
+        <span>
+          Your key is stored securely in your macOS Keychain — you may see a
+          system prompt to allow access.
+        </span>
+      </p>
       <p
         aria-live="polite"
         className={`min-h-[18px] text-[12px] leading-[1.5] ${error ? "text-bad" : "text-tx-2"}`}
