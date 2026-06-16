@@ -31,9 +31,7 @@ import type { ToolDefinition } from "@/lib/tools/types";
 import { rankTools, subsequenceScore } from "@/shell/fuzzy";
 import { loadPreferences, savePreferences } from "@/shell/prefsStore";
 import { openSettings } from "@/shell/settingsStore";
-import { openUpsell } from "@/shell/upsellStore";
 import { useEntitlements } from "@/shell/useEntitlements";
-import { useLicenseUi } from "@/shell/useLicenseUi";
 
 /** A selectable palette row: a registry tool OR a non-navigating command
  *  (RESEARCH Pattern 7 — smallest discriminated-union extension). */
@@ -141,11 +139,11 @@ export function CommandPalette() {
   const inputRef = useRef<HTMLInputElement>(null);
   // The element focused BEFORE the palette opened, captured at open time. The
   // palette button the user selects unmounts when the palette closes, so it
-  // can't be the upsell modal's focus-return target (codex finding 3) — the
-  // License command passes THIS persistent pre-palette element to openUpsell(),
-  // so focus returns to a still-connected control on modal close, never <body>.
-  // State (not a ref) so the License command's `run` closure stays render-safe
-  // (no ref reads flowing through buildGroups during render).
+  // can't be the Settings modal's focus-return target (codex finding 3) — the
+  // License/Settings commands pass THIS persistent pre-palette element to
+  // openSettings(), so focus returns to a still-connected control on modal close,
+  // never <body>. State (not a ref) so the command's `run` closure stays
+  // render-safe (no ref reads flowing through buildGroups during render).
   const [preOpenFocus, setPreOpenFocus] = useState<HTMLElement | null>(null);
 
   const navigate = useNavigate();
@@ -177,8 +175,8 @@ export function CommandPalette() {
             setQuery("");
             setHighlight(0);
             // Remember where focus was before the palette opened, so a command
-            // that opens the upsell modal (License) can return focus there on
-            // close (the palette button itself unmounts — finding 3).
+            // that opens the Settings modal (License/Settings) can return focus
+            // there on close (the palette button itself unmounts — finding 3).
             const active = document.activeElement;
             setPreOpenFocus(active instanceof HTMLElement ? active : null);
           }
@@ -201,29 +199,24 @@ export function CommandPalette() {
   // central predicate — the one resolved set, no per-feature checks (ENT-01).
   const ents = useEntitlements();
 
-  // D-88/D-S11: the "License" command — a SHIPPED production command (NOT under the
-  // import.meta.env.DEV guard, so check-dev-strip.sh leaves it in the bundle; it
-  // carries no privileged action, T-21-15). Routes by state: there IS a license
-  // to manage (anything but the pure free notActivated) → opens the single
-  // Settings modal on the License pane (openSettings — the one Settings surface,
-  // D-S6, replacing the superseded navigate('/settings/license')); the free tier
-  // OPENS the shared Unlock Pro upsell modal — the SAME surface the sidebar footer
-  // opens (shell/upsellStore). Both arms pass the PRE-PALETTE focus as the explicit
-  // return target: the palette button the user selected unmounts on close, so it
-  // can't be the modal's focus-return element (finding 3).
-  const licenseState = useLicenseUi().state;
+  // D-88/D-S11 (revised 22.1-04): the "License" command — a SHIPPED production
+  // command (NOT under the import.meta.env.DEV guard, so check-dev-strip.sh leaves
+  // it in the bundle; it carries no privileged action, T-21-15). BOTH tiers now
+  // converge on the single Settings modal on the License pane (openSettings — the
+  // one Settings surface, D-S6): the standalone "Unlock Pro" upsell modal is gone,
+  // and the License pane itself renders the inline upsell for the free tier and
+  // the status card for a managed license. The PRE-PALETTE focus is passed as the
+  // explicit return target: the palette button the user selected unmounts on
+  // close, so it can't be the modal's focus-return element (finding 3).
   const licenseCommand = useMemo<CommandRow>(
     () => ({
       kind: "command",
       id: "license-status",
       name: "License",
       icon: Lock,
-      run: () =>
-        licenseState === "notActivated"
-          ? openUpsell(preOpenFocus)
-          : openSettings("license", preOpenFocus),
+      run: () => openSettings("license", preOpenFocus),
     }),
-    [licenseState, preOpenFocus],
+    [preOpenFocus],
   );
 
   // D-S8: the "Settings" command — sibling to the License command, opens the

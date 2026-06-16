@@ -46,7 +46,6 @@ import { useLicenseUi } from "@/shell/useLicenseUi";
 import { usePreferences } from "@/shell/usePreferences";
 import { moveToolInOrder, partitionTools, resolveRovingTarget } from "@/shell/toolOrder";
 import { openSettings } from "@/shell/settingsStore";
-import { openUpsell } from "@/shell/upsellStore";
 import { SidebarResetMenu, useSidebarResetMenu } from "./SidebarResetMenu";
 import { useSidebarDragDrop, type ToolGroup } from "./useSidebarDragDrop";
 
@@ -72,10 +71,6 @@ export function Sidebar() {
   const licenseState = useLicenseUi().state;
   const licenseAttention =
     licenseState === "problem" || licenseState === "refreshNeeded";
-  // D-88: there IS a license to manage (licensed/offlineGrace/refreshNeeded/
-  // problem) → the footer + palette route to the status route; the pure free
-  // (notActivated) case opens the Unlock Pro panel (the activation pitch).
-  const hasManageableLicense = licenseState !== "notActivated";
   const { pinned, unpinned } = partitionTools(
     orderingUnlocked ? preferences.pinnedToolIds : [],
     orderingUnlocked ? preferences.toolOrder : [],
@@ -94,38 +89,30 @@ export function Sidebar() {
   // ↑/↓ focus nav traverses this across the divider.
   const visibleIds = useMemo(() => [...pinned, ...unpinned], [pinned, unpinned]);
 
-  // D-28: the upsell modal opened by locked customization affordances (pin click,
-  // Alt+↑/↓, Alt+P, reset) and the D-29 footer row — ONE shared surface with
-  // fully static copy (D-19 override: lock context comes from the affordance
-  // the user clicked). The open-state now lives in a shared module store
-  // (shell/upsellStore) so the ⌘K free-tier "License" command opens the SAME
-  // surface (21-04 walkthrough fix); the modal mounts ONCE at the shell (App.tsx)
-  // and owns Esc/scrim dismiss + focus-return (Plan 01).
-  // Most callers (pin click, Alt chords, drag) are invoked from a persistent,
-  // currently-focused control, so they open with the default activeElement
-  // capture. The reset MENU path passes an explicit return target because its
-  // menu item unmounts on open (finding 3).
+  // 22.1-04 (user-approved 2026-06-16, reverses D-22.1-5/D-28/D-29): the locked
+  // customization affordances (pin click, Alt+↑/↓, Alt+P, reset) and the D-29
+  // footer row no longer open a standalone "Unlock Pro" modal — that surface is
+  // gone. They open Settings ▸ License directly, where the License pane renders
+  // the SAME inline upsell (InlineActivation) the modal used to wrap. ONE upsell
+  // surface, no duplicate UI. The invoker is passed through verbatim for the
+  // focus-return contract: most callers (pin click, Alt chords, drag) are invoked
+  // from a persistent focused control (default activeElement capture); the reset
+  // MENU path passes an explicit return target because its menu item unmounts on
+  // open (finding 3).
   const openOrderingUpsell = useCallback(
-    (invokerEl?: HTMLElement | null) => openUpsell(invokerEl),
+    (invokerEl?: HTMLElement | null) => openSettings("license", invokerEl),
     [],
   );
-  // D-88: the footer license-attention affordance routes by state — to the
-  // status route when there is a license to manage, to the Unlock Pro panel for
-  // the pure free tier (the activation pitch). The locked-customization
-  // affordances (pin/reorder/reset) always open the panel via openOrderingUpsell.
+  // The footer affordance and every locked-customization affordance now converge
+  // on the SAME target — Settings ▸ License (openSettings). The manageable-license
+  // and free-tier branches no longer diverge: the License pane itself renders the
+  // right surface (status card vs inline upsell) for the current license state.
+  // MED-22-02: pass the clicked element as the explicit return target — a WKWebView
+  // mouse click leaves document.activeElement unreliable, so the store's default
+  // activeElement capture would strand focus on modal close.
   const openLicenseSurface = useCallback(
-    (invokerEl?: HTMLElement | null) => {
-      // D-S11: the manageable-license branch now opens the Settings modal on the
-      // License pane (the single Settings surface, D-S6) instead of navigating to
-      // the superseded #/settings/license route. The free-tier branch is UNCHANGED
-      // — "Unlock Pro" still opens the shared upsell modal.
-      // MED-22-02: pass the clicked element as the explicit return target — a
-      // WKWebView mouse click leaves document.activeElement unreliable, so the
-      // store's default activeElement capture strands focus on modal close.
-      if (hasManageableLicense) openSettings("license", invokerEl);
-      else openOrderingUpsell(invokerEl);
-    },
-    [hasManageableLicense, openOrderingUpsell],
+    (invokerEl?: HTMLElement | null) => openSettings("license", invokerEl),
+    [],
   );
 
   // The aria-live announcement text (D-06). Re-set on every successful move/toggle.
@@ -386,13 +373,14 @@ export function Sidebar() {
 
   const resetOrder = useCallback(() => {
     // D-28: the menu item stays reachable (visible affordance), but locked it
-    // opens the upsell instead of clearing the stored order.
+    // opens Settings ▸ License (the inline upsell) instead of clearing the order.
     if (!orderingUnlocked) {
       // Finding 3: the reset MENU item is about to unmount, so it can't be the
-      // upsell modal's focus-return target. Resolve the menu's intended
+      // Settings modal's focus-return target. Resolve the menu's intended
       // return-focus element (the invoking row / nav, the SAME place a normal
-      // close restores to) BEFORE closing, and hand it to openUpsell explicitly
-      // so focus lands there on modal dismiss — not on the detached menu item.
+      // close restores to) BEFORE closing, and hand it to openOrderingUpsell
+      // explicitly so focus lands there on modal dismiss — not on the detached
+      // menu item.
       const returnTarget = resolveMenuReturnFocus();
       openOrderingUpsell(returnTarget);
       closeResetMenu({ restoreFocus: true });
@@ -640,13 +628,14 @@ export function Sidebar() {
         </div>
       </nav>
 
-      {/* D-29: standing free-tier "Unlock Pro" entry — quiet, neutral,
-          keyboard-reachable (native button: click/Enter/Space). Bottom-anchored
-          by the flex-1 nav above. Opens the same shared upsell surface (D-19).
+      {/* D-29 (revised 22.1-04): standing free-tier "Unlock Pro" entry — quiet,
+          neutral, keyboard-reachable (native button: click/Enter/Space). Bottom-
+          anchored by the flex-1 nav above. Opens Settings ▸ License, where the
+          License pane renders the inline upsell (the standalone modal is gone).
           D-43 (Phase 19): when the stored license file fails verification the
           SAME row becomes the calm "License needs attention" hint — neutral
-          tokens, no red alarm styling (a hint, not an interruption); the panel
-          behind it renders the D-44 problem state. Phase 21 adds status UI. */}
+          tokens, no red alarm styling (a hint, not an interruption); the License
+          pane renders the D-44 problem state. */}
       {licenseAttention || !ents.has(ENT_ORDERING) || !ents.has(ENT_THEMING) ? (
         <button
           type="button"

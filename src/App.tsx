@@ -1,16 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Lock } from "lucide-react";
 import { Outlet } from "react-router-dom";
 import { Sidebar } from "./components/Sidebar";
 import { CommandPalette } from "./components/CommandPalette";
 import { UpdateBanner } from "./components/UpdateBanner";
-import { UpsellModal } from "./components/UpsellPanel";
 import { SettingsModal } from "./components/SettingsModal";
 import { useTrackActiveTool } from "./shell/useTrackActiveTool";
 import { usePreferences } from "./shell/usePreferences";
-import { useUpsellOpen } from "./shell/useUpsell";
 import { useSettingsOpen } from "./shell/useSettings";
-import { closeUpsell } from "./shell/upsellStore";
 import { openSettings } from "./shell/settingsStore";
 import {
   checkForUpdate,
@@ -176,17 +172,12 @@ export function App() {
 
   const showOptIn = prefsLoaded && needsOptInPrompt(preferences.autoUpdateCheck);
 
-  // D-28/D-29: the ONE shared "Unlock Pro" upsell modal, mounted once at the
-  // shell and driven by the shared open-state store so BOTH the sidebar footer /
-  // locked customization affordances AND the ⌘K free-tier "License" command open
-  // the SAME surface (21-04 walkthrough fix — no duplicate UI, no silent
-  // navigate). UpsellModal owns Esc/scrim dismiss + focus capture/return.
-  const upsellOpen = useUpsellOpen();
-
   // D-S1: the ONE shell-level Settings modal, mounted once and driven by the
   // settingsStore so every entry point (app menu ⌘, · tray · sidebar row · ⌘K ·
   // the #/settings/license deep-link) opens the SAME surface. SettingsModal owns
-  // Esc/backdrop/× dismiss + focus capture/return (cloned from UpsellModal).
+  // Esc/backdrop/× dismiss + focus capture/return. 22.1-04: the standalone
+  // "Unlock Pro" upsell modal is gone — every former opener now routes here to
+  // the License pane, which renders the inline upsell itself (one upsell surface).
   const settingsOpen = useSettingsOpen();
 
   return (
@@ -211,15 +202,9 @@ export function App() {
       <CommandPalette />
 
       {/* D-S1: shell-level Settings modal — ONE mount for every entry point.
-          Mounted BEFORE the UpsellModal (Pitfall 6 / Assumption A3): both are
-          z-[60], so DOM order decides stacking — the upsell (opened from the
-          License pane's Activate/Reactivate) must stack ABOVE Settings and have
-          Esc close it first. */}
+          22.1-04: the only app-level modal now (the standalone Unlock Pro modal
+          was removed); the License pane renders the inline upsell in-place. */}
       {settingsOpen ? <SettingsModal /> : null}
-
-      {/* D-28/D-29: shared Unlock Pro upsell modal — ONE mount for every opener
-          (sidebar footer/affordances + the ⌘K free-tier License command). */}
-      {upsellOpen ? <UpsellModal icon={Lock} onClose={closeUpsell} /> : null}
 
       {/* Updater UX overlay (DST-02). Bottom-right, layout-agnostic, above content. */}
       <div className="pointer-events-none fixed bottom-4 right-4 z-50 flex w-full max-w-md flex-col items-end gap-2">

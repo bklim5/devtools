@@ -2,11 +2,12 @@
 // Settings entry point (app menu ⌘, · tray · sidebar row · ⌘K · the
 // #/settings/license deep-link) open the single <SettingsModal> surface (D-S1).
 //
-// This is a near-verbatim clone of src/shell/upsellStore.ts, extended with an
-// `activePane` so the paned modal (D-S3) knows which pane to show. The modal
-// mounts ONCE at the shell (App.tsx) and every opener flips this one flag —
-// exactly the upsell pattern, so there is no duplicate UI and the focus-return
-// fix (sync invoker capture) is inherited unchanged.
+// Module-singleton open-state store (useSyncExternalStore pattern), extended with
+// an `activePane` so the paned modal (D-S3) knows which pane to show. The modal
+// mounts ONCE at the shell (App.tsx) and every opener flips this one flag, so
+// there is no duplicate UI and the focus-return fix (sync invoker capture) is a
+// structural part of the store. (22.1-04: the now-removed upsellStore was the
+// original template for this pattern.)
 //
 // D-S2 invoker capture: the modal mounts a tick AFTER the opener's click handler
 // runs; reading document.activeElement inside the modal's mount effect is fragile

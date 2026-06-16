@@ -1,15 +1,20 @@
 // UpsellPanel (D-19..D-22 + Phase 19 D-33..D-39/D-44) — the ONE shared upsell
-// surface for every locked feature: rendered in place of a locked tool's UI
-// (route placement, D-30) and inside UpsellModal for app-level locks (D-28
-// affordances + the D-29 footer row). Phase 19 wired the license-key
-// activation form into the D-22 slot; Phase 20 swaps in the real checkout link.
+// surface for every locked feature. Phase 19 wired the license-key activation
+// form into the D-22 slot; Phase 20 swaps in the real checkout link.
 //
 // Phase 22.1 (D-22.1-4): the activation surface (state + submit chain + key
 // form + success/problem views + the panel-mount refreshLicenseUi effect + the
 // D-44 focus effect) lives ONCE in the internal `ActivationSurface` component.
-// BOTH the standalone `UpsellPanel`/`UpsellModal` (modal entries — unchanged)
-// AND the inline License pane (`InlineActivation`) consume it. No activation
-// logic is duplicated; LIC-04 + T-19-21 are preserved byte-for-byte.
+// BOTH the standalone `UpsellPanel` (still rendered in place of a locked tool's
+// UI — route placement, D-30, dormant per D-18) AND the inline License pane
+// (`InlineActivation`) consume it. No activation logic is duplicated; LIC-04 +
+// T-19-21 are preserved byte-for-byte.
+//
+// Phase 22.1-04 (user-approved 2026-06-16, reverses D-22.1-5/D-28/D-29): the
+// standalone "Unlock Pro" UpsellModal was REMOVED. Every former opener (sidebar
+// footer + locked-customization affordances + the ⌘K free "License" command)
+// now routes to Settings ▸ License, whose pane renders `InlineActivation` — the
+// SAME shared surface. There is exactly one upsell surface in the app.
 //
 // Views (D-33: everything inline in this one panel — no new modal/route):
 //   sales      — the Phase-18 copy, byte-for-byte (D-19 override: fully static)
@@ -31,8 +36,8 @@
 // activate call — never persisted, never logged, cleared on success.
 //
 // WCAG-AA (per 18-UI-SPEC): real heading element, visible focus-visible rings,
-// all controls Tab-reachable (the input is caught by UpsellModal's focus-trap
-// selector), neutral tokens everywhere — accent appears ONLY on the primary
+// all controls Tab-reachable (the input is caught by the wrapping SettingsModal's
+// focus-trap selector when inline), neutral tokens everywhere — accent appears ONLY on the primary
 // CTA's accent-soft fill + focus rings. Errors render in the calm text-bad
 // token (the app's established role=alert tint), inside the SAME
 // aria-live="polite" region as the in-flight status (D-34/D-37).
@@ -53,7 +58,6 @@ import {
 } from "@/lib/entitlements/store";
 import { refreshLicenseUi } from "@/lib/license/licenseUi";
 import { useLicenseUi } from "@/shell/useLicenseUi";
-import { getUpsellInvoker } from "@/shell/upsellStore";
 
 /** D-68: the own-domain redirect the user controls (Cloudflare/Caddy) forwards
  *  to the live MoR checkout. ONE https constant so a store/MoR change never
@@ -90,8 +94,8 @@ function toErrorCode(err: unknown): LicenseErrorCode {
 
 // Layout-agnostic (Phase 22.1): the surface FILLS its container — `w-full`, NO
 // fixed max-width — so it has no dead space in the wide License pane AND looks
-// right inside the narrower UpsellModal (the dialog wrapper bounds the width
-// there, D-22.1). The card chrome is shared by the pitch + the success/problem
+// right inside any narrower container (D-22.1). The card chrome is shared by the
+// pitch + the success/problem
 // states.
 const CARD_CLASS =
   "flex w-full flex-col gap-4 rounded-[7px] border border-bd bg-panel p-6";
@@ -156,10 +160,12 @@ const PITCH_FEATURES: ReadonlyArray<{
  *
  * `variant` controls ONLY the surrounding chrome (which heading/body/CTA wraps
  * the form); the form + submit are identical across all variants:
- *   - "panel"     — the standalone UpsellPanel/UpsellModal behavior: sales pitch
- *                   + Buy CTA + "I have a license key" reveal for free/notActivated,
- *                   the distinct D-44 problem card for problem, success on activate.
- *                   (Output is byte-for-byte the pre-22.1 UpsellPanel.)
+ *   - "panel"     — the standalone UpsellPanel behavior (route placement in
+ *                   place of a locked tool's UI, D-30, dormant per D-18): sales
+ *                   pitch + Buy CTA + "I have a license key" reveal for
+ *                   free/notActivated, the distinct D-44 problem card for problem,
+ *                   success on activate. (Output is byte-for-byte the pre-22.1
+ *                   UpsellPanel.)
  *   - "upsell"    — the FULL pitch inline (License pane free/notActivated, D-22.1-6):
  *                   same pitch + Buy + reveal-form as "panel" sales, but NO problem
  *                   card branch (the License pane renders its own status above).
@@ -218,9 +224,10 @@ function ActivationSurface({
   }, []);
 
   // D-44 (panel) + D-22.1-7 (form-only): pre-reveal the form with the key field
-  // focused. queueMicrotask defers past UpsellModal's mount effect (the parent
-  // focuses the dialog AFTER child effects run — a plain .focus() here would be
-  // stolen). For "form-only" the field is always revealed, so focus it on mount.
+  // focused. queueMicrotask defers past a wrapping modal's mount effect (the
+  // parent focuses the dialog AFTER child effects run — a plain .focus() here
+  // would be stolen). For "form-only" the field is always revealed, so focus it
+  // on mount.
   const focusOnMount =
     !activated && (variant === "form-only" || (variant === "panel" && problem));
   useEffect(() => {
@@ -265,7 +272,7 @@ function ActivationSurface({
   };
 
   const onSubmit = (e: FormEvent) => {
-    e.preventDefault(); // Enter in the input submits; Esc stays UpsellModal's
+    e.preventDefault(); // Enter in the input submits; Esc stays the wrapping modal's
     void submit();
   };
 
@@ -512,9 +519,9 @@ export interface UpsellPanelProps {
   icon: ComponentType<{ className?: string }>;
   /** Optional heading id so a wrapping dialog can point aria-labelledby at it. */
   headingId?: string;
-  /** Optional dismiss (the "Done" button after activation, D-35). UpsellModal
-   *  passes its onClose; in route placement the live entitlement flip re-renders
-   *  the route anyway, so the button is a calm no-op there. */
+  /** Optional dismiss (the "Done" button after activation, D-35). In route
+   *  placement (ToolRoute) the live entitlement flip re-renders the route anyway,
+   *  so the button is a calm no-op there. */
   onDismiss?: () => void;
 }
 
@@ -551,112 +558,5 @@ export function InlineActivation({
 }: InlineActivationProps) {
   return (
     <ActivationSurface variant={variant} icon={icon} onDismiss={onDismiss} />
-  );
-}
-
-const MODAL_HEADING_ID = "upsell-heading";
-
-export interface UpsellModalProps {
-  icon: ComponentType<{ className?: string }>;
-  onClose: () => void;
-}
-
-/** Modal wrapper for app-level locks (D-28/D-29 surfaces). Reuses the ⌘K
- *  palette's scrim/dismiss pattern: Esc + scrim-click dismiss, focus moves into
- *  the dialog on mount and returns to the invoking control on unmount. */
-export function UpsellModal({ icon, onClose }: UpsellModalProps) {
-  const dialogRef = useRef<HTMLDivElement>(null);
-  // Keep the latest onClose visible to the mount-once effect without re-running
-  // it (re-running would re-steal and re-return focus on every prop change).
-  // Synced in an effect, not during render (react-hooks/refs).
-  const onCloseRef = useRef(onClose);
-  useEffect(() => {
-    onCloseRef.current = onClose;
-  }, [onClose]);
-
-  useEffect(() => {
-    // 21-04 FLAG E1: prefer the invoker captured SYNCHRONOUSLY at openUpsell()
-    // time (store path) — it survives any focus churn between the trigger's
-    // click and this mount commit. Fall back to document.activeElement for the
-    // direct-render case (tests, or an opener that did not route through the
-    // store). Read it ONCE here so the close path is not affected by the store
-    // clearing it on closeUpsell() (which fires before this effect's cleanup).
-    const invoker = getUpsellInvoker() ?? document.activeElement;
-    dialogRef.current?.focus();
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onCloseRef.current();
-        return;
-      }
-      // Focus trap: aria-modal promises the background is inert, so Tab must
-      // cycle within the dialog (WCAG-AA) — wrap at both ends, and pull focus
-      // back in if it ever lands outside.
-      if (e.key === "Tab") {
-        const dialog = dialogRef.current;
-        if (!dialog) return;
-        const focusables = dialog.querySelectorAll<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-        );
-        if (focusables.length === 0) {
-          e.preventDefault();
-          return;
-        }
-        const first = focusables[0];
-        const last = focusables[focusables.length - 1];
-        const active = document.activeElement;
-        if (e.shiftKey) {
-          if (active === first || !dialog.contains(active)) {
-            e.preventDefault();
-            last.focus();
-          }
-        } else if (active === last || !dialog.contains(active)) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    };
-    document.addEventListener("keydown", onKeyDown);
-
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-      // Return focus to the invoking control (UI-SPEC interaction contract).
-      if (invoker instanceof HTMLElement && invoker.isConnected) {
-        invoker.focus();
-      }
-    };
-  }, []);
-
-  return (
-    // z-[60] (19-UI-REVIEW fix 1): the shell's bottom-right overlay stack
-    // (App.tsx — update consent/banner/status) sits at z-50; the aria-modal
-    // scrim must cover it so no interactive dialog floats clickable outside
-    // this trap while the modal claims the background is inert.
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-scrim"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={MODAL_HEADING_ID}
-        tabIndex={-1}
-        // The card is now w-full (layout-agnostic, Phase 22.1) — the dialog
-        // wrapper bounds the standalone modal's width (with a viewport margin)
-        // so the pitch reads as a compact card here, and fills the wide License
-        // pane inline.
-        className="w-full max-w-[420px] px-4 outline-none"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <UpsellPanel
-          icon={icon}
-          headingId={MODAL_HEADING_ID}
-          onDismiss={onClose}
-        />
-      </div>
-    </div>
   );
 }
