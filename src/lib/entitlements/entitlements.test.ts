@@ -145,6 +145,32 @@ describe("gatePreferences (D-26/D-27 — render-time view, never a prefs mutatio
     expect(gated.pinnedToolIds).toEqual([]);
   });
 
+  // D-23-2/D-23-9: now that the App root APPLIES theme/accent to the whole app,
+  // the free-tier forcing must land on the LIVE default values, not just
+  // "whatever DEFAULT_PREFERENCES says". These literals pin the applied defaults:
+  // theme "dark" + accent #5b9bf8 (the Pitfall-1-fixed dark default-blue).
+  it("D-23-2: free (non-ENT_THEMING) is forced to dark + #5b9bf8 (the live applied defaults)", () => {
+    const proish: Preferences = {
+      ...DEFAULT_PREFERENCES,
+      theme: "light",
+      accent: "#a78bfa",
+    };
+    const gated = gatePreferences(proish, FREE_SET);
+    expect(gated.theme).toBe("dark");
+    expect(gated.accent).toBe("#5b9bf8");
+  });
+
+  it("D-23-2: Pro (FULL_SET) passes a custom theme/accent through unchanged", () => {
+    const proish: Preferences = {
+      ...DEFAULT_PREFERENCES,
+      theme: "light",
+      accent: "#a78bfa",
+    };
+    const gated = gatePreferences(proish, FULL_SET);
+    expect(gated.theme).toBe("light");
+    expect(gated.accent).toBe("#a78bfa");
+  });
+
   it("D-86: a lock→unlock cycle leaves the STORED prefs byte-unchanged (dormant restore under the live flip)", () => {
     // The live D-85 flip can drop entitlements to FREE_SET at any time; D-86
     // requires the user's saved customization to survive dormant — gatePreferences
