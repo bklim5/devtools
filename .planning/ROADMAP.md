@@ -250,8 +250,8 @@ Plans:
   4. The pane is keyboard-navigable and WCAG-AA (visible focus, AA contrast in both themes, no opacity-only state)
 **Plans**: 4 plans
   - [x] 23-01-PLAN.md — Foundation: widen ThemeName/coerceTheme + fix default accent, accent scale + light-token tables + executable AA contrast assertions, pure apply helpers
-  - [ ] 23-02-PLAN.md — Light token CSS block ([data-theme="light"]) + light body gradient + theme-aware hover tints (Pitfall 5/6)
-  - [ ] 23-04-PLAN.md — Appearance pane UI: theme radio cards + 7-swatch accent grid + contained preview strip + gate-on-Save, appended to SETTINGS_PANES
+  - [x] 23-02-PLAN.md — Light token CSS block ([data-theme="light"]) + light body gradient + theme-aware hover tints (Pitfall 5/6)
+  - [x] 23-04-PLAN.md — Appearance pane UI: theme radio cards + 7-swatch accent grid + contained preview strip + gate-on-Save, appended to SETTINGS_PANES
   - [ ] 23-03-PLAN.md — App-root gated apply + no-flash pre-paint script + system live-flip + real-WKWebView e2e + phase-boundary walkthrough
 **UI hint**: yes
 
@@ -312,7 +312,7 @@ v1.7 runs 22 → 23 → 24 → 25 (started non-destructively while v1.6 is in fi
 | 21. License Lifecycle & Ship Gate | v1.6 | 3/5 | In Progress|  |
 | 22. Settings Modal Shell, Entry Points & License Pane | v1.7 | 3/3 | Complete    | 2026-06-15 |
 | 22.1 Settings Follow-ups | v1.7 | 1/2 | In progress | Plan 02 done (inline License upsell, SET-06); Plan 01 paused at native-menu human checkpoint |
-| 23. Appearance Pane | v1.7 | 1/4 | In Progress|  |
+| 23. Appearance Pane | v1.7 | 3/4 | In Progress|  |
 | 24. Hotkeys & General Panes | v1.7 | 0/? | Not started | - |
 | 25. Updates Pane & Milestone Ship | v1.7 | 0/? | Not started | - |
 
