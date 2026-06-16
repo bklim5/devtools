@@ -16,7 +16,7 @@ import type { ThemeName } from "@/shell/preferences";
 import { usePreferences } from "@/shell/usePreferences";
 import { useEntitlements } from "@/shell/useEntitlements";
 import { openProUpsell } from "@/shell/proUpsell";
-import { ENT_THEMING } from "@/lib/entitlements/entitlements";
+import { ENT_THEMING, gatePreferences } from "@/lib/entitlements/entitlements";
 import { ThemeCardGroup } from "./ThemeCardGroup";
 import { AccentSwatchGrid } from "./AccentSwatchGrid";
 import { AppearancePreviewStrip } from "./AppearancePreviewStrip";
@@ -27,10 +27,14 @@ export function AppearanceSettings() {
   const entitled = ents.has(ENT_THEMING);
   const saveRef = useRef<HTMLButtonElement>(null);
 
-  // Pending state seeded from the persisted prefs. Selecting updates ONLY this +
-  // the preview — never the seam, never the DOM root.
-  const [pendingTheme, setPendingTheme] = useState<ThemeName>(preferences.theme);
-  const [pendingAccent, setPendingAccent] = useState<string>(preferences.accent);
+  // WR-02: seed pending from the GATED view, not the RAW persisted prefs, so a
+  // free/lapsed user (whose live app is forced to dark + #5b9bf8 by useAppearance)
+  // sees that same selection here — never their previously-persisted Pro values
+  // pre-selected against a value the running app is not actually applying.
+  // Selecting updates ONLY this + the preview — never the seam, never the DOM root.
+  const gated = gatePreferences(preferences, ents);
+  const [pendingTheme, setPendingTheme] = useState<ThemeName>(gated.theme);
+  const [pendingAccent, setPendingAccent] = useState<string>(gated.accent);
 
   function onSave() {
     if (!entitled) {

@@ -14,10 +14,16 @@ const setTheme = vi.fn();
 const setAccent = vi.fn();
 const openProUpsell = vi.fn();
 let entitlements: EntitlementSet = new Set();
+// Mutable so a test can simulate RAW persisted Pro values (theme/accent) on disk
+// while the user is gated to free — the WR-02 stale-seed case.
+let mockPreferences: { theme: string; accent: string } = {
+  theme: "dark",
+  accent: "#5b9bf8",
+};
 
 vi.mock("@/shell/usePreferences", () => ({
   usePreferences: () => ({
-    preferences: { theme: "dark", accent: "#5b9bf8" },
+    preferences: mockPreferences,
     setTheme,
     setAccent,
   }),
@@ -36,6 +42,7 @@ beforeEach(() => {
   setAccent.mockClear();
   openProUpsell.mockClear();
   entitlements = new Set();
+  mockPreferences = { theme: "dark", accent: "#5b9bf8" };
   delete document.documentElement.dataset.theme;
 });
 afterEach(cleanup);
@@ -88,6 +95,31 @@ describe("AppearanceSettings — gate on Save", () => {
     fireEvent.click(screen.getByRole("radio", { name: ACCENT_SCALE[1].label }));
     // The contained-preview invariant: the global root is untouched pre-Save.
     expect(document.documentElement.dataset.theme).toBeUndefined();
+  });
+
+  it("WR-02: a free user with RAW persisted Pro values seeds the GATED selection (dark + #5b9bf8), not the raw Pro values", () => {
+    // Free tier, but the disk still holds previously-persisted Pro values
+    // (light + violet). useAppearance forces the live app to dark + #5b9bf8, so
+    // the pane's initial selection MUST match that gated value — not the raw Pro
+    // values, which the running app is not applying.
+    entitlements = new Set();
+    mockPreferences = { theme: "light", accent: ACCENT_SCALE[1].dark }; // violet
+    render(<AppearanceSettings />);
+
+    // Theme: the gated default (Dark) is selected, NOT the raw "Light".
+    expect(screen.getByRole("radio", { name: /Dark/ }).getAttribute("aria-checked")).toBe(
+      "true",
+    );
+    expect(screen.getByRole("radio", { name: /Light/ }).getAttribute("aria-checked")).toBe(
+      "false",
+    );
+    // Accent: the gated default Blue (#5b9bf8) is selected, NOT the raw violet.
+    expect(
+      screen.getByRole("radio", { name: ACCENT_SCALE[0].label }).getAttribute("aria-checked"),
+    ).toBe("true");
+    expect(
+      screen.getByRole("radio", { name: ACCENT_SCALE[1].label }).getAttribute("aria-checked"),
+    ).toBe("false");
   });
 
   it("renders the pane header as an h3 (heading order), plus the three radiogroups", () => {
