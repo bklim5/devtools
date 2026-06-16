@@ -176,6 +176,18 @@ describe("License-pane states via the dev override (real WKWebView)", () => {
     try {
       await closeSettingsModal();
       await setDevLicenseState(null);
+      // Clearing the Rust override does NOT refresh the webview's cached license
+      // store — it still holds the last synthetic snapshot until something
+      // re-queries. Re-open the License pane (its mount re-queries with the
+      // override gone → the real notActivated state) then close, so the stale
+      // snapshot never leaks into the next spec's footer/tier logic.
+      await navigateToTool("protobuf-decoder");
+      await openLicenseDeepLink();
+      await browser.waitUntil(async () => settingsModalOpen(), {
+        timeout: 10_000,
+        timeoutMsg: "expected the License pane to reopen for the override-reset re-query",
+      });
+      await closeSettingsModal();
     } catch (err) {
       console.error("[license-states] override reset failed:", err);
     }
@@ -247,11 +259,14 @@ describe("License-pane states via the dev override (real WKWebView)", () => {
     // Clicking "Deactivate this device" reveals the full-width confirm card with
     // Cancel + a destructive Deactivate (confirm-first — D-78).
     await clickPaneButton("Deactivate this device");
+    // The green "Licensed" banner stays rendered ABOVE the confirm card, so
+    // statusHeading() (the first <h2>) still reads "Licensed" — probe the confirm
+    // card's heading by text instead.
     await browser.waitUntil(
-      async () => (await statusHeading()) === "Deactivate Pro on this device?",
+      async () => await paneHasText("Deactivate Pro on this device?"),
       {
         timeout: 5_000,
-        timeoutMsg: `expected the confirm card heading after clicking Deactivate, got ${JSON.stringify(await statusHeading())}`,
+        timeoutMsg: "expected the Deactivate confirm card after clicking Deactivate",
       },
     );
     assert(await paneHasButton("Cancel"), "the confirm card must offer Cancel");

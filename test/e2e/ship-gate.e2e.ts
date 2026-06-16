@@ -194,13 +194,37 @@ async function lockedCustomizationOpensUpsell(): Promise<boolean> {
   const focused = await focusRow(order[0]);
   if (!focused) return false;
   await dispatchAltP();
-  return upsellModalOpen();
+  // 22.1-04: a locked Alt+P now opens Settings ▸ License (openSettings), which
+  // mounts a tick AFTER the handler (D-S2) — wait for the pane rather than an
+  // immediate read that races the mount.
+  try {
+    await browser.waitUntil(async () => upsellModalOpen(), { timeout: 4_000 });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** Dismiss the upsell modal via Escape so a left-open modal never poisons the
  *  case's screenshot or the finally cleanup. */
 function dismissUpsell(): Promise<void> {
   return dispatchKey("Escape", false);
+}
+
+/** Click the License pane's "Refresh" (the problem-state banner has it). Its
+ *  handler's finally re-resolves ENTITLEMENTS from the now-problem license_status
+ *  (refreshEntitlements), dropping Pro→free LIVE — the mid-session corrupt-cert
+ *  seed only updates license_status, so without this the entitlements store keeps
+ *  the prior spec's Pro tier (license.e2e ends on ensureProTier) and a locked
+ *  Alt+P would wrongly pin. Requires the Settings ▸ License modal to be open. */
+function refreshLicensePaneEntitlements(): Promise<void> {
+  return browser.execute(() => {
+    const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
+    const btn = Array.from(dialog?.querySelectorAll("button") ?? []).find(
+      (b) => (b.textContent ?? "").trim() === "Refresh",
+    ) as HTMLElement | undefined;
+    btn?.click();
+  });
 }
 
 /** The footer attention row label (D-43), or null when absent. */
@@ -296,6 +320,12 @@ describe("Ship-gate matrix — fixture-driven cases (real WKWebView)", () => {
         await routeHasKeyInput(),
         "Case 4: the problem state must offer the calm inline reactivation form (License key input, D-22.1-7/D-83)",
       );
+
+      // The mid-session corrupt-cert seed only updated license_status; click
+      // Refresh while the pane is open so its finally re-resolves ENTITLEMENTS
+      // from the problem state — dropping the prior spec's inherited Pro to free
+      // LIVE before the locked-Alt+P proof below.
+      await refreshLicensePaneEntitlements();
 
       // Entitlements actually dropped to FREE — proven the problem-state-correct
       // way (21-05): NOT the notActivated-only "Unlock Pro" footer (problem shows
@@ -393,6 +423,11 @@ describe("Ship-gate matrix — fixture-driven cases (real WKWebView)", () => {
         await routeHasKeyInput(),
         "Case 5: the foreign-cert problem state must offer the calm inline reactivation form (License key input, D-22.1-7)",
       );
+
+      // Re-resolve ENTITLEMENTS from the problem state (see Case 4) — the foreign
+      // cert seed only updated license_status; this drops the inherited Pro to
+      // free LIVE before the locked-Alt+P proof.
+      await refreshLicensePaneEntitlements();
 
       // Entitlements dropped to FREE (the case-3/5 fail-closed contract) — proven
       // the problem-state-correct way (21-05): the footer attention affordance
