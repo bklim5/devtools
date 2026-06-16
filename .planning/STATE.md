@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Licensing
 status: executing
-last_updated: "2026-06-16T18:48:03.212Z"
-last_activity: 2026-06-16 -- Phase 23 planning complete
+last_updated: "2026-06-16T19:36:05.000Z"
+last_activity: 2026-06-16 -- Phase 23 plan 01 (theming foundation) complete
 progress:
   total_phases: 15
   completed_phases: 6
@@ -18,11 +18,13 @@ progress:
 ## Current Position
 
 Milestone: **v1.6 "Licensing"** — started 2026-06-09, roadmap created 2026-06-09.
-Phase: 23 (appearance-pane) — **PLANNED (2026-06-16)** — 4 plans in 3 waves, checker VERIFICATION PASSED (10/11→clean after 1 revision), RESEARCH+VALIDATION done (`23-0{1..4}-PLAN.md`). Prior: 22.2 COMPLETE, verified 6/6 (`22.2-VERIFICATION.md`)
-Plan: complete — Phase 23: W1 23-01 (ThemeName/coerceTheme widen + DEFAULT_PREFERENCES.accent #3b82f6→#5b9bf8 fix + ACCENT_SCALE 7 dual-theme pairs + executable WCAG-AA contrast assertions + pure apply helpers) ‖ 23-02 (`[data-theme="light"]` token block) · W2 23-04 (theme cards + 7-swatch accent radiogroup + preview strip + gate-on-Save → Pro persist / free openProUpsell no-persist + append SETTINGS_PANES) · W3 23-03 (App-root gated apply + matchMedia live-flip + no-flash pre-paint script + real-WKWebView e2e + phase checkpoint)
-Status: Ready to execute (`/gsd-execute-phase 23`)
+Phase: 23 (appearance-pane) — EXECUTING
+Plan: 2 of 4 (Plan 01 complete)
+Status: Executing Phase 23
 Progress: [■■□□] · Phase 22 + 22.1 complete · **Phase 22.2 COMPLETE (2026-06-16)** — user-approved mid-Phase-23 scope change: the **⌘K command palette is now Pro-gated** (a free user's ⌘K + the header pill open a focused Unlock-Pro modal; a Pro user gets the palette unchanged) and the **contextual locked customization triggers** (pin/drag/Alt+P/Reset) open that SAME focused modal instead of the 22.1 redirect-to-Settings. Gate via `isPro` (any Pro entitlement — frontend-only, no Keygen re-issue). Restored `UpsellModal` + `upsellStore`/`useUpsell` wrapping the SAME shared `ActivationSurface` (one activation surface, two presentations — partially un-reverts D-22.1-5). `openProUpsell` routes lapsed/attention paying customers (refreshNeeded/problem) to the Settings recovery form, NEVER the pitch (D-44). DEV-only ⌘⇧K force-open escape (tree-shaken from release, confirmed absent from `dist/`). Explicit license entry points (sidebar Settings row + Unlock-Pro footer + app-menu/tray + deep link) stay free → Settings ▸ License so a free user can still buy. **SET-04 revised** (⌘K no longer a free-tier path). Gates: vitest **986/986**, tsc+eslint clean, real-WKWebView e2e **22/22 spec files** (incl. new `cmdk-pro.e2e`), fresh `tauri build` (TinkerDev.app + DMG). decoder + 19 tests untouched. Deferred (non-blocking): `useFocusTrap` extraction (UpsellModal + SettingsModal share the Tab-trap), tinkerdev.io Pro-card copy sync.
-Last activity: 2026-06-16 -- Phase 23 planning complete
+Last activity: 2026-06-16 -- Phase 23 plan 01 (theming foundation) complete
+
+**Phase 23 plan 01 decisions (2026-06-16, theming foundation — SET-07 partial, D-23-4/7/8/9, Pitfall 1):** the unit-testable theming foundation every later 23-plan builds on. `ThemeName` widened `"dark"` → `"light" | "dark" | "system"` (D-23-4; fresh-install default stays `dark`); `coerceTheme` rewritten untrusted-input-disciplined (`VALID_THEMES` ReadonlySet; unknown string / non-string / absent → `dark`, T-23-01) — tested THROUGH `mergePreferences` (module-private). **Pitfall 1 fixed:** `DEFAULT_PREFERENCES.accent` `#3b82f6` → `#5b9bf8` (the applied dark default-blue matching index.css `--color-accent`; the old value was dead/AA-failing and becomes live once the App root applies accent in Plan 03). New `src/shell/appearance.ts` = the single source of truth: `ACCENT_SCALE` (7 swatches, each a **dark+light hex pair** — a single hex CANNOT pass WCAG-AA in both themes, math-proven), `LIGHT_TOKENS` (full light surface/text/status set, names mirror @theme), `accentForTheme(darkHex, resolved)` (reverse-maps the persisted DARK hex → light variant; unknown hex returned UNCHANGED, fail-soft, T-23-02), `THEME_NAMES`, `DEFAULT_ACCENT`. **Persisted accent = the dark hex (RESEARCH A1)** so `DEFAULT_PREFERENCES.accent` stays a real color and `gatePreferences`' default is unchanged. New `src/shell/theme.ts` pure helpers (NO native import — only `matchMedia` + `document.documentElement`): `resolveEffectiveTheme` (`system` → matchMedia) + `applyAppearance` (**dark = ABSENCE of `data-theme`** — deletes the attr, never sets `data-theme=dark`; sets `--color-accent` via `accentForTheme`). **The WCAG-AA bar is MECHANIZED, not eyeballed:** `appearanceContrast.test.ts` ports a pure relative-luminance contrast fn (`lum`/`contrastRatio`/`softFill` with alpha-composite over the card) and asserts all 14 accent cases (7×2 both themes ≥ 4.5:1) + the tx/tx-2/tx-3 ramp + warn/ok on white + the `accentForTheme` reverse-map — every RESEARCH hex cleared on the first run, NO hand-tuning. `entitlements.test.ts` gained two assertions pinning `gatePreferences` free→`dark`+`#5b9bf8` / Pro→passthrough now that accent is live (D-23-2). Gates: vitest **1030/1030**, tsc + eslint clean (2 pre-existing SidebarResetMenu warnings, out of scope); decoder + 19 tests byte-for-byte untouched; zero new runtime/dev deps. Pure-unit plan — real-WKWebView e2e is Plans 03/04. **SET-07 stays UNCHECKED** (foundation only; the pane UI + live whole-app apply land in 23-02..04). `/simplify` + `/codex:review` not auto-invoked by the executor — recommend `/codex:review --scope working-tree` at the phase checkpoint. Commits: `8d4521eb` (widen+default), `13bf411d` (scale+tokens+contrast), `a6e801ae` (apply helpers+gate pin). **Carried to Plan 02:** re-declare the `LIGHT_TOKENS` values + light accent-soft/line (12%) under `[data-theme="light"]` in index.css + the no-flash pre-paint script. **Carried to Plan 03:** App-root apply effect calling `applyAppearance(gatePreferences(prefs, ents))` + matchMedia live-flip listener.
 
 **Goal:** one-time-payment lifetime license — MoR checkout → webhook → Keygen (perpetual, node-locked, maxMachines=1); paste-key one-time activation (fingerprint `HMAC-SHA256(IOPlatformUUID, salt)`); offline Ed25519-verified `machine.lic` (~30-day TTL) thereafter; license key in Keychain (Rust-owned); free tier keeps all 11 tools — Pro locks customization (theming + ordering/pinning) behind a central entitlement gate (D-18 pivot; tool-gating mechanism ships dormant). Research: `docs/licensing-research.md`.
 
@@ -54,7 +56,7 @@ Last activity: 2026-06-16 -- Phase 23 planning complete
 See: .planning/PROJECT.md (updated 2026-06-09, v1.6 started) · roadmap: .planning/ROADMAP.md · requirements: .planning/REQUIREMENTS.md · research: docs/licensing-research.md
 
 **Core value:** Paste an unknown blob → usable, explorable interpretation in <2s, entirely offline, no mouse.
-**Current focus:** Phase 22.1 — settings-followups
+**Current focus:** Phase 23 — appearance-pane
 
 ## v1.5 — Pinned Tools (SHIPPED & ARCHIVED, 2026-06-07)
 
