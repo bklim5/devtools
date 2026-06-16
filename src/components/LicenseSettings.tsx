@@ -362,8 +362,10 @@ export function LicenseSettings() {
         // Pro-active (licensed/offlineGrace) — Phase 22.1 walkthrough (2026-06-16):
         // a GREEN success banner (parallels the amber attention banner's 3-column
         // structure exactly, but green) over a separator + a compact details card.
-        <div className="flex w-full flex-col gap-4 rounded-[7px] border border-ok-line bg-ok-soft p-5">
-          <div className="flex items-start gap-3">
+        // The GREEN tint is on the STATUS BANNER ONLY (walkthrough 2026-06-16);
+        // the Licensee/key details sit BELOW it as a neutral label↔value table.
+        <>
+          <div className="flex w-full items-start gap-3 rounded-[7px] border border-ok-line bg-ok-soft p-5">
             {/* Green dot — the calm success glyph (text-ok on bg-ok-soft is AA). */}
             <span
               aria-hidden="true"
@@ -411,101 +413,70 @@ export function LicenseSettings() {
             </button>
           </div>
 
-          {/* Separator, then the compact details card — Licensee + masked License
-              key ONLY (Plan/Renews/Activated dropped). The masked key is
-              DISPLAY-ONLY: no CopyButton (the dots are useless), no reveal toggle
-              (the raw key never crosses into JS — LIC-04). em-dash when null (D-89). */}
-          <hr className="border-t border-ok-line/60" />
-          <dl className="flex flex-col gap-3 rounded-[7px] border border-bd bg-panel p-4">
-            <div className="flex flex-col gap-0.5">
-              <dt className={LABEL_CLASS}>Licensee</dt>
-              <dd className={VALUE_CLASS}>{email ?? "—"}</dd>
+          {/* Details table — Licensee + masked License key ONLY (Plan/Renews/
+              Activated dropped). label↔value rows on a neutral card, hairline
+              dividers, mono values. The masked key is DISPLAY-ONLY: no CopyButton
+              (the dots are useless), no reveal toggle (the raw key never crosses
+              into JS — LIC-04). em-dash when null (D-89). */}
+          <dl className="flex w-full flex-col rounded-[7px] border border-bd bg-panel">
+            <div className="flex items-center gap-4 border-b border-bd px-4 py-3">
+              <dt className={`w-28 flex-none ${LABEL_CLASS}`}>Licensee</dt>
+              <dd className={`min-w-0 truncate ${VALUE_CLASS}`}>{email ?? "—"}</dd>
             </div>
-            <div className="flex flex-col gap-0.5">
-              <dt className={LABEL_CLASS}>License key</dt>
+            <div className="flex items-center gap-4 px-4 py-3">
+              <dt className={`w-28 flex-none ${LABEL_CLASS}`}>License key</dt>
               <dd className={VALUE_CLASS}>{maskedKey ?? "—"}</dd>
             </div>
           </dl>
-        </div>
+        </>
       )}
 
       {/* Separator between the attention banner and the Activate section
           (walkthrough 2026-06-16). */}
       {showInlineForm ? <hr className="border-t border-bd" /> : null}
 
-      {/* Management block — below the status block. The Pro-active Refresh now
-          lives in the green banner's top-right (parallel to the attention banner,
-          walkthrough 2026-06-16); only the attention states render the Activate
-          section here. The pure free notActivated state early-returns above. */}
-      <div className="flex max-w-[420px] flex-col gap-4">
-        {/* "Activate a license" section (Phase 22.1) — wraps the shared form-only
-            activation surface (D-22.1-7) with a section header + subtitle + the
-            muted recovery hint. NO sales pitch (a lapsed/attention paying customer
-            never sees it). The form adapts on hasStoredKey: an empty submit reuses
-            the saved key. There is no account portal, so "Lost your key?" is a
-            plain muted line (NOT a link) — check the purchase email. */}
-        {showInlineForm ? (
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1">
-              <p className="text-[14px] font-semibold leading-[1.3] text-tx">
-                Activate a license
-              </p>
-              <p className="text-[12px] leading-[1.5] text-tx-3">
-                Paste the key from your purchase confirmation email to re-verify
-                this device.
-              </p>
-            </div>
-            <InlineActivation variant="form-only" icon={Lock} />
+      {/* "Activate a license" section (Phase 22.1) — attention states only;
+          clamped narrow (forms read better). Wraps the shared form-only surface
+          (D-22.1-7) with a header + subtitle + the muted recovery hint. NO sales
+          pitch. There is no account portal, so "Lost your key?" is a plain line. */}
+      {showInlineForm ? (
+        <div className="flex max-w-[420px] flex-col gap-3">
+          <div className="flex flex-col gap-1">
+            <p className="text-[14px] font-semibold leading-[1.3] text-tx">
+              Activate a license
+            </p>
             <p className="text-[12px] leading-[1.5] text-tx-3">
-              Lost your key? Check your purchase email
+              Paste the key from your purchase confirmation email to re-verify
+              this device.
             </p>
           </div>
-        ) : null}
+          <InlineActivation variant="form-only" icon={Lock} />
+          <p className="text-[12px] leading-[1.5] text-tx-3">
+            Lost your key? Check your purchase email
+          </p>
+        </div>
+      ) : null}
 
-        {/* Deactivate (confirm-first inline, D-78) — only when Pro is active.
-            Phase 22.1 walkthrough (2026-06-16): the default is a muted helper line
-            + a SECONDARY trigger; confirming swaps in a reddish WARNING card with a
-            Cancel (secondary) + a DESTRUCTIVE Deactivate (red --color-bad). The
-            confirm-first focus contract (focus → confirm on reveal, → trigger on
-            cancel) and the D-79 offline aria-live line are preserved. */}
-        {isProActive ? (
-          confirming ? (
-            <div className="flex flex-col gap-3 rounded-[7px] border border-bad/75 bg-bad/10 p-5">
-              <div className="flex items-start gap-3">
-                <AlertTriangle
-                  aria-hidden="true"
-                  className="mt-0.5 h-5 w-5 flex-none text-bad"
-                />
-                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                  <h2 className={HEADING_CLASS}>
-                    Deactivate Pro on this device?
-                  </h2>
-                  <p className="text-[12px] leading-[1.5] text-tx-2">
-                    You&apos;ll drop back to the free tier here. Your seat is freed
-                    for another device — reactivate anytime with your key.
-                  </p>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={cancelConfirm}
-                  disabled={deactivating}
-                  className={SECONDARY_BTN_CLASS}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  ref={confirmBtnRef}
-                  onClick={() => void onDeactivate()}
-                  disabled={deactivating}
-                  aria-busy={deactivating}
-                  className={DESTRUCTIVE_BTN_CLASS}
-                >
-                  Deactivate
-                </button>
-              </div>
+      {/* Deactivate (confirm-first inline, D-78) — only when Pro is active.
+          Walkthrough 2026-06-16: the trigger is LEFT-aligned; confirming swaps in
+          a FULL-WIDTH reddish WARNING card laid out [icon | content | buttons] —
+          Cancel (secondary) + a DESTRUCTIVE Deactivate (red --color-bad), the
+          button group in the right column (parallel to the status banners). The
+          confirm-first focus contract (focus → confirm on reveal, → trigger on
+          cancel) and the D-79 offline aria-live line are preserved. */}
+      {isProActive ? (
+        confirming ? (
+          <div className="flex w-full items-start gap-3 rounded-[7px] border border-bad/75 bg-bad/10 p-5">
+            <AlertTriangle
+              aria-hidden="true"
+              className="mt-0.5 h-5 w-5 flex-none text-bad"
+            />
+            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+              <h2 className={HEADING_CLASS}>Deactivate Pro on this device?</h2>
+              <p className="text-[12px] leading-[1.5] text-tx-2">
+                You&apos;ll drop back to the free tier here. Your seat is freed
+                for another device — reactivate anytime with your key.
+              </p>
               {/* D-79: offline guidance lands in this calm region (tx-2, NOT
                   text-bad) AND the in-flight "Deactivating…" line. */}
               <p
@@ -515,26 +486,46 @@ export function LicenseSettings() {
                 {deactivateMsg ?? ""}
               </p>
             </div>
-          ) : (
-            <div className="flex flex-col gap-2">
-              <p className="text-[12px] leading-[1.5] text-tx-3">
-                Deactivating frees this seat so you can activate TinkerDev on
-                another device.
-              </p>
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  ref={deactivateBtnRef}
-                  onClick={revealConfirm}
-                  className={SECONDARY_BTN_CLASS}
-                >
-                  Deactivate this device
-                </button>
-              </div>
+            <div className="flex flex-none items-center gap-2 self-center">
+              <button
+                type="button"
+                onClick={cancelConfirm}
+                disabled={deactivating}
+                className={SECONDARY_BTN_CLASS}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                ref={confirmBtnRef}
+                onClick={() => void onDeactivate()}
+                disabled={deactivating}
+                aria-busy={deactivating}
+                className={DESTRUCTIVE_BTN_CLASS}
+              >
+                Deactivate
+              </button>
             </div>
-          )
-        ) : null}
-      </div>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <p className="text-[12px] leading-[1.5] text-tx-3">
+              Deactivating frees this seat so you can activate TinkerDev on
+              another device.
+            </p>
+            <div className="flex justify-start">
+              <button
+                type="button"
+                ref={deactivateBtnRef}
+                onClick={revealConfirm}
+                className={SECONDARY_BTN_CLASS}
+              >
+                Deactivate this device
+              </button>
+            </div>
+          </div>
+        )
+      ) : null}
     </div>
   );
 }
