@@ -679,8 +679,10 @@ export function UpsellModal({ icon, onClose }: UpsellModalProps) {
         tabIndex={-1}
         // The card is w-full (layout-agnostic); the dialog wrapper bounds the
         // standalone modal's width (with a viewport margin) so the pitch reads as
-        // a compact card here.
-        className="w-full max-w-[420px] px-4 outline-none"
+        // a comfortable card here (widened from 420px — the narrow form felt
+        // cramped; the inline License-pane InlineActivation variant has no modal
+        // wrapper and is unaffected).
+        className="w-full max-w-[520px] px-4 outline-none"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <UpsellPanel icon={icon} headingId={MODAL_HEADING_ID} onDismiss={onClose} />
