@@ -90,6 +90,65 @@ describe("protobufTreeStyle coercion", () => {
   });
 });
 
+// theme widens to light/dark/system (D-23-4), read from the same untrusted
+// on-disk blob (threat T-23-01: the user can hand-edit prefs.json). coerceTheme
+// (module-private — tested THROUGH mergePreferences) accepts ONLY the three known
+// names; anything else — unknown string, non-string, absent — coerces to the
+// "dark" default. The accent default is now #5b9bf8 (the applied dark blue —
+// Pitfall 1; the dead #3b82f6 is gone).
+describe("coerceTheme widening (D-23-4, T-23-01)", () => {
+  it("preserves the valid name \"light\"", () => {
+    expect(mergePreferences({ theme: "light" }).theme).toBe("light");
+  });
+
+  it("preserves the valid name \"dark\"", () => {
+    expect(mergePreferences({ theme: "dark" }).theme).toBe("dark");
+  });
+
+  it("preserves the valid name \"system\"", () => {
+    expect(mergePreferences({ theme: "system" }).theme).toBe("system");
+  });
+
+  it("coerces an unknown string to \"dark\" (untrusted hand-edited prefs.json)", () => {
+    expect(mergePreferences({ theme: "purple" }).theme).toBe("dark");
+    expect(mergePreferences({ theme: "bogus" }).theme).toBe("dark");
+  });
+
+  it("coerces a non-string value to \"dark\"", () => {
+    expect(mergePreferences({ theme: 42 }).theme).toBe("dark");
+    expect(mergePreferences({ theme: undefined }).theme).toBe("dark");
+    expect(mergePreferences({ theme: null }).theme).toBe("dark");
+  });
+
+  it("defaults to \"dark\" when absent (fresh install, D-23-4)", () => {
+    expect(mergePreferences({}).theme).toBe("dark");
+  });
+
+  it("does not regress a sibling field in the same merged blob", () => {
+    const merged = mergePreferences({ theme: "light", protobufTreeStyle: "rows" });
+    expect(merged.theme).toBe("light");
+    expect(merged.protobufTreeStyle).toBe("rows");
+  });
+});
+
+// The default accent is now the applied dark default-blue #5b9bf8 (Pitfall 1):
+// index.css --color-accent is #5b9bf8, but DEFAULT_PREFERENCES.accent USED to be
+// the dead/AA-failing #3b82f6. Now that the App root applies accent (D-23-9) the
+// default must be the real color so a fresh install applies the correct blue.
+describe("accent default is #5b9bf8 (Pitfall 1 — D-23-4)", () => {
+  it("defaults to #5b9bf8 when absent", () => {
+    expect(mergePreferences({}).accent).toBe("#5b9bf8");
+  });
+
+  it("is NOT the dead #3b82f6", () => {
+    expect(mergePreferences({}).accent).not.toBe("#3b82f6");
+  });
+
+  it("preserves an explicit accent (coerceAccent unchanged — any non-empty string)", () => {
+    expect(mergePreferences({ accent: "#a78bfa" }).accent).toBe("#a78bfa");
+  });
+});
+
 // toolOrder is the user's custom sidebar order (REORD-05, D-09), read from the
 // same untrusted on-disk blob (threat T-16-01: hand-edited prefs.json). coerce
 // keeps only string members, de-dupes, and yields [] for a non-array — but

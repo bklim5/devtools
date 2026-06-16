@@ -19,9 +19,13 @@ import {
   type ThemeName,
 } from "./preferences";
 
-/** Only "dark" is valid in Phase 2 (D-10). Anything else → default. */
+const VALID_THEMES: ReadonlySet<string> = new Set(["light", "dark", "system"]);
+/** Untrusted (T-02-08 / T-23-01): the user can hand-edit prefs.json. Accept only
+ *  the three known theme names; anything else → "dark" (the default). */
 function coerceTheme(value: unknown): ThemeName {
-  return value === "dark" ? "dark" : DEFAULT_PREFERENCES.theme;
+  return typeof value === "string" && VALID_THEMES.has(value)
+    ? (value as ThemeName)
+    : DEFAULT_PREFERENCES.theme;
 }
 
 /** Untrusted (threat T-03-01): accept only "rows", default everything else —

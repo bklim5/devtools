@@ -10,17 +10,17 @@
 // will add a `protobufTreeStyle` field here — leave room for it; the merge in
 // usePreferences accepts only known fields so adding one is a single edit.
 
-/** Theme is a NAMED value (D-10), NOT a boolean — so a light theme can be added
- *  later (e.g. "light") without reworking the persistence model. Dark-only in
- *  Phase 2. */
-export type ThemeName = "dark";
+/** Theme is a NAMED value (D-10), NOT a boolean. Three values (D-23-4): "light",
+ *  "dark", "system" (resolves via prefers-color-scheme). Fresh-install default
+ *  stays "dark"; existing installs keep their persisted value. */
+export type ThemeName = "light" | "dark" | "system";
 
 /** Protobuf wire-format tree layout (PRO-06, D-07). Two layouts only: stacked
  *  "cards" (default) and dense "rows". Persisted so the toggle survives reload. */
 export type ProtobufTreeStyle = "cards" | "rows";
 
 export interface Preferences {
-  /** Named theme (D-10). Dark-only for v1; extensible to "light" later. */
+  /** Named theme (D-10/D-23-4): light/dark/system. Fresh-install default "dark". */
   theme: ThemeName;
   /** Accent color as a CSS color value (drives `--accent`; D-10). One of the
    *  mockup's swatches, but stored as a free string for forward-compat. */
@@ -62,7 +62,8 @@ export interface Preferences {
 
 export const DEFAULT_PREFERENCES: Preferences = {
   theme: "dark",
-  accent: "#3b82f6",
+  // Applied dark default-blue (matches index.css --color-accent); #3b82f6 was dead/AA-failing — Pitfall 1.
+  accent: "#5b9bf8",
   lastUsedId: null,
   recentToolIds: [],
   toolOrder: [],
