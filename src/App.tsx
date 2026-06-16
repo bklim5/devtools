@@ -47,9 +47,10 @@ export function App() {
   useTrackActiveTool();
 
   // D-23-9/D-23-5: apply the GATED whole-app theme+accent to documentElement on
-  // every prefs/ents change (free → dark + #5b9bf8) and live-flip on an OS
-  // appearance change in system mode. Reads the same prefs/ents this body does,
-  // so no prop drilling; the index.html pre-paint script owns the launch frame.
+  // every prefs/ents change (free → dark + #5b9bf8), once prefs are loaded AND
+  // entitlements resolved (no Pro launch dark-flash). Reads the same prefs/ents
+  // this body does, so no prop drilling; the index.html pre-paint script owns the
+  // launch frame until then.
   useAppearance();
 
   const { preferences, prefsLoaded, setAutoUpdateCheck } = usePreferences();

@@ -23,6 +23,12 @@ function defaultSet(): EntitlementSet {
 }
 
 let current: EntitlementSet = defaultSet();
+// D-23-5 (flash-free Pro launch): false until the FIRST refreshEntitlements()
+// completes (success OR failure). Consumers (useAppearance) hold their apply
+// until this flips true so the FREE_SET default never clobbers a Pro user's
+// theme before the async license resolve lands. setEntitlementsForTest means
+// "entitlements are now known", so it sets this true.
+let resolved = false;
 const listeners = new Set<() => void>();
 
 function setsEqual(a: EntitlementSet, b: EntitlementSet): boolean {
@@ -39,6 +45,12 @@ export function getEntitlementsSnapshot(): EntitlementSet {
   return current;
 }
 
+/** Whether the FIRST entitlement resolution has completed (D-23-5). Drives the
+ *  flash-free appearance apply gate — see useAppearance. */
+export function getEntitlementsResolved(): boolean {
+  return resolved;
+}
+
 export function subscribeEntitlements(fn: () => void): () => void {
   listeners.add(fn);
   return () => {
@@ -50,10 +62,25 @@ export function subscribeEntitlements(fn: () => void): () => void {
  *  but only when the set actually CHANGED (set-equality short-circuit, so a
  *  no-op refresh never re-renders every consumer). */
 export async function refreshEntitlements(): Promise<void> {
-  const next = await resolveEntitlements();
-  if (setsEqual(next, current)) return;
-  current = next;
-  notify();
+  // Track whether anything observable changed so we notify exactly once at the end
+  // — the `resolved` flip (D-23-5) must propagate even when the SET is unchanged
+  // (an unlicensed install: FREE_SET → FREE_SET, but `resolved` goes false→true).
+  let changed = false;
+  try {
+    const next = await resolveEntitlements();
+    if (!setsEqual(next, current)) {
+      current = next;
+      changed = true;
+    }
+  } finally {
+    // D-23-5: the FIRST resolution is now complete (even if resolveEntitlements
+    // threw) — release the appearance apply gate.
+    if (!resolved) {
+      resolved = true;
+      changed = true;
+    }
+    if (changed) notify();
+  }
 }
 
 /** Clear the persisted D-31 dev free-tier override (walkthrough 2026-06-12
@@ -75,21 +102,37 @@ function isTestOrDev(): boolean {
   return env?.MODE === "test" || env?.DEV === true;
 }
 
-/** Test seam: force a specific set and notify. No-op in production builds. */
+/** Test seam: force a specific set and notify. No-op in production builds. Forcing
+ *  a set means "entitlements are known", so it also marks resolved (D-23-5) — the
+ *  appearance apply gate must release for any test that seeds a tier. */
 export function setEntitlementsForTest(set: EntitlementSet): void {
   if (!isTestOrDev()) return;
-  if (setsEqual(set, current)) return;
-  current = set;
-  notify();
+  let changed = false;
+  if (!setsEqual(set, current)) {
+    current = set;
+    changed = true;
+  }
+  if (!resolved) {
+    resolved = true;
+    changed = true;
+  }
+  if (changed) notify();
 }
 
-/** Test cleanup: restore the environment default and notify. No-op in
- *  production builds. */
+/** Test cleanup: restore the environment default + the unresolved gate and notify.
+ *  No-op in production builds. */
 export function resetEntitlementsForTest(): void {
   if (!isTestOrDev()) return;
   const next = defaultSet();
-  if (setsEqual(next, current)) return;
-  current = next;
-  notify();
+  let changed = false;
+  if (!setsEqual(next, current)) {
+    current = next;
+    changed = true;
+  }
+  if (resolved) {
+    resolved = false;
+    changed = true;
+  }
+  if (changed) notify();
 }
 

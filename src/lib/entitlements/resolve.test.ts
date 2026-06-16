@@ -19,6 +19,7 @@ import { ENT_ORDERING, ENT_THEMING, FREE_SET, FULL_SET } from "./entitlements";
 import { isTauriEnv, resolveEntitlements } from "./resolve";
 import {
   clearEntitlementsOverride,
+  getEntitlementsResolved,
   getEntitlementsSnapshot,
   refreshEntitlements,
   resetEntitlementsForTest,
@@ -229,16 +230,22 @@ describe("resolveEntitlements (ENT-03 — the LIVE Phase 21 D-85 flip point)", (
 
 describe("entitlements snapshot store", () => {
   it("refreshEntitlements notifies subscribers exactly when the set CHANGES", async () => {
-    // jsdom default snapshot is FREE; with no override the resolved set is also
-    // FREE → equal sets must short-circuit (no notification).
+    // The FIRST refresh flips the D-23-5 `resolved` gate (false→true via the
+    // afterEach reset) — that ALWAYS notifies once, even when the SET is unchanged
+    // (jsdom default FREE → resolved FREE). Drive that first resolve BEFORE
+    // subscribing so this test isolates set-change notifications.
+    await refreshEntitlements();
+    expect(getEntitlementsResolved()).toBe(true);
+    expect(getEntitlementsSnapshot()).toBe(FREE_SET);
+
     let calls = 0;
     const unsubscribe = subscribeEntitlements(() => {
       calls += 1;
     });
 
+    // Resolved is already true; refreshing with no set change stays silent.
     await refreshEntitlements();
     expect(calls).toBe(0);
-    expect(getEntitlementsSnapshot()).toBe(FREE_SET);
 
     // Flip to Tauri AND a licensed cert → the set changes to Pro → ONE notification.
     setTauriEnv();
@@ -254,6 +261,32 @@ describe("entitlements snapshot store", () => {
     expect(calls).toBe(1);
 
     unsubscribe();
+  });
+
+  it("refreshEntitlements flips the D-23-5 resolved gate on the FIRST resolve, even when the set is unchanged", async () => {
+    // Fresh (afterEach reset → resolved false). jsdom default FREE → resolved FREE
+    // (set unchanged), but the resolved flip must still fire ONE notification so
+    // useAppearance can release its flash-free apply gate.
+    expect(getEntitlementsResolved()).toBe(false);
+    let calls = 0;
+    const unsubscribe = subscribeEntitlements(() => {
+      calls += 1;
+    });
+
+    await refreshEntitlements();
+    expect(getEntitlementsResolved()).toBe(true);
+    expect(getEntitlementsSnapshot()).toBe(FREE_SET); // set genuinely unchanged
+    expect(calls).toBe(1); // the resolved flip alone notified
+
+    unsubscribe();
+  });
+
+  it("setEntitlementsForTest marks resolved; resetEntitlementsForTest clears it (D-23-5)", () => {
+    expect(getEntitlementsResolved()).toBe(false);
+    setEntitlementsForTest(FULL_SET);
+    expect(getEntitlementsResolved()).toBe(true);
+    resetEntitlementsForTest();
+    expect(getEntitlementsResolved()).toBe(false);
   });
 
   it("setEntitlementsForTest flips the snapshot and notifies", () => {
