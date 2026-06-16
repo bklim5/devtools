@@ -10,7 +10,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { Lock } from "lucide-react";
-import { BUY_LICENSE_URL, InlineActivation, UpsellPanel } from "./UpsellPanel";
+import {
+  BUY_LICENSE_URL,
+  InlineActivation,
+  UpsellModal,
+  UpsellPanel,
+} from "./UpsellPanel";
 import {
   resetPlatformForTest,
   setPlatformForTest,
@@ -499,5 +504,43 @@ describe("UpsellPanel license-problem state (D-44)", () => {
 
     fireEvent.click(utils.getByRole("button", { name: "Activate" }));
     await waitFor(() => expect(activate).toHaveBeenCalledWith(null));
+  });
+});
+
+// --- Phase 22.2: the focused Unlock-Pro modal wrapper ----------------------
+
+describe("UpsellModal (Phase 22.2 — focused modal over the shared surface)", () => {
+  it("renders an aria-modal dialog wrapping the SAME shared pitch surface", () => {
+    const { getByRole } = render(<UpsellModal icon={Lock} onClose={() => {}} />);
+    const dialog = getByRole("dialog");
+    expect(dialog.getAttribute("aria-modal")).toBe("true");
+    // Labelled by the pitch heading (the shared ActivationSurface, not a new one).
+    expect(dialog.getAttribute("aria-labelledby")).toBe("upsell-heading");
+    expect(
+      getByRole("heading", { name: /Thank you for using TinkerDev/ }),
+    ).toBeTruthy();
+    // The command-palette Pro feature is now in the pitch.
+    expect(getByRole("button", { name: "Buy license" })).toBeTruthy();
+  });
+
+  it("closes on Escape and on a scrim click (its own dismiss contract)", () => {
+    const onClose = vi.fn();
+    const { container } = render(<UpsellModal icon={Lock} onClose={onClose} />);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+    // The scrim is the dialog's parent; a mousedown on it (not the card) dismisses.
+    const scrim = container.querySelector(".bg-scrim") as HTMLElement;
+    fireEvent.mouseDown(scrim);
+    expect(onClose).toHaveBeenCalledTimes(2);
+  });
+
+  it("returns focus to the invoking element on unmount (focus-return contract)", () => {
+    const invoker = document.createElement("button");
+    document.body.appendChild(invoker);
+    invoker.focus();
+    const { unmount } = render(<UpsellModal icon={Lock} onClose={() => {}} />);
+    unmount();
+    expect(document.activeElement).toBe(invoker);
+    invoker.remove();
   });
 });

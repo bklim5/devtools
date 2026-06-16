@@ -15,6 +15,7 @@ import {
   FULL_SET,
   gatePreferences,
   isEntitled,
+  isPro,
   isToolLocked,
 } from "./entitlements";
 
@@ -61,6 +62,18 @@ describe("isEntitled", () => {
     const partial: ReadonlySet<string> = new Set([ENT_THEMING]);
     expect(isEntitled(partial, [ENT_THEMING, ENT_ORDERING])).toBe(false);
     expect(isEntitled(partial, [ENT_THEMING])).toBe(true);
+  });
+});
+
+describe("isPro (Phase 22.2 — any Pro entitlement)", () => {
+  it("FULL_SET is Pro; FREE_SET is not", () => {
+    expect(isPro(FULL_SET)).toBe(true);
+    expect(isPro(FREE_SET)).toBe(false);
+  });
+
+  it("a single Pro entitlement counts as Pro (the $9 license grants the full set together)", () => {
+    expect(isPro(new Set([ENT_THEMING]))).toBe(true);
+    expect(isPro(new Set([ENT_ORDERING]))).toBe(true);
   });
 });
 

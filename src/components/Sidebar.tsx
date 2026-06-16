@@ -46,6 +46,7 @@ import { useLicenseUi } from "@/shell/useLicenseUi";
 import { usePreferences } from "@/shell/usePreferences";
 import { moveToolInOrder, partitionTools, resolveRovingTarget } from "@/shell/toolOrder";
 import { openSettings } from "@/shell/settingsStore";
+import { openUpsell } from "@/shell/upsellStore";
 import { SidebarResetMenu, useSidebarResetMenu } from "./SidebarResetMenu";
 import { useSidebarDragDrop, type ToolGroup } from "./useSidebarDragDrop";
 
@@ -89,27 +90,26 @@ export function Sidebar() {
   // ↑/↓ focus nav traverses this across the divider.
   const visibleIds = useMemo(() => [...pinned, ...unpinned], [pinned, unpinned]);
 
-  // 22.1-04 (user-approved 2026-06-16, reverses D-22.1-5/D-28/D-29): the locked
-  // customization affordances (pin click, Alt+↑/↓, Alt+P, reset) and the D-29
-  // footer row no longer open a standalone "Unlock Pro" modal — that surface is
-  // gone. They open Settings ▸ License directly, where the License pane renders
-  // the SAME inline upsell (InlineActivation) the modal used to wrap. ONE upsell
-  // surface, no duplicate UI. The invoker is passed through verbatim for the
-  // focus-return contract: most callers (pin click, Alt chords, drag) are invoked
-  // from a persistent focused control (default activeElement capture); the reset
-  // MENU path passes an explicit return target because its menu item unmounts on
-  // open (finding 3).
+  // Phase 22.2 (user-approved 2026-06-16, reverses the 22.1-04 redirect for the
+  // CONTEXTUAL triggers): the locked customization affordances (pin click,
+  // Alt+↑/↓, Alt+P, reset, drag) open the focused "Unlock Pro" MODAL — a quick
+  // interruption that dismisses back to where the user was — instead of yanking
+  // them into the full Settings ▸ License modal. The modal renders the SAME shared
+  // ActivationSurface (one activation surface, two presentations). The invoker is
+  // threaded for the focus-return contract: most callers (pin click, Alt chords,
+  // drag) are invoked from a persistent focused control (default activeElement
+  // capture); the reset MENU path passes an explicit return target because its menu
+  // item unmounts on open (finding 3).
   const openOrderingUpsell = useCallback(
-    (invokerEl?: HTMLElement | null) => openSettings("license", invokerEl),
+    (invokerEl?: HTMLElement | null) => openUpsell(invokerEl),
     [],
   );
-  // The footer affordance and every locked-customization affordance now converge
-  // on the SAME target — Settings ▸ License (openSettings). The manageable-license
-  // and free-tier branches no longer diverge: the License pane itself renders the
-  // right surface (status card vs inline upsell) for the current license state.
-  // MED-22-02: pass the clicked element as the explicit return target — a WKWebView
-  // mouse click leaves document.activeElement unreliable, so the store's default
-  // activeElement capture would strand focus on modal close.
+  // The EXPLICIT footer "Unlock Pro" / "License needs attention" affordance keeps
+  // going to Settings ▸ License (the user is deliberately heading toward licensing,
+  // and a free user MUST retain a path to buy). MED-22-02: pass the clicked element
+  // as the explicit return target — a WKWebView mouse click leaves
+  // document.activeElement unreliable, so the store's default capture would strand
+  // focus on modal close.
   const openLicenseSurface = useCallback(
     (invokerEl?: HTMLElement | null) => openSettings("license", invokerEl),
     [],

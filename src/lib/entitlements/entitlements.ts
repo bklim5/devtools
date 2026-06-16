@@ -26,6 +26,22 @@ export function isEntitled(
   return required.every((e) => set.has(e));
 }
 
+/** "Is this a paying (Pro) customer?" — true when the resolved set carries ANY
+ *  Pro entitlement (Phase 22.2). The $9 lifetime license grants the full Pro set
+ *  (theming + ordering) together, so "has any" == "is Pro". Used to gate
+ *  feature-agnostic Pro surfaces (the ⌘K command palette) WITHOUT minting a new
+ *  cert entitlement code — resolve.ts intersects the cert's codes with
+ *  ALL_ENTITLEMENTS, so a brand-new code would lock the surface for EXISTING
+ *  customers until their machine.lic is re-issued. `isPro` reads the codes that
+ *  are already in every issued license, so it works for all of them immediately.
+ *
+ *  CONSTRAINT: this "any entitlement == Pro" equivalence holds ONLY because the
+ *  business model is one tier, all features (no à-la-carte). If per-feature plans
+ *  ever ship, gate feature surfaces on their specific code (isEntitled), not isPro. */
+export function isPro(set: EntitlementSet): boolean {
+  return set.size > 0;
+}
+
 /** ENT-01: the ONE predicate all three surfaces (sidebar, palette, router) consume. */
 export function isToolLocked(tool: ToolDefinition, set: EntitlementSet): boolean {
   return !!tool.requiredEntitlements?.length && !isEntitled(set, tool.requiredEntitlements);

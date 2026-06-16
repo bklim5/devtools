@@ -50,7 +50,7 @@ import {
   type ComponentType,
   type FormEvent,
 } from "react";
-import { Check, Heart, Key, ListOrdered, Lock, Palette } from "lucide-react";
+import { Check, Command, Heart, Key, ListOrdered, Lock, Palette } from "lucide-react";
 import { platform, type LicenseErrorCode } from "@/lib/platform";
 import {
   clearEntitlementsOverride,
@@ -61,6 +61,11 @@ import {
   refreshLicenseUiDetailed,
 } from "@/lib/license/licenseUi";
 import { useLicenseUi } from "@/shell/useLicenseUi";
+import { getUpsellInvoker } from "@/shell/upsellStore";
+
+/** Heading id linking the UpsellModal dialog to the pitch heading (aria-labelledby).
+ *  Stable so e2e can assert "exactly one standalone upsell modal" (T-stacked guard). */
+const MODAL_HEADING_ID = "upsell-heading";
 
 /** D-68: the own-domain redirect the user controls (Cloudflare/Caddy) forwards
  *  to the live MoR checkout. ONE https constant so a store/MoR change never
@@ -131,13 +136,18 @@ const PITCH_BODY_CLASS = "text-[13px] leading-[1.5] text-tx-3";
  *  a hint of the format, NEVER a label (the <label> stays the a11y name). */
 const KEY_PLACEHOLDER = "XXXX-XXXX-XXXX-XXXX";
 
-/** Phase 22.1 pitch feature list (walkthrough 2026-06-15) — the three Pro
- *  unlocks, each a fitting lucide icon + bold label + one-line muted sub. */
+/** Pitch feature list — the Pro unlocks, each a fitting lucide icon + bold label +
+ *  one-line muted sub. Phase 22.2 added the command palette (⌘K is now Pro). */
 const PITCH_FEATURES: ReadonlyArray<{
   icon: ComponentType<{ className?: string }>;
   label: string;
   sub: string;
 }> = [
+  {
+    icon: Command,
+    label: "Command palette",
+    sub: "Jump to any tool with ⌘K — no mouse.",
+  },
   {
     icon: Palette,
     label: "Custom themes",
@@ -573,6 +583,105 @@ export function UpsellPanel({ icon, headingId, onDismiss }: UpsellPanelProps) {
       headingId={headingId}
       onDismiss={onDismiss}
     />
+  );
+}
+
+export interface UpsellModalProps {
+  icon: ComponentType<{ className?: string }>;
+  onClose: () => void;
+}
+
+/** The focused standalone "Unlock Pro" modal (Phase 22.2, reinstated after the
+ *  22.1-04 removal). A thin dialog wrapper — focus trap + Esc + return-focus +
+ *  scrim — around the SAME shared ActivationSurface ("panel" variant) the Settings
+ *  ▸ License pane renders inline. No activation logic is duplicated (LIC-04 +
+ *  T-19-21 preserved). Opened from the contextual locked customization triggers
+ *  (pin/drag/Alt+P/Reset) AND a free user's ⌘K, via the shared upsellStore. */
+export function UpsellModal({ icon, onClose }: UpsellModalProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  // Keep the latest onClose visible to the mount-once effect without re-running
+  // it (re-running would re-steal and re-return focus on every prop change).
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    // Prefer the invoker captured SYNCHRONOUSLY at openUpsell() time (store path)
+    // — it survives any focus churn between the trigger's click and this mount
+    // commit. Fall back to document.activeElement for a direct-render case (tests).
+    // Read it ONCE here so the close path is unaffected by the store clearing it
+    // on closeUpsell() (which fires before this effect's cleanup).
+    const invoker = getUpsellInvoker() ?? document.activeElement;
+    dialogRef.current?.focus();
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onCloseRef.current();
+        return;
+      }
+      // Focus trap: aria-modal promises the background is inert, so Tab must
+      // cycle within the dialog (WCAG-AA) — wrap at both ends, pull focus back in
+      // if it ever lands outside.
+      if (e.key === "Tab") {
+        const dialog = dialogRef.current;
+        if (!dialog) return;
+        const focusables = dialog.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        );
+        if (focusables.length === 0) {
+          e.preventDefault();
+          return;
+        }
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        const active = document.activeElement;
+        if (e.shiftKey) {
+          if (active === first || !dialog.contains(active)) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else if (active === last || !dialog.contains(active)) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      // Return focus to the invoking control (UI-SPEC interaction contract).
+      if (invoker instanceof HTMLElement && invoker.isConnected) {
+        invoker.focus();
+      }
+    };
+  }, []);
+
+  return (
+    // z-[60]: the scrim must cover the shell's bottom-right overlay stack (z-50)
+    // so no interactive control floats clickable outside this trap.
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-scrim"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={MODAL_HEADING_ID}
+        tabIndex={-1}
+        // The card is w-full (layout-agnostic); the dialog wrapper bounds the
+        // standalone modal's width (with a viewport margin) so the pitch reads as
+        // a compact card here.
+        className="w-full max-w-[420px] px-4 outline-none"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <UpsellPanel icon={icon} headingId={MODAL_HEADING_ID} onDismiss={onClose} />
+      </div>
+    </div>
   );
 }
 

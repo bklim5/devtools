@@ -21,7 +21,7 @@ import {
 } from "react";
 import { useNavigate } from "react-router-dom";
 import { Lock, Settings } from "lucide-react";
-import { ENT_ORDERING, isToolLocked } from "@/lib/entitlements/entitlements";
+import { ENT_ORDERING, isPro, isToolLocked } from "@/lib/entitlements/entitlements";
 import {
   getEntitlementsSnapshot,
   refreshEntitlements,
@@ -31,6 +31,7 @@ import type { ToolDefinition } from "@/lib/tools/types";
 import { rankTools, subsequenceScore } from "@/shell/fuzzy";
 import { loadPreferences, savePreferences } from "@/shell/prefsStore";
 import { openSettings } from "@/shell/settingsStore";
+import { openUpsell } from "@/shell/upsellStore";
 import { useEntitlements } from "@/shell/useEntitlements";
 
 /** A selectable palette row: a registry tool OR a non-navigating command
@@ -146,6 +147,13 @@ export function CommandPalette() {
   // render-safe (no ref reads flowing through buildGroups during render).
   const [preOpenFocus, setPreOpenFocus] = useState<HTMLElement | null>(null);
 
+  // D-23/D-24: tool rows mirror the sidebar's lock badge through the SAME central
+  // predicate — the one resolved set, no per-feature checks (ENT-01). Declared
+  // HERE (above the ⌘K key effect) because the palette itself is now Pro-gated
+  // (D-22.2-1): `pro` decides whether ⌘K opens the palette or the upsell modal.
+  const ents = useEntitlements();
+  const pro = isPro(ents);
+
   const navigate = useNavigate();
   // Recents are READ-ONLY here — recording happens centrally on navigation
   // (useTrackActiveTool in App). We reload them from the store each time the
@@ -166,10 +174,26 @@ export function CommandPalette() {
   // ⌘K toggles the palette; Esc closes it. Global so it works from anywhere.
   // Opening resets the query + highlight HERE (an event handler, not an effect)
   // so there is no open→reset cascade.
+  //
+  // Phase 22.2 (D-22.2-1/3): the palette is Pro-gated. A FREE user's ⌘K opens the
+  // focused Unlock-Pro modal (via the shared upsellStore) instead of the palette —
+  // returning focus to whatever was focused (the header ⌘K pill dispatches the
+  // SAME synthetic ⌘K, so it routes here too). DEV escape hatch (D-22.2-10): under
+  // import.meta.env.DEV, ⌘⇧K force-opens the palette regardless of tier so the
+  // in-palette "toggle free" command stays reachable for an interactive dev; this
+  // branch is tree-shaken out of release. Re-binds when `pro` flips.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
+        const devForce = import.meta.env.DEV && e.shiftKey;
+        if (!pro && !devForce) {
+          // Free tier → the focused Unlock-Pro modal. Capture the focused element
+          // synchronously as the return target (store path; the modal restores it).
+          const active = document.activeElement;
+          openUpsell(active instanceof HTMLElement ? active : null);
+          return;
+        }
         setOpen((o) => {
           if (!o) {
             setQuery("");
@@ -188,16 +212,12 @@ export function CommandPalette() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [pro]);
 
   // Focus the input when the palette opens (an external-system sync — DOM focus).
   useEffect(() => {
     if (open) inputRef.current?.focus();
   }, [open]);
-
-  // D-23/D-24: tool rows mirror the sidebar's lock badge through the SAME
-  // central predicate — the one resolved set, no per-feature checks (ENT-01).
-  const ents = useEntitlements();
 
   // D-88/D-S11 (revised 22.1-04): the "License" command — a SHIPPED production
   // command (NOT under the import.meta.env.DEV guard, so check-dev-strip.sh leaves

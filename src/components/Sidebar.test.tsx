@@ -20,14 +20,20 @@ import { act, cleanup, fireEvent, render, waitFor } from "@testing-library/react
 import { MemoryRouter } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 
-// Every Sidebar entry point (locked-customization affordances + the footer +
-// the bottom-anchored Settings row) opens the single Settings modal via
-// openSettings("license", invoker). Spy it so the open target/pane + the
-// focus-return invoker are observable. (navigate is no longer used by Sidebar.)
+// EXPLICIT license entry points (the footer "Unlock Pro" + the bottom-anchored
+// Settings row) open the Settings modal via openSettings("license", invoker).
+// CONTEXTUAL locked-customization triggers (pin/drag/Alt+P/Alt+↑↓/Reset) now open
+// the focused Unlock-Pro MODAL via openUpsell(invoker) — Phase 22.2. Spy both so
+// the target + the focus-return invoker are observable.
 const openSettingsSpy = vi.fn();
 vi.mock("@/shell/settingsStore", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/shell/settingsStore")>();
   return { ...actual, openSettings: (...args: unknown[]) => openSettingsSpy(...args) };
+});
+const openUpsellSpy = vi.fn();
+vi.mock("@/shell/upsellStore", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/shell/upsellStore")>();
+  return { ...actual, openUpsell: (...args: unknown[]) => openUpsellSpy(...args) };
 });
 import { ENABLED_TOOLS } from "@/lib/tools/registry";
 import { FREE_SET, FULL_SET } from "@/lib/entitlements/entitlements";
@@ -53,6 +59,7 @@ let store: Store;
 
 beforeEach(() => {
   openSettingsSpy.mockClear();
+  openUpsellSpy.mockClear();
   store = createStoreStub();
   setPlatformForTest(makeMemoryPlatform(store));
   // Pitfall 5: jsdom's environment default is FREE — inject FULL so the existing
@@ -191,7 +198,7 @@ describe("Sidebar free tier (D-26/D-28)", () => {
     expect(getByRole("group", { name: "Pinned tools" })).toBeDefined();
   });
 
-  it("pin-button click opens Settings ▸ License and writes nothing (D-28 → 22.1-04)", async () => {
+  it("pin-button click opens the focused Unlock-Pro modal and writes nothing (D-22.2-7)", async () => {
     const { getByLabelText } = renderAt("/");
     await flushPrefsLoad();
     const setSpy = vi.spyOn(store, "set");
@@ -199,14 +206,15 @@ describe("Sidebar free tier (D-26/D-28)", () => {
     const pinBtn = getByLabelText(`Pin ${ENABLED_TOOLS[0].name}`);
     fireEvent.click(pinBtn);
 
-    // The locked affordance redirects to the License pane instead of writing prefs,
-    // threading the clicked control as the explicit focus-return target (MED-22-02
-    // — a WKWebView click leaves document.activeElement unreliable).
-    expect(openSettingsSpy).toHaveBeenCalledWith("license", pinBtn);
+    // The contextual locked affordance opens the focused modal instead of writing
+    // prefs, threading the clicked control as the explicit focus-return target
+    // (MED-22-02 — a WKWebView click leaves document.activeElement unreliable).
+    expect(openUpsellSpy).toHaveBeenCalledWith(pinBtn);
+    expect(openSettingsSpy).not.toHaveBeenCalled();
     expect(setSpy).not.toHaveBeenCalled();
   });
 
-  it("Alt+P (physical KeyP, composed 'π') on a row opens Settings ▸ License, no write", async () => {
+  it("Alt+P (physical KeyP, composed 'π') on a row opens the focused Unlock-Pro modal, no write", async () => {
     const { getAllByRole } = renderAt("/");
     await flushPrefsLoad();
     const setSpy = vi.spyOn(store, "set");
@@ -220,11 +228,11 @@ describe("Sidebar free tier (D-26/D-28)", () => {
     });
 
     // The focused row is threaded as the explicit focus-return target (MED-22-02).
-    expect(openSettingsSpy).toHaveBeenCalledWith("license", row);
+    expect(openUpsellSpy).toHaveBeenCalledWith(row);
     expect(setSpy).not.toHaveBeenCalled();
   });
 
-  it("Alt+ArrowDown on a row opens Settings ▸ License instead of reordering, no write", async () => {
+  it("Alt+ArrowDown on a row opens the focused Unlock-Pro modal instead of reordering, no write", async () => {
     const { getAllByRole } = renderAt("/");
     await flushPrefsLoad();
     const setSpy = vi.spyOn(store, "set");
@@ -233,11 +241,11 @@ describe("Sidebar free tier (D-26/D-28)", () => {
     fireEvent.keyDown(row, { altKey: true, key: "ArrowDown" });
 
     // The focused row is threaded as the explicit focus-return target (MED-22-02).
-    expect(openSettingsSpy).toHaveBeenCalledWith("license", row);
+    expect(openUpsellSpy).toHaveBeenCalledWith(row);
     expect(setSpy).not.toHaveBeenCalled();
   });
 
-  it("'Reset order' menu item opens Settings ▸ License instead of clearing the order", async () => {
+  it("'Reset order' menu item opens the focused Unlock-Pro modal instead of clearing the order", async () => {
     await seedArrangement();
     const { getByRole, queryByRole } = renderAt("/");
     await flushPrefsLoad();
@@ -246,10 +254,10 @@ describe("Sidebar free tier (D-26/D-28)", () => {
     fireEvent.contextMenu(getByRole("navigation"));
     fireEvent.click(getByRole("menuitem", { name: /reset order/i }));
 
-    // The locked reset opens the License pane and passes the resolved menu
+    // The locked reset opens the focused modal and passes the resolved menu
     // return-focus element (finding 3) as the explicit invoker. The menu closed;
     // the stored order was NOT cleared.
-    expect(openSettingsSpy).toHaveBeenCalledWith("license", expect.anything());
+    expect(openUpsellSpy).toHaveBeenCalledWith(expect.anything());
     expect(queryByRole("menu")).toBeNull();
     expect(setSpy).not.toHaveBeenCalled();
   });

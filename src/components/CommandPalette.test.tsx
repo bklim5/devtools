@@ -43,11 +43,20 @@ vi.mock("@/shell/settingsStore", async (importOriginal) => {
   return { ...actual, openSettings: (...args: unknown[]) => openSettingsSpy(...args) };
 });
 
+// Phase 22.2: a FREE user's ⌘K opens the focused Unlock-Pro modal via openUpsell
+// instead of the palette. Spy it so the gate is observable.
+const openUpsellSpy = vi.fn();
+vi.mock("@/shell/upsellStore", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/shell/upsellStore")>();
+  return { ...actual, openUpsell: (...args: unknown[]) => openUpsellSpy(...args) };
+});
+
 let store: Store;
 
 beforeEach(() => {
   navigateSpy.mockClear();
   openSettingsSpy.mockClear();
+  openUpsellSpy.mockClear();
   store = createStoreStub();
   setPlatformForTest(makeMemoryPlatform(store));
   // Pitfall 5: jsdom's environment default is FREE — inject FULL so existing
@@ -74,6 +83,40 @@ function renderPalette() {
 function pressMetaK() {
   fireEvent.keyDown(window, { key: "k", metaKey: true });
 }
+
+// Phase 22.2: the DEV-only ⌘⇧K escape hatch force-opens the palette regardless of
+// tier (so an interactive dev / e2e can reach the in-palette "toggle free" command
+// even while FREE). Plain ⌘K is Pro-gated and routes a free user to the upsell.
+function pressDevForceK() {
+  fireEvent.keyDown(window, { key: "k", metaKey: true, shiftKey: true });
+}
+
+describe("CommandPalette — Pro gate (Phase 22.2, D-22.2-1/3)", () => {
+  it("FREE: ⌘K opens the focused Unlock-Pro modal, NOT the palette", async () => {
+    setEntitlementsForTest(FREE_SET);
+    const { queryByPlaceholderText } = renderPalette();
+    act(() => pressMetaK());
+    // The palette never opens…
+    await waitFor(() => expect(openUpsellSpy).toHaveBeenCalledTimes(1));
+    expect(queryByPlaceholderText("Search tools…")).toBeNull();
+  });
+
+  it("PRO: ⌘K opens the palette as normal (no upsell)", async () => {
+    setEntitlementsForTest(FULL_SET);
+    const { findByPlaceholderText } = renderPalette();
+    act(() => pressMetaK());
+    await findByPlaceholderText("Search tools…");
+    expect(openUpsellSpy).not.toHaveBeenCalled();
+  });
+
+  it("FREE: the DEV-only ⌘⇧K escape force-opens the palette regardless of tier", async () => {
+    setEntitlementsForTest(FREE_SET);
+    const { findByPlaceholderText } = renderPalette();
+    act(() => pressDevForceK());
+    await findByPlaceholderText("Search tools…");
+    expect(openUpsellSpy).not.toHaveBeenCalled();
+  });
+});
 
 describe("CommandPalette (⌘K fuzzy + recents + keyboard nav)", () => {
   it("does NOT auto-open on mount (D-07)", () => {
@@ -303,7 +346,9 @@ describe("DEV-only 'Toggle free tier (dev)' command (D-31/D-32)", () => {
     await store.set(PREFERENCES_STORE_KEY, { entitlementsOverride: "free" });
     setEntitlementsForTest(FREE_SET); // FREE is live
     const { findByPlaceholderText, findByText } = renderPalette();
-    act(() => pressMetaK());
+    // FREE → plain ⌘K is gated (opens the upsell, not the palette). Use the
+    // DEV-only ⌘⇧K escape to reach the in-palette dev toggle (Phase 22.2).
+    act(() => pressDevForceK());
     await findByPlaceholderText("Search tools…");
 
     fireEvent.click(await findByText("Toggle free tier (dev)"));

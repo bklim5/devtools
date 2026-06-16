@@ -1,13 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Lock } from "lucide-react";
 import { Outlet } from "react-router-dom";
 import { Sidebar } from "./components/Sidebar";
 import { CommandPalette } from "./components/CommandPalette";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { SettingsModal } from "./components/SettingsModal";
+import { UpsellModal } from "./components/UpsellPanel";
 import { useTrackActiveTool } from "./shell/useTrackActiveTool";
 import { usePreferences } from "./shell/usePreferences";
 import { useSettingsOpen } from "./shell/useSettings";
+import { useUpsellOpen } from "./shell/useUpsell";
 import { openSettings } from "./shell/settingsStore";
+import { closeUpsell } from "./shell/upsellStore";
 import {
   checkForUpdate,
   installUpdate,
@@ -179,6 +183,11 @@ export function App() {
   // "Unlock Pro" upsell modal is gone — every former opener now routes here to
   // the License pane, which renders the inline upsell itself (one upsell surface).
   const settingsOpen = useSettingsOpen();
+  // Phase 22.2: the focused "Unlock Pro" modal — ONE shell mount, a pure
+  // projection of the shared upsellStore. Opened by a free user's ⌘K and the
+  // contextual locked customization triggers (pin/drag/Alt+P/Reset); it owns its
+  // own Esc/scrim dismiss + focus trap/return.
+  const upsellOpen = useUpsellOpen();
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-bg-app font-sans text-tx">
@@ -205,6 +214,11 @@ export function App() {
           22.1-04: the only app-level modal now (the standalone Unlock Pro modal
           was removed); the License pane renders the inline upsell in-place. */}
       {settingsOpen ? <SettingsModal /> : null}
+
+      {/* Phase 22.2: the focused "Unlock Pro" modal — mounted BELOW SettingsModal
+          but they never co-open (the contextual triggers + free ⌘K fire from the
+          main UI, with Settings closed). Reuses the shared ActivationSurface. */}
+      {upsellOpen ? <UpsellModal icon={Lock} onClose={closeUpsell} /> : null}
 
       {/* Updater UX overlay (DST-02). Bottom-right, layout-agnostic, above content. */}
       <div className="pointer-events-none fixed bottom-4 right-4 z-50 flex w-full max-w-md flex-col items-end gap-2">
