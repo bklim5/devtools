@@ -3,11 +3,11 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Licensing
 status: executing
-last_updated: "2026-06-16T17:43:00.000Z"
-last_activity: 2026-06-16 -- Phase 23 context gathered (Appearance pane — theme/accent, Pro-gated, preview+Save)
+last_updated: "2026-06-16T18:48:03.212Z"
+last_activity: 2026-06-16 -- Phase 23 planning complete
 progress:
-  total_phases: 14
-  completed_phases: 7
+  total_phases: 15
+  completed_phases: 6
   total_plans: 25
   completed_plans: 25
   percent: 100
@@ -18,11 +18,11 @@ progress:
 ## Current Position
 
 Milestone: **v1.6 "Licensing"** — started 2026-06-09, roadmap created 2026-06-09.
-Phase: 23 (appearance-pane) — **CONTEXT GATHERED (2026-06-16)**, ready to plan (`23-CONTEXT.md`). Prior: 22.2 COMPLETE, verified 6/6 (`22.2-VERIFICATION.md`)
-Plan: complete — feat(22.2) + fix(22.2 codex) — isPro gate, restored UpsellModal/upsellStore, openProUpsell routing, Sidebar contextual triggers, DEV ⌘⇧K escape, e2e rework
-Status: Phase 22.2 closed. Settings phases 22–25: **2/4 complete** (22 + the inserted 22.1/22.2 follow-ups); Phase 23 (Appearance pane) is the next plannable. Phase 20 still closes on the live-purchase gate; v1.6 final close parked separately. (frontmatter percent=100 counts CREATED plans only — phases 23/24/25 are not yet planned, so the milestone is NOT done.)
+Phase: 23 (appearance-pane) — **PLANNED (2026-06-16)** — 4 plans in 3 waves, checker VERIFICATION PASSED (10/11→clean after 1 revision), RESEARCH+VALIDATION done (`23-0{1..4}-PLAN.md`). Prior: 22.2 COMPLETE, verified 6/6 (`22.2-VERIFICATION.md`)
+Plan: complete — Phase 23: W1 23-01 (ThemeName/coerceTheme widen + DEFAULT_PREFERENCES.accent #3b82f6→#5b9bf8 fix + ACCENT_SCALE 7 dual-theme pairs + executable WCAG-AA contrast assertions + pure apply helpers) ‖ 23-02 (`[data-theme="light"]` token block) · W2 23-04 (theme cards + 7-swatch accent radiogroup + preview strip + gate-on-Save → Pro persist / free openProUpsell no-persist + append SETTINGS_PANES) · W3 23-03 (App-root gated apply + matchMedia live-flip + no-flash pre-paint script + real-WKWebView e2e + phase checkpoint)
+Status: Ready to execute (`/gsd-execute-phase 23`)
 Progress: [■■□□] · Phase 22 + 22.1 complete · **Phase 22.2 COMPLETE (2026-06-16)** — user-approved mid-Phase-23 scope change: the **⌘K command palette is now Pro-gated** (a free user's ⌘K + the header pill open a focused Unlock-Pro modal; a Pro user gets the palette unchanged) and the **contextual locked customization triggers** (pin/drag/Alt+P/Reset) open that SAME focused modal instead of the 22.1 redirect-to-Settings. Gate via `isPro` (any Pro entitlement — frontend-only, no Keygen re-issue). Restored `UpsellModal` + `upsellStore`/`useUpsell` wrapping the SAME shared `ActivationSurface` (one activation surface, two presentations — partially un-reverts D-22.1-5). `openProUpsell` routes lapsed/attention paying customers (refreshNeeded/problem) to the Settings recovery form, NEVER the pitch (D-44). DEV-only ⌘⇧K force-open escape (tree-shaken from release, confirmed absent from `dist/`). Explicit license entry points (sidebar Settings row + Unlock-Pro footer + app-menu/tray + deep link) stay free → Settings ▸ License so a free user can still buy. **SET-04 revised** (⌘K no longer a free-tier path). Gates: vitest **986/986**, tsc+eslint clean, real-WKWebView e2e **22/22 spec files** (incl. new `cmdk-pro.e2e`), fresh `tauri build` (TinkerDev.app + DMG). decoder + 19 tests untouched. Deferred (non-blocking): `useFocusTrap` extraction (UpsellModal + SettingsModal share the Tab-trap), tinkerdev.io Pro-card copy sync.
-Last activity: 2026-06-16 -- Phase 22.2 COMPLETE (verified 6/6)
+Last activity: 2026-06-16 -- Phase 23 planning complete
 
 **Goal:** one-time-payment lifetime license — MoR checkout → webhook → Keygen (perpetual, node-locked, maxMachines=1); paste-key one-time activation (fingerprint `HMAC-SHA256(IOPlatformUUID, salt)`); offline Ed25519-verified `machine.lic` (~30-day TTL) thereafter; license key in Keychain (Rust-owned); free tier keeps all 11 tools — Pro locks customization (theming + ordering/pinning) behind a central entitlement gate (D-18 pivot; tool-gating mechanism ships dormant). Research: `docs/licensing-research.md`.
 
