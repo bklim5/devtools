@@ -28,10 +28,11 @@
 //     Activate form inline below (NO pitch, NO modal). The old Reactivate button
 //     that opened the stacked modal is GONE.
 // So this spec asserts the inline form is INSIDE the [role=dialog][aria-modal]
-// Settings dialog AND that upsellModalOpen() stays FALSE throughout the License-
-// pane flow (no aria-labelledby="upsell-heading" dialog ever stacks). The
-// standalone UpsellModal's sidebar/⌘K entries stay green in settings.e2e.ts +
-// entitlements.e2e.ts (D-22.1-5, unchanged).
+// Settings dialog AND that stackedUpsellModalPresent() stays FALSE throughout the
+// License-pane flow (no aria-labelledby="upsell-heading" dialog ever stacks). Post-
+// 22.1-04 the standalone UpsellModal was REMOVED entirely, so that guard is now
+// structurally always false — the sidebar/⌘K entries route to Settings ▸ License
+// too (covered by settings.e2e.ts + entitlements.e2e.ts).
 //
 // The e2e-spike preflight resets the DEV prefs.json + machine.dev.lic to a
 // deterministic baseline (no override, no cert → notActivated/FREE under the live
@@ -48,8 +49,8 @@
 //      Activate (NO pitch, NO modal) — proven against the real Rust fail-closed
 //      verify path (D-22.1-7).
 //   4. Clicking Refresh shows the calm aria-live "Refreshing…" line (no spinner).
-//   5. Activation happens INLINE — upsellModalOpen() stays false throughout the
-//      License-pane flow (no modal-on-modal; D-22.1-4/5).
+//   5. Activation happens INLINE — stackedUpsellModalPresent() stays false
+//      throughout the License-pane flow (no modal-on-modal; D-22.1-4/5).
 //
 // The Pro-active states + the confirm-first Deactivate flow + the dormant-restore
 // round-trip need a real activated cert and are covered by the human walkthrough +
@@ -58,7 +59,12 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { assert, navigateToTool, saveScreenshot, upsellModalOpen } from "./helpers";
+import {
+  assert,
+  navigateToTool,
+  saveScreenshot,
+  stackedUpsellModalPresent,
+} from "./helpers";
 
 // The DEBUG build reads machine.dev.lic (store.rs cfg-split, 260614-nox).
 const LIC_DIR = join(homedir(), "Library", "Application Support", "com.tinkerdev.app");
@@ -238,7 +244,7 @@ describe("License pane in the Settings modal (real WKWebView)", () => {
           'expected the inline "License key" input after revealing the form (D-22.1-6)',
       });
       assert(
-        !(await upsellModalOpen()),
+        !(await stackedUpsellModalPresent()),
         "the free inline activation must NOT stack a standalone upsell modal (D-22.1-4/5)",
       );
       await saveScreenshot(
@@ -286,7 +292,7 @@ describe("License pane in the Settings modal (real WKWebView)", () => {
         "a paying customer in the problem state must NOT see the sales pitch (D-22.1-7)",
       );
       assert(
-        !(await upsellModalOpen()),
+        !(await stackedUpsellModalPresent()),
         "the problem-state inline form must NOT stack a standalone upsell modal (D-22.1-4/5)",
       );
 
@@ -342,8 +348,8 @@ describe("License pane in the Settings modal (real WKWebView)", () => {
   // (notActivated) state renders the upsell/activation surface INLINE inside the
   // Settings dialog — it does NOT open a standalone upsell modal stacked on top.
   // Proves: the inline pitch + key input are INSIDE [role=dialog][aria-modal] AND
-  // upsellModalOpen() (the aria-labelledby="upsell-heading" dialog) stays FALSE
-  // throughout — no modal-on-modal.
+  // stackedUpsellModalPresent() (the aria-labelledby="upsell-heading" dialog, removed
+  // post-22.1-04) stays FALSE throughout — no modal-on-modal.
   it("the free state renders the upsell/activation INLINE in the Settings dialog — no stacked upsell modal (D-22.1-6)", async () => {
     await navigateToTool("protobuf-decoder");
     const firstHandle = await $('button[aria-label^="Reorder "]');
@@ -365,7 +371,7 @@ describe("License pane in the Settings modal (real WKWebView)", () => {
       );
       // No upsell modal stacks before OR after revealing the inline form.
       assert(
-        !(await upsellModalOpen()),
+        !(await stackedUpsellModalPresent()),
         "no standalone upsell modal should be open in the inline free state",
       );
       assert(
@@ -374,7 +380,7 @@ describe("License pane in the Settings modal (real WKWebView)", () => {
       );
       await clickPaneButton("I have a license key");
       // The key input appears INLINE inside the SAME Settings dialog (no second
-      // dialog) — prove both: the input exists, and upsellModalOpen() is false.
+      // dialog) — prove both: the input exists, and stackedUpsellModalPresent() is false.
       await browser.waitUntil(async () => paneHasKeyInput(), {
         timeout: 5_000,
         timeoutMsg:
@@ -385,7 +391,7 @@ describe("License pane in the Settings modal (real WKWebView)", () => {
         "the revealed inline form must offer the Activate button (D-22.1-6)",
       );
       assert(
-        !(await upsellModalOpen()),
+        !(await stackedUpsellModalPresent()),
         "revealing the inline form must NOT stack a standalone upsell modal (D-22.1-4/5)",
       );
       await saveScreenshot(
@@ -450,7 +456,7 @@ describe("License pane in the Settings modal (real WKWebView)", () => {
         "a paying customer must NOT see the sales pitch in the problem state (D-22.1-7)",
       );
       assert(
-        !(await upsellModalOpen()),
+        !(await stackedUpsellModalPresent()),
         "the problem-state inline form must NOT stack a standalone upsell modal (D-22.1-4/5)",
       );
       await saveScreenshot(

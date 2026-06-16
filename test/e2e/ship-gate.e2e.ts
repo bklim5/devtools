@@ -181,10 +181,12 @@ function hasDeactivate(): Promise<boolean> {
  *  for "problem", so the footer reads "License needs attention" instead). Instead
  *  use the LOCKED-CUSTOMIZATION observable the entitlements spec relies on
  *  (D-26/D-28): when ordering is locked (free), focusing a sidebar row and firing
- *  the real macOS Alt+P chord opens the shared upsell modal rather than pinning.
- *  This is a true entitlements-locked proof, not a label change. Returns true when
- *  the locked chord opened the upsell modal — its problem-state copy ("Your license
- *  file couldn't be verified") is matched by the shared `upsellModalOpen` probe. */
+ *  the real macOS Alt+P chord opens Settings ▸ License rather than pinning (post-
+ *  22.1-04 the chord calls openSettings("license") — the standalone upsell modal was
+ *  removed). This is a true entitlements-locked proof, not a label change. Returns
+ *  true when the locked chord opened the Settings ▸ License pane — its problem-state
+ *  status heading ("License needs attention") is matched by the shared
+ *  `upsellModalOpen` (settingsLicensePaneOpen) probe. */
 async function lockedCustomizationOpensUpsell(): Promise<boolean> {
   await navigateToTool("protobuf-decoder");
   const order = await readOrder();

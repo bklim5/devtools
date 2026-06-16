@@ -1,5 +1,7 @@
 // License activation UX — real macOS WKWebView gate (Phase 19, 19-04; LIC-01/
-// LIC-06, D-33/D-34/D-37/D-43/D-44, threats T-19-21/T-19-22).
+// LIC-06, D-33/D-34/D-37/D-43/D-44, threats T-19-21/T-19-22). Migrated to the
+// Settings ▸ License pane (Phase 22.1-04: the standalone UpsellModal was REMOVED;
+// every former opener now calls openSettings("license")).
 //
 // Drives the ACTUAL app's WKWebView via the embedded W3C WebDriver server
 // (tauri-plugin-webdriver on 127.0.0.1:4445, debug-only) — same harness as
@@ -9,19 +11,21 @@
 // attention footer instead — walkthrough coverage).
 //
 // The load-bearing real-runtime checks — only the real WKWebView truly proves:
-//   1. Flow A (form mechanics): the D-22 button reveals the inline key form in
-//      place (D-33); submitting a key drives the real Rust activate command —
-//      the aria-live region shows a status and then SOME inline error renders
-//      (the local CE may or may not be up — the assertion is error-region-non-
-//      empty, not a specific message) while the field RETAINS its value (D-37).
+//   1. Flow A (form mechanics): in the FREE inline pitch the "I have a license key"
+//      button reveals the inline key form IN PLACE inside the Settings ▸ License
+//      pane (D-33); submitting a key drives the real Rust activate command — the
+//      aria-live region shows a status and then SOME inline error renders (the local
+//      CE may or may not be up — the assertion is error-region-non-empty, not a
+//      specific message) while the field RETAINS its value (D-37).
 //   2. Flow B (fail-closed surfacing): garbage seeded into the REAL app-data
-//      machine.lic (`~/Library/Application Support/com.tinkerdev.app/`) makes
-//      the panel's mount re-query render the D-44 problem state and the footer
-//      swap to "License needs attention" (D-43) — no crash, no interruption
-//      (T-19-22), proven against the real Rust verify path.
+//      machine.dev.lic (`~/Library/Application Support/com.tinkerdev.app/`) makes
+//      the pane's mount re-query render the D-44 problem state ("License needs
+//      attention" / "couldn't be verified") and the footer swap to "License needs
+//      attention" (D-43) — no crash, no interruption (T-19-22), proven against the
+//      real Rust verify path.
 //
 // Cleanup discipline (T-18-15 precedent): the finally block restores/deletes
-// the seeded machine.lic, re-queries status so the attention state clears, and
+// the seeded machine.dev.lic, re-queries status so the attention state clears, and
 // untoggles the free tier — a failed run must not poison later specs or leave
 // a fake license problem on the dev machine.
 
@@ -41,6 +45,7 @@ import {
   ensureProTier,
   navigateToTool,
   saveScreenshot,
+  settingsLicensePaneOpen,
 } from "./helpers";
 
 // The REAL app-data path (tauri.conf.json identifier com.tinkerdev.app) — the
@@ -58,18 +63,17 @@ const LIC_PATH = join(LIC_DIR, "machine.dev.lic");
 
 const TEST_KEY = "TEST-KEY-E2E";
 
+// The Settings dialog hosts the inline License pane (post-22.1-04). All the form
+// probes scope to THIS dialog (the ⌘K palette carries aria-label="Command palette"
+// and is NOT aria-modal, so it never matches).
+const DIALOG_SEL = '[role="dialog"][aria-modal="true"]';
+
 // --- DOM probes (single-round-trip reads — WebKit lesson 3) -----------------
 
-// The shared upsell dialog (aria-labelledby is its stable marker; the ⌘K
-// palette dialog carries aria-label="Command palette" instead).
-function upsellDialogOpen(): Promise<boolean> {
-  return browser.execute(
-    () =>
-      document.querySelector(
-        '[role="dialog"][aria-labelledby="upsell-heading"]',
-      ) !== null,
-  );
-}
+// Whether the Settings ▸ License pane is open (the inline upsell surface). The
+// standalone aria-labelledby="upsell-heading" dialog no longer exists — every
+// former opener routes to openSettings("license").
+const upsellDialogOpen = settingsLicensePaneOpen;
 
 // The footer row's current label, or null when absent. ONE row carries both
 // states: "Unlock Pro" (D-29 free tier) / "License needs attention" (D-43).
@@ -97,90 +101,99 @@ function clickFooter(): Promise<void> {
   });
 }
 
-// Click a button inside the upsell dialog by its visible text.
+// Click a button inside the Settings ▸ License pane by its visible text.
 function clickDialogButton(text: string): Promise<void> {
-  return browser.execute((label: string) => {
-    const dialog = document.querySelector(
-      '[role="dialog"][aria-labelledby="upsell-heading"]',
-    );
-    const btn = Array.from(dialog?.querySelectorAll("button") ?? []).find((b) =>
-      (b.textContent ?? "").includes(label),
-    ) as HTMLElement | undefined;
-    btn?.click();
-  }, text);
+  return browser.execute(
+    (sel: string, label: string) => {
+      const dialog = document.querySelector(sel);
+      const btn = Array.from(dialog?.querySelectorAll("button") ?? []).find((b) =>
+        (b.textContent ?? "").includes(label),
+      ) as HTMLElement | undefined;
+      btn?.click();
+    },
+    DIALOG_SEL,
+    text,
+  );
 }
 
-// The revealed key input inside the dialog (the form's only text input).
+// The revealed key input inside the pane (the inline activation form's text input).
 function keyInputValue(): Promise<string | null> {
-  return browser.execute(() => {
+  return browser.execute((sel: string) => {
     const input = document.querySelector(
-      '[role="dialog"][aria-labelledby="upsell-heading"] form input[type="text"]',
+      `${sel} form input[type="text"]`,
     ) as HTMLInputElement | null;
     return input ? input.value : null;
-  });
+  }, DIALOG_SEL);
 }
 
-// The single aria-live status/error line under the field (D-34/D-37).
+// The single aria-live status/error line under the field (D-34/D-37). The pane has
+// several aria-live regions (the status banner + the form line); the activation
+// error lands in the form's region, so match the one whose text is non-empty and
+// NOT the calm status copy — read ALL of them joined to stay robust.
 function statusLineText(): Promise<string> {
-  return browser.execute(() => {
-    const live = document.querySelector(
-      '[role="dialog"][aria-labelledby="upsell-heading"] [aria-live="polite"]',
-    );
-    return (live?.textContent ?? "").trim();
-  });
+  return browser.execute((sel: string) => {
+    const dialog = document.querySelector(sel);
+    if (!dialog) return "";
+    return Array.from(dialog.querySelectorAll('[aria-live="polite"]'))
+      .map((n) => (n.textContent ?? "").trim())
+      .filter((t) => t !== "")
+      .join(" | ");
+  }, DIALOG_SEL);
 }
 
-// Whether the dialog shows the D-44 problem heading.
+// Whether the pane shows the D-44 problem copy ("couldn't be verified").
 function problemHeadingVisible(): Promise<boolean> {
-  return browser.execute(() => {
-    const dialog = document.querySelector(
-      '[role="dialog"][aria-labelledby="upsell-heading"]',
-    );
+  return browser.execute((sel: string) => {
+    const dialog = document.querySelector(sel);
     return (dialog?.textContent ?? "").includes("couldn't be verified");
-  });
+  }, DIALOG_SEL);
 }
 
 // Type into the revealed key input through React's controlled-input contract
 // (native value setter + bubbling "input" event — a bare .value write is
 // swallowed by React's value tracker).
 function typeKey(value: string): Promise<void> {
-  return browser.execute((v: string) => {
-    const input = document.querySelector(
-      '[role="dialog"][aria-labelledby="upsell-heading"] form input[type="text"]',
-    ) as HTMLInputElement | null;
-    if (!input) return;
-    const setter = Object.getOwnPropertyDescriptor(
-      window.HTMLInputElement.prototype,
-      "value",
-    )?.set;
-    setter?.call(input, v);
-    input.dispatchEvent(new Event("input", { bubbles: true }));
-  }, value);
+  return browser.execute(
+    (sel: string, v: string) => {
+      const input = document.querySelector(
+        `${sel} form input[type="text"]`,
+      ) as HTMLInputElement | null;
+      if (!input) return;
+      const setter = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        "value",
+      )?.set;
+      setter?.call(input, v);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    },
+    DIALOG_SEL,
+    value,
+  );
 }
 
-// Open the panel via the footer and wait for the dialog.
+// Open the Settings ▸ License pane via the footer row and wait for the dialog.
 async function openPanel(): Promise<void> {
   await clickFooter();
   await browser.waitUntil(upsellDialogOpen, {
     timeout: 5_000,
-    timeoutMsg: "expected the footer click to open the shared upsell dialog",
+    timeoutMsg: "expected the footer click to open the Settings ▸ License pane",
   });
 }
 
-// Close the dialog via Escape (document-level listener — bubble it from the
+// Close the Settings modal via Escape (document-level listener — bubble it from the
 // focused element inside the dialog, same as entitlements.e2e.ts).
 async function closePanel(): Promise<void> {
   if (await upsellDialogOpen()) {
     await dispatchKey("Escape", false);
     await browser.waitUntil(async () => !(await upsellDialogOpen()), {
       timeout: 5_000,
-      timeoutMsg: "expected Escape to dismiss the upsell dialog",
+      timeoutMsg: "expected Escape to dismiss the Settings ▸ License modal",
     });
   }
 }
 
 describe("License activation UX (real WKWebView)", () => {
-  it("reveals the inline form, renders errors with value retention (D-33/D-37), and surfaces a corrupt machine.lic as footer attention + panel problem state (D-43/D-44)", async () => {
+  it("reveals the inline form in the Settings ▸ License pane, renders errors with value retention (D-33/D-37), and surfaces a corrupt machine.dev.lic as footer attention + pane problem state (D-43/D-44)", async () => {
     // Land on a deterministic tool so the shell + sidebar are mounted.
     await navigateToTool("protobuf-decoder");
     const firstHandle = await $('button[aria-label^="Reorder "]');

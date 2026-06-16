@@ -18,10 +18,10 @@
 //      pinned group/divider (D-26) and the free-tier-only "Unlock Pro" footer
 //      row appears (D-29).
 //   3. A locked customization affordance — the REAL macOS Alt+P shape
-//      (Option+P composes to "π": key "π", code "KeyP") — opens the shared
-//      upsell modal (the static TinkerDev thank-you panel — D-19 override:
-//      no "Unlocks:" feature line) instead of pinning (D-28), and
-//      Escape dismisses it.
+//      (Option+P composes to "π": key "π", code "KeyP") — opens Settings ▸ License
+//      (the inline upsell surface — post-22.1-04 every former upsell entry routes
+//      to openSettings("license"), the standalone UpsellModal was REMOVED) instead
+//      of pinning (D-28), and Escape dismisses the Settings modal.
 //   4. Toggling back to full tier restores the seeded custom order + pinned
 //      section instantly — the stored prefs were NEVER deleted while locked
 //      (D-26 prefs preservation; the toggle-back is also the T-18-15 cleanup
@@ -36,9 +36,15 @@
 
 // Shared with sidebar.e2e.ts: assert, the bubbling dispatchKey/dispatchAltP
 // Alt-chord helpers (WebKit drops Alt on synthesized key actions; Option+P
-// composes to "π" — while ordering is LOCKED that chord must open the upsell
-// modal instead of pinning, D-28), and the single-round-trip sidebar readers —
+// composes to "π" — while ordering is LOCKED that chord must open Settings ▸
+// License instead of pinning, D-28), and the single-round-trip sidebar readers —
 // see the doc comments in helpers.ts for the full WHY behind each.
+//
+// Post-22.1-04: the standalone "Unlock Pro" UpsellModal was REMOVED — every former
+// upsell entry (the footer row, the locked customization affordances, the ⌘K free
+// "License" command) now calls openSettings("license"), opening the shell Settings
+// modal on the License pane (the inline upsell surface). `settingsLicensePaneOpen`
+// (aliased here as the former `upsellModalOpen`) probes that Settings ▸ License pane.
 import {
   assert,
   dispatchAltP,
@@ -51,33 +57,26 @@ import {
   readPinnedOrder,
   runDevToggle,
   saveScreenshot,
+  settingsLicensePaneOpen,
   unlockProFooterPresent,
-  upsellModalOpen as sharedUpsellModalOpen,
 } from "./helpers";
 
-// Whether the shared upsell modal is open (the [role="dialog"] carrying the
-// UI-SPEC copy contract). Distinguished from the ⌘K palette dialog by the
-// static thank-you heading (D-19 override: the "Unlocks:" feature line was
-// removed per walkthrough 2026-06-10 — lock context comes from the affordance).
-function upsellModalOpen(): Promise<boolean> {
-  return browser.execute(() =>
-    Array.from(document.querySelectorAll('[role="dialog"]')).some((d) =>
-      (d.textContent ?? "").includes("Thank you for using TinkerDev"),
-    ),
-  );
-}
+// Whether Settings ▸ License (the inline upsell surface) is open. The locked Alt+P
+// chord + the ⌘K free "License" command both route here now (openSettings) — the
+// standalone modal is gone. Reads the Settings dialog's License-pane copy.
+const upsellModalOpen = settingsLicensePaneOpen;
 
 // runDevToggle (the ⌘K "Toggle free tier (dev)" drive) moved to helpers.ts in
 // Phase 19 so license.e2e.ts shares the exact same real-user path — see the
 // doc comment there for the 18-04 walkthrough regression it encodes.
 
-// Drive the ⌘K palette's production "License" command (D-88) via the real user
-// path — open the palette, TYPE "License" (the same controlled-input contract
-// runDevToggle uses: native value setter + bubbling "input" event, since a bare
-// .value write is swallowed by React's value tracker), wait for the row to
-// surface, then click it. In the FREE tier its run() opens the shared upsell
-// modal instead of navigating (the pre-fix arm did navigate("/") — a silent
-// no-op on "/", read as broken; 21-04 walkthrough fix).
+// Drive the ⌘K palette's production "License" command via the real user path —
+// open the palette, TYPE "License" (the same controlled-input contract runDevToggle
+// uses: native value setter + bubbling "input" event, since a bare .value write is
+// swallowed by React's value tracker), wait for the row to surface, then click it.
+// In the FREE tier its run() opens Settings ▸ License (post-22.1-04: openSettings
+// ("license") — the standalone upsell modal was removed) instead of navigating
+// (the pre-fix arm did navigate("/") — a silent no-op on "/", read as broken).
 async function runLicenseCommand(): Promise<void> {
   await browser.execute(() => {
     window.dispatchEvent(
@@ -188,7 +187,7 @@ async function resetArrangement(): Promise<void> {
 }
 
 describe("Entitlements dev toggle (real WKWebView)", () => {
-  it("locks the sidebar UX (default order, hidden pinned, footer row, Alt+P upsell modal) and toggle-back restores the preserved arrangement", async () => {
+  it("locks the sidebar UX (default order, hidden pinned, footer row, Alt+P opens Settings ▸ License) and toggle-back restores the preserved arrangement", async () => {
     // Land on a deterministic tool so the shell + sidebar are mounted.
     await navigateToTool("protobuf-decoder");
     const firstHandle = await $('button[aria-label^="Reorder "]');
@@ -264,35 +263,41 @@ describe("Entitlements dev toggle (real WKWebView)", () => {
       );
 
       // (c) D-28: the real macOS Alt+P shape (key "π" / code "KeyP") on a
-      //     focused row opens the shared upsell modal instead of pinning.
+      //     focused row opens Settings ▸ License (the inline upsell surface)
+      //     instead of pinning — post-22.1-04 the chord calls openSettings.
       const focusedLocked = await focusRow(registryDefault[0]);
       assert(focusedLocked, "could not focus a row to invoke the locked Alt+P chord");
       await dispatchAltP();
       await browser.waitUntil(async () => upsellModalOpen(), {
         timeout: 5_000,
         timeoutMsg:
-          'expected Alt+P while locked to open the [role="dialog"] upsell modal ("Thank you for using TinkerDev")',
+          'expected Alt+P while locked to open the Settings ▸ License pane (the inline upsell — "Thank you for using TinkerDev")',
       });
       assert(
         (await readPinnedOrder()).length === 0,
         "the locked Alt+P chord must never actually pin (no write path while locked)",
       );
 
-      // Screenshot the locked state with the modal up (the gate artifact).
-      await saveScreenshot("entitlements", "entitlements-locked-upsell.png", "locked-upsell");
+      // Screenshot the locked state with the Settings ▸ License pane up (the gate artifact).
+      await saveScreenshot("entitlements", "entitlements-locked-settings.png", "locked-settings");
 
-      // (d) Escape dismisses the modal (document-level listener — bubble it
-      //     from the focused element inside the dialog).
+      // (d) Escape dismisses the Settings modal (document-level listener — bubble
+      //     it from the focused element inside the dialog).
       await dispatchKey("Escape", false);
       await browser.waitUntil(async () => !(await upsellModalOpen()), {
         timeout: 5_000,
-        timeoutMsg: "expected Escape to dismiss the upsell modal",
+        timeoutMsg: "expected Escape to dismiss the Settings ▸ License modal",
       });
     } finally {
       // (e) TOGGLE BACK — also the unconditional cleanup. Best-effort under a
       // failure (an assertion error above must win over a cleanup error).
       try {
-        if (await upsellModalOpen()) await dispatchKey("Escape", false);
+        if (await upsellModalOpen()) {
+          await dispatchKey("Escape", false);
+          await browser
+            .waitUntil(async () => !(await upsellModalOpen()), { timeout: 5_000 })
+            .catch(() => {});
+        }
         if (await unlockProFooterPresent()) {
           await runDevToggle();
           await browser.waitUntil(async () => !(await unlockProFooterPresent()), {
@@ -324,14 +329,14 @@ describe("Entitlements dev toggle (real WKWebView)", () => {
     await resetArrangement();
   });
 
-  // 21-04 walkthrough fix #1 — the ⌘K production "License" command in the FREE
-  // (notActivated) tier opens the SHARED Unlock Pro modal (D-88) rather than
-  // silently navigating. The pre-fix free arm called navigate("/"), a no-op when
-  // already on "/" — it read as "the command does nothing". This proves the real
-  // path on the real WKWebView: type "License", run it, the [aria-modal] dialog
-  // mounts. (The Pro arm routes to #/settings/license instead — covered by
-  // license-settings.e2e.ts; here we pin the FREE-tier upsell arm.)
-  it('the ⌘K "License" command in the free tier opens the shared Unlock Pro modal (D-88)', async () => {
+  // Post-22.1-04 — the ⌘K production "License" command in the FREE (notActivated)
+  // tier opens Settings ▸ License (the inline upsell pane) rather than silently
+  // navigating. The pre-fix free arm called navigate("/"), a no-op when already on
+  // "/" — it read as "the command does nothing". Every former upsell entry now
+  // routes to openSettings("license") (the standalone UpsellModal was REMOVED), so
+  // this proves the real path on the real WKWebView: type "License", run it, the
+  // [aria-modal] Settings dialog mounts on the License pane.
+  it('the ⌘K "License" command in the free tier opens the Settings ▸ License pane', async () => {
     await navigateToTool("protobuf-decoder");
     const firstHandle = await $('button[aria-label^="Reorder "]');
     await firstHandle.waitForExist({ timeout: 15_000 });
@@ -344,31 +349,31 @@ describe("Entitlements dev toggle (real WKWebView)", () => {
       'expected the free-tier "Unlock Pro" footer after establishing the free tier (D-29)',
     );
     assert(
-      !(await sharedUpsellModalOpen()),
-      "no upsell modal should be open before running the License command",
+      !(await upsellModalOpen()),
+      "no Settings ▸ License pane should be open before running the License command",
     );
 
     try {
       await runLicenseCommand();
-      await browser.waitUntil(async () => sharedUpsellModalOpen(), {
+      await browser.waitUntil(async () => upsellModalOpen(), {
         timeout: 5_000,
         timeoutMsg:
-          'expected the ⌘K "License" command in the free tier to open the shared Unlock Pro modal (D-88) — it must not silently navigate',
+          'expected the ⌘K "License" command in the free tier to open the Settings ▸ License pane — it must not silently navigate',
       });
       await saveScreenshot(
         "entitlements",
-        "entitlements-license-command-upsell.png",
-        "license-command-upsell",
+        "entitlements-license-command-settings.png",
+        "license-command-settings",
       );
     } finally {
       // Dismiss any open modal and re-establish Pro so no "free" override is left
       // behind for later specs in this WDIO run (best-effort — T-18-15).
       try {
-        if (await sharedUpsellModalOpen()) {
+        if (await upsellModalOpen()) {
           await dispatchKey("Escape", false);
-          await browser.waitUntil(async () => !(await sharedUpsellModalOpen()), {
+          await browser.waitUntil(async () => !(await upsellModalOpen()), {
             timeout: 5_000,
-            timeoutMsg: "expected Escape to dismiss the upsell modal",
+            timeoutMsg: "expected Escape to dismiss the Settings ▸ License modal",
           });
         }
         await ensureProTier();

@@ -8,12 +8,14 @@
 //
 // What this spec proves on the real runtime — and where the wiring proof lives:
 //   - PROVES (the OBSERVABLE in-app contract on the real WKWebView): in the
-//     free tier the shared upsell surface renders a Tab-reachable "Buy license"
-//     CTA, and clicking it is a CALM, best-effort OS hand-off — it does NOT
-//     navigate the in-app document (the HashRouter route window.location.hash is
-//     unchanged) and it does NOT crash/unmount the modal (the dialog survives the
-//     click). This is exactly the T-20-01 contract that matters on the real
-//     runtime: no open-redirect of the app itself, no throw at the user.
+//     free tier the shared upsell surface — post-22.1-04 the Settings ▸ License
+//     pane (the standalone UpsellModal was REMOVED; the footer "Unlock Pro" row now
+//     calls openSettings("license")) — renders a Tab-reachable "Buy license" CTA,
+//     and clicking it is a CALM, best-effort OS hand-off — it does NOT navigate the
+//     in-app document (the HashRouter route window.location.hash is unchanged) and
+//     it does NOT crash/unmount the Settings dialog (it survives the click). This is
+//     exactly the T-20-01 contract that matters on the real runtime: no
+//     open-redirect of the app itself, no throw at the user.
 //   - DOES NOT (CANNOT) PROVE HERE: that the click calls the native opener seam
 //     with https://tinkerdev.io/buy. That positive openUrl-called-once-with-URL
 //     contract is NOT observable from WebDriver on this hardened WKWebView (see
@@ -54,7 +56,7 @@
 // but to keep this spec independent of prior-spec tier state in the same WDIO
 // run, the spec establishes the FREE tier explicitly via the ⌘K DEV command
 // (ensureFreeTier — the same real-user path entitlements.e2e.ts uses) so the
-// "Unlock Pro" footer that opens the shared upsell modal is present, then
+// "Unlock Pro" footer that opens the Settings ▸ License pane is present, then
 // re-establishes Pro in cleanup so it leaves no "free" override behind for later
 // specs in the same WDIO run.
 
@@ -63,53 +65,53 @@ import {
   ensureFreeTier,
   ensureProTier,
   saveScreenshot,
+  settingsLicensePaneOpen,
   unlockProFooterPresent,
 } from "./helpers";
 
-// Whether the shared upsell modal is open — the [role="dialog"] carrying the
-// UI-SPEC thank-you copy (distinguished from the ⌘K palette dialog by heading).
-function upsellModalOpen(): Promise<boolean> {
-  return browser.execute(() =>
-    Array.from(document.querySelectorAll('[role="dialog"]')).some((d) =>
-      (d.textContent ?? "").includes("Thank you for using TinkerDev"),
-    ),
-  );
-}
+// Whether Settings ▸ License (the inline upsell surface) is open — post-22.1-04 the
+// footer "Unlock Pro" row calls openSettings("license") (the standalone UpsellModal
+// was removed). Reads the Settings dialog's License-pane copy.
+const upsellModalOpen = settingsLicensePaneOpen;
 
-// Whether the "Buy license" button exists inside the open upsell dialog.
+// The Settings dialog (the focus-trapped [role=dialog][aria-modal] that hosts the
+// inline License pane). Scoping the Buy-CTA probes to THIS dialog keeps them off the
+// shell's own buttons.
+const DIALOG_SEL = '[role="dialog"][aria-modal="true"]';
+
+// Whether the "Buy license" button exists inside the open Settings ▸ License dialog.
 function buyButtonPresent(): Promise<boolean> {
-  return browser.execute(() =>
-    Array.from(document.querySelectorAll('[role="dialog"] button')).some(
+  return browser.execute((sel: string) => {
+    const dialog = document.querySelector(sel);
+    if (!dialog) return false;
+    return Array.from(dialog.querySelectorAll("button")).some(
       (b) => (b.textContent ?? "").trim() === "Buy license",
-    ),
-  );
+    );
+  }, DIALOG_SEL);
 }
 
-// The "Buy license" button's tabIndex inside the dialog (>= 0 ⇒ Tab-reachable;
-// the focus-trap in UpsellModal cycles only focusable controls). -2 means the
-// button was not found.
+// The "Buy license" button's tabIndex inside the dialog (>= 0 ⇒ Tab-reachable; the
+// Settings modal's focus-trap cycles only focusable controls). -2 = not found.
 function buyButtonTabIndex(): Promise<number> {
-  return browser.execute(() => {
-    const buy = Array.from(
-      document.querySelectorAll('[role="dialog"] button'),
-    ).find((b) => (b.textContent ?? "").trim() === "Buy license") as
-      | HTMLButtonElement
-      | null;
+  return browser.execute((sel: string) => {
+    const dialog = document.querySelector(sel);
+    const buy = Array.from(dialog?.querySelectorAll("button") ?? []).find(
+      (b) => (b.textContent ?? "").trim() === "Buy license",
+    ) as HTMLButtonElement | null;
     return buy ? buy.tabIndex : -2;
-  });
+  }, DIALOG_SEL);
 }
 
 // Click the "Buy license" button inside the open dialog (by accessible name).
 function clickBuy(): Promise<boolean> {
-  return browser.execute(() => {
-    const buy = Array.from(
-      document.querySelectorAll('[role="dialog"] button'),
-    ).find((b) => (b.textContent ?? "").trim() === "Buy license") as
-      | HTMLButtonElement
-      | null;
+  return browser.execute((sel: string) => {
+    const dialog = document.querySelector(sel);
+    const buy = Array.from(dialog?.querySelectorAll("button") ?? []).find(
+      (b) => (b.textContent ?? "").trim() === "Buy license",
+    ) as HTMLButtonElement | null;
     buy?.click();
     return buy !== null;
-  });
+  }, DIALOG_SEL);
 }
 
 function currentHash(): Promise<string> {
@@ -128,7 +130,7 @@ describe("Buy-license wiring (real WKWebView)", () => {
     // BASELINE: post-D-85 the e2e baseline is FREE (the unlicensed in-Tauri flip),
     // but to keep this spec independent of prior-spec tier state in the same WDIO
     // run, drop to FREE explicitly so the "Unlock Pro" footer (which opens the
-    // shared upsell modal) is present. ensureFreeTier carries the racy-propagation
+    // Settings ▸ License pane) is present. ensureFreeTier carries the racy-propagation
     // retry the ⌘K dev-toggle→refreshEntitlements() path needs on this WKWebView
     // worker (deferred-items / [[license-walkthrough-state-pollutes-e2e]]).
     await ensureFreeTier();
@@ -138,7 +140,8 @@ describe("Buy-license wiring (real WKWebView)", () => {
     );
 
     try {
-      // Open the shared upsell modal from the footer "Unlock Pro" row.
+      // Open the Settings ▸ License pane from the footer "Unlock Pro" row
+      // (openSettings("license") — post-22.1-04).
       await browser.execute(() => {
         const btn = Array.from(document.querySelectorAll("aside button")).find(
           (b) => (b.textContent ?? "").includes("Unlock Pro"),
@@ -148,18 +151,18 @@ describe("Buy-license wiring (real WKWebView)", () => {
       await browser.waitUntil(async () => upsellModalOpen(), {
         timeout: 5_000,
         timeoutMsg:
-          'expected the "Unlock Pro" footer row to open the upsell modal',
+          'expected the "Unlock Pro" footer row to open the Settings ▸ License pane',
       });
 
-      // The Buy CTA is present AND Tab-reachable inside the dialog (WCAG-AA — the
-      // focus-trap cycles it). A hidden/tabIndex=-1 CTA would fail here.
+      // The Buy CTA is present AND Tab-reachable inside the Settings dialog (WCAG-AA
+      // — the modal's focus-trap cycles it). A hidden/tabIndex=-1 CTA would fail here.
       assert(
         await buyButtonPresent(),
-        'expected a "Buy license" button inside the open upsell modal',
+        'expected a "Buy license" button inside the open Settings ▸ License pane',
       );
       assert(
         (await buyButtonTabIndex()) >= 0,
-        "the Buy CTA must be keyboard/Tab-reachable inside the upsell dialog (WCAG-AA)",
+        "the Buy CTA must be keyboard/Tab-reachable inside the Settings ▸ License dialog (WCAG-AA)",
       );
 
       // Screenshot the Buy affordance for the gsd-ui-review audit.
@@ -185,17 +188,17 @@ describe("Buy-license wiring (real WKWebView)", () => {
         `the in-app route changed after clicking Buy (before=${hashBefore}, after=${hashAfter}) — the Buy CTA must never navigate the document`,
       );
 
-      // The modal did not crash — it is still mounted (the panel survived the
+      // The dialog did not crash — it is still mounted (the pane survived the
       // click; a thrown error would have unmounted/blanked the dialog). This is
       // the runtime proof that the best-effort opener call is CALM (D-67) — the
       // unit suite pins that openUrl is called once with the URL and that a
       // rejected open does not throw.
       assert(
         await upsellModalOpen(),
-        "the upsell modal unmounted after clicking Buy — the CTA must be calm/best-effort, never throw",
+        "the Settings ▸ License pane unmounted after clicking Buy — the CTA must be calm/best-effort, never throw",
       );
 
-      // Dismiss the modal (Escape — document-level listener).
+      // Dismiss the Settings modal (Escape — document-level listener).
       await browser.execute(() => {
         document.activeElement?.dispatchEvent(
           new KeyboardEvent("keydown", {
@@ -207,7 +210,7 @@ describe("Buy-license wiring (real WKWebView)", () => {
       });
       await browser.waitUntil(async () => !(await upsellModalOpen()), {
         timeout: 5_000,
-        timeoutMsg: "expected Escape to dismiss the upsell modal",
+        timeoutMsg: "expected Escape to dismiss the Settings ▸ License modal",
       });
     } finally {
       // Cleanup (T-18-15): dismiss any open modal and re-establish Pro best-effort
@@ -223,6 +226,9 @@ describe("Buy-license wiring (real WKWebView)", () => {
               new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
             );
           });
+          await browser
+            .waitUntil(async () => !(await upsellModalOpen()), { timeout: 5_000 })
+            .catch(() => {});
         }
         await ensureProTier();
       } catch (cleanupError) {
