@@ -88,3 +88,36 @@ pub async fn deactivate_machine(
 ) -> Result<LicenseStatusPayload, LicenseError> {
     state.0.lock().await.deactivate().await
 }
+
+/// DEV-ONLY license-state override (the e2e seam, 22.1-04). Sets a process-local
+/// synthetic override on the managed `LicenseManager` so the real-WKWebView e2e
+/// can deterministically drive free/licensed/problem (+offlineGrace/refreshNeeded)
+/// without a live CE checkout (which needs a server-side signing key, impossible
+/// headlessly). `Some(state)` makes `license_status` AND `license_status_detail`
+/// return a SYNTHETIC payload for that state, bypassing the cert/Keychain; `None`
+/// clears it (real behavior). Recognized states: "licensed" | "offlineGrace" |
+/// "refreshNeeded" | "problem" | "notActivated" (alias "free") — any unrecognized
+/// value clears the override (treated as `None`).
+///
+/// DOUBLE-GATED, mirroring the dev-CA idiom in keygen_client.rs + the webdriver
+/// plugin in lib.rs: this command, the manager's `set_dev_state_override` setter,
+/// the `DevLicenseState` enum, and the synthetic builder are ALL
+/// `#[cfg(debug_assertions)]`, and lib.rs registers it ONLY under
+/// `#[cfg(debug_assertions)]` — a release build compiles every part out entirely,
+/// so no webview call can ever reach it (the prod binary is byte-identical to
+/// today bar the debug-only code; scripts/check-dev-strip.sh asserts both the
+/// command name and the synthetic literals are absent from the release binary).
+#[cfg(debug_assertions)]
+#[tauri::command]
+pub async fn dev_set_license_state(
+    state: State<'_, LicenseState>,
+    new_state: Option<String>,
+) -> Result<LicenseStatusPayload, LicenseError> {
+    let parsed = new_state
+        .as_deref()
+        .and_then(super::DevLicenseState::parse);
+    let mut mgr = state.0.lock().await;
+    mgr.set_dev_state_override(parsed);
+    // Return the now-resolved status so the caller can await the flip deterministically.
+    Ok(mgr.resolve_status_with_masked_key())
+}

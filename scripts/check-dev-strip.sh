@@ -78,6 +78,24 @@ check_prod_constants() {
       return 1
     fi
   done
+  # ABSENT (load-bearing, 22.1-04 / T-22.1): the DEV-only license-state override
+  # (`dev_set_license_state`, the e2e seam) must NOT be embedded in a release
+  # binary. The override field, its setter, the DevLicenseState enum, the
+  # synthetic builder, AND the command are ALL `#[cfg(debug_assertions)]`, and
+  # lib.rs registers the command only under the debug invoke_handler arm — so a
+  # release (non-debug) build compiles every part out (the same double-gate idiom
+  # as the dev-CA + webdriver plugin). We assert the command NAME and the
+  # SYNTHETIC literals it builds (the masked test key + the test email) are absent;
+  # either present ⇒ the debug-only override leaked into prod ⇒ FAIL. Fixed-string
+  # (`grep -F`) match so the bullet glyphs / regex metachars can't neuter the check.
+  for devlit in "dev_set_license_state" "••••••••TEST" "test@tinkerdev.io"; do
+    if grep -qaF "$devlit" "$binary"; then
+      echo "FAIL: DEV-only license-state override literal '$devlit' present in release binary — the debug-only e2e seam leaked into prod (22.1-04)" >&2
+      return 1
+    fi
+  done
+  echo "OK: DEV-only license-state override (dev_set_license_state + synthetic literals) absent from release binary"
+
   # ABSENT: the localhost Keygen host string must NOT be embedded in a release
   # binary (the dev arm is cfg'd out). Corroborating check.
   if grep -qa "localhost" "$binary"; then

@@ -167,6 +167,47 @@ pub struct LicenseManager<C: LicenseApi> {
     /// then reused. The raw key is masked immediately and never retained.
     /// `Some(None)` = read happened, no/failed key (fail-soft); `None` = not yet read.
     masked_key_cache: Option<Option<String>>,
+    /// DEV-ONLY license-state override (the e2e harness seam). `Some(state)` makes
+    /// every `resolve_status*` return a SYNTHETIC payload for that state, bypassing
+    /// the cert read + Ed25519 verify + Keychain entirely — so the real-WKWebView
+    /// e2e can deterministically drive free/licensed/problem (+offlineGrace/
+    /// refreshNeeded) without a live CE checkout (which needs a server-side signing
+    /// key, impossible headlessly). `None` clears it (real behavior). DOUBLE-GATED:
+    /// the field, its setter, the synthetic builder, AND the Tauri command are ALL
+    /// `#[cfg(debug_assertions)]`, mirroring the dev-CA idiom in keygen_client.rs —
+    /// a release build compiles every part out, so no env/command can ever activate
+    /// it (the prod binary is byte-identical to today bar the debug-only code).
+    #[cfg(debug_assertions)]
+    dev_state_override: Option<DevLicenseState>,
+}
+
+/// DEV-ONLY recognized override states (the e2e seam). Compiled out of release
+/// builds entirely (`#[cfg(debug_assertions)]`).
+#[cfg(debug_assertions)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DevLicenseState {
+    Licensed,
+    OfflineGrace,
+    RefreshNeeded,
+    Problem,
+    NotActivated,
+}
+
+#[cfg(debug_assertions)]
+impl DevLicenseState {
+    /// Parse the wire string from the dev command. `"free"` aliases
+    /// `"notActivated"`; any unrecognized value is `None` (the command then clears
+    /// the override — see `dev_set_license_state`).
+    pub fn parse(s: &str) -> Option<Self> {
+        match s {
+            "licensed" => Some(Self::Licensed),
+            "offlineGrace" => Some(Self::OfflineGrace),
+            "refreshNeeded" => Some(Self::RefreshNeeded),
+            "problem" => Some(Self::Problem),
+            "notActivated" | "free" => Some(Self::NotActivated),
+            _ => None,
+        }
+    }
 }
 
 impl<C: LicenseApi> LicenseManager<C> {
@@ -183,6 +224,57 @@ impl<C: LicenseApi> LicenseManager<C> {
             fingerprint,
             stored_key_flag: None,
             masked_key_cache: None,
+            #[cfg(debug_assertions)]
+            dev_state_override: None,
+        }
+    }
+
+    /// DEV-ONLY: set/clear the synthetic license-state override (the e2e seam).
+    /// `Some(state)` makes every subsequent `resolve_status*` return a synthetic
+    /// payload for that state; `None` restores real behavior. Compiled out of
+    /// release builds (`#[cfg(debug_assertions)]`).
+    #[cfg(debug_assertions)]
+    pub fn set_dev_state_override(&mut self, state: Option<DevLicenseState>) {
+        self.dev_state_override = state;
+    }
+
+    /// DEV-ONLY: build the SYNTHETIC payload for an override state — bypasses the
+    /// cert read, Ed25519 verify, and Keychain entirely. The licensed/offlineGrace
+    /// arms carry a future expiry, the pro.theming/pro.ordering entitlements, a
+    /// masked test key, and a test email so the License pane renders the full
+    /// Pro-active UI; problem is a foreignMachine with a stored key; refreshNeeded
+    /// reports a stored key (a lapsed-but-activated machine); notActivated reports
+    /// none. Compiled out of release builds (`#[cfg(debug_assertions)]`).
+    #[cfg(debug_assertions)]
+    fn synthetic_status(state: DevLicenseState) -> LicenseStatusPayload {
+        // A far-future expiry so the synthetic Pro states never lapse mid-run.
+        let expiry = Some("2099-01-01T00:00:00.000Z".to_string());
+        let entitlements = vec!["pro.theming".to_string(), "pro.ordering".to_string()];
+        let masked_key = Some("••••••••TEST".to_string());
+        let email = Some("test@tinkerdev.io".to_string());
+        match state {
+            DevLicenseState::Licensed => LicenseStatusPayload::Licensed {
+                expiry,
+                entitlements,
+                masked_key,
+                email,
+            },
+            DevLicenseState::OfflineGrace => LicenseStatusPayload::OfflineGrace {
+                expiry,
+                entitlements,
+                masked_key,
+                email,
+            },
+            DevLicenseState::RefreshNeeded => {
+                LicenseStatusPayload::RefreshNeeded { has_stored_key: true }
+            }
+            DevLicenseState::Problem => LicenseStatusPayload::Problem {
+                problem: ProblemKind::ForeignMachine,
+                has_stored_key: true,
+            },
+            DevLicenseState::NotActivated => {
+                LicenseStatusPayload::NotActivated { has_stored_key: false }
+            }
         }
     }
 
@@ -202,6 +294,11 @@ impl<C: LicenseApi> LicenseManager<C> {
     /// called from the user-initiated license ROUTE (a dedicated command), never
     /// at startup or on the footer/panel refresh.
     pub fn resolve_status(&mut self) -> LicenseStatusPayload {
+        // DEV-ONLY override short-circuit (the e2e seam) — compiled out of release.
+        #[cfg(debug_assertions)]
+        if let Some(state) = self.dev_state_override {
+            return Self::synthetic_status(state);
+        }
         self.resolve_status_inner(false)
     }
 
@@ -215,6 +312,13 @@ impl<C: LicenseApi> LicenseManager<C> {
     /// LIC-04: only the masked form ever crosses to JS (the raw key is masked
     /// Rust-side and never retained); the read reuses the per-process cache.
     pub fn resolve_status_with_masked_key(&mut self) -> LicenseStatusPayload {
+        // DEV-ONLY override short-circuit (the e2e seam) — compiled out of release.
+        // The synthetic licensed/offlineGrace payloads carry the masked test key,
+        // so the route-only detail path renders the full Pro UI without a Keychain.
+        #[cfg(debug_assertions)]
+        if let Some(state) = self.dev_state_override {
+            return Self::synthetic_status(state);
+        }
         self.resolve_status_inner(true)
     }
 
@@ -1730,5 +1834,117 @@ mod tests {
         );
         assert!(*rec.store_removed.lock().unwrap(), "machine.lic removed");
         assert!(*rec.key_deleted.lock().unwrap(), "Keychain key deleted");
+    }
+
+    // =======================================================================
+    // DEV-ONLY license-state override (the e2e seam, 22.1-04). Compiled out of
+    // release builds (`#[cfg(debug_assertions)]`); `cargo test` is a debug build
+    // so these run. They prove the override drives every state synthetically,
+    // bypassing the cert/Keychain, and that None restores real behavior.
+    // =======================================================================
+
+    #[test]
+    fn dev_override_parses_wire_strings_with_the_free_alias() {
+        assert_eq!(DevLicenseState::parse("licensed"), Some(DevLicenseState::Licensed));
+        assert_eq!(
+            DevLicenseState::parse("offlineGrace"),
+            Some(DevLicenseState::OfflineGrace)
+        );
+        assert_eq!(
+            DevLicenseState::parse("refreshNeeded"),
+            Some(DevLicenseState::RefreshNeeded)
+        );
+        assert_eq!(DevLicenseState::parse("problem"), Some(DevLicenseState::Problem));
+        assert_eq!(
+            DevLicenseState::parse("notActivated"),
+            Some(DevLicenseState::NotActivated)
+        );
+        // "free" is the documented alias for notActivated.
+        assert_eq!(
+            DevLicenseState::parse("free"),
+            Some(DevLicenseState::NotActivated)
+        );
+        // Anything unrecognized is None (the command then clears the override).
+        assert_eq!(DevLicenseState::parse("bogus"), None);
+        assert_eq!(DevLicenseState::parse(""), None);
+    }
+
+    #[test]
+    fn dev_override_drives_each_synthetic_state_bypassing_cert_and_keychain() {
+        // The override must win over WHATEVER is on disk: seed a GARBAGE cert (a
+        // real resolve would be Problem::Corrupt) and an erroring Keychain, then
+        // prove every state resolves to its synthetic payload regardless.
+        let licensed_expiry = Some("2099-01-01T00:00:00.000Z".to_string());
+        let pro_ents = vec!["pro.theming".to_string(), "pro.ordering".to_string()];
+
+        // licensed — full Pro payload via BOTH status paths (the detail path is
+        // what the License pane's mount re-query uses, D-89).
+        let mut mgr = manager(Some("garbage"), MockKeychain::Erroring, REAL_FP);
+        mgr.set_dev_state_override(Some(DevLicenseState::Licensed));
+        let expected_licensed = LicenseStatusPayload::Licensed {
+            expiry: licensed_expiry.clone(),
+            entitlements: pro_ents.clone(),
+            masked_key: Some("••••••••TEST".to_string()),
+            email: Some("test@tinkerdev.io".to_string()),
+        };
+        assert_eq!(mgr.resolve_status(), expected_licensed);
+        assert_eq!(mgr.resolve_status_with_masked_key(), expected_licensed);
+
+        // offlineGrace — same Pro payload shape, OfflineGrace tag.
+        mgr.set_dev_state_override(Some(DevLicenseState::OfflineGrace));
+        assert_eq!(
+            mgr.resolve_status_with_masked_key(),
+            LicenseStatusPayload::OfflineGrace {
+                expiry: licensed_expiry.clone(),
+                entitlements: pro_ents.clone(),
+                masked_key: Some("••••••••TEST".to_string()),
+                email: Some("test@tinkerdev.io".to_string()),
+            }
+        );
+
+        // refreshNeeded — a lapsed-but-activated machine (has a stored key).
+        mgr.set_dev_state_override(Some(DevLicenseState::RefreshNeeded));
+        assert_eq!(
+            mgr.resolve_status(),
+            LicenseStatusPayload::RefreshNeeded { has_stored_key: true }
+        );
+
+        // problem — foreignMachine with a stored key (the e2e attention state).
+        mgr.set_dev_state_override(Some(DevLicenseState::Problem));
+        assert_eq!(
+            mgr.resolve_status(),
+            LicenseStatusPayload::Problem {
+                problem: ProblemKind::ForeignMachine,
+                has_stored_key: true,
+            }
+        );
+
+        // notActivated — free, no stored key.
+        mgr.set_dev_state_override(Some(DevLicenseState::NotActivated));
+        assert_eq!(
+            mgr.resolve_status(),
+            LicenseStatusPayload::NotActivated { has_stored_key: false }
+        );
+    }
+
+    #[test]
+    fn clearing_the_dev_override_restores_real_resolution() {
+        // With the override set, a garbage cert reads Licensed (synthetic); after
+        // clearing (None), the SAME manager falls back to the real fail-closed
+        // verify path and reports Problem::Corrupt — proving None is real behavior.
+        let mut mgr = manager(Some("garbage"), MockKeychain::WithKey, REAL_FP);
+        mgr.set_dev_state_override(Some(DevLicenseState::Licensed));
+        assert!(matches!(
+            mgr.resolve_status(),
+            LicenseStatusPayload::Licensed { .. }
+        ));
+        mgr.set_dev_state_override(None);
+        assert_eq!(
+            mgr.resolve_status(),
+            LicenseStatusPayload::Problem {
+                problem: ProblemKind::Corrupt,
+                has_stored_key: true,
+            }
+        );
     }
 }

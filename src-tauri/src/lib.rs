@@ -282,19 +282,41 @@ pub fn run() {
     #[cfg(all(debug_assertions, feature = "webdriver"))]
     let builder = builder.plugin(tauri_plugin_webdriver::init());
 
+    // The locked licensing command surface (Phase 19 + 21). App-defined commands
+    // registered via generate_handler! need no capability entries.
+    // `license_status_detail` is the route-only masked-key path (D-89);
+    // `license_status` stays Keychain-free for startup (T-19-10, finding 2).
+    //
+    // The `dev_set_license_state` e2e seam (22.1-04) is registered ONLY under
+    // `#[cfg(debug_assertions)]` — the SECOND half of its double-gate (the command
+    // body in commands.rs is itself `#[cfg(debug_assertions)]`). A release build
+    // takes the `#[cfg(not(debug_assertions))]` handler below, which OMITS the dev
+    // command, so the synthetic-override path is wholly absent from a shipped
+    // binary (mirrors the webdriver plugin's debug-only registration above).
+    // generate_handler! is a single fixed list (it can't be conditionally
+    // extended mid-chain), so the two arms duplicate the locked surface and the
+    // debug arm appends the seam — there is no other way to cfg a command in.
+    #[cfg(debug_assertions)]
+    let builder = builder.invoke_handler(tauri::generate_handler![
+        license::commands::license_status,
+        license::commands::license_status_detail,
+        license::commands::activate_license,
+        license::commands::refresh_license,
+        license::commands::refresh_license_if_needed,
+        license::commands::deactivate_machine,
+        license::commands::dev_set_license_state
+    ]);
+    #[cfg(not(debug_assertions))]
+    let builder = builder.invoke_handler(tauri::generate_handler![
+        license::commands::license_status,
+        license::commands::license_status_detail,
+        license::commands::activate_license,
+        license::commands::refresh_license,
+        license::commands::refresh_license_if_needed,
+        license::commands::deactivate_machine
+    ]);
+
     builder
-        // The locked licensing command surface (Phase 19 + 21). App-defined
-        // commands registered via generate_handler! need no capability entries.
-        // `license_status_detail` is the route-only masked-key path (D-89);
-        // `license_status` stays Keychain-free for startup (T-19-10, finding 2).
-        .invoke_handler(tauri::generate_handler![
-            license::commands::license_status,
-            license::commands::license_status_detail,
-            license::commands::activate_license,
-            license::commands::refresh_license,
-            license::commands::refresh_license_if_needed,
-            license::commands::deactivate_machine
-        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
