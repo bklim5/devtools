@@ -487,7 +487,7 @@ export function Sidebar() {
                   "focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-0",
                   isActive
                     ? "bg-accent-soft text-tx"
-                    : "text-tx-2 hover:bg-[rgba(255,255,255,0.035)]",
+                    : "text-tx-2 hover:bg-input-bg",
                 ].join(" ")
               }
             >

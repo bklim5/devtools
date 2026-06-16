@@ -176,7 +176,7 @@ export function SidebarResetMenu({
         // active when the menu is opened by KEYBOARD and we move focus here
         // programmatically (a programmatic .focus() does not set :focus-visible).
         // Neutral hover/focus tint — accent stays selected-only.
-        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12.5px] text-tx-2 outline-none transition-colors hover:bg-[rgba(255,255,255,0.05)] hover:text-tx focus:bg-[rgba(255,255,255,0.05)] focus:text-tx"
+        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12.5px] text-tx-2 outline-none transition-colors hover:bg-input-bg hover:text-tx focus:bg-input-bg focus:text-tx"
       >
         <RotateCcw className="h-[14px] w-[14px] flex-none" />
         Reset order
@@ -188,7 +188,7 @@ export function SidebarResetMenu({
           type="button"
           role="menuitem"
           onClick={onUnpinAll}
-          className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12.5px] text-tx-2 outline-none transition-colors hover:bg-[rgba(255,255,255,0.05)] hover:text-tx focus:bg-[rgba(255,255,255,0.05)] focus:text-tx"
+          className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12.5px] text-tx-2 outline-none transition-colors hover:bg-input-bg hover:text-tx focus:bg-input-bg focus:text-tx"
         >
           <PinOff className="h-[14px] w-[14px] flex-none" />
           Unpin all

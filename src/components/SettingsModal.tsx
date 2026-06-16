@@ -196,7 +196,7 @@ export function SettingsModal() {
                   className={`relative flex items-center gap-2 rounded-[9px] px-[11px] py-2 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent ${
                     on
                       ? "bg-accent-soft text-tx"
-                      : "text-tx-2 hover:bg-[rgba(255,255,255,0.035)] hover:text-tx"
+                      : "text-tx-2 hover:bg-input-bg hover:text-tx"
                   }`}
                 >
                   {on ? (
