@@ -55,7 +55,7 @@ A native macOS Settings/Preferences surface (promotes backlog 999.9; absorbs 999
 - [x] **SET-01**: User can open Settings from the macOS app menu (TinkerDev ▸ Settings…), bound to **⌘,** — the native menu item reaches the webview via the `platform/` event seam (no `@tauri-apps/*` import outside the seam).
 - [x] **SET-02**: User can open Settings from the tray icon menu (a Settings… item), via the same event seam.
 - [x] **SET-03**: User can open Settings from a sidebar "Settings" row (above "Unlock Pro") and from the ⌘K command palette.
-- [x] **SET-04**: Settings renders as a full in-window modal overlay (Claude-style), Esc-dismissible, WCAG-AA (focus trap + return-focus to the invoker, `aria-modal`/`aria-labelledby`), reachable by everyone including unlicensed users (the License pane shows the no-license + Unlock-Pro state).
+- [x] **SET-04**: Settings renders as a full in-window modal overlay (Claude-style), Esc-dismissible, WCAG-AA (focus trap + return-focus to the invoker, `aria-modal`/`aria-labelledby`), reachable by everyone including unlicensed users (the License pane shows the no-license + Unlock-Pro state). **REVISED Phase 22.2:** Settings stays reachable by everyone — but via the sidebar Settings row + Unlock-Pro footer + app-menu ⌘, / tray + the `#/settings/license` deep link. The **⌘K palette is now Pro-gated** (D-22.2-1), so the ⌘K "Settings"/"License" commands are NO longer a free-tier path; a free user's ⌘K opens the focused Unlock-Pro modal instead. Free users thus still reach Settings ▸ License to buy, just not through ⌘K.
 - [x] **SET-05**: Settings uses a paned layout (left nav list, right content pane), fully keyboard-navigable (move between panes, active pane announced via `aria`).
 
 ### Panes
