@@ -116,7 +116,7 @@ A native macOS Settings/Preferences surface (promotes backlog 999.9; absorbs 999
 | SET-04 | Phase 22 | 22-01 | Validated |
 | SET-05 | Phase 22 | 22-01 | Validated |
 | SET-06 | Phase 22 → revised Phase 22.1 | 22-01 → 22.1-02 | Validated (revised: inline upsell) |
-| SET-07 | Phase 23 | — | Pending |
+| SET-07 | Phase 23 | 23-01, 23-02, 23-03, 23-04 | Planned |
 | SET-08 | Phase 24 | — | Pending |
 | SET-09 | Phase 24 | — | Pending |
 | SET-10 | Phase 25 | — | Pending |

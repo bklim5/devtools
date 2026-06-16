@@ -248,7 +248,11 @@ Plans:
   2. The user can choose an accent and it applies live, with accent reserved for selection per the existing visual system
   3. Both selections persist through the existing prefs seam and are restored on the next launch
   4. The pane is keyboard-navigable and WCAG-AA (visible focus, AA contrast in both themes, no opacity-only state)
-**Plans**: TBD
+**Plans**: 4 plans
+  - [ ] 23-01-PLAN.md — Foundation: widen ThemeName/coerceTheme + fix default accent, accent scale + light-token tables + executable AA contrast assertions, pure apply helpers
+  - [ ] 23-02-PLAN.md — Light token CSS block ([data-theme="light"]) + light body gradient + theme-aware hover tints (Pitfall 5/6)
+  - [ ] 23-04-PLAN.md — Appearance pane UI: theme radio cards + 7-swatch accent grid + contained preview strip + gate-on-Save, appended to SETTINGS_PANES
+  - [ ] 23-03-PLAN.md — App-root gated apply + no-flash pre-paint script + system live-flip + real-WKWebView e2e + phase-boundary walkthrough
 **UI hint**: yes
 
 ### Phase 24: Hotkeys & General Panes (native-touching)
