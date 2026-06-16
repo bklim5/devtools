@@ -637,7 +637,11 @@ export function UpsellModal({ icon, onClose }: UpsellModalProps) {
         const last = focusables[focusables.length - 1];
         const active = document.activeElement;
         if (e.shiftKey) {
-          if (active === first || !dialog.contains(active)) {
+          // `active === dialog`: on mount focus sits on the dialog WRAPPER (so SR
+          // announces the dialog). A Shift+Tab from there must wrap to `last`, not
+          // escape behind the aria-modal scrim (the wrapper is contained but is not
+          // `first`, so without this it would fall through to the browser default).
+          if (active === first || active === dialog || !dialog.contains(active)) {
             e.preventDefault();
             last.focus();
           }

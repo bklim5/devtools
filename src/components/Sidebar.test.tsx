@@ -214,6 +214,21 @@ describe("Sidebar free tier (D-26/D-28)", () => {
     expect(setSpy).not.toHaveBeenCalled();
   });
 
+  it("a LAPSED (refreshNeeded) customer's pin click goes to Settings ▸ License recovery, NOT the pitch modal (D-44)", async () => {
+    // refreshNeeded resolves to FREE entitlements (so the pin is locked), but the
+    // user is a paying customer — openProUpsell must route them to the recovery
+    // form, never the sales-pitch modal. (The Codex-flagged 22.2 regression.)
+    act(() => setLicenseUiForTest({ state: "refreshNeeded", hasStoredKey: true }));
+    const { getByLabelText } = renderAt("/");
+    await flushPrefsLoad();
+
+    const pinBtn = getByLabelText(`Pin ${ENABLED_TOOLS[0].name}`);
+    fireEvent.click(pinBtn);
+
+    expect(openSettingsSpy).toHaveBeenCalledWith("license", pinBtn);
+    expect(openUpsellSpy).not.toHaveBeenCalled();
+  });
+
   it("Alt+P (physical KeyP, composed 'π') on a row opens the focused Unlock-Pro modal, no write", async () => {
     const { getAllByRole } = renderAt("/");
     await flushPrefsLoad();

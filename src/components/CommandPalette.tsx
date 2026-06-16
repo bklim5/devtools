@@ -31,7 +31,7 @@ import type { ToolDefinition } from "@/lib/tools/types";
 import { rankTools, subsequenceScore } from "@/shell/fuzzy";
 import { loadPreferences, savePreferences } from "@/shell/prefsStore";
 import { openSettings } from "@/shell/settingsStore";
-import { openUpsell } from "@/shell/upsellStore";
+import { openProUpsell } from "@/shell/proUpsell";
 import { useEntitlements } from "@/shell/useEntitlements";
 
 /** A selectable palette row: a registry tool OR a non-navigating command
@@ -188,10 +188,12 @@ export function CommandPalette() {
         e.preventDefault();
         const devForce = import.meta.env.DEV && e.shiftKey;
         if (!pro && !devForce) {
-          // Free tier → the focused Unlock-Pro modal. Capture the focused element
-          // synchronously as the return target (store path; the modal restores it).
+          // Not Pro → route by license state (openProUpsell): a free user gets the
+          // focused Unlock-Pro modal; a lapsed/attention paying customer gets the
+          // Settings ▸ License recovery form (never the pitch — D-44). Capture the
+          // focused element synchronously as the return target.
           const active = document.activeElement;
-          openUpsell(active instanceof HTMLElement ? active : null);
+          openProUpsell(active instanceof HTMLElement ? active : null);
           return;
         }
         setOpen((o) => {

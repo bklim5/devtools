@@ -46,7 +46,7 @@ import { useLicenseUi } from "@/shell/useLicenseUi";
 import { usePreferences } from "@/shell/usePreferences";
 import { moveToolInOrder, partitionTools, resolveRovingTarget } from "@/shell/toolOrder";
 import { openSettings } from "@/shell/settingsStore";
-import { openUpsell } from "@/shell/upsellStore";
+import { openProUpsell } from "@/shell/proUpsell";
 import { SidebarResetMenu, useSidebarResetMenu } from "./SidebarResetMenu";
 import { useSidebarDragDrop, type ToolGroup } from "./useSidebarDragDrop";
 
@@ -92,16 +92,17 @@ export function Sidebar() {
 
   // Phase 22.2 (user-approved 2026-06-16, reverses the 22.1-04 redirect for the
   // CONTEXTUAL triggers): the locked customization affordances (pin click,
-  // Alt+↑/↓, Alt+P, reset, drag) open the focused "Unlock Pro" MODAL — a quick
-  // interruption that dismisses back to where the user was — instead of yanking
-  // them into the full Settings ▸ License modal. The modal renders the SAME shared
-  // ActivationSurface (one activation surface, two presentations). The invoker is
-  // threaded for the focus-return contract: most callers (pin click, Alt chords,
+  // Alt+↑/↓, Alt+P, reset, drag) route through `openProUpsell`, which picks the
+  // right surface for the license state — a genuinely free (notActivated) user
+  // gets the focused "Unlock Pro" MODAL (a quick interruption that dismisses back),
+  // while a lapsed/attention PAYING customer (refreshNeeded/problem) goes to
+  // Settings ▸ License's recovery form (never the sales pitch — D-44). The invoker
+  // is threaded for the focus-return contract: most callers (pin click, Alt chords,
   // drag) are invoked from a persistent focused control (default activeElement
   // capture); the reset MENU path passes an explicit return target because its menu
   // item unmounts on open (finding 3).
   const openOrderingUpsell = useCallback(
-    (invokerEl?: HTMLElement | null) => openUpsell(invokerEl),
+    (invokerEl?: HTMLElement | null) => openProUpsell(invokerEl),
     [],
   );
   // The EXPLICIT footer "Unlock Pro" / "License needs attention" affordance keeps
