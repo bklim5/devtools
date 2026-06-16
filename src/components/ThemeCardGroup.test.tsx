@@ -30,6 +30,14 @@ describe("ThemeCardGroup", () => {
     ).toBe("false");
   });
 
+  it("marks selection with a radio-check glyph, not by color alone (WCAG 1.4.1)", () => {
+    const { container } = render(<ThemeCardGroup value="light" onChange={() => {}} />);
+    // The single selected card carries exactly one lucide check svg in its
+    // radio-check indicator; the unselected card has none.
+    const checks = container.querySelectorAll("svg.lucide-check");
+    expect(checks).toHaveLength(1);
+  });
+
   it("fires onChange with the clicked theme", () => {
     const onChange = vi.fn();
     render(<ThemeCardGroup value="dark" onChange={onChange} />);

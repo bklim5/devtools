@@ -3,11 +3,13 @@
 // role="radio" cards, aria-checked reflecting the selected value, arrow-key roving
 // selection (Left/Up → previous, Right/Down → next, clamp at the ends — no wrap,
 // matching the Sidebar's roving convention), and a visible focus ring. Each card
-// carries a tiny stylized app-window thumbnail (an accent top bar + neutral content
-// rows on the theme's surface) so the choice is recognizable, and selection is
-// NEVER by color alone (border-accent + the aria-checked state). Layout-agnostic:
-// responsive flex, no fixed px widths beyond the small thumb.
+// carries a tiny stylized app-WINDOW thumbnail (a left sidebar column + a content
+// area whose top item is the LIVE accent + neutral content rows, on the theme's
+// surface) so the choice is recognizable, and selection is NEVER by color alone
+// (a filled-accent radio-check indicator + border-accent + the aria-checked
+// state). Layout-agnostic: responsive flex, no fixed px widths beyond the thumb.
 
+import { Check } from "lucide-react";
 import type { ThemeName } from "@/shell/preferences";
 
 const THEME_LABELS: Record<ThemeName, string> = {
@@ -23,29 +25,45 @@ export interface ThemeCardGroupProps {
   onChange: (theme: ThemeName) => void;
 }
 
-/** A tiny stylized app-window skeleton: an accent-colored top bar over 2–3 neutral
- *  horizontal content rows, on that theme's surface color. The accent bar uses the
- *  LIVE accent (bg-accent) so it reads as a real preview. `variant` picks the
- *  surface palette — dark uses the dark tokens; light hardcodes the light surfaces
- *  it previews. aria-hidden — the card label + aria-checked carry the meaning. */
+/** A tiny stylized app-WINDOW skeleton matching the product chrome: a left
+ *  sidebar column (a slightly distinct surface shade) + a content area whose top
+ *  item is an accent-colored rounded bar (offset from the content's left edge,
+ *  ~60% of the content width — like a highlighted/selected nav item) over two
+ *  muted neutral content rows. The accent bar uses the LIVE accent (bg-accent) so
+ *  the swatch choice previews. `variant` picks the surface palette — dark uses the
+ *  dark tokens, light hardcodes the light surfaces it previews. aria-hidden — the
+ *  card label + radio-check + aria-checked carry the meaning. */
 function ThemeThumbnail({ variant }: { variant: "dark" | "light" }) {
   const surface =
     variant === "light"
-      ? { box: "#ffffff", row: "rgba(0,0,0,0.12)", line: "rgba(0,0,0,0.12)" }
-      : { box: "#1a1d23", row: "rgba(255,255,255,0.14)", line: "rgba(255,255,255,0.12)" };
+      ? {
+          box: "#f0f1f4", // content area (app bg)
+          sidebar: "#ffffff", // sidebar — a distinct lighter shade
+          row: "rgba(0,0,0,0.14)",
+          line: "rgba(0,0,0,0.10)",
+        }
+      : {
+          box: "#0d0f13", // content area (app bg)
+          sidebar: "#1a1d23", // sidebar — a distinct lighter shade
+          row: "rgba(255,255,255,0.16)",
+          line: "rgba(255,255,255,0.10)",
+        };
   return (
     <div
       aria-hidden="true"
-      className="flex h-12 w-full flex-col overflow-hidden rounded-[6px] border"
+      className="flex h-[72px] w-full overflow-hidden rounded-[7px] border"
       style={{ backgroundColor: surface.box, borderColor: surface.line }}
     >
-      {/* Accent top bar — the live accent (bg-accent) so the swatch choice previews. */}
-      <div className="h-3 w-full flex-none bg-accent" />
-      {/* 3 neutral content rows below, decreasing width for a window-like skeleton. */}
-      <div className="flex flex-1 flex-col justify-center gap-1 px-1.5">
-        <div className="h-1 w-3/4 rounded-full" style={{ backgroundColor: surface.row }} />
-        <div className="h-1 w-full rounded-full" style={{ backgroundColor: surface.row }} />
-        <div className="h-1 w-1/2 rounded-full" style={{ backgroundColor: surface.row }} />
+      {/* Left sidebar column (~28%), a distinct surface shade with a faint divider. */}
+      <div
+        className="h-full w-[28%] flex-none border-r"
+        style={{ backgroundColor: surface.sidebar, borderColor: surface.line }}
+      />
+      {/* Content area: accent "selected item" bar (offset, ~60% wide) + 2 rows. */}
+      <div className="flex flex-1 flex-col gap-1.5 p-2">
+        <div className="h-2 w-3/5 rounded-[3px] bg-accent" />
+        <div className="h-1.5 w-full rounded-full" style={{ backgroundColor: surface.row }} />
+        <div className="h-1.5 w-3/4 rounded-full" style={{ backgroundColor: surface.row }} />
       </div>
     </div>
   );
@@ -97,13 +115,31 @@ export function ThemeCardGroup({ value, onChange }: ThemeCardGroupProps) {
             ].join(" ")}
           >
             <ThemeThumbnail variant={thumbVariant} />
-            <span
-              className={[
-                "text-[13px] font-medium",
-                selected ? "text-accent" : "text-tx",
-              ].join(" ")}
-            >
-              {THEME_LABELS[theme]}
+            <span className="flex items-center gap-2">
+              {/* Radio-check indicator — filled accent circle + white check when
+                  selected, empty bordered circle otherwise. Selection is NEVER
+                  by color alone: this icon + the card border carry the state
+                  alongside aria-checked (WCAG 1.4.1). aria-hidden — the label
+                  text + aria-checked already convey it to AT. */}
+              <span
+                aria-hidden="true"
+                className={[
+                  "flex h-4 w-4 flex-none items-center justify-center rounded-full border",
+                  selected ? "border-accent bg-accent" : "border-bd-2 bg-transparent",
+                ].join(" ")}
+              >
+                {selected ? (
+                  <Check className="h-3 w-3" style={{ color: "#ffffff" }} aria-hidden="true" />
+                ) : null}
+              </span>
+              <span
+                className={[
+                  "text-[13px] font-medium",
+                  selected ? "text-accent" : "text-tx",
+                ].join(" ")}
+              >
+                {THEME_LABELS[theme]}
+              </span>
             </span>
           </button>
         );
