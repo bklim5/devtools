@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Licensing
 status: executing
-last_updated: "2026-06-15T23:20:00.000Z"
-last_activity: 2026-06-15 -- Phase 22.1 plan 02 complete (inline License-pane upsell)
+last_updated: "2026-06-16T13:00:00.000Z"
+last_activity: 2026-06-16 -- Phase 22.1 COMPLETE (settings follow-ups: app-menu name, inline upsell, modal removal, redesign, post-review fixes); verified 6/6
 progress:
   total_phases: 13
-  completed_phases: 5
-  total_plans: 21
-  completed_plans: 20
-  percent: 95
+  completed_phases: 6
+  total_plans: 24
+  completed_plans: 24
+  percent: 100
 ---
 
 # Project State
@@ -18,11 +18,11 @@ progress:
 ## Current Position
 
 Milestone: **v1.6 "Licensing"** — started 2026-06-09, roadmap created 2026-06-09.
-Phase: 22.1 (settings-followups) — EXECUTING
-Plan: 2 of 2 complete (Plan 01 paused at its human checkpoint — app-menu name fix, Task 1 committed `d9dba1f1`)
-Status: Executing Phase 22.1 — Plan 02 done; Plan 01 awaiting the native-menu human re-verify checkpoint
-Progress: [■□□□] Settings phases 22–25: 1/4 complete · Phase 22 complete (Settings modal shell + all four entry points: app menu ⌘, + tray via the platform seam, sidebar row, ⌘K) · **Phase 22.1 plan 02 complete (2026-06-15)** — Follow-up 2 closed: the Settings ▸ License pane now renders the upsell/activation INLINE (free = pitch+Buy+key-input+Activate; refreshNeeded/problem = calm status+Refresh with the key-input+Activate form inline below; no stacked modal-on-modal). Activation logic extracted to ONE shared ActivationSurface in UpsellPanel (no duplication); LIC-04 + T-19-21 byte-for-byte preserved; licensed/offlineGrace unchanged; standalone UpsellModal sidebar/⌘K entries unchanged (D-22.1-5). Suite 968/968; real-WKWebView e2e 20/20 spec files; decoder + 19 tests untouched. SET-06 revised+Validated. · SET-01..06 Validated. Next: Plan 01 native-menu human checkpoint, then the Phase 22.1 boundary (fresh `tauri build` + gsd-ui-review WCAG-AA). Phase 20 still closes on the live-purchase gate; v1.6 final close parked separately.
-Last activity: 2026-06-15 -- Phase 22.1 plan 02 complete (inline License-pane upsell)
+Phase: 22.1 (settings-followups) — **COMPLETE (2026-06-16)**, verified 6/6 (`22.1-VERIFICATION.md`)
+Plan: all complete — 01 (app-menu) · 02 (inline upsell) · 03 (redesign) · 04 (modal removal + dev e2e seam) · 99 (post-review fixes)
+Status: Phase 22.1 closed. Settings phases 22–25: **2/4 complete** (22, 22.1). Next plannable: Phase 23 (Appearance pane). Phase 20 still closes on the live-purchase gate; v1.6 final close parked separately. (frontmatter percent=100 counts CREATED plans only — phases 23/24/25 are not yet planned, so the milestone is NOT done despite 24/24.)
+Progress: [■■□□] · Phase 22 complete (Settings modal shell + all four entry points) · **Phase 22.1 COMPLETE (2026-06-16)** — both Phase-22 follow-ups closed AND scope grew (user-approved): (1) the macOS app menu reads "TinkerDev" (explicit About/Hide/Quit, human walkthrough APPROVED); (2) the Settings ▸ License pane renders the upsell/activation INLINE via ONE shared `ActivationSurface` (free = pitch+$9+Buy+key-input+Activate; refreshNeeded/problem = calm status+Refresh + inline form; licensed/offlineGrace = green banner + masked-key table + confirm-first Deactivate). **The standalone UpsellModal was REMOVED** (D-22.1-5/D-28/D-29 reversed — upsellStore/useUpsell deleted; every opener → openSettings("license", invoker); ONE upsell surface). Redesign added warn/ok token triads + **$9 in-app pricing (reverses D-20)**. Post-review fixes: masked-key detailed refresh, heading order dialog h2→pane h3→status h4 (variant-specific), locked-affordance focus-return, dead-Done removal. LIC-04 + T-19-21 byte-for-byte preserved; decoder + 19 tests untouched. Gates: vitest **966/966**, tsc+eslint clean, real-WKWebView e2e **21/21 spec files**, fresh `tauri build` (TinkerDev.app + DMG), gsd-ui-review **22/24** (both deductions closed by the post-review batch). SET-01..06 Validated (SET-06 revised). Deferred (non-blocking): live-app axe re-measure of the 3 color-mix tinted surfaces, intentional form-only mount-focus, redundant mount re-query, stale stacking comments.
+Last activity: 2026-06-16 -- Phase 22.1 COMPLETE (verified 6/6)
 
 **Goal:** one-time-payment lifetime license — MoR checkout → webhook → Keygen (perpetual, node-locked, maxMachines=1); paste-key one-time activation (fingerprint `HMAC-SHA256(IOPlatformUUID, salt)`); offline Ed25519-verified `machine.lic` (~30-day TTL) thereafter; license key in Keychain (Rust-owned); free tier keeps all 11 tools — Pro locks customization (theming + ordering/pinning) behind a central entitlement gate (D-18 pivot; tool-gating mechanism ships dormant). Research: `docs/licensing-research.md`.
 

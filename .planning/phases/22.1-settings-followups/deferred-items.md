@@ -44,6 +44,35 @@ advisory, recorded not fixed:
   amber-on-amber) and only transient while refreshing — purely aesthetic. Revisit if a warn-toned
   button variant is ever added.
 
+## Post-review fixes status (2026-06-16, commit `316eaf33`) — what closed, what remains
+
+The 22.1-UI-REVIEW (22/24) + Codex working-tree review yielded four prioritized fixes,
+ALL applied (see `22.1-99-SUMMARY.md`). Their effect on the items above:
+
+- **Inline 'Done' no-op → CLOSED** (the success-card Done now renders only when `onDismiss`
+  is passed; inline variants render without it). The deferred note above is resolved.
+- **Heading-order → CLOSED** (status headings demoted h2→h4, variant-specific so the
+  standalone ToolRoute panel stays h2; e2e probe migrated to first-h4 + consolidated).
+- **Masked key blanking on a fresh inline activation → CLOSED** (submit() success now uses
+  `refreshLicenseUiDetailed()`).
+- **Locked pin/drag focus-return → CLOSED** (explicit invoker threaded into openSettings).
+
+### STILL DEFERRED after the post-review batch (non-blocking, record-or-fix)
+
+- **Redundant mount status re-query** — unchanged (still cheap to gate the surface's mount
+  refresh to `variant === "panel"`); not user-visible.
+- **Stale stacking comments** in `SettingsModal.tsx` / `App.tsx` — comment-only drift, refresh
+  when next touched (outside this phase's diff).
+- **Refresh disabled tokens on the amber/green banners** — transient cosmetic, revisit if a
+  warn-toned button variant is added.
+- **Form-only focus-on-mount** (UI-REVIEW fix #2) — INTENDED per D-22.1-7; SR users land below
+  the status card. Deferred (not in the prioritized batch); confirm via a VoiceOver pass if
+  revisited.
+- **Live-app axe re-measure of the three color-mix tinted surfaces** (warn-soft / ok-soft /
+  bad/10) — the UI-REVIEW documented contrast math on opaque surfaces but did not independently
+  re-measure the translucent fills composited over the gradient body. Recommended as a
+  phase-boundary check on the running app (heading-order itself is now e2e-clean).
+
 ## Decision record (for PROJECT.md evolution at phase close)
 
 - **D-20 REVERSED (user-approved 2026-06-16 walkthrough):** the in-app upsell now SHOWS pricing
