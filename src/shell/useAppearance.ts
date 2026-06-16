@@ -42,7 +42,13 @@ export function useAppearance(): void {
     } catch {
       /* never block the apply on a storage error */
     }
-  }, [preferences.theme, preferences.accent, ents, prefsLoaded, preferences]);
+    // WR-01: deps are ONLY the fields the effect reads via gatePreferences
+    // (theme/accent) + ents/prefsLoaded — NOT the whole `preferences` singleton.
+    // The shared prefs store replaces the object identity on every write
+    // (lastUsedId on every navigation, recents, pins, order…), so a whole-object
+    // dep re-fired this full DOM write + localStorage write on every tool switch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- gatePreferences reads only theme/accent
+  }, [preferences.theme, preferences.accent, ents, prefsLoaded]);
 
   // Live OS light↔dark flip — subscribe ONLY while the effective theme is system.
   useEffect(() => {
@@ -53,5 +59,8 @@ export function useAppearance(): void {
     const onChange = () => applyAppearance("system", eff.accent);
     mq.addEventListener("change", onChange);
     return () => mq.removeEventListener("change", onChange);
-  }, [preferences.theme, preferences.accent, ents, prefsLoaded, preferences]);
+    // WR-01: same narrowing — only theme/accent (read via gatePreferences) gate
+    // the matchMedia subscription, not the whole prefs object.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- gatePreferences reads only theme/accent
+  }, [preferences.theme, preferences.accent, ents, prefsLoaded]);
 }
