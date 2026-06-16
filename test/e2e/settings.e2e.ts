@@ -107,13 +107,17 @@ function paletteOpen(): Promise<boolean> {
   );
 }
 
-/** Open the ⌘K palette (the listener lives on window). */
+/** Open the ⌘K palette (the listener lives on window). Phase 22.2: the palette is
+ *  Pro-gated (a free user's plain ⌘K opens the upsell modal instead), so use the
+ *  DEV-only ⌘⇧K force-open escape hatch — this test exercises the Settings COMMAND
+ *  + focus-return, not the gate (the gate is proven in cmdk-pro.e2e.ts). */
 function openPalette(): Promise<void> {
   return browser.execute(() => {
     window.dispatchEvent(
       new KeyboardEvent("keydown", {
         key: "k",
         metaKey: true,
+        shiftKey: true,
         bubbles: true,
         cancelable: true,
       }),

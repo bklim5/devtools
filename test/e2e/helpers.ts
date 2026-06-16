@@ -114,12 +114,16 @@ export function dispatchAltP(): Promise<void> {
 // command persists the downgrade-only override and awaits
 // refreshEntitlements() — D-31/D-32).
 export async function runDevToggle(): Promise<void> {
-  // The ⌘K listener lives on window — dispatch the chord there directly.
+  // The ⌘K listener lives on window — dispatch the chord there directly. Phase
+  // 22.2: the palette is Pro-gated (a free user's plain ⌘K opens the upsell modal,
+  // not the palette), so use the DEV-only ⌘⇧K force-open escape hatch — it opens
+  // the palette regardless of tier, so this dev-toggle dance still works from FREE.
   await browser.execute(() => {
     window.dispatchEvent(
       new KeyboardEvent("keydown", {
         key: "k",
         metaKey: true,
+        shiftKey: true,
         bubbles: true,
         cancelable: true,
       }),
