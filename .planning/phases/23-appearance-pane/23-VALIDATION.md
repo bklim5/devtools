@@ -50,7 +50,7 @@ created: 2026-06-16
 | 04-T3 | 04 | 2 | SET-07 | — | Appearance entry appended to SETTINGS_PANES; SettingsModal unchanged | type/lint | `pnpm exec tsc --noEmit && pnpm lint` | ❌ W0 | ⬜ pending |
 | 03-T1 | 03 | 3 | SET-07 | T-23-03, T-23-06 | App-root gated apply + paint-hint from gated value + system live-flip | unit (RTL) | `pnpm vitest run src/shell/useAppearance.test.ts` | ❌ W0 | ⬜ pending |
 | 03-T2 | 03 | 3 | SET-07 | T-23-07 | useAppearance wired in App.tsx; synchronous pre-paint script in index.html | type/lint | `pnpm exec tsc --noEmit && pnpm lint` | ❌ W0 | ⬜ pending |
-| 03-T3 | 03 | 3 | SET-07 | T-23-03 | Pro Save live whole-app apply + contained preview pre-Save + persistence | e2e (real WKWebView) | `bash scripts/e2e-spike.sh appearance` | ❌ W0 | ⬜ pending |
+| 03-T3 | 03 | 3 | SET-07 | T-23-03 | Pro Save live whole-app apply + contained preview pre-Save + persistence | e2e (real WKWebView) | `bash scripts/e2e-spike.sh` (full suite — runner takes no spec-filter arg; appearance.e2e.ts runs within it) | ❌ W0 | ⬜ pending |
 | 03-T4 | 03 | 3 | SET-07 | — | no-flash launch + live OS-appearance flip + AA-in-both-themes audit + #N neutral | Manual-Only (human-verify) | walkthrough on `pnpm tauri build` + gsd-ui-review | n/a | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
