@@ -14,10 +14,14 @@ import { createStoreStub } from "@/lib/platform/stub";
 import { makeMemoryPlatform } from "./testStore";
 import { PREFERENCES_STORE_KEY } from "./preferences";
 import { useTrackActiveTool } from "./useTrackActiveTool";
+import { resetPreferencesForTest } from "./usePreferences";
 
 let store: Store;
 
 beforeEach(() => {
+  // recents now live in the shared prefs module-singleton (round-3 one-writer
+  // unification) — reset it so each test gets a fresh load from its own store.
+  resetPreferencesForTest();
   store = createStoreStub();
   setPlatformForTest(makeMemoryPlatform(store));
 });

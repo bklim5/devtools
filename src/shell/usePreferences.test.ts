@@ -13,6 +13,7 @@ import {
 } from "@/lib/platform";
 import { createStoreStub } from "@/lib/platform/stub";
 import { resetPreferencesForTest, usePreferences } from "./usePreferences";
+import { useRecentTools } from "./useRecentTools";
 import { DEFAULT_PREFERENCES, PREFERENCES_STORE_KEY } from "./preferences";
 import { makeMemoryPlatform } from "./testStore";
 
@@ -178,6 +179,46 @@ describe("usePreferences", () => {
       autoUpdateCheck: boolean | null;
     };
     expect(stored.autoUpdateCheck).toBe(false);
+  });
+
+  it("REGRESSION (round-3 clobber): a useRecentTools tool switch AFTER a theme/pin change does NOT revert theme or pins", async () => {
+    // Reproduces the user-reported bug: change theme + pin tools, switch tools,
+    // quit+relaunch → theme/pins reverted. Root cause was useRecentTools writing
+    // a stale mount-era snapshot back to the shared blob. Both hooks must share
+    // ONE live writer, so a recents/lastUsed write merges against the NEW
+    // theme/pins instead of clobbering them.
+    const { result: prefs } = renderHook(() => usePreferences());
+    const { result: recents } = renderHook(() => useRecentTools());
+    // Let both hooks resolve their (shared) mount load.
+    await waitFor(() => expect(recents.current.loaded).toBe(true));
+
+    // User changes theme + pins AFTER mount.
+    await act(async () => {
+      prefs.current.setTheme("light");
+    });
+    await act(async () => {
+      prefs.current.setPinnedToolIds(["base64", "unix-time"]);
+    });
+
+    // User switches tools (the recents writer fires).
+    await act(async () => {
+      recents.current.recordSwitch("uuid-ulid");
+    });
+
+    // The PERSISTED blob must still carry the NEW theme + pins AND the recents.
+    const stored = (await platform.store.get(PREFERENCES_STORE_KEY)) as {
+      theme: string;
+      pinnedToolIds: string[];
+      recentToolIds: string[];
+      lastUsedId: string | null;
+    };
+    expect(stored.theme).toBe("light");
+    expect(stored.pinnedToolIds).toEqual(["base64", "unix-time"]);
+    expect(stored.recentToolIds).toEqual(["uuid-ulid"]);
+    expect(stored.lastUsedId).toBe("uuid-ulid");
+    // And the live hook state agrees (one source of truth).
+    expect(prefs.current.preferences.theme).toBe("light");
+    expect(prefs.current.preferences.pinnedToolIds).toEqual(["base64", "unix-time"]);
   });
 
   it("falls back to DEFAULT_PREFERENCES for a corrupt/garbage stored blob", async () => {

@@ -43,6 +43,65 @@ function setSharedPrefs(next: Preferences): void {
   notify();
 }
 
+// --- Module-scope singleton primitives (Phase 23 round-3 unification) --------
+//
+// These are THE single in-memory source of truth + THE single writer for the
+// prefs blob. usePreferences AND useRecentTools both consume them, so a write
+// from either hook always merges against the LIVE `sharedPrefs` — there is no
+// second mount-era snapshot to go stale and clobber the other hook's fields
+// (the theme/pins-revert-after-tool-switch bug). Both hooks keep their public
+// APIs unchanged; they are thin consumers of these primitives.
+//
+// NOTE: the direct disk writers in src/lib/entitlements/store.ts
+// (clearEntitlementsOverride) and src/components/CommandPalette.tsx (the
+// DEV-only "Toggle free tier" command) still go straight through
+// loadPreferences→savePreferences and BYPASS this singleton. They write only
+// `entitlementsOverride`, which is DEV/test-only (in release the dev toggle is
+// tree-shaken and "full" coerces to null), so they are not part of the
+// user-visible theme/pins clobber. Unifying them is deferred.
+
+/** Read the live shared prefs blob. */
+export function getSharedPreferences(): Preferences {
+  return sharedPrefs;
+}
+
+/** True once the async mount-load has resolved. */
+export function getPreferencesLoaded(): boolean {
+  return sharedLoaded;
+}
+
+/** Subscribe to shared-prefs changes; returns an unsubscribe fn. */
+export function subscribePreferences(fn: () => void): () => void {
+  listeners.add(fn);
+  return () => {
+    listeners.delete(fn);
+  };
+}
+
+/** Kick off the load-once-per-session of the persisted blob. Idempotent: the
+ *  first caller starts it, later callers no-op. A user write before the load
+ *  resolves sets `dirty` so the load only flips the loaded flag and never
+ *  clobbers a value the user already changed (Pitfall 3 timing). */
+export function ensurePreferencesLoaded(): void {
+  if (loadStarted) return;
+  loadStarted = true;
+  void loadPreferences().then((loaded) => {
+    if (!dirty) sharedPrefs = loaded;
+    sharedLoaded = true;
+    notify();
+  });
+}
+
+/** Apply a partial change to the shared blob AND persist it. The merge ALWAYS
+ *  reads the LIVE `sharedPrefs`, so concurrent writers (usePreferences +
+ *  useRecentTools) never clobber each other's fields. Notifies all subscribers
+ *  (cross-instance live propagation). */
+export function updatePreferences(patch: Partial<Preferences>): void {
+  dirty = true;
+  setSharedPrefs({ ...sharedPrefs, ...patch });
+  void savePreferences(sharedPrefs);
+}
+
 /** TEST-ONLY: reset the module-singleton between tests so the shared prefs blob,
  *  loaded flag, and dirty/load latches never leak across test cases (each test
  *  installs its own platform store and expects a fresh load). Not used in app
@@ -88,46 +147,28 @@ export interface UsePreferences {
 
 export function usePreferences(): UsePreferences {
   // Subscribe every instance to the module-singleton so a write in ANY instance
-  // (e.g. the Appearance pane Save) propagates to all of them (e.g. the App-root
-  // live-apply effect) — the live whole-app apply contract (D-23-9).
+  // (e.g. the Appearance pane Save, OR a useRecentTools tool switch) propagates
+  // to all of them (e.g. the App-root live-apply effect) — the live whole-app
+  // apply contract (D-23-9) AND the one-writer unification (round 3).
   const [, forceRender] = useState(0);
-  const preferences = sharedPrefs;
-  const prefsLoaded = sharedLoaded;
+  const preferences = getSharedPreferences();
+  const prefsLoaded = getPreferencesLoaded();
 
   useEffect(() => {
     const rerender = () => forceRender((n) => n + 1);
-    listeners.add(rerender);
-    return () => {
-      listeners.delete(rerender);
-    };
-  }, []);
-
-  // Load persisted prefs ONCE per app session (the load is shared, not
-  // per-instance). The first mounting instance starts it; later instances reuse
-  // the resolved shared blob. dirty guard: a user write before the load resolves
-  // must NOT be clobbered (Pitfall 3 timing) — once any setter runs we treat the
-  // shared blob as authoritative and the load only flips the loaded flag.
-  useEffect(() => {
-    if (loadStarted) {
-      // Another instance already kicked off (or finished) the load — if it has
-      // resolved, this instance already reads the shared values; nothing to do.
-      return;
-    }
-    loadStarted = true;
-    void loadPreferences().then((loaded) => {
-      if (!dirty) sharedPrefs = loaded;
-      sharedLoaded = true;
-      notify();
-    });
+    const unsubscribe = subscribePreferences(rerender);
+    // Load persisted prefs ONCE per app session (idempotent across hooks).
+    ensurePreferencesLoaded();
+    return unsubscribe;
   }, []);
 
   // Apply a partial change to the shared blob AND persist it. The change
-  // notifies every subscribed instance (cross-instance live propagation).
-  const update = useCallback((patch: Partial<Preferences>) => {
-    dirty = true;
-    setSharedPrefs({ ...sharedPrefs, ...patch });
-    void savePreferences(sharedPrefs);
-  }, []);
+  // notifies every subscribed instance (cross-instance live propagation) and
+  // always merges against the live blob (one writer).
+  const update = useCallback(
+    (patch: Partial<Preferences>) => updatePreferences(patch),
+    [],
+  );
 
   const setTheme = useCallback((theme: ThemeName) => update({ theme }), [update]);
   const setAccent = useCallback((accent: string) => update({ accent }), [update]);

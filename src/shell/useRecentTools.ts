@@ -1,20 +1,27 @@
 // useRecentTools — tracks the recently-used tools list (SHL-03, D-05).
 //
 // `recentToolIds` lives in the SAME persisted prefs blob as usePreferences (one
-// store key), so both hooks load + merge the same `Preferences` shape. This hook
-// exposes a `push(id)` API that moves an id to the front, de-dupes, and caps the
-// list at RECENT_TOOLS_CAP (≈5), then persists through the store seam.
+// store key). To guarantee ONE in-memory source of truth and ONE writer, this
+// hook consumes the SAME module-singleton primitives as usePreferences
+// (getSharedPreferences / ensurePreferencesLoaded / updatePreferences /
+// subscribePreferences). It no longer keeps its own mount-era prefs snapshot —
+// a stale snapshot was the cause of the theme/pins-revert-after-tool-switch bug
+// (a tool switch wrote back a mount-era blob, clobbering a later theme/pin
+// change). Every write here merges against the LIVE blob, so it can never
+// clobber theme/accent/pins.
 //
-// Like usePreferences, this NEVER imports @tauri-apps — all I/O is via
-// `platform.store` (Pitfall 5: write on switch, not per render).
+// Public API is unchanged: { recentToolIds, loaded, push, recordSwitch }.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { RECENT_TOOLS_CAP } from "./preferences";
+import { normalizeRecents } from "./prefsStore";
 import {
-  DEFAULT_PREFERENCES,
-  RECENT_TOOLS_CAP,
-  type Preferences,
-} from "./preferences";
-import { loadPreferences, normalizeRecents, savePreferences } from "./prefsStore";
+  ensurePreferencesLoaded,
+  getPreferencesLoaded,
+  getSharedPreferences,
+  subscribePreferences,
+  updatePreferences,
+} from "./usePreferences";
 
 export interface UseRecentTools {
   recentToolIds: string[];
@@ -26,10 +33,9 @@ export interface UseRecentTools {
   push: (id: string) => void;
   /**
    * Atomically record a tool *switch*: push the id to recents AND set it as
-   * `lastUsedId`, persisting BOTH in a single blob write. Use this from the
-   * palette/sidebar switch path instead of calling `push` and a separate
-   * `usePreferences().setLastUsedId` — those are two independent writers over
-   * the one shared prefs blob and race (last-write-wins clobbers a field).
+   * `lastUsedId`, persisting BOTH in a single blob write. Both this and `push`
+   * merge against the LIVE shared blob (the one writer), so theme/accent/pins
+   * are always preserved.
    */
   recordSwitch: (id: string) => void;
 }
@@ -41,60 +47,31 @@ function pushRecent(current: string[], id: string): string[] {
 }
 
 export function useRecentTools(): UseRecentTools {
-  const [recentToolIds, setRecentToolIds] = useState<string[]>([]);
-  const [loaded, setLoaded] = useState(false);
-  // Hold the full loaded prefs so a recents write does not clobber theme/accent/
-  // lastUsedId (they share one blob).
-  const prefsRef = useRef<Preferences | null>(null);
-  // True once push() has run. The async mount-load must not overwrite recents a
-  // user already changed (the load can resolve after an early push — Pitfall 3).
-  const dirtyRef = useRef(false);
+  // Re-render on any shared-prefs change; read recents/loaded from the live
+  // singleton (no second snapshot — that was the clobber source).
+  const [, forceRender] = useState(0);
+  const recentToolIds = getSharedPreferences().recentToolIds;
+  const loaded = getPreferencesLoaded();
 
   useEffect(() => {
-    let alive = true;
-    void loadPreferences()
-      .then((loadedPrefs) => {
-        if (!alive) return;
-        // Always capture the loaded blob so a later push preserves theme/accent,
-        // but only adopt the loaded recents if the user hasn't pushed yet.
-        if (dirtyRef.current) {
-          prefsRef.current = {
-            ...loadedPrefs,
-            recentToolIds: prefsRef.current?.recentToolIds ?? [],
-          };
-          return;
-        }
-        prefsRef.current = loadedPrefs;
-        setRecentToolIds(loadedPrefs.recentToolIds);
-      })
-      .finally(() => {
-        if (alive) setLoaded(true);
-      });
-    return () => {
-      alive = false;
-    };
+    const rerender = () => forceRender((n) => n + 1);
+    const unsubscribe = subscribePreferences(rerender);
+    ensurePreferencesLoaded();
+    return unsubscribe;
   }, []);
 
-  // Compute the next recents, optionally also stamping lastUsedId, then persist
-  // the merged blob in ONE write (preserving theme/accent — they share the blob).
-  const commit = useCallback((id: string, setLastUsed: boolean) => {
-    dirtyRef.current = true;
-    // Derive the cold-start fallback from DEFAULT_PREFERENCES so it never drifts
-    // when the schema gains a field (it gained protobufTreeStyle in Phase 3).
-    const base = prefsRef.current ?? { ...DEFAULT_PREFERENCES };
-    const nextRecents = pushRecent(base.recentToolIds, id);
-    const nextPrefs: Preferences = {
-      ...base,
-      recentToolIds: nextRecents,
-      ...(setLastUsed ? { lastUsedId: id } : {}),
-    };
-    prefsRef.current = nextPrefs;
-    setRecentToolIds(nextRecents);
-    void savePreferences(nextPrefs);
+  const push = useCallback((id: string) => {
+    updatePreferences({
+      recentToolIds: pushRecent(getSharedPreferences().recentToolIds, id),
+    });
   }, []);
 
-  const push = useCallback((id: string) => commit(id, false), [commit]);
-  const recordSwitch = useCallback((id: string) => commit(id, true), [commit]);
+  const recordSwitch = useCallback((id: string) => {
+    updatePreferences({
+      recentToolIds: pushRecent(getSharedPreferences().recentToolIds, id),
+      lastUsedId: id,
+    });
+  }, []);
 
   return { recentToolIds, loaded, push, recordSwitch };
 }
