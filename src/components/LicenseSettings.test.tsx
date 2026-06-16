@@ -29,6 +29,7 @@ import {
 } from "@/lib/license/licenseUi";
 import { makeMemoryPlatform } from "@/shell/testStore";
 import { PREFERENCES_STORE_KEY } from "@/shell/preferences";
+import { resetPreferencesForTest } from "@/shell/usePreferences";
 
 const navigateSpy = vi.fn();
 vi.mock("react-router-dom", async (importOriginal) => {
@@ -83,6 +84,9 @@ function renderRoute() {
 }
 
 beforeEach(() => {
+  // Reset the usePreferences module-singleton (shared across instances for live
+  // apply, Phase 23-03) so the drop-notice ack reads fresh per test.
+  resetPreferencesForTest();
   navigateSpy.mockClear();
 });
 

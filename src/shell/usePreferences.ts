@@ -8,7 +8,7 @@
 // This hook NEVER imports @tauri-apps — it goes through `platform.store`, which
 // the seam routes to the real impl (tauri.ts) or the browser/in-memory fallback.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   DEFAULT_PREFERENCES,
   type Preferences,
@@ -16,6 +16,44 @@ import {
   type ThemeName,
 } from "./preferences";
 import { loadPreferences, savePreferences } from "./prefsStore";
+
+// --- Cross-instance shared prefs store (Rule 1 fix, Phase 23-03) -------------
+//
+// usePreferences was per-component local state, so a write in one mounted
+// instance (e.g. the Appearance pane's Save) NEVER reached another (e.g. the
+// App-root useAppearance effect that applies theme live). The live whole-app
+// apply (D-23-9) requires every instance to observe the same writes, so the
+// current blob + loaded flag live in a module singleton and every instance
+// subscribes — the standard module-singleton + listener pattern already used by
+// settingsStore / the entitlements store. The public hook API is unchanged.
+let sharedPrefs: Preferences = DEFAULT_PREFERENCES;
+let sharedLoaded = false;
+let loadStarted = false;
+// True once ANY setter has written — the async mount-load must not clobber a
+// value the user already changed (Pitfall 3 timing).
+let dirty = false;
+const listeners = new Set<() => void>();
+
+function notify(): void {
+  for (const l of listeners) l();
+}
+
+function setSharedPrefs(next: Preferences): void {
+  sharedPrefs = next;
+  notify();
+}
+
+/** TEST-ONLY: reset the module-singleton between tests so the shared prefs blob,
+ *  loaded flag, and dirty/load latches never leak across test cases (each test
+ *  installs its own platform store and expects a fresh load). Not used in app
+ *  code. */
+export function resetPreferencesForTest(): void {
+  sharedPrefs = DEFAULT_PREFERENCES;
+  sharedLoaded = false;
+  loadStarted = false;
+  dirty = false;
+  listeners.clear();
+}
 
 export interface UsePreferences {
   preferences: Preferences;
@@ -49,41 +87,46 @@ export interface UsePreferences {
 }
 
 export function usePreferences(): UsePreferences {
-  const [preferences, setPreferences] = useState<Preferences>(DEFAULT_PREFERENCES);
-  const [prefsLoaded, setPrefsLoaded] = useState(false);
-  // Keep a ref to the latest prefs so setters merge against the current value
-  // without re-subscribing the persist effect to every field. Kept in sync by
-  // the load effect and every `update` (never written during render).
-  const prefsRef = useRef(preferences);
-  // True once the user has written through a setter. The async mount-load must
-  // NOT clobber a value the user already changed (the load can resolve after an
-  // early setter call — Pitfall 3 timing).
-  const dirtyRef = useRef(false);
+  // Subscribe every instance to the module-singleton so a write in ANY instance
+  // (e.g. the Appearance pane Save) propagates to all of them (e.g. the App-root
+  // live-apply effect) — the live whole-app apply contract (D-23-9).
+  const [, forceRender] = useState(0);
+  const preferences = sharedPrefs;
+  const prefsLoaded = sharedLoaded;
 
-  // Load persisted prefs once on mount (async store). Guard against setting
-  // state after unmount, and against overwriting a post-mount user write.
   useEffect(() => {
-    let alive = true;
-    void loadPreferences().then((loaded) => {
-      if (!alive) return;
-      if (!dirtyRef.current) {
-        prefsRef.current = loaded;
-        setPreferences(loaded);
-      }
-      setPrefsLoaded(true);
-    });
+    const rerender = () => forceRender((n) => n + 1);
+    listeners.add(rerender);
     return () => {
-      alive = false;
+      listeners.delete(rerender);
     };
   }, []);
 
-  // Apply a partial change to local state AND persist the merged blob.
+  // Load persisted prefs ONCE per app session (the load is shared, not
+  // per-instance). The first mounting instance starts it; later instances reuse
+  // the resolved shared blob. dirty guard: a user write before the load resolves
+  // must NOT be clobbered (Pitfall 3 timing) — once any setter runs we treat the
+  // shared blob as authoritative and the load only flips the loaded flag.
+  useEffect(() => {
+    if (loadStarted) {
+      // Another instance already kicked off (or finished) the load — if it has
+      // resolved, this instance already reads the shared values; nothing to do.
+      return;
+    }
+    loadStarted = true;
+    void loadPreferences().then((loaded) => {
+      if (!dirty) sharedPrefs = loaded;
+      sharedLoaded = true;
+      notify();
+    });
+  }, []);
+
+  // Apply a partial change to the shared blob AND persist it. The change
+  // notifies every subscribed instance (cross-instance live propagation).
   const update = useCallback((patch: Partial<Preferences>) => {
-    dirtyRef.current = true;
-    const next = { ...prefsRef.current, ...patch };
-    prefsRef.current = next;
-    setPreferences(next);
-    void savePreferences(next);
+    dirty = true;
+    setSharedPrefs({ ...sharedPrefs, ...patch });
+    void savePreferences(sharedPrefs);
   }, []);
 
   const setTheme = useCallback((theme: ThemeName) => update({ theme }), [update]);

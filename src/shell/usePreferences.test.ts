@@ -12,13 +12,17 @@ import {
   type Store,
 } from "@/lib/platform";
 import { createStoreStub } from "@/lib/platform/stub";
-import { usePreferences } from "./usePreferences";
+import { resetPreferencesForTest, usePreferences } from "./usePreferences";
 import { DEFAULT_PREFERENCES, PREFERENCES_STORE_KEY } from "./preferences";
 import { makeMemoryPlatform } from "./testStore";
 
 let store: Store;
 
 beforeEach(() => {
+  // The prefs blob is a module-singleton (shared across all usePreferences
+  // instances for live cross-component apply, Phase 23-03) — reset it so each
+  // test gets a fresh load from its own platform store.
+  resetPreferencesForTest();
   store = createStoreStub();
   setPlatformForTest(makeMemoryPlatform(store));
 });

@@ -54,10 +54,14 @@ import {
 import { createStoreStub } from "@/lib/platform/stub";
 import { makeMemoryPlatform, noopLicense } from "@/shell/testStore";
 import { PREFERENCES_STORE_KEY } from "@/shell/preferences";
+import { resetPreferencesForTest } from "@/shell/usePreferences";
 
 let store: Store;
 
 beforeEach(() => {
+  // Reset the usePreferences module-singleton (shared across instances for live
+  // apply, Phase 23-03) so each test loads fresh from its own platform store.
+  resetPreferencesForTest();
   openSettingsSpy.mockClear();
   openUpsellSpy.mockClear();
   store = createStoreStub();

@@ -22,6 +22,7 @@ import { makeMemoryPlatform } from "@/shell/testStore";
 import { ENABLED_TOOLS } from "@/lib/tools/registry";
 import { HERO_TOOL_ID } from "@/shell/resolveStartupTool";
 import { PREFERENCES_STORE_KEY } from "@/shell/preferences";
+import { resetPreferencesForTest } from "@/shell/usePreferences";
 
 let store: Store;
 
@@ -30,6 +31,9 @@ function makePlatform(s: Store): Platform {
 }
 
 beforeEach(() => {
+  // Reset the usePreferences module-singleton (shared across instances for live
+  // apply, Phase 23-03) so StartupRedirect loads fresh from this test's store.
+  resetPreferencesForTest();
   store = createStoreStub();
   setPlatformForTest(makePlatform(store));
 });
