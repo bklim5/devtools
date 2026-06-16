@@ -210,38 +210,108 @@ export function unlockProFooterPresent(): Promise<boolean> {
   );
 }
 
-// Whether the shared Unlock Pro upsell MODAL is open — the focus-trapped
-// [role="dialog"][aria-modal="true"] UpsellModal mounted at the shell (App.tsx)
-// via the upsellStore. This is the SAME surface the footer "Unlock Pro" row, the
-// locked Alt+P chord, the ⌘K free-tier "License" command, and LicenseSettings'
-// Reactivate/Activate buttons all open (D-88 — no duplicate UI). Distinguished
-// from the ⌘K command palette dialog (which is NOT aria-modal) by the modal flag.
+// --- Settings ▸ License pane (the ONE upsell/activation surface) -------------
 //
-// The panel inside ADAPTS on the resolved license state (UpsellPanel): the FREE
-// (notActivated) tier shows "Thank you for using TinkerDev"; the D-44 problem
-// state shows "Your license file couldn't be verified" (a paying customer never
-// sees the sales pitch). Both ARE the upsell modal, so this probe matches either
-// heading — callers wanting a specific copy can read the dialog text themselves.
+// Phase 22.1-04 (user-approved 2026-06-16): the standalone "Unlock Pro" UpsellModal
+// (the focus-trapped dialog uniquely identified by aria-labelledby="upsell-heading")
+// was REMOVED. Every former opener — the sidebar footer "Unlock Pro"/"License needs
+// attention" row, the locked pin/reorder/reset affordances, and the ⌘K free
+// "License" command — now calls openSettings("license", invoker), which opens the
+// shell Settings modal on the License pane. The License pane renders the SAME shared
+// InlineActivation surface inline, so there is exactly one upsell surface in the app
+// (UpsellPanel.tsx header). No [aria-labelledby="upsell-heading"] dialog exists.
 //
-// Phase 22 (D-S1): the shell now mounts a SECOND aria-modal dialog — the Settings
-// modal — whose License pane renders LicenseSettings, which ALSO carries the
-// "Your license file couldn't be verified" copy in its problem state. So a text
-// match alone now false-positives on an open Settings modal. The UpsellModal is
-// uniquely identified by aria-labelledby="upsell-heading" (UpsellPanel's
-// MODAL_HEADING_ID) — the Settings dialog uses a generated useId() title — so we
-// scope to THAT dialog and then confirm the upsell copy inside it. This stays
-// correct whether the upsell is standalone or STACKED above Settings (Pitfall 6).
-export function upsellModalOpen(): Promise<boolean> {
+// Probe for the Settings dialog ON the License pane: the dialog is the
+// [role="dialog"][aria-modal="true"] focus-trapped modal (distinguished from the ⌘K
+// command palette, which is NOT aria-modal), and the License pane is confirmed by
+// its state-adaptive copy inside that dialog. The FREE (notActivated) state shows
+// the inline pitch "Thank you for using TinkerDev"; the problem/refreshNeeded
+// attention states show "License needs attention" / "Pro is no longer active". Any
+// of those confirms the License pane is mounted in the Settings modal — callers
+// wanting a specific state read the dialog text/heading themselves.
+//
+// Kept named `settingsLicensePaneOpen` (clearer), with `upsellModalOpen` retained
+// as a back-compat alias so the specs that probed "is the upsell open?" keep reading
+// — they now (correctly) assert the Settings ▸ License pane instead of a stacked modal.
+export function settingsLicensePaneOpen(): Promise<boolean> {
   return browser.execute(() => {
     const dialog = document.querySelector(
-      '[role="dialog"][aria-modal="true"][aria-labelledby="upsell-heading"]',
+      '[role="dialog"][aria-modal="true"]',
     );
     if (!dialog) return false;
     const text = dialog.textContent ?? "";
     return (
       text.includes("Thank you for using TinkerDev") ||
-      text.includes("Your license file couldn't be verified")
+      text.includes("License needs attention") ||
+      text.includes("Pro is no longer active")
     );
+  });
+}
+
+// Back-compat alias: the former "is the upsell modal open?" probe now resolves to
+// "is the Settings ▸ License pane open?" (the single upsell surface, post-22.1-04).
+export const upsellModalOpen = settingsLicensePaneOpen;
+
+// Whether a STACKED standalone upsell modal is present — the old modal-on-modal
+// guard (D-22.1-4/5). Post-22.1-04 the standalone UpsellModal (uniquely identified
+// by aria-labelledby="upsell-heading") was REMOVED, so this is now structurally
+// always false; it is kept as an EXPLICIT guard so the License-pane specs can assert
+// "no second modal stacked above Settings" without that intent silently flipping to
+// "the Settings pane itself" (the `upsellModalOpen` alias would). A regression that
+// reintroduced a stacked modal would make this true and fail those assertions.
+export function stackedUpsellModalPresent(): Promise<boolean> {
+  return browser.execute(
+    () =>
+      document.querySelector(
+        '[role="dialog"][aria-modal="true"][aria-labelledby="upsell-heading"]',
+      ) !== null,
+  );
+}
+
+// --- DEV-only license-state override (the 22.1-04 e2e seam) ------------------
+//
+// Drive the #[cfg(debug_assertions)] `dev_set_license_state` Tauri command so the
+// License pane resolves a SYNTHETIC state (free/licensed/offlineGrace/refreshNeeded/
+// problem) without a live CE checkout (which needs a server-side signing key,
+// impossible headlessly). `state === null` CLEARS the override (real behavior) — call
+// it in an after-hook so the override never leaks to other specs in the WDIO run.
+//
+// Invoke path: the command runs through window.__TAURI_INTERNALS__.invoke — the SAME
+// IPC the app itself uses (withGlobalTauri is off, so window.__TAURI__ is absent, but
+// __TAURI_INTERNALS__.invoke is always injected). `browser.execute`'s sync
+// executeScript does NOT await a returned Promise, so we await the invoke INSIDE a
+// browser.executeAsync callback (WDIO resolves it via the injected `done` callback) —
+// the command returns the now-resolved status, so the await guarantees the override
+// is live before the caller opens the pane. The override only changes what
+// resolve_status* returns; the License pane's mount re-query (refreshLicenseUiDetailed)
+// then renders it, so callers re-open the modal AFTER setting the state.
+export function setDevLicenseState(state: string | null): Promise<void> {
+  return browser.executeAsync(
+    (s: string | null, done: (v: unknown) => void) => {
+      const internals = (
+        window as unknown as {
+          __TAURI_INTERNALS__?: {
+            invoke: (cmd: string, args: Record<string, unknown>) => Promise<unknown>;
+          };
+        }
+      ).__TAURI_INTERNALS__;
+      if (!internals) {
+        done({ error: "__TAURI_INTERNALS__ unavailable — not in the Tauri WKWebView" });
+        return;
+      }
+      // The Tauri command param is `new_state: Option<String>` → camelCase `newState`.
+      internals
+        .invoke("dev_set_license_state", { newState: s })
+        .then(() => done(null))
+        .catch((err: unknown) => done({ error: String(err) }));
+    },
+    state,
+  ).then((result) => {
+    if (result && typeof result === "object" && "error" in result) {
+      throw new Error(
+        `setDevLicenseState(${JSON.stringify(state)}) failed: ${(result as { error: string }).error}`,
+      );
+    }
   });
 }
 
