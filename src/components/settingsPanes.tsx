@@ -12,8 +12,9 @@
 // glyph can be chosen by each later phase when it adds its entry.
 
 import type { ComponentType, ReactNode } from "react";
-import { Settings } from "lucide-react";
+import { Contrast, Settings } from "lucide-react";
 import { LicenseSettings } from "./LicenseSettings";
+import { AppearanceSettings } from "./AppearanceSettings";
 
 export interface SettingsPane {
   id: string;
@@ -28,5 +29,11 @@ export const SETTINGS_PANES: SettingsPane[] = [
     label: "License",
     icon: Settings,
     render: () => <LicenseSettings />,
+  },
+  {
+    id: "appearance",
+    label: "Appearance",
+    icon: Contrast,
+    render: () => <AppearanceSettings />,
   },
 ];
