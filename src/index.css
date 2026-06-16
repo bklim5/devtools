@@ -80,6 +80,44 @@
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 }
 
+/* Light theme (D-23-8). dark = the @theme defaults (absence of data-theme);
+   this block overrides the SAME custom-property names when documentElement
+   carries data-theme="light", so the cascade flips all 11 tools + the protobuf
+   tree + License/Settings panes + sidebar + palette with NO utility edits.
+   Every value WCAG-AA verified (mechanized in src/shell/appearanceContrast.test.ts).
+   accent/warn/ok BASES re-declared to light variants; their -soft/-line are ALSO
+   re-declared here (not relying on @theme color-mix tracking the var) and the
+   accent-soft mix drops to 12% for AA headroom on near-white (RESEARCH A4). */
+:root[data-theme="light"] {
+  --color-bg-app: #f3f4f6;
+  --color-win: #ffffff;
+  --color-titlebar: #f7f8fa;
+  --color-sidebar: #f0f1f4;
+  --color-pane: #ffffff;
+  --color-panel: #f7f8fa;
+  --color-card: #ffffff;
+  --color-palette: #ffffff;
+  --color-input-bg: #f0f1f4;
+  --color-bd: rgba(0, 0, 0, 0.08);
+  --color-bd-2: rgba(0, 0, 0, 0.14);
+  --color-tx: #1a1d23;
+  --color-tx-2: #525861;
+  --color-tx-3: #6b7280;
+  --color-scrim: rgba(20, 22, 28, 0.4);
+
+  --color-accent: #1763d6;
+  --color-accent-soft: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  --color-accent-line: color-mix(in srgb, var(--color-accent) 70%, transparent);
+
+  --color-warn: #b45309;
+  --color-warn-soft: color-mix(in srgb, var(--color-warn) 12%, transparent);
+  --color-warn-line: color-mix(in srgb, var(--color-warn) 70%, transparent);
+
+  --color-ok: #15722f;
+  --color-ok-soft: color-mix(in srgb, var(--color-ok) 12%, transparent);
+  --color-ok-line: color-mix(in srgb, var(--color-ok) 70%, transparent);
+}
+
 /* FND-01: dark window. Matches the design's radial-gradient over --bg-app
    (#0a0b0d) with the IBM Plex Sans body font. */
 html,
@@ -91,9 +129,17 @@ body,
 body {
   margin: 0;
   background: radial-gradient(120% 90% at 50% -10%, #14161c 0%, #0a0b0d 60%);
-  color: #e7e9ee;
+  color: var(--color-tx);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+}
+
+/* Light-theme body gradient (D-23-8, Pitfall 5) — the dark radial above is
+   hardcoded; override it under [data-theme="light"] so no dark gradient bleeds
+   behind a light app. Body `color` is already tokenized (var(--color-tx)) so it
+   flips with the theme automatically. */
+:root[data-theme="light"] body {
+  background: radial-gradient(120% 90% at 50% -10%, #ffffff 0%, #f3f4f6 60%);
 }
 
 /* Zero-width scrollbar — deterministic regardless of the macOS
