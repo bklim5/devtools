@@ -34,21 +34,33 @@ import {
  * Real on-disk Store impl (SHL-05, D-09), backed by @tauri-apps/plugin-store.
  * `load()` returns a LazyStore that resolves the underlying store on first use;
  * we resolve it ONCE at module scope and delegate get/set behind the unchanged
- * `Store` interface. `autoSave: true` debounces disk writes off the hot path
- * (RESEARCH Pitfall 5 / threat T-02-04). Gated at runtime by the `store:default`
- * capability (Pitfall 2). This is the ONLY file allowed to import @tauri-apps/*.
+ * `Store` interface. Gated at runtime by the `store:default` capability (Pitfall
+ * 2). This is the ONLY file allowed to import @tauri-apps/*.
+ *
+ * DURABILITY FIX (theme/pins/last-used data loss): `autoSave: true` DEBOUNCES
+ * disk writes (~100ms), so a pending write is LOST if the app quits before the
+ * debounce flushes — especially after several quick changes right before quit —
+ * and a stale-disk read (e.g. clearEntitlementsOverride) could clobber newer
+ * in-memory values. We set `autoSave: false` and call `save()` AFTER every
+ * `set()`, so each write is durably on disk before the call resolves. This is
+ * off the hot path: usePreferences already writes user-paced (one set per change,
+ * NOT per render — Pitfall 5), so the per-set fsync cost is unobservable.
  */
 function createTauriStore(): Store {
   // `defaults: {}` is required by this plugin version's StoreOptions; an empty
   // map means "no seeded keys" (unset keys read back as undefined, matching the
-  // Store contract). `autoSave: true` debounces disk writes (100ms default).
-  const ready = load("prefs.json", { defaults: {}, autoSave: true });
+  // Store contract). `autoSave: false`: we flush explicitly per set (see below).
+  const ready = load("prefs.json", { defaults: {}, autoSave: false });
   return {
     async get(key: string): Promise<unknown> {
       return (await ready).get(key);
     },
     async set(key: string, value: unknown): Promise<void> {
-      await (await ready).set(key, value);
+      const store = await ready;
+      await store.set(key, value);
+      // Flush to disk before resolving so a quit immediately after never loses
+      // the write (the autoSave debounce window is the data-loss bug we fix here).
+      await store.save();
     },
   };
 }
