@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
-// ThemeCardGroup (D-23-6) — three accessible theme radio cards. Asserts the
-// radiogroup structure (3 role="radio" cards Dark/Light/System), aria-checked
-// reflects the value, onChange fires the right theme on click, and arrow keys move
-// selection (clamped, no wrap). NOT a SegmentedControl.
+// ThemeCardGroup (D-23-6) — two accessible theme radio cards (Dark/Light;
+// "system" removed, D-23-4). Asserts the radiogroup structure (2 role="radio"
+// cards Dark/Light), aria-checked reflects the value, onChange fires the right
+// theme on click, and arrow keys move selection (clamped, no wrap). NOT a
+// SegmentedControl.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { ThemeCardGroup } from "./ThemeCardGroup";
@@ -10,14 +11,14 @@ import { ThemeCardGroup } from "./ThemeCardGroup";
 afterEach(cleanup);
 
 describe("ThemeCardGroup", () => {
-  it("renders exactly three theme radio cards labelled Dark/Light/System", () => {
+  it("renders exactly two theme radio cards labelled Dark/Light", () => {
     render(<ThemeCardGroup value="dark" onChange={() => {}} />);
     const group = screen.getByRole("radiogroup", { name: "Theme" });
     const radios = within(group).getAllByRole("radio");
-    expect(radios).toHaveLength(3);
+    expect(radios).toHaveLength(2);
     expect(within(group).getByRole("radio", { name: /Dark/ })).toBeTruthy();
     expect(within(group).getByRole("radio", { name: /Light/ })).toBeTruthy();
-    expect(within(group).getByRole("radio", { name: /System/ })).toBeTruthy();
+    expect(within(group).queryByRole("radio", { name: /System/ })).toBeNull();
   });
 
   it("reflects the selected value via aria-checked", () => {
@@ -32,8 +33,8 @@ describe("ThemeCardGroup", () => {
   it("fires onChange with the clicked theme", () => {
     const onChange = vi.fn();
     render(<ThemeCardGroup value="dark" onChange={onChange} />);
-    fireEvent.click(screen.getByRole("radio", { name: /System/ }));
-    expect(onChange).toHaveBeenCalledWith("system");
+    fireEvent.click(screen.getByRole("radio", { name: /Light/ }));
+    expect(onChange).toHaveBeenCalledWith("light");
   });
 
   it("moves selection with arrow keys (next/prev, clamped)", () => {
@@ -55,10 +56,10 @@ describe("ThemeCardGroup", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it("clamps at the end (ArrowRight on System is a no-op)", () => {
+  it("clamps at the end (ArrowRight on Light is a no-op)", () => {
     const onChange = vi.fn();
-    render(<ThemeCardGroup value="system" onChange={onChange} />);
-    fireEvent.keyDown(screen.getByRole("radio", { name: /System/ }), {
+    render(<ThemeCardGroup value="light" onChange={onChange} />);
+    fireEvent.keyDown(screen.getByRole("radio", { name: /Light/ }), {
       key: "ArrowRight",
     });
     expect(onChange).not.toHaveBeenCalled();

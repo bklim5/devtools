@@ -60,6 +60,7 @@ export function AppearanceSettings() {
 
       <section className="flex flex-col gap-2">
         <h4 className="text-[13px] font-medium text-tx">Theme</h4>
+        <p className="text-[12px] text-tx-3">Choose light or dark.</p>
         <ThemeCardGroup value={pendingTheme} onChange={setPendingTheme} />
       </section>
 

@@ -1,49 +1,51 @@
-// ThemeCardGroup (D-23-6) — three theme radio cards (Dark / Light / System).
-// Deliberately a card radiogroup, never a segmented toggle. role="radiogroup" over three
+// ThemeCardGroup (D-23-6) — two theme radio cards (Dark / Light). Deliberately a
+// card radiogroup, never a segmented toggle. role="radiogroup" over two
 // role="radio" cards, aria-checked reflecting the selected value, arrow-key roving
 // selection (Left/Up → previous, Right/Down → next, clamp at the ends — no wrap,
 // matching the Sidebar's roving convention), and a visible focus ring. Each card
-// carries a tiny stylized app-preview thumbnail (sidebar + pane + accent dot) so
-// the choice is recognizable, and selection is NEVER by color alone (border-accent
-// + the aria-checked state). Layout-agnostic: responsive flex, no fixed px widths.
+// carries a tiny stylized app-window thumbnail (an accent top bar + neutral content
+// rows on the theme's surface) so the choice is recognizable, and selection is
+// NEVER by color alone (border-accent + the aria-checked state). Layout-agnostic:
+// responsive flex, no fixed px widths beyond the small thumb.
 
 import type { ThemeName } from "@/shell/preferences";
 
 const THEME_LABELS: Record<ThemeName, string> = {
   dark: "Dark",
   light: "Light",
-  system: "System",
 };
 
-// The visual order of the cards (Dark / Light / System) — arrow-nav walks this.
-const CARD_ORDER: readonly ThemeName[] = ["dark", "light", "system"];
+// The visual order of the cards (Dark / Light) — arrow-nav walks this.
+const CARD_ORDER: readonly ThemeName[] = ["dark", "light"];
 
 export interface ThemeCardGroupProps {
   value: ThemeName;
   onChange: (theme: ThemeName) => void;
 }
 
-/** A tiny stylized app-preview thumbnail: a two-pane (sidebar + content) box with
- *  an accent dot. `variant` picks the surface palette — dark/system use the live
- *  dark tokens; light hardcodes the light surfaces (RESEARCH note: the light card
- *  previews the light theme, so it illustrates the light surfaces directly). */
+/** A tiny stylized app-window skeleton: an accent-colored top bar over 2–3 neutral
+ *  horizontal content rows, on that theme's surface color. The accent bar uses the
+ *  LIVE accent (bg-accent) so it reads as a real preview. `variant` picks the
+ *  surface palette — dark uses the dark tokens; light hardcodes the light surfaces
+ *  it previews. aria-hidden — the card label + aria-checked carry the meaning. */
 function ThemeThumbnail({ variant }: { variant: "dark" | "light" }) {
   const surface =
     variant === "light"
-      ? { box: "#ffffff", sidebar: "#f0f1f4", pane: "#ffffff", line: "rgba(0,0,0,0.12)" }
-      : { box: "#0d0f13", sidebar: "#15171c", pane: "#1a1d23", line: "rgba(255,255,255,0.12)" };
+      ? { box: "#ffffff", row: "rgba(0,0,0,0.12)", line: "rgba(0,0,0,0.12)" }
+      : { box: "#1a1d23", row: "rgba(255,255,255,0.14)", line: "rgba(255,255,255,0.12)" };
   return (
     <div
       aria-hidden="true"
-      className="flex h-12 w-full overflow-hidden rounded-[6px] border"
+      className="flex h-12 w-full flex-col overflow-hidden rounded-[6px] border"
       style={{ backgroundColor: surface.box, borderColor: surface.line }}
     >
-      <div className="h-full w-1/3" style={{ backgroundColor: surface.sidebar }} />
-      <div className="relative h-full flex-1" style={{ backgroundColor: surface.pane }}>
-        <span
-          className="absolute left-1.5 top-1.5 h-2 w-2 rounded-full bg-accent"
-          aria-hidden="true"
-        />
+      {/* Accent top bar — the live accent (bg-accent) so the swatch choice previews. */}
+      <div className="h-3 w-full flex-none bg-accent" />
+      {/* 3 neutral content rows below, decreasing width for a window-like skeleton. */}
+      <div className="flex flex-1 flex-col justify-center gap-1 px-1.5">
+        <div className="h-1 w-3/4 rounded-full" style={{ backgroundColor: surface.row }} />
+        <div className="h-1 w-full rounded-full" style={{ backgroundColor: surface.row }} />
+        <div className="h-1 w-1/2 rounded-full" style={{ backgroundColor: surface.row }} />
       </div>
     </div>
   );
