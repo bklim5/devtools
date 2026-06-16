@@ -19,9 +19,10 @@ import {
   type ThemeName,
 } from "./preferences";
 
-const VALID_THEMES: ReadonlySet<string> = new Set(["light", "dark", "system"]);
+const VALID_THEMES: ReadonlySet<string> = new Set(["light", "dark"]);
 /** Untrusted (T-02-08 / T-23-01): the user can hand-edit prefs.json. Accept only
- *  the three known theme names; anything else → "dark" (the default). */
+ *  the two known theme names; anything else — incl. a hand-edited/legacy "system"
+ *  — → "dark" (the default). */
 function coerceTheme(value: unknown): ThemeName {
   return typeof value === "string" && VALID_THEMES.has(value)
     ? (value as ThemeName)

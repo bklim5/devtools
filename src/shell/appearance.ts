@@ -6,7 +6,7 @@
 // default keeps working). `accentForTheme` reverse-maps that dark hex to the hex
 // to apply under the effective theme.
 
-export const THEME_NAMES = ["light", "dark", "system"] as const;
+export const THEME_NAMES = ["light", "dark"] as const;
 
 /** Per-swatch two-value accent scale (D-23-7). `dark` = --color-accent in the
  *  dark theme AND the swatch's display color; `light` = --color-accent under

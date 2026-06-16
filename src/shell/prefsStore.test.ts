@@ -90,13 +90,13 @@ describe("protobufTreeStyle coercion", () => {
   });
 });
 
-// theme widens to light/dark/system (D-23-4), read from the same untrusted
+// theme is light/dark (D-23-4; "system" removed), read from the same untrusted
 // on-disk blob (threat T-23-01: the user can hand-edit prefs.json). coerceTheme
-// (module-private — tested THROUGH mergePreferences) accepts ONLY the three known
-// names; anything else — unknown string, non-string, absent — coerces to the
-// "dark" default. The accent default is now #5b9bf8 (the applied dark blue —
-// Pitfall 1; the dead #3b82f6 is gone).
-describe("coerceTheme widening (D-23-4, T-23-01)", () => {
+// (module-private — tested THROUGH mergePreferences) accepts ONLY the two known
+// names; anything else — incl. a hand-edited/legacy "system", non-string, absent —
+// coerces to the "dark" default. The accent default is now #5b9bf8 (the applied
+// dark blue — Pitfall 1; the dead #3b82f6 is gone).
+describe("coerceTheme (D-23-4, T-23-01)", () => {
   it("preserves the valid name \"light\"", () => {
     expect(mergePreferences({ theme: "light" }).theme).toBe("light");
   });
@@ -105,8 +105,8 @@ describe("coerceTheme widening (D-23-4, T-23-01)", () => {
     expect(mergePreferences({ theme: "dark" }).theme).toBe("dark");
   });
 
-  it("preserves the valid name \"system\"", () => {
-    expect(mergePreferences({ theme: "system" }).theme).toBe("system");
+  it("coerces a hand-edited/legacy \"system\" to \"dark\"", () => {
+    expect(mergePreferences({ theme: "system" }).theme).toBe("dark");
   });
 
   it("coerces an unknown string to \"dark\" (untrusted hand-edited prefs.json)", () => {

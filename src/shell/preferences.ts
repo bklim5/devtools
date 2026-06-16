@@ -10,17 +10,18 @@
 // will add a `protobufTreeStyle` field here — leave room for it; the merge in
 // usePreferences accepts only known fields so adding one is a single edit.
 
-/** Theme is a NAMED value (D-10), NOT a boolean. Three values (D-23-4): "light",
- *  "dark", "system" (resolves via prefers-color-scheme). Fresh-install default
- *  stays "dark"; existing installs keep their persisted value. */
-export type ThemeName = "light" | "dark" | "system";
+/** Theme is a NAMED value (D-10), NOT a boolean. Two values (D-23-4): "light"
+ *  and "dark" (the theme IS the effective theme — no prefers-color-scheme
+ *  resolution). Fresh-install default stays "dark"; existing installs keep their
+ *  persisted value (a hand-edited/legacy "system" coerces to the "dark" default). */
+export type ThemeName = "light" | "dark";
 
 /** Protobuf wire-format tree layout (PRO-06, D-07). Two layouts only: stacked
  *  "cards" (default) and dense "rows". Persisted so the toggle survives reload. */
 export type ProtobufTreeStyle = "cards" | "rows";
 
 export interface Preferences {
-  /** Named theme (D-10/D-23-4): light/dark/system. Fresh-install default "dark". */
+  /** Named theme (D-10/D-23-4): light or dark. Fresh-install default "dark". */
   theme: ThemeName;
   /** Accent color as a CSS color value (drives `--accent`; D-10). One of the
    *  mockup's swatches, but stored as a free string for forward-compat. */

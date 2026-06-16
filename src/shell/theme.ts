@@ -1,17 +1,15 @@
 // Pure apply helpers for whole-app theme + accent (D-23-9). jsdom-testable: no
-// native platform import — touches only window.matchMedia + document.documentElement
-// (both allowed DOM). The App root calls applyAppearance with the GATED
-// (gatePreferences) theme/accent so a free user is always forced to the defaults.
+// native platform import — touches only document.documentElement (allowed DOM).
+// The App root calls applyAppearance with the GATED (gatePreferences) theme/accent
+// so a free user is always forced to the defaults.
 
 import type { ThemeName } from "./preferences";
 import { accentForTheme } from "./appearance";
 
-/** Resolve a named theme to a concrete light|dark. "system" reads the OS
- *  preference via matchMedia (live-tracked by the App root's change listener). */
+/** With "system" removed (D-23-4), the named theme IS the effective theme — no
+ *  prefers-color-scheme resolution. Kept as a thin identity so callers/tests that
+ *  expect a "light" | "dark" return type stay stable. */
 export function resolveEffectiveTheme(theme: ThemeName): "light" | "dark" {
-  if (theme === "system") {
-    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-  }
   return theme;
 }
 
