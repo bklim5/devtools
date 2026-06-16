@@ -8,17 +8,22 @@
 // projection tests inject FULL_SET to keep exercising the unlocked v1.5 behavior
 // unchanged (RESEARCH Pitfall 5 audit). The "free tier" describe injects FREE_SET
 // and proves the lock UX: registry-default render with stored prefs untouched,
-// every ordering/pinning affordance opening the shared upsell modal, zero writes.
+// zero writes.
+//
+// 22.1-04 (user-approved 2026-06-16, reverses D-22.1-5/D-28/D-29): the standalone
+// "Unlock Pro" upsell modal is GONE. Every ordering/pinning affordance AND the
+// footer row now open Settings ▸ License via openSettings("license", invoker) —
+// the License pane renders the inline upsell. The tests assert that single redirect
+// target (openSettingsSpy), not a stacked dialog.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Lock } from "lucide-react";
 import { act, cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
-import { UpsellModal } from "./UpsellPanel";
 
-// D-S11: the footer license-attention affordance + the bottom-anchored Settings
-// row open the single Settings modal via openSettings (was navigate); spy it so
-// the open target/pane is observable. (navigate is no longer used by Sidebar.)
+// Every Sidebar entry point (locked-customization affordances + the footer +
+// the bottom-anchored Settings row) opens the single Settings modal via
+// openSettings("license", invoker). Spy it so the open target/pane + the
+// focus-return invoker are observable. (navigate is no longer used by Sidebar.)
 const openSettingsSpy = vi.fn();
 vi.mock("@/shell/settingsStore", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/shell/settingsStore")>();
@@ -43,8 +48,6 @@ import {
 import { createStoreStub } from "@/lib/platform/stub";
 import { makeMemoryPlatform, noopLicense } from "@/shell/testStore";
 import { PREFERENCES_STORE_KEY } from "@/shell/preferences";
-import { closeUpsell } from "@/shell/upsellStore";
-import { useUpsellOpen } from "@/shell/useUpsell";
 
 let store: Store;
 
@@ -62,24 +65,12 @@ afterEach(() => {
   resetPlatformForTest();
   resetEntitlementsForTest();
   resetLicenseUiForTest();
-  closeUpsell(); // reset the shared upsell-open store between tests
 });
-
-// The shared upsell modal now mounts ONCE at the shell (App.tsx), projected from
-// the shell/upsellStore flag — not inside Sidebar. This host mirrors that shell
-// composition so a Sidebar affordance that calls openUpsell() still renders the
-// dialog under test (parity with the real App).
-function UpsellModalHost() {
-  return useUpsellOpen() ? (
-    <UpsellModal icon={Lock} onClose={closeUpsell} />
-  ) : null;
-}
 
 function renderAt(path: string) {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <Sidebar />
-      <UpsellModalHost />
     </MemoryRouter>,
   );
 }
@@ -200,25 +191,20 @@ describe("Sidebar free tier (D-26/D-28)", () => {
     expect(getByRole("group", { name: "Pinned tools" })).toBeDefined();
   });
 
-  it("pin-button click opens the upsell modal and writes nothing (D-28)", async () => {
-    const { getByRole, getByLabelText, queryByText } = renderAt("/");
+  it("pin-button click opens Settings ▸ License and writes nothing (D-28 → 22.1-04)", async () => {
+    const { getByLabelText } = renderAt("/");
     await flushPrefsLoad();
     const setSpy = vi.spyOn(store, "set");
 
     fireEvent.click(getByLabelText(`Pin ${ENABLED_TOOLS[0].name}`));
 
-    expect(getByRole("dialog")).toBeDefined();
-    expect(
-      getByRole("heading", { name: /Thank you for using TinkerDev/ }),
-    ).toBeDefined();
-    // D-19 override (walkthrough 2026-06-10): no "Unlocks:" meta line — lock
-    // context comes from the affordance the user clicked.
-    expect(queryByText(/Unlocks:/)).toBeNull();
+    // The locked affordance redirects to the License pane instead of writing prefs.
+    expect(openSettingsSpy).toHaveBeenCalledWith("license", undefined);
     expect(setSpy).not.toHaveBeenCalled();
   });
 
-  it("Alt+P (physical KeyP, composed 'π') on a row opens the modal, no write", async () => {
-    const { getAllByRole, getByRole } = renderAt("/");
+  it("Alt+P (physical KeyP, composed 'π') on a row opens Settings ▸ License, no write", async () => {
+    const { getAllByRole } = renderAt("/");
     await flushPrefsLoad();
     const setSpy = vi.spyOn(store, "set");
 
@@ -229,22 +215,22 @@ describe("Sidebar free tier (D-26/D-28)", () => {
       key: "π",
     });
 
-    expect(getByRole("dialog")).toBeDefined();
+    expect(openSettingsSpy).toHaveBeenCalledWith("license", undefined);
     expect(setSpy).not.toHaveBeenCalled();
   });
 
-  it("Alt+ArrowDown on a row opens the modal instead of reordering, no write", async () => {
-    const { getAllByRole, getByRole } = renderAt("/");
+  it("Alt+ArrowDown on a row opens Settings ▸ License instead of reordering, no write", async () => {
+    const { getAllByRole } = renderAt("/");
     await flushPrefsLoad();
     const setSpy = vi.spyOn(store, "set");
 
     fireEvent.keyDown(getAllByRole("link")[0], { altKey: true, key: "ArrowDown" });
 
-    expect(getByRole("dialog")).toBeDefined();
+    expect(openSettingsSpy).toHaveBeenCalledWith("license", undefined);
     expect(setSpy).not.toHaveBeenCalled();
   });
 
-  it("'Reset order' menu item opens the modal instead of clearing the order", async () => {
+  it("'Reset order' menu item opens Settings ▸ License instead of clearing the order", async () => {
     await seedArrangement();
     const { getByRole, queryByRole } = renderAt("/");
     await flushPrefsLoad();
@@ -253,13 +239,15 @@ describe("Sidebar free tier (D-26/D-28)", () => {
     fireEvent.contextMenu(getByRole("navigation"));
     fireEvent.click(getByRole("menuitem", { name: /reset order/i }));
 
-    expect(getByRole("dialog")).toBeDefined();
-    // The menu itself closed; the stored order was NOT cleared.
+    // The locked reset opens the License pane and passes the resolved menu
+    // return-focus element (finding 3) as the explicit invoker. The menu closed;
+    // the stored order was NOT cleared.
+    expect(openSettingsSpy).toHaveBeenCalledWith("license", expect.anything());
     expect(queryByRole("menu")).toBeNull();
     expect(setSpy).not.toHaveBeenCalled();
   });
 
-  it("footer 'Unlock Pro' row renders in free tier, is focusable, and opens the modal (D-29)", async () => {
+  it("footer 'Unlock Pro' row renders in free tier, is focusable, and opens Settings ▸ License (D-29 → 22.1-04)", async () => {
     const { getByRole } = renderAt("/");
     await flushPrefsLoad();
 
@@ -269,25 +257,8 @@ describe("Sidebar free tier (D-26/D-28)", () => {
 
     fireEvent.click(footer);
 
-    expect(getByRole("dialog")).toBeDefined();
-    expect(
-      getByRole("heading", { name: /Thank you for using TinkerDev/ }),
-    ).toBeDefined();
-  });
-
-  it("Esc closes the modal and focus returns to the invoking control", async () => {
-    const { getByRole, getByLabelText, queryByRole } = renderAt("/");
-    await flushPrefsLoad();
-
-    const pinButton = getByLabelText(`Pin ${ENABLED_TOOLS[0].name}`);
-    act(() => pinButton.focus());
-    fireEvent.click(pinButton);
-    expect(getByRole("dialog")).toBeDefined();
-
-    fireEvent.keyDown(document, { key: "Escape" });
-
-    await waitFor(() => expect(queryByRole("dialog")).toBeNull());
-    expect(document.activeElement).toBe(pinButton);
+    // MED-22-02: the clicked footer is passed as the explicit focus-return target.
+    expect(openSettingsSpy).toHaveBeenCalledWith("license", footer);
   });
 });
 
@@ -321,20 +292,17 @@ describe("Sidebar bottom-anchored Settings row (SET-03/D-S9/D-S10/D-S11)", () =>
     expect(openSettingsSpy).toHaveBeenCalledWith("license", settingsRow);
   });
 
-  it("free-tier 'Unlock Pro' STILL opens the upsell modal (unchanged), never the Settings modal (D-S11)", async () => {
+  it("free-tier 'Unlock Pro' opens Settings ▸ License (22.1-04 — converges with the Settings row, no separate upsell modal)", async () => {
     act(() => setEntitlementsForTest(FREE_SET));
     const { getByRole } = renderAt("/");
     await flushPrefsLoad();
 
-    fireEvent.click(getByRole("button", { name: "Unlock Pro" }));
+    const footer = getByRole("button", { name: "Unlock Pro" });
+    fireEvent.click(footer);
 
-    // The shared upsell dialog opens (UpsellModalHost renders it); openSettings is
-    // NOT called for the free-tier Unlock-Pro affordance.
-    expect(getByRole("dialog")).toBeDefined();
-    expect(
-      getByRole("heading", { name: /Thank you for using TinkerDev/ }),
-    ).toBeDefined();
-    expect(openSettingsSpy).not.toHaveBeenCalled();
+    // 22.1-04: the free-tier Unlock-Pro affordance now ALSO routes to the License
+    // pane (the inline upsell lives there) — the standalone modal is gone.
+    expect(openSettingsSpy).toHaveBeenCalledWith("license", footer);
   });
 });
 

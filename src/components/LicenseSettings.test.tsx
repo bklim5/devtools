@@ -42,7 +42,8 @@ vi.mock("react-router-dom", async (importOriginal) => {
 // INLINE in the pane. So LicenseSettings no longer imports openUpsell at all —
 // these tests assert the inline surface renders (pitch+form for free, form-only
 // below the status card for refreshNeeded/problem) instead of a modal opening.
-// The standalone UpsellModal is covered (unchanged) by UpsellPanel.test.tsx.
+// 22.1-04: the standalone UpsellModal was removed entirely — the inline
+// surface here is now the ONLY upsell surface in the app.
 
 const LICENSED: LicenseStatusPayload = {
   state: "licensed",

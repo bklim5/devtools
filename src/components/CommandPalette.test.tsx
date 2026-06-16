@@ -26,7 +26,6 @@ import {
   resetLicenseUiForTest,
   setLicenseUiForTest,
 } from "@/lib/license/licenseUi";
-import { closeUpsell, getUpsellOpen } from "@/shell/upsellStore";
 
 // Spy on useNavigate so Enter's navigation is observable without a real route.
 const navigateSpy = vi.fn();
@@ -62,7 +61,6 @@ afterEach(() => {
   resetPlatformForTest();
   resetEntitlementsForTest();
   resetLicenseUiForTest();
-  closeUpsell(); // reset the shared upsell-open store between tests
 });
 
 function renderPalette() {
@@ -356,9 +354,8 @@ describe("CommandPalette — License command (D-88, shipped production command)"
     expect(navigateSpy).not.toHaveBeenCalled();
   });
 
-  it("opens the shared Unlock Pro upsell for free (notActivated) — visible feedback, never a silent navigate (21-04 fix)", async () => {
+  it("opens Settings ▸ License for the free tier too (notActivated) — 22.1-04: both arms converge, the standalone upsell modal is gone", async () => {
     act(() => setLicenseUiForTest({ state: "notActivated", hasStoredKey: false }));
-    expect(getUpsellOpen()).toBe(false);
     const { findByPlaceholderText, findByText } = renderPalette();
     act(() => pressMetaK());
     await findByPlaceholderText("Search tools…");
@@ -370,11 +367,11 @@ describe("CommandPalette — License command (D-88, shipped production command)"
     act(() => {
       fireEvent.click(licenseRow);
     });
-    // The free arm opens the SAME shared upsell surface the sidebar footer uses
-    // (shell/upsellStore) instead of navigating — no silent no-op on "/". It must
-    // NOT open the Settings modal (that is the manageable-license arm, D-S11).
-    expect(getUpsellOpen()).toBe(true);
-    expect(openSettingsSpy).not.toHaveBeenCalled();
+    // 22.1-04: the free arm now ALSO opens the single Settings surface on the
+    // License pane (the inline upsell lives there) — visible feedback, no silent
+    // navigate, and the same surface as the manageable arm. The pre-palette focus
+    // is the explicit return target.
+    expect(openSettingsSpy).toHaveBeenCalledWith("license", expect.anything());
     expect(navigateSpy).not.toHaveBeenCalled();
   });
 });

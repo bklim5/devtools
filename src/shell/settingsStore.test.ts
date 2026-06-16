@@ -1,6 +1,6 @@
 // Settings-modal open-state store — the ONE channel every Settings entry point
-// flips to open the single <SettingsModal> (D-S1). Modeled on upsellStore.test.ts,
-// extended for the activePane state (D-S3) the upsell store does not carry.
+// flips to open the single <SettingsModal> (D-S1). A module-singleton
+// useSyncExternalStore store with the activePane state (D-S3) layered on.
 import { afterEach, expect, it, vi } from "vitest";
 import {
   closeSettings,

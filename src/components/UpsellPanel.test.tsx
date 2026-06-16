@@ -1,16 +1,16 @@
 // @vitest-environment jsdom
 // UpsellPanel (D-19..D-22 + Phase 19 D-33..D-39/D-44): the ONE shared upsell
-// surface. Card content + copy per the 18-UI-SPEC Copywriting Contract;
-// UpsellModal reuses the ⌘K palette's scrim/dismiss pattern with full WCAG-AA
-// dialog semantics (aria-modal, labelled-by heading, Esc + scrim dismiss,
-// focus into the dialog on mount and back to the invoker on unmount).
+// surface. Card content + copy per the 18-UI-SPEC Copywriting Contract.
+// 22.1-04: the standalone UpsellModal wrapper was REMOVED (every former opener
+// now routes to Settings ▸ License, which renders InlineActivation) — only the
+// route-placement UpsellPanel + the inline ActivationSurface remain under test.
 // The Phase-19 describe below covers the inline activation flow: reveal-in-
 // place form, calm in-flight/success/error states, the distinct D-44 problem
 // state, and stored-key reactivation (activate(null)).
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { Lock } from "lucide-react";
-import { BUY_LICENSE_URL, UpsellModal, UpsellPanel } from "./UpsellPanel";
+import { BUY_LICENSE_URL, UpsellPanel } from "./UpsellPanel";
 import {
   resetPlatformForTest,
   setPlatformForTest,
@@ -25,11 +25,6 @@ import { makeMemoryPlatform, noopLicense } from "@/shell/testStore";
 import { refreshEntitlements } from "@/lib/entitlements/store";
 import { createStoreStub } from "@/lib/platform/stub";
 import { PREFERENCES_STORE_KEY } from "@/shell/preferences";
-import {
-  closeUpsell,
-  getUpsellInvoker,
-  openUpsell,
-} from "@/shell/upsellStore";
 
 // Spy seam for the D-35 success path: UpsellPanel must call the REAL
 // refreshEntitlements (the proven live-flip path) — the mock wraps the actual
@@ -168,146 +163,6 @@ describe("UpsellPanel (card)", () => {
     const { container } = render(<UpsellPanel icon={Lock} />);
     const svg = container.querySelector("svg");
     expect(svg?.getAttribute("aria-hidden")).toBe("true");
-  });
-});
-
-describe("UpsellModal (dialog wrapper)", () => {
-  it("renders role=dialog with aria-modal and aria-labelledby pointing at the panel heading", () => {
-    const { getByRole } = render(
-      <UpsellModal icon={Lock} onClose={() => {}} />,
-    );
-    const dialog = getByRole("dialog");
-    expect(dialog.getAttribute("aria-modal")).toBe("true");
-    // 19-UI-REVIEW fix 1: the scrim must stack ABOVE the shell's z-50
-    // bottom-right overlays (update consent/banner) so nothing interactive
-    // floats clickable outside the aria-modal trap.
-    expect(dialog.parentElement?.className).toContain("z-[60]");
-    const labelledBy = dialog.getAttribute("aria-labelledby");
-    expect(labelledBy).toBeTruthy();
-    const heading = getByRole("heading", {
-      name: /Thank you for using TinkerDev/,
-    });
-    expect(heading.id).toBe(labelledBy);
-  });
-
-  it("calls onClose on Escape (document-level keydown)", () => {
-    const onClose = vi.fn();
-    render(<UpsellModal icon={Lock} onClose={onClose} />);
-    fireEvent.keyDown(document, { key: "Escape" });
-    expect(onClose).toHaveBeenCalledTimes(1);
-  });
-
-  it("calls onClose on scrim click but NOT on clicks inside the dialog", () => {
-    const onClose = vi.fn();
-    const { getByRole } = render(
-      <UpsellModal icon={Lock} onClose={onClose} />,
-    );
-    const dialog = getByRole("dialog");
-    const scrim = dialog.parentElement!;
-    // Inside the dialog: stopPropagation keeps the scrim handler silent.
-    fireEvent.mouseDown(getByRole("heading", { name: /TinkerDev/ }));
-    expect(onClose).not.toHaveBeenCalled();
-    // On the scrim itself (target === currentTarget): dismiss.
-    fireEvent.mouseDown(scrim);
-    expect(onClose).toHaveBeenCalledTimes(1);
-  });
-
-  it("traps Tab inside the dialog (wraps at both ends — WCAG-AA modal semantics)", () => {
-    const { getByRole } = render(
-      <UpsellModal icon={Lock} onClose={() => {}} />,
-    );
-    const buy = getByRole("button", { name: "Buy license" });
-    const key = getByRole("button", { name: "I have a license key" });
-
-    // Tab from the LAST focusable wraps to the first.
-    key.focus();
-    fireEvent.keyDown(document, { key: "Tab" });
-    expect(document.activeElement).toBe(buy);
-
-    // Shift+Tab from the FIRST focusable wraps to the last.
-    fireEvent.keyDown(document, { key: "Tab", shiftKey: true });
-    expect(document.activeElement).toBe(key);
-
-    // If focus somehow lands outside the dialog, Tab pulls it back in.
-    document.body.focus();
-    fireEvent.keyDown(document, { key: "Tab" });
-    expect(document.activeElement).toBe(buy);
-  });
-
-  it("moves focus into the dialog on mount and returns it to the invoker on unmount", () => {
-    const { getByRole: getInvoker } = render(
-      <button type="button">invoker</button>,
-    );
-    const invoker = getInvoker("button", { name: "invoker" });
-    invoker.focus();
-    expect(document.activeElement).toBe(invoker);
-
-    const { getByRole, unmount } = render(
-      <UpsellModal icon={Lock} onClose={() => {}} />,
-    );
-    expect(document.activeElement).toBe(getByRole("dialog"));
-
-    unmount();
-    expect(document.activeElement).toBe(invoker);
-  });
-
-  // 21-04 FLAG E1: via the store path the modal mounts decoupled from the
-  // trigger, so document.activeElement at mount-effect time is unreliable. The
-  // modal must instead restore focus to the invoker captured SYNCHRONOUSLY by
-  // openUpsell() — even if focus has since moved off the trigger. Proves the
-  // store→modal seam returns focus to the recorded opener, not <body>.
-  it("returns focus to the store-captured invoker even if focus moved before mount (E1)", () => {
-    const { getByRole: getInvoker } = render(
-      <button type="button">store invoker</button>,
-    );
-    const invoker = getInvoker("button", { name: "store invoker" });
-    invoker.focus();
-    // openUpsell() captures the invoker NOW (its click-handler moment).
-    openUpsell();
-    expect(getUpsellInvoker()).toBe(invoker);
-
-    // Focus churns away before the modal mounts (the decoupled-mount gap).
-    document.body.focus();
-
-    const { unmount } = render(<UpsellModal icon={Lock} onClose={() => {}} />);
-    unmount();
-    // Restored to the recorded opener, not the churned-to <body>.
-    expect(document.activeElement).toBe(invoker);
-    closeUpsell(); // clear the module singleton for the next test
-  });
-
-  // Finding 3: TRANSIENT openers (⌘K command, Sidebar reset menu) — the focused
-  // element at click time UNMOUNTS, so it can't be the return target. The caller
-  // passes an EXPLICIT persistent return element to openUpsell(invoker); the
-  // modal must restore focus THERE, not to the detached/focused element.
-  it("returns focus to an EXPLICIT invoker even when the focused element is a different (transient) control", () => {
-    // A persistent return target (e.g. the pre-palette focus / a sidebar row).
-    const { getByRole: getPersistent } = render(
-      <button type="button">return target</button>,
-    );
-    const returnTarget = getPersistent("button", { name: "return target" });
-
-    // A separate "transient" control is what is actually focused at open time
-    // (the palette command button / reset menu item) — it will go away.
-    const { getByRole: getTransient, unmount: unmountTransient } = render(
-      <button type="button">transient opener</button>,
-    );
-    const transient = getTransient("button", { name: "transient opener" });
-    transient.focus();
-    expect(document.activeElement).toBe(transient);
-
-    // The caller hands the PERSISTENT element to openUpsell explicitly.
-    openUpsell(returnTarget);
-    expect(getUpsellInvoker()).toBe(returnTarget);
-
-    // The transient opener unmounts (palette/menu closes).
-    unmountTransient();
-
-    const { unmount } = render(<UpsellModal icon={Lock} onClose={() => {}} />);
-    unmount();
-    // Focus returns to the explicit persistent target — never the detached opener.
-    expect(document.activeElement).toBe(returnTarget);
-    closeUpsell();
   });
 });
 
