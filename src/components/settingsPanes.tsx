@@ -25,15 +25,15 @@ export interface SettingsPane {
 
 export const SETTINGS_PANES: SettingsPane[] = [
   {
-    id: "license",
-    label: "License",
-    icon: Settings,
-    render: () => <LicenseSettings />,
-  },
-  {
     id: "appearance",
     label: "Appearance",
     icon: Contrast,
     render: () => <AppearanceSettings />,
+  },
+  {
+    id: "license",
+    label: "License",
+    icon: Settings,
+    render: () => <LicenseSettings />,
   },
 ];
