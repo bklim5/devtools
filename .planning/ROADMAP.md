@@ -102,7 +102,7 @@ A native macOS Settings/Preferences surface (promotes backlog 999.9; absorbs 999
 - [x] **Phase 22: Settings Modal Shell, Entry Points & License Pane** — shell-level `openSettings()` store + full in-window modal (Esc-dismiss, focus trap + return-focus, `aria-modal`) + paned layout (left nav / right content, keyboard-navigable); all four entry points (app menu ⌘, + tray via the `platform/` event seam, sidebar "Settings" row above "Unlock Pro", ⌘K); License pane reusing `LicenseSettings` unchanged; SET-01..06 (completed 2026-06-15)
 - [x] **Phase 22.1: Settings Follow-ups (INSERTED)** — gap closure from `22-FOLLOWUP.md`: (1) app-menu product-name labels (App submenu title "TinkerDev" + explicit About/Hide/Quit text, not the `devtools-app` bin name); (2) inline upsell/activation in the Settings ▸ License pane via a shared `ActivationSurface` extracted from `UpsellPanel`. Grew to 4 plans + a post-review fix batch: **the standalone `UpsellModal` was REMOVED** (D-22.1-5/D-28/D-29 reversed — every opener routes to Settings ▸ License = ONE upsell surface), the pane was redesigned (warn/ok token triads, $9 in-app pricing reversing D-20, amber/green/red banners), a dev-only license-state e2e seam was added, and the UI-audit/Codex findings were fixed (masked-key detailed refresh, heading order h2→h4, locked-affordance focus-return, dead-Done removal). WCAG-AA + native menu re-verify (completed 2026-06-16)
 - [x] **Phase 22.2: Pro-gate ⌘K + focused upsell modal (INSERTED)** — user-approved scope (2026-06-16): gate the ⌘K command palette behind Pro (free users get a focused Unlock-Pro modal instead of the palette) and route the contextual locked customization triggers (pin/drag/Alt+P/Reset order) to that SAME focused modal rather than the full Settings ▸ License redirect. Re-introduces a thin modal wrapper over the existing shared `ActivationSurface` (one activation surface, two presentations — partially un-reverts D-22.1-5) driven by a minimal shared `upsellStore`. Gating via a new `isPro(ents)` predicate (frontend-only; existing licenses keep ⌘K immediately — no Keygen re-issue). Explicit license entry points (sidebar Settings row + Unlock-Pro footer + app-menu/tray + deep link) stay free → Settings ▸ License so a free user can still buy. Revises SET-04 (⌘K no longer opens for everyone)
-- [ ] **Phase 23: Appearance Pane** — theme (light/dark/system) + accent, persisted via the prefs seam and applied live (absorbs backlog 999.3); SET-07
+- [x] **Phase 23: Appearance Pane** (completed 2026-06-17) — theme (light/dark — "system" dropped at user request) + accent, persisted via the prefs seam and applied live whole-app, flash-free launch, Pro gate-on-Save (absorbs backlog 999.3); SET-07. Human-approved on a fresh build after 3 walkthrough rounds (removed system, redesigned theme cards, widened upsell modal, fixed a cross-writer prefs-clobber data-loss bug)
 - [ ] **Phase 24: Hotkeys & General Panes (native-touching)** — rebind the global summon hotkey (Rust global-shortcut re-register + conflict handling, promotes NAT-01/G-05-1) and the ⌘K palette chord (in-webview); General toggles (launch-at-login [autostart plugin → scoped dep exception], start-in-tray, default tool, show-license-in-sidebar); SET-08, SET-09
 - [ ] **Phase 25: Updates Pane & Milestone Ship** — version + last-checked + Check-for-updates over the existing updater seam (mirrors the tray action); milestone polish + human sign-off; SET-10
 
@@ -244,7 +244,7 @@ Plans:
 **Depends on**: Phase 22 (the modal shell + paned nav host the pane)
 **Requirements**: SET-07
 **Success Criteria** (what must be TRUE):
-  1. The Appearance pane lets the user choose a theme — light, dark, or system — and the choice applies live (no restart) across the whole app
+  1. The Appearance pane lets the user choose a theme — light or dark ("system" dropped at user request) — and the choice applies live (no restart) across the whole app
   2. The user can choose an accent and it applies live, with accent reserved for selection per the existing visual system
   3. Both selections persist through the existing prefs seam and are restored on the next launch
   4. The pane is keyboard-navigable and WCAG-AA (visible focus, AA contrast in both themes, no opacity-only state)
@@ -252,7 +252,7 @@ Plans:
   - [x] 23-01-PLAN.md — Foundation: widen ThemeName/coerceTheme + fix default accent, accent scale + light-token tables + executable AA contrast assertions, pure apply helpers
   - [x] 23-02-PLAN.md — Light token CSS block ([data-theme="light"]) + light body gradient + theme-aware hover tints (Pitfall 5/6)
   - [x] 23-04-PLAN.md — Appearance pane UI: theme radio cards + 7-swatch accent grid + contained preview strip + gate-on-Save, appended to SETTINGS_PANES
-  - [ ] 23-03-PLAN.md — App-root gated apply + no-flash pre-paint script + system live-flip + real-WKWebView e2e + phase-boundary walkthrough
+  - [x] 23-03-PLAN.md — App-root gated apply + no-flash pre-paint script + real-WKWebView e2e + phase-boundary walkthrough (system live-flip removed with the system theme; added: cross-writer prefs-clobber fix, durable writes, flash-free Pro launch, theme-card redesign, wider upsell modal, Appearance-first nav)
 **UI hint**: yes
 
 ### Phase 24: Hotkeys & General Panes (native-touching)
@@ -312,7 +312,7 @@ v1.7 runs 22 → 23 → 24 → 25 (started non-destructively while v1.6 is in fi
 | 21. License Lifecycle & Ship Gate | v1.6 | 3/5 | In Progress|  |
 | 22. Settings Modal Shell, Entry Points & License Pane | v1.7 | 3/3 | Complete    | 2026-06-15 |
 | 22.1 Settings Follow-ups | v1.7 | 1/2 | In progress | Plan 02 done (inline License upsell, SET-06); Plan 01 paused at native-menu human checkpoint |
-| 23. Appearance Pane | v1.7 | 3/4 | In Progress|  |
+| 23. Appearance Pane | v1.7 | 4/4 | Complete    | 2026-06-17 |
 | 24. Hotkeys & General Panes | v1.7 | 0/? | Not started | - |
 | 25. Updates Pane & Milestone Ship | v1.7 | 0/? | Not started | - |
 
@@ -339,7 +339,7 @@ Unsequenced ideas captured for future planning. Promote with `/gsd-review-backlo
 Each candidate must still pass the product wedge: offline/no-network, paste-instant (<2s), keyboard-driven, registry-driven, WCAG-AA, and the build+verify harness.
 
 **Requirements:** TBD (remaining wishlist; Cron/URL/Regex requirements now in `.planning/REQUIREMENTS.md` for v1.3)
-**Plans:** 1/4 plans executed
+**Plans:** 4/4 plans complete
 
 Plans:
 - [ ] TBD (promote remaining wishlist with /gsd-review-backlog when ready)
