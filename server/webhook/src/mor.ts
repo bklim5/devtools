@@ -8,11 +8,22 @@
 // LS `order_created` shape (verify exact paths against a real test-mode payload
 // during Plan 03's D-63 e2e — log the raw event once, A5):
 //   meta.event_name === "order_created"
-//   order id        = data.id
+//   order id        = data.id                        (numeric API id, stamped as metadata.orderId)
+//   order number    = data.attributes.order_number   (the human-facing "#" in the LS dashboard)
 //   buyer email     = data.attributes.user_email
+//
+// `orderNumber` is best-effort: the dashboard shows the order *number*, but the
+// API id is a different field (and the dashboard URL is a third, UUID, id), so
+// we stamp the number alongside the id to make refund/suspend lookups resolvable
+// straight from the dashboard. orderId stays the required idempotency key.
 
 export type OrderEvent =
-  | { kind: "order"; orderId: string; customerEmail: string }
+  | {
+      kind: "order";
+      orderId: string;
+      customerEmail: string;
+      orderNumber?: string;
+    }
   | { kind: "ignore" }
   | { kind: "invalid"; reason: string };
 
@@ -54,5 +65,15 @@ export function parseOrderEvent(rawBody: string): OrderEvent {
     return { kind: "invalid", reason: "missing data.attributes.user_email" };
   }
 
-  return { kind: "order", orderId, customerEmail };
+  // Best-effort: LS sends order_number as an integer. Coerce to string; omit if
+  // absent (never reject — orderId is the required idempotency key, D-58).
+  const rawOrderNumber = attributes?.order_number;
+  const orderNumber =
+    typeof rawOrderNumber === "number"
+      ? String(rawOrderNumber)
+      : typeof rawOrderNumber === "string" && rawOrderNumber !== ""
+        ? rawOrderNumber
+        : undefined;
+
+  return { kind: "order", orderId, customerEmail, orderNumber };
 }

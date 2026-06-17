@@ -6,17 +6,35 @@ const orderCreated = JSON.stringify({
   data: {
     type: "orders",
     id: "order_abc123",
-    attributes: { user_email: "buyer@example.com", total: 1900 },
+    attributes: {
+      user_email: "buyer@example.com",
+      order_number: 4069391,
+      total: 1900,
+    },
   },
 });
 
 describe("parseOrderEvent (Lemon Squeezy MoR adapter)", () => {
-  it("maps a real-shaped order_created to {orderId: data.id, customerEmail: data.attributes.user_email}", () => {
+  it("maps a real-shaped order_created to {orderId: data.id, customerEmail, orderNumber (coerced to string)}", () => {
     const result = parseOrderEvent(orderCreated);
     expect(result).toEqual({
       kind: "order",
       orderId: "order_abc123",
       customerEmail: "buyer@example.com",
+      orderNumber: "4069391",
+    });
+  });
+
+  it("omits orderNumber when data.attributes.order_number is absent (best-effort, never rejects)", () => {
+    const body = JSON.stringify({
+      meta: { event_name: "order_created" },
+      data: { id: "order_2", attributes: { user_email: "b@c.com" } },
+    });
+    const result = parseOrderEvent(body);
+    expect(result).toEqual({
+      kind: "order",
+      orderId: "order_2",
+      customerEmail: "b@c.com",
     });
   });
 

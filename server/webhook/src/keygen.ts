@@ -13,7 +13,13 @@
 // resource, so the email flows all the way to machine.lic and the Rust verifier
 // extracts it (verify.rs) for the support-lookup path (D-80) + the status UI.
 // Keygen REPLACES the whole metadata object on PATCH, so markEmailed re-sends
-// orderId + email alongside the emailed flag (never clobber them).
+// orderId + email (+ orderNumber) alongside the emailed flag (never clobber them).
+//
+// We also stamp metadata.orderNumber (the LS dashboard "#") when present, so a
+// refund/suspend can resolve a license straight from the dashboard order number
+// (the API order id and the dashboard URL id are both different identifiers).
+// Best-effort: undefined drops out of the JSON body, so pre-existing licenses
+// and order_number-less payloads are unaffected.
 
 const JSON_API = "application/vnd.api+json";
 
@@ -30,17 +36,31 @@ export interface KeygenLicense {
   id: string;
   attributes: {
     key: string;
-    metadata?: { orderId?: string; email?: string; emailed?: boolean };
+    metadata?: {
+      orderId?: string;
+      orderNumber?: string;
+      email?: string;
+      emailed?: boolean;
+    };
   };
 }
 
 export interface KeygenClient {
   /** D-58: existing license for this exact orderId, or null. */
   searchByOrderId(orderId: string): Promise<KeygenLicense | null>;
-  /** Create a license stamped with metadata.orderId + metadata.email (D-89); returns its id + key. Throws on non-2xx (D-59). */
-  createLicense(orderId: string, email: string): Promise<{ id: string; key: string }>;
-  /** Mark a license as emailed (Keygen replaces metadata, so re-send orderId + email, D-89). Throws on non-2xx. */
-  markEmailed(licenseId: string, orderId: string, email: string): Promise<void>;
+  /** Create a license stamped with metadata.orderId + email (D-89) + orderNumber (when present); returns its id + key. Throws on non-2xx (D-59). */
+  createLicense(
+    orderId: string,
+    email: string,
+    orderNumber?: string,
+  ): Promise<{ id: string; key: string }>;
+  /** Mark a license emailed (Keygen replaces metadata, so re-send orderId + email + orderNumber, D-89). Throws on non-2xx. */
+  markEmailed(
+    licenseId: string,
+    orderId: string,
+    email: string,
+    orderNumber?: string,
+  ): Promise<void>;
 }
 
 type FetchLike = typeof fetch;
@@ -82,13 +102,15 @@ export function createKeygenClient(
     async createLicense(
       orderId: string,
       email: string,
+      orderNumber?: string,
     ): Promise<{ id: string; key: string }> {
       const url = `${base}/licenses`;
       const payload = {
         data: {
           type: "licenses",
           // D-89: stamp the buyer email beside orderId so it flows into machine.lic.
-          attributes: { metadata: { orderId, email } },
+          // (orderNumber is optional — undefined drops out of the JSON body.)
+          attributes: { metadata: { orderId, orderNumber, email } },
           relationships: {
             policy: { data: { type: "policies", id: config.policyId } },
           },
@@ -116,14 +138,15 @@ export function createKeygenClient(
       licenseId: string,
       orderId: string,
       email: string,
+      orderNumber?: string,
     ): Promise<void> {
       const url = `${base}/licenses/${licenseId}`;
       // Keygen REPLACES the metadata object on PATCH, so re-send orderId + email
-      // (D-89) alongside the emailed flag to avoid clobbering them.
+      // (+ orderNumber, D-89) alongside the emailed flag to avoid clobbering them.
       const payload = {
         data: {
           type: "licenses",
-          attributes: { metadata: { orderId, email, emailed: true } },
+          attributes: { metadata: { orderId, orderNumber, email, emailed: true } },
         },
       };
       const res = await fetchImpl(url, {

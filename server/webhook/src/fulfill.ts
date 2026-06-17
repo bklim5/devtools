@@ -26,12 +26,21 @@ export interface FulfillDeps {
   parse(rawBody: string): OrderEvent;
   /** D-58 idempotency: existing license for orderId, or null. */
   search(orderId: string): Promise<KeygenLicense | null>;
-  /** Create a license stamped with the buyer email (D-89), returns its id + key. Throws on failure (⇒ 5xx). */
-  create(orderId: string, email: string): Promise<{ id: string; key: string }>;
+  /** Create a license stamped with the buyer email (D-89) + orderNumber when present, returns its id + key. Throws on failure (⇒ 5xx). */
+  create(
+    orderId: string,
+    email: string,
+    orderNumber?: string,
+  ): Promise<{ id: string; key: string }>;
   /** Email the key. Throws on failure (⇒ 5xx + alert). */
   email(customerEmail: string, key: string): Promise<void>;
-  /** Mark the license emailed so a retry won't re-email (re-sends orderId + email, D-89). Best-effort (never 5xx). */
-  markEmailed(licenseId: string, orderId: string, email: string): Promise<void>;
+  /** Mark the license emailed so a retry won't re-email (re-sends orderId + email + orderNumber, D-89). Best-effort (never 5xx). */
+  markEmailed(
+    licenseId: string,
+    orderId: string,
+    email: string,
+    orderNumber?: string,
+  ): Promise<void>;
   /** Out-of-band alert hook for a failed email after a successful create (D-72). */
   alert(message: string): void;
   /** Structured logger (defaults to console). */
@@ -70,7 +79,7 @@ export async function fulfill(
     return { status: 400, body: '{"error":"invalid payload"}' };
   }
 
-  const { orderId, customerEmail } = event;
+  const { orderId, customerEmail, orderNumber } = event;
   const withLock = deps.withLock ?? ((_key, fn) => fn());
 
   // Serialize the search→create→email→mark section per orderId so two concurrent
@@ -101,9 +110,9 @@ export async function fulfill(
       key = existing.attributes.key;
       log("webhook.resume_unsent_email", { orderId });
     } else {
-      // 4. Create the license, stamping the buyer email (D-89). Failure ⇒ 5xx so LS retries (D-59).
+      // 4. Create the license, stamping the buyer email (D-89) + orderNumber. Failure ⇒ 5xx so LS retries (D-59).
       try {
-        const created = await deps.create(orderId, customerEmail);
+        const created = await deps.create(orderId, customerEmail, orderNumber);
         licenseId = created.id;
         key = created.key;
       } catch (err) {
@@ -124,7 +133,7 @@ export async function fulfill(
     // 6. Mark emailed so a future retry idempotent-skips. Best-effort: the email
     // already went out, so a failure here must NOT 5xx (that would double-email).
     try {
-      await deps.markEmailed(licenseId, orderId, customerEmail);
+      await deps.markEmailed(licenseId, orderId, customerEmail, orderNumber);
     } catch (err) {
       log("webhook.mark_emailed_failed", { orderId, error: String(err) });
     }

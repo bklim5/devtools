@@ -103,8 +103,10 @@ export function startServer() {
           verify,
           parse: defaultParse,
           search: (orderId) => keygen.searchByOrderId(orderId),
-          create: (orderId, email) => keygen.createLicense(orderId, email),
-          markEmailed: (id, orderId, email) => keygen.markEmailed(id, orderId, email),
+          create: (orderId, email, orderNumber) =>
+            keygen.createLicense(orderId, email, orderNumber),
+          markEmailed: (id, orderId, email, orderNumber) =>
+            keygen.markEmailed(id, orderId, email, orderNumber),
           email: (to, key) =>
             sendKeyEmail(resend, { from: config.emailFrom, replyTo: config.emailReplyTo }, to, key),
           alert: (message) => console.error("[ALERT]", message),

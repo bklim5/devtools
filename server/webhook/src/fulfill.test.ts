@@ -7,6 +7,7 @@ const ORDER: OrderEvent = {
   kind: "order",
   orderId: "order_1",
   customerEmail: "buyer@example.com",
+  orderNumber: "4069391",
 };
 
 function makeDeps(overrides: Partial<FulfillDeps> = {}): FulfillDeps {
@@ -82,7 +83,7 @@ describe("fulfill orchestrator", () => {
     expect(res.status).toBe(200);
     expect(deps.create).not.toHaveBeenCalled();
     expect(deps.email).toHaveBeenCalledWith("buyer@example.com", "EXISTING-KEY");
-    expect(deps.markEmailed).toHaveBeenCalledWith("lic_7", "order_1", "buyer@example.com");
+    expect(deps.markEmailed).toHaveBeenCalledWith("lic_7", "order_1", "buyer@example.com", "4069391");
   });
 
   it("creates (with the buyer email — D-89) + emails + marks a new order and returns 200", async () => {
@@ -90,9 +91,9 @@ describe("fulfill orchestrator", () => {
     const res = await fulfill(req, deps);
 
     expect(res.status).toBe(200);
-    expect(deps.create).toHaveBeenCalledWith("order_1", "buyer@example.com");
+    expect(deps.create).toHaveBeenCalledWith("order_1", "buyer@example.com", "4069391");
     expect(deps.email).toHaveBeenCalledWith("buyer@example.com", "KEY-123");
-    expect(deps.markEmailed).toHaveBeenCalledWith("lic_1", "order_1", "buyer@example.com");
+    expect(deps.markEmailed).toHaveBeenCalledWith("lic_1", "order_1", "buyer@example.com", "4069391");
   });
 
   it("still returns 200 when markEmailed fails (email already sent — never double-email)", async () => {
