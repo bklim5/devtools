@@ -6,12 +6,15 @@ The binding ship gate beyond the standard per-task harness: the whole license
 lifecycle proven on a fresh build before release. D-90's eight cases, each with
 an honest **method** + **evidence** + **status**.
 
-> **STATUS: PARTIAL — fixture/clock-driven cases (3/4/5/6) PASS; live prod-CE
-> cases (1/2/7/8) BLOCKED on a real prod-CE key.** The fixture cases were driven
-> GREEN on the real WKWebView (dev arm) by `test/e2e/ship-gate.e2e.ts` via
-> `scripts/e2e-spike.sh` (full suite **19/19**, exit 0, 2026-06-15) + the pure-Rust
-> cargo suite (`license::` **82/82**); screenshots captured. The 21-05 SUMMARY
-> + the Wave-5 human-verify sign-off (live cases + `gsd-ui-review`) remain OPEN.
+> **STATUS: fixture/clock cases (3/4/5/6) PASS; live key now available (Phase-20
+> PAY-03 closed 2026-06-17, order 8722394, license `024423a7`).** Case 1
+> (activation) and Case 8 (revocation) PROVEN LIVE 2026-06-17 — Case 8 acceptance
+> CORRECTED below (revocation is ≤~37d eventual-consistency via cert expiry, NOT
+> drop-on-refresh; D-82). Cases 2 & 7 still need a SECOND device/fingerprint.
+> Fixture cases driven GREEN on the real WKWebView (dev arm) by
+> `test/e2e/ship-gate.e2e.ts` via `scripts/e2e-spike.sh` (**19/19**, exit 0,
+> 2026-06-15) + cargo (`license::` **82/82**). Wave-5 human-verify sign-off
+> (cases 2 & 7 + `gsd-ui-review`) remains OPEN.
 
 ## Prod build verification (2026-06-15)
 
@@ -41,14 +44,14 @@ arm without ever touching a shipped buyer's release `machine.lic`**, and the
 
 | # | Case | Requirement | Method | Evidence | Status |
 |---|------|-------------|--------|----------|--------|
-| 1 | Valid activation on first device → Pro unlocks (theming + ordering) | LIC-01 | release-manual | _BLOCKED — needs a real prod-CE key (see below)_ | **blocked** |
+| 1 | Valid activation on first device → Pro unlocks (theming + ordering) | LIC-01 | release-manual | ✓ Live 2026-06-17: real prod-CE key (license `024423a7`, order 8722394, buyer email embedded) pasted into the PROD-built TinkerDev.app → activates → Pro unlocks; entitlements `pro.theming`+`pro.ordering` confirmed on the license. | **pass ✓** |
 | 2 | Second device rejected → calm seat-limit + self-serve path (D-80) | LIC-02 | release-manual | _BLOCKED — needs the same real key + a second fingerprint_ | **blocked** |
 | 3 | Offline launch / valid LOCAL verify → Licensed, network-free | LIC-03 | cargo-clock-injection + `dev-harness-auto` (foreign-FP branch) + release-manual (Licensed UI) | cargo **82/82** incl. `resolve_status` network-free (D-45 `NoNetwork` panics on any call) · e2e: the network-free local-verify path ran GREEN on the real WKWebView (Case 5 is the same pure-local branch) → `test/e2e/__screenshots__/ship-gate-case5-foreign.png` ✓ · Licensed-UI-on-a-genuine-cert → live walkthrough (needs real key) | **auto ✓ / live UI pending** |
 | 4 | Corrupted `machine.lic` → fail closed to free, calm problem state | LIC-06 | dev-harness-auto | ✓ GREEN on real WKWebView (`scripts/e2e-spike.sh`, 2026-06-15) — `ship-gate.e2e.ts` "Case 4" (problem state "License needs attention", locked customization opens upsell = free) + `test/e2e/__screenshots__/ship-gate-case4-corrupt.png` | **pass ✓** |
 | 5 | Copied `machine.lic` → fail closed on foreign fingerprint | LIC-06 | dev-harness-auto | ✓ GREEN on real WKWebView — `ship-gate.e2e.ts` "Case 5" (ForeignMachine → problem → free) + `test/e2e/__screenshots__/ship-gate-case5-foreign.png` · also cargo `valid_cert_with_wrong_fingerprint_resolves_to_foreign_machine` | **pass ✓** |
 | 6 | TTL-expired → grace → refresh | LIC-05 | cargo-clock-injection | ✓ cargo **82/82**: `classify_within_grace_is_grace`, `classify_past_grace_is_lapsed`, `classify_boundaries_are_inclusive_active_then_grace`, `needs_refresh_*` (injected `now`) — authoritative grace→lapsed→refresh proof · Licensed-offline / refresh-restores UI → live walkthrough on a genuine expiring cert | **auto ✓ / live UI pending** |
 | 7 | Deactivate / transfer end-to-end → seat freed, reactivates on new device | LIC-07 | release-manual | _BLOCKED — needs a real prod-CE key + `infra/keygen/release-seat.sh` (D-81) against prod CE_ | **blocked** |
-| 8 | Revocation propagates on refresh → entitlements drop to free, calm | LIC-08 | release-manual | _BLOCKED — needs a real prod-CE key + CE admin revoke/suspend_ | **blocked** |
+| 8 | Revocation propagates → entitlements drop to free, calm. **CORRECTED: ≤~37d eventual-consistency via cert expiry, NOT on refresh (D-82)** | LIC-08 | release-manual + cargo-clock-injection | ✓ Live 2026-06-17: CE-admin suspend of `024423a7` → the app's checkout (`POST /machines/{fp}/actions/check-out`) returns **403 LICENSE_SUSPENDED** → `mod.rs refresh()` errors on that and short-circuits WITHOUT writing/clearing a cert (T-21-11 write-after-verify), so the still-valid local cert keeps Pro until it LAPSES (TTL 30d + grace 7d). Manual Refresh does NOT drop a fresh cert — by design (never pre-emptively remove a paying user). The expiry→grace→lapse→free UI is the Case-6 clock-injection path (cargo 82/82). | **pass ✓ (acceptance corrected)** |
 
 ## Case-3 and case-6 mechanism (explicit — D-90 honesty)
 
@@ -74,23 +77,25 @@ the live-build walkthrough covering the genuine Licensed / offline-grace UI on a
 real activated cert. The e2e spec drives the fixture-reachable fail-closed
 branch (Case 5) on the real WKWebView, which IS the case-3 pure-local code path.
 
-## BLOCKED cases — resume condition (1, 2, 7, 8)
+## Live cases — status (1, 2, 7, 8)
 
-Cases 1/2/7/8 are **BLOCKED — needs a real prod-CE key minted via the live
-Phase-20 purchase (PAY-03) + CE admin actions**:
+Prod-CE key is now available (Phase-20 PAY-03 closed 2026-06-17, order 8722394,
+license `024423a7`).
 
-- **Case 1/2:** a real prod-CE key (with the D-89 buyer email embedded) minted
-  through the live LS → webhook → Keygen pipeline; case 2 also needs a second
-  device / fingerprint.
-- **Case 7:** the same key + `infra/keygen/release-seat.sh` (D-81) run against
-  prod CE to free the seat for the transfer leg.
-- **Case 8:** the same key + a CE-admin **revoke/suspend**, then drive Refresh in
-  the app.
+- **Case 1:** ✓ DONE — activated live on the PROD build; Pro unlocked.
+- **Case 8:** ✓ DONE with **corrected acceptance** — suspend → checkout returns
+  403 LICENSE_SUSPENDED → eventual-consistency drop at cert expiry (≤~37d), NOT
+  on refresh (D-82, accepted: a paying user is never pre-emptively removed; the
+  signed cert + grace window means transient blips can't yank Pro mid-use).
+- **Case 2:** PENDING — needs a SECOND device/fingerprint: activate `024423a7`
+  on device B while device A holds the seat → expect the calm seat-limit + the
+  D-80 self-serve path.
+- **Case 7:** PENDING — the transfer leg: deactivate on A (or
+  `infra/keygen/release-seat.sh`, D-81) → reactivate the same key on device B.
 
-**Resume when a real prod-CE key is available** (Phase 20 PAY-03 closed): run
-the four live cases on a fresh **PROD-pointed `tauri build`** against
-`license.tinkerdev.io`, fill the evidence cells, and complete the Wave-5
-human-verify sign-off + the `gsd-ui-review` WCAG-AA audit.
+**Remaining sign-off:** run cases 2 & 7 on a fresh **PROD-pointed `tauri build`**
+once a second device is available, then complete the Wave-5 human-verify
+sign-off + the `gsd-ui-review` WCAG-AA audit.
 
 ## Secrets policy (T-21-18)
 

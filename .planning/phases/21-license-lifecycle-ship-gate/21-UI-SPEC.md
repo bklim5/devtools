@@ -63,6 +63,8 @@ Three sizes, two weights (mirrors the shipped `UpsellPanel`: 16px semibold headi
 
 Field labels ("License key", "Licensee", "Status") reuse the existing `text-[12px] text-tx-2` label treatment (same as the activation form's `<label>`). Do not add a fourth size or a third weight; the 11px uppercase `pane-label` tracking is available only if a section eyebrow is needed (reuse `.pane-label` semantics, `text-[11px] uppercase tracking-[.09em] text-tx-3 font-semibold`) and counts as a label variant, not a new role.
 
+> **AMENDMENT (2026-06-18, supersedes the "three sizes" cap above for the settings shell).** This License surface was later folded into the shared **Settings-modal shell** (Phase 22.1/22.2, user-approved walkthroughs) which carries a slightly wider, documented ramp: section/heading sizes `text-[20px]`/`[24px]`/`[28px]` and label/caption sizes `text-[13px]`/`[11px]`/`[10px]`, all in the same `text-[Npx]` token convention used app-wide (89× `text-[12px]`, 39× `text-[13px]`, … across 21 files; named `text-xs/sm/…` utilities are deliberately never used). The frozen 3-size cap was the original *panel* contract; the shipped settings shell uses this wider ramp by design — recorded here so the ship-gate UI audit reads no drift. Weights remain two (regular/semibold).
+
 ---
 
 ## Color
@@ -83,6 +85,8 @@ Accent reserved for (explicit — never "all interactive elements"):
 3. The **navbar selected-state** accent bar / active label if the status route appears as a selected nav entry (same `navitem.on` accent treatment the tools use).
 
 Everything else — status glyphs (`Lock`), the masked key, the licensee email, state descriptions, the `Deactivate` secondary button, the offline-grace / refresh-needed / "no longer active" indicators, the one-time drop notice — is **neutral** (`tx`, `tx-2`, `tx-3`, `bd`, `bd-2`). Calm tone is binding (D-34/37/43): **no toasts, no spinners, no launch interruptions, no opacity-only locked state** (ENT-04). In-flight feedback is a calm `aria-live="polite"` text line (e.g. "Refreshing…"), never spinner chrome — exactly the D-34 pattern already in `UpsellPanel`.
+
+> **AMENDMENT (2026-06-18, supersedes "no banners, calm-neutral tx-2 for status" above).** Phase 22.1's user-approved walkthrough (2026-06-16) re-skinned the License **status card** with a soft, calm tinted banner per state: `licensed`/`offlineGrace` → a green `--color-ok` soft-fill banner (the "Pro is active" card); `refreshNeeded`/`problem` → an amber `--color-bad` soft-fill **attention** banner. Both are **calm/informational**, AA-contrast-documented (warn tint ~10:1), with **no red borders, no opacity-only state, no toast/alarm** — the non-accusatory, never-pre-emptive intent of D-77/D-83/ENT-04 is preserved; only the "must be neutral `tx-2`, no banners" styling was relaxed (with approval). The inline activation/error line and the destructive-confirm copy keep `text-bad` (`role=alert`) as before. This banner treatment is the **shipped, approved current design** (matches the live License pane); the ship-gate UI audit reads it against this amendment, not the frozen original.
 
 ---
 

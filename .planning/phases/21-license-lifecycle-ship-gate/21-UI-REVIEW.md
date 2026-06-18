@@ -1,14 +1,10 @@
-# Phase 21 — UI Review (License Lifecycle & Ship Gate)
+# Phase 21 — UI Review (Re-Audit)
 
-**Audited:** 2026-06-15
-**Baseline:** `21-UI-SPEC.md` (approved 2026-06-14) + `design/DevTools Mockup.html` token system
-**Standard:** WCAG-AA (binding per CLAUDE.md — phase-boundary UI gate)
-**Screenshots:** NOT captured — Playwright headless-shell binary is absent
-(`chrome-headless-shell` not installed), and per project memory the only
-binding visual gate is the real WKWebView (`scripts/e2e-spike.sh`), not a
-Chromium preview. This is a **code + computed-contrast audit**. Dev server was
-live on `:1420` but a Chromium screenshot would not be authoritative; the
-WKWebView walkthrough remains required before sign-off.
+**Audited:** 2026-06-18
+**Baseline:** `21-UI-SPEC.md` (approved 2026-06-14), WCAG-AA emphasis
+**Screenshots:** not captured — Tauri dev webview is live on `:1420`, but the audited UI (`#/settings/license`) sits behind a HashRouter + Settings modal; a flat CLI Chromium screenshot of the root URL cannot reach it. Per project harness, the real-WKWebView e2e suite (`ship-gate.e2e.ts`, `license-settings.e2e.ts`) is the binding visual gate, not Chromium previews. Code-only audit.
+
+> **Re-audit note.** This supersedes the prior 21-UI-REVIEW. Since that review, **Phase 22.1/22.2 walkthroughs deliberately re-skinned the License pane** (semantic amber/green banners, inline activation, $9 pitch, light-theme support). Several findings below are *drift from the frozen 21-UI-SPEC contract* that was nonetheless **user-approved at a later walkthrough**. They are scored against the 21 contract (the auditor's job) but flagged as "approved-later-revision" so the orchestrator can reconcile rather than regress. WCAG-AA — the binding bar — is met.
 
 ---
 
@@ -16,202 +12,82 @@ WKWebView walkthrough remains required before sign-off.
 
 | Pillar | Score | Key Finding |
 |--------|-------|-------------|
-| 1. Copywriting | 4/4 | Verbatim spec copy across all 5 states + confirm/offline/drop lines; "device" not "Mac" |
-| 2. Visuals | 4/4 | Calm hierarchy; OK-dot-only semantic glyph; lock badge visible (no opacity-only) |
-| 3. Color | 4/4 | Zero alarm color on grace/refreshNeeded/problem; accent = primary+ring only; all token pairs ≥ AA |
-| 4. Typography | 4/4 | 2 sizes / 1 weight, reused verbatim from UpsellPanel; no fourth size |
-| 5. Spacing | 4/4 | 4px-multiple scale; max-w measure (not fixed width); ≥24px targets |
-| 6. Experience Design | 4/4 | Focus move+return on confirm, focus trap on modal, aria-live on every in-flight line |
+| 1. Copywriting | 4/4 | Verbatim-calm, device-neutral, non-accusatory; no generic labels; D-79/D-82/D-83 copy honored |
+| 2. Visuals | 4/4 | Clear hierarchy, all icon glyphs `aria-hidden` with real text labels, confirm-first reveal correct |
+| 3. Color | 2/4 | Contract said CALM neutral (no alarm color, no banners) on grace/refreshNeeded/problem — impl ships amber/green semantic banners + light theme (approved-later, AA-documented, but off-contract) |
+| 4. Typography | 3/4 | Contract = 3 sizes / 2 weights; impl uses 9 sizes (hero pitch 24/28/20/14/13/11/10px) — expanded by 22.1, but only 2 weights and all token-sized |
+| 5. Spacing | 4/4 | All spacing on the 4px scale via shared class constants; zero arbitrary px spacing values |
+| 6. Experience Design | 4/4 | All 5 states, aria-live status transitions, confirm-first destructive, no opacity-only disabled, no spinners-as-chrome, focus-return contract |
 
-**Overall: 24/24**
-
-**WCAG-AA verdict: PASS** (code-level). One BLOCK-gated caveat: the real-WKWebView
-walkthrough + focus-return-on-modal-unmount must be confirmed live before phase
-sign-off — see Experience Design note E1.
+**Overall: 21/24**
 
 ---
 
 ## Top 3 Priority Fixes
 
-There are **no BLOCK findings**. The three items below were FLAG/polish, none
-gated sign-off on their own. **All three are RESOLVED in plan 21-04** (see notes):
+1. **Color contract drift on calm states (P-COLOR).** 21-UI-SPEC §Color is explicit: OfflineGrace / RefreshNeeded / problem are "CALM neutral `tx-2`, never alarm-colored … No red borders, no banners (D-77/D-83/D-84; ENT-04)." The implementation (`LicenseSettings.tsx:313-360`) renders refreshNeeded/problem in an **amber warn banner** (`bg-warn-soft border-warn-line text-warn` + `AlertTriangle`) and licensed/offlineGrace in a **green ok banner** (`LicenseSettings.tsx:368-414`). *Impact:* a lapsed paying customer sees a warning-toned surface the contract said must stay calm-neutral — the exact "no alarm styling" guarantee (ENT-04). *Fix:* Either (a) re-affirm the 22.1 walkthrough revision by **amending 21-UI-SPEC §Color** to permit the AA-documented amber/green semantic banners (recommended — the revision was user-approved and the tokens are contrast-verified), or (b) revert refreshNeeded/problem to the neutral `CARD_CLASS` + `tx-2` body the contract specifies. Do not leave spec and code in silent conflict.
 
-1. **Verify focus return on `UpsellModal` unmount via the new store path (E1)** — when
-   Reactivate/Activate on the status route calls `openUpsell()`, the modal captures
-   `document.activeElement` as the invoker; on close it returns focus there. This is
-   correct in code but is a different open-path than Phase 19 (store-driven, mounted
-   once in `App.tsx`). Confirm on the real WKWebView that focus lands back on the
-   Reactivate button (not `<body>`) after Esc/scrim-close.
-   **RESOLVED (21-04):** hardened the seam — `openUpsell()` now captures the invoker
-   SYNCHRONOUSLY at click time (`upsellStore.getUpsellInvoker()`), so focus return no
-   longer depends on `document.activeElement` surviving the decoupled mount gap;
-   `UpsellModal` prefers that captured invoker (falls back to `document.activeElement`).
-   Covered by a jsdom UpsellModal seam test (focus restores even after focus churns to
-   `<body>`) + a real-WKWebView e2e (problem-state Reactivate → Esc → focus back on
-   the Reactivate button) in `test/e2e/license-settings.e2e.ts`. e2e runs in the
-   orchestrator's `scripts/e2e-spike.sh` pass.
+2. **Typography palette expanded beyond the 3-size contract (P-TYPE).** 21-UI-SPEC §Typography declares exactly three sizes (16 heading / 12 body / 12 mono) and forbids a fourth. The pane now uses **9 distinct sizes** — 20px pane title (`:298`), 24px pitch hero (`UpsellPanel:130`), 28px price (`:511`), plus 14/13/11/10px. *Impact:* the contract's "do not add a fourth size" rule is broken; visually fine but undocumented. *Fix:* reconcile by recording the 22.1 pitch type ramp (10/11/13/14/20/24/28) as an approved extension in 21-UI-SPEC §Typography, or pull the pitch back toward the 3-size scale. Weight discipline is intact (only semibold + one `font-medium`), so this is a sizes-only reconciliation.
 
-2. **`refreshNeeded`/`problem` route lacks an aria-live announcement on the silent
-   refresh-drop transition (P6)** — D-82 correctly suppresses an error dialog when a
-   refresh drops entitlements, and the status block re-renders, but the status-label
-   change (`Licensed` → `Pro is no longer active`) is not in an `aria-live` region, so
-   a screen-reader user who pressed Refresh hears only "Refreshing…" then silence.
-   **RESOLVED (21-04):** the status heading row is wrapped in an `aria-live="polite"`
-   region (NOT role=alert/assertive — D-77/D-83 calm tone), so the new resting label
-   is announced politely. Unit test in `LicenseSettings.test.tsx` asserts the label is
-   inside a polite live region (and no alert/assertive region exists) and that the
-   post-drop label lands in it.
-
-3. **`Refresh` disabled state relies on color-only affordance (P3b)** — while in
-   flight the button is `disabled` and recolors to `text-tx-2` on `bg-input-bg`
-   (7.05:1, AA-clean) but the label stays "Refresh"; the only signal that it is busy
-   is the separate aria-live "Refreshing…" line.
-   **RESOLVED (21-04):** added `aria-busy={refreshing}` to the Refresh button so the
-   busy state is conveyed on the control itself, in parity with the live line. Unit
-   test asserts `aria-busy` flips true while refreshing.
+3. **Dark-only contract vs shipped light theme (P-COLOR-2).** 21-UI-SPEC §Design System states "Theme: Dark only." `index.css:91` ships a full `:root[data-theme="light"]` palette (D-23-8, a later phase). The License pane inherits it via tokens (no hardcoded hex — good). *Impact:* none functionally; the surface is token-clean and the light variants re-declare warn/ok/accent for AA. But the contract says dark-only. *Fix:* update 21-UI-SPEC §Design System to note the theme system landed in a later phase; no code change needed.
 
 ---
 
 ## Detailed Findings
 
 ### Pillar 1: Copywriting (4/4)
-
-PASS across the board. Every state string in `LicenseSettings.tsx`
-`statusLabel`/`statusBody` (lines 192–222) matches the 21-UI-SPEC state table
-verbatim:
-- `notActivated` → "Free" + "Most of TinkerDev is free…" (L204/L220) — PASS
-- `licensed` → "Licensed" + "Pro is active on this device." (L211) — PASS
-- `offlineGrace` → "Licensed (offline)" + calm refresh line (L213) — PASS, no countdown alarm
-- `refreshNeeded` → "Pro is no longer active" + saved-state reassurance (L215) — PASS, single calm state
-- `problem` → "License needs attention" + "Your tools keep working…" (L217) — PASS
-
-Action copy matches contract: "Refresh" (L319), "Reactivate" (L334),
-"Deactivate this device" (L401), confirm "Deactivate"/"Keep Pro here" (L374/L382),
-offline guidance "Connect to the internet to free this seat." (L65), drop notice
-"Your Pro features turned off" + "Got it" (L233/L247). `UpsellPanel` `ERROR_COPY`
-(L60–71) uses "device" never "Mac" — the 2026-06-12 walkthrough decision holds.
-"Renews around {date}" derives a human date (L78–87). Em-dash fallback for absent
-email/key (L284/L291, D-89). No generic "Submit/OK" labels anywhere in scope.
+Strong, fully on-contract.
+- State copy matches the contract intent: refreshNeeded body `LicenseSettings.tsx:233` ("Connect to the internet and refresh to restore Pro. Your themes and tool order are saved and will come right back.") and problem body `:235` are the verbatim D-83/D-44 calm lines.
+- D-79 offline-deactivate guidance is calm guidance, not an error: `DEACTIVATE_OFFLINE_COPY` (`:85`, "Connect to the internet to free this seat.") renders in the `tx-2` aria-live region, not `text-bad` (`:480-487`). Correct.
+- Device-neutral throughout ("device", never "Mac") — `:514`, confirm copy `:476-479`. Honors the 2026-06-12 lock.
+- D-84 one-time drop notice copy present and calm (`:247-253`, "Your Pro features turned off … reactivate any time to bring them back.") with a single "Got it" dismiss.
+- No generic labels. The only `Cancel`/`OK`-family hit is the confirm-dialog **Cancel** (`:496`), a legitimate paired-cancel on the destructive confirm — not a generic CTA. The contract's "Keep Pro here" label is the one copy deviation (now "Cancel"); minor, and the confirm heading carries the meaning.
+- Error copy keyed on typed codes, never raw error strings (`UpsellPanel.tsx:81-101`, `REFRESH_ERROR_COPY :86`).
 
 ### Pillar 2: Visuals (4/4)
+- Clear focal hierarchy: pane title (`h3`, 20px) → status banner heading (`h4`, 16px) → body/fields. Heading order is deliberate and documented (`:290-296`) to avoid axe heading-order skips under the Settings dialog `h2`.
+- Every icon is decorative + `aria-hidden`: `Lock`, `AlertTriangle`, `RefreshCw` (`:246, :316, :354, :408, :470`) — all paired with real text. No icon-only buttons without a text label (Refresh button has visible "Refresh" text `:358`).
+- Confirm-first destructive reveal is structurally correct: trigger → in-place confirm card (`:467-509`), no browser `confirm()`, no separate modal.
+- Pro/Unverified pills give state a second non-color signal (text label), not color alone (`:331, :383`).
 
-PASS. Clear single focal point per state: a heading row (glyph + 16px semibold
-label) over a 12px body, fields, then a separated management block. The only
-semantic glyph is the OK dot (`bg-ok`, L262) shown **only** for `licensed`/
-`offlineGrace` (`isProActive`, L184/L259) — D-24 honored, accent never used for
-status. All other states show a neutral `Lock` glyph (`text-tx-2`, L265).
-Locked tools stay visible with the lock badge + sr-only " — locked" suffix and
-no opacity dimming (`Sidebar.tsx` L476–487, `CommandPalette.tsx` L340–350) —
-ENT-04 satisfied. The drop notice (L229–251) is an inline dismissable card, not a
-toast/dialog. Icons are decorative (`aria-hidden`) with the accessible name
-carried by adjacent text, so no orphan icon-only controls. `CopyButton`
-(L286/L294) is a visible, focusable, labeled affordance — no hover-only copy.
+### Pillar 3: Color (2/4)
+The single materially-low pillar — pure contract conflict, not a defect.
+- **Off-contract:** the contract reserves semantic color tightly and bans banners/alarm tones on calm states. Impl ships `bg-warn-soft`/`border-warn-line`/`text-warn` banners for refreshNeeded+problem (`:314`) and `bg-ok-soft`/`border-ok-line`/`text-ok` for licensed/offlineGrace (`:368`), plus a `bg-bad/10 border-bad/75 text-bad` destructive confirm (`:469`, `DESTRUCTIVE_BTN_CLASS :77`).
+- **Mitigations that keep WCAG-AA intact:** all banner colors are tokens (no hardcoded hex anywhere in either file — grep confirms only hex *in comments*), and the tokens are contrast-documented in `index.css:59-77` (warn ~10:1, ok AA on its soft fill). Accent stays discipline-correct: it appears only on the primary CTA fill (`PRIMARY_BTN_CLASS`) and focus rings — never on a status glyph (the OK signal is the `bg-ok` dot, the destructive ring is `ring-bad`, not accent). So the *accent-only* rule (D-24) is honored; the *no-alarm-color* rule is what drifted.
+- **Light theme** (`index.css:91`) exists vs the dark-only contract; token-clean, AA-redeclared. See Fix 3.
 
-### Pillar 3: Color (4/4)
-
-PASS — the strongest pillar for this phase's binding constraint. **No alarm color
-on grace/refreshNeeded/problem**: grep for `text-bad|text-red|bg-red|border-red`
-in `LicenseSettings.tsx` returns **only comment lines**, zero className usage —
-D-77/D-83/ENT-04 structurally satisfied. The D-79 offline-deactivate guidance
-renders in the calm `text-tx-2` region (L389), not `text-bad`, exactly as the
-contract requires ("guidance, not an error").
-
-Accent reserved correctly: `PRIMARY_BTN_CLASS` fill/border + every
-`focus-visible:ring-accent` (L56–58); the active nav bar in the sidebar. No
-hardcoded hex/rgb in scope beyond the established `rgba(255,…)` hover tint
-(comment-only `#868b95`/`#0d0f13` references).
-
-Computed contrast (sRGB, token values from `src/index.css`):
-
-| Pair | Surface | Ratio | AA |
-|------|---------|-------|----|
-| tx `#e7e9ee` | panel `#181b21` | 14.20:1 | ✅ |
-| tx-2 `#989da7` (body, labels) | panel | 6.34:1 | ✅ |
-| tx-3 `#868b95` (renews, sub-line) | panel | 5.04:1 | ✅ |
-| accent `#5b9bf8` (primary btn, ring) | panel | 6.15:1 | ✅ (text + 1.4.11) |
-| ok `#34d399` (dot) | panel | 8.97:1 | ✅ (1.4.11) |
-| tx-2 placeholder/input text | input-bg `#0d0f13` | 7.05:1 | ✅ |
-| tx-2 footer affordance | sidebar `#101216` | 6.89:1 | ✅ |
-| disabled Refresh (tx-2 on input-bg) | input-bg | 7.05:1 | ✅ |
-
-Every interactive and informational pair clears AA (4.5:1 text / 3:1 non-text).
-
-### Pillar 4: Typography (4/4)
-
-PASS. Grep of scope shows exactly **two explicit sizes** (`text-[12px]` ×17,
-`text-[16px]` ×2) and **one explicit weight** (`font-semibold` ×2, regular is the
-default body) — matching the 3-role/2-weight contract once the inherited 11px
-`pane-label` variant (not used here) is counted as a label, not a new role. Classes
-are copied **verbatim** from `UpsellPanel` (`HEADING_CLASS`/`BODY_CLASS`/
-`LABEL_CLASS`/`VALUE_CLASS`, L53–61) per the reuse mandate — zero drift. Mono is
-applied to data values (`VALUE_CLASS` masked key + email, L61; renews L300) so the
-last-N key chars stay unambiguous. No fourth size, no third weight.
+### Pillar 4: Typography (3/4)
+- Distinct sizes in use across both files: **10, 11, 12, 13, 14, 16, 20, 24, 28px** (9 vs the contract's 3).
+- Weights: only `font-semibold` + a single `font-medium` on the destructive button — within the 2-weight contract.
+- All sizes are explicit `text-[Npx]` tokens (no rogue Tailwind scale), mono reserved for the masked key + email values (`VALUE_CLASS :81`) and the claims footer — mono discipline correct.
+- The expansion is entirely the 22.1 hero-pitch redesign (medallion title 24px, $9 price 28px) + the 20px pane title. Visually coherent; the only issue is it outruns the frozen contract's size count. See Fix 2.
 
 ### Pillar 5: Spacing (4/4)
-
-PASS. All spacing is on the 4px scale: route `p-8` (32px / xl), section
-`gap-12` (48px / 2xl management break, matches the spec's "48px vertical break"
-at L307), card `gap-4`/`p-6` (16/24px), button rows `gap-2` (8px), field stacks
-`gap-3`/`gap-0.5`. Button padding is the inherited `px-3 py-1` — no new button
-size introduced. **Layout-agnostic confirmed**: the only pixel widths are
-`max-w-[420px]` (a responsive measure cap that collapses below 420px) — no fixed
-`w-[NNNpx]` in either component. Mobile viewport (375px) therefore reflows within
-the cap. Footer affordance keeps `min-h-6` (24px, WCAG 2.5.8); pin/grip controls
-are `h-6 w-6` (24×24). Icon-to-label gaps are `gap-2` (8px).
+- `grep` for arbitrary spacing utilities (`p-[`, `gap-[`, `m-[` …) returns **zero** in both files — every gap/pad is a scale token (`gap-2/3/4/6/12`, `p-5/6/8`, `py-1/1.5/3`, `px-2/2.5/3/4`).
+- Card padding `p-6` (24px), route padding `p-8` (32px), 48px (`gap-12`) major break between blocks (`:274`) — exactly the contract's lg/xl/2xl rhythm.
+- Footer affordance keeps `min-h-6` (24px touch target, WCAG 2.5.8) — `Sidebar.tsx:664, :680`.
 
 ### Pillar 6: Experience Design (4/4)
+- All 5 resolve_status states render with distinct, correct treatments (free→inline pitch, licensed/offlineGrace→Pro-active, refreshNeeded/problem→attention+inline form).
+- **No spinners as state chrome:** in-flight is a calm `aria-live="polite"` "Refreshing…"/"Deactivating…" text line (`:342, :486`); the RefreshCw icon's `animate-spin` is a secondary affordance on a labeled button with `aria-busy` (`:351, :356`), not the sole signal. Honors D-34.
+- **aria-live coverage = 10** regions: status-label transitions are announced politely (`:323-326, :376-379`) so a silent refresh-drop ("Licensed"→"Pro is no longer active", D-82) reaches SR users — the prior review's P6 flag is resolved.
+- **Confirm-first destructive** with focus contract: focus → confirm on reveal, → trigger on cancel via the `confirming`-keyed effect (`:153-168`); mirrors the UpsellModal capture/return.
+- **No opacity-only disabled** (the ENT-04 bar): disabled buttons swap tokens (`disabled:border-bd disabled:bg-input-bg disabled:text-tx-2`), `readOnly`-not-`disabled` on the active input to preserve keyboard focus (`UpsellPanel.tsx:341`).
+- **Keyboard reachability:** route reachable from the footer affordance (`Sidebar.tsx:660-667`, native `<button>` + ring) and the ⌘K "License" command (`CommandPalette.tsx:237`); every control is a native `<button>`/`<input>` with `focus-visible:ring-2` via the shared class constants.
+- D-86 dormant-restore, D-88 state-dependent routing, D-89 em-dash fallback for null email/key (`:424, :428`) all present.
 
-PASS with one live-verify caveat (E1, above).
+---
 
-State coverage is complete: all five `resolve_status` states render distinct
-copy; in-flight feedback is a calm `aria-live="polite"` line ("Refreshing…"
-L355, "Deactivating…" L391) — **no spinner chrome**, per D-34. The refresh-drop
-path silently transitions to `refreshNeeded` with no error dialog (D-82,
-L111–124).
+## Reconciliation Guidance (for the orchestrator)
 
-Keyboard + focus (WCAG-AA):
-- Every control is a native `<button>`/`<input>` Tab stop with
-  `focus-visible:ring-2 focus-visible:ring-accent` — verified in all four
-  button classes and the input (L56–58, L217). PASS (2.1.1, 2.4.7).
-- **Confirm-first Deactivate moves focus to the confirm control on reveal and
-  returns to the trigger on cancel** via `focusAfter` ref + an effect keyed on
-  `confirming` (L138–155) — mirrors the UpsellModal capture/return contract.
-  This is the correct pattern (the target only exists in the DOM after the
-  reveal commits). PASS.
-- `UpsellModal` (the Reactivate/Activate target) has a real focus trap (Tab/
-  Shift+Tab wrap, pull-back if focus escapes, L384–406), `role="dialog"`
-  `aria-modal="true"` `aria-labelledby` (L432–434), Esc + scrim dismiss, and
-  focus return to the captured invoker on unmount (L412–416). PASS.
-- The route `<h1 class="sr-only">License</h1>` (L226) gives the page an
-  accessible name; card headings are real `<h2>`; fields use a semantic
-  `dl/dt/dd` (L280–303). PASS (1.3.1, 2.4.6).
-- D-84 drop notice waits for `prefsLoaded` before showing (L182) so the default
-  never flashes; dismiss is a single labeled button. PASS.
-
-**E1 (RESOLVED, 21-04):** the modal-open path is store-driven and mounted once
-in `App.tsx`. Rather than rely on the modal's mount-time `document.activeElement`
-read (fragile across the decoupled mount gap), `openUpsell()` now captures the
-invoker SYNCHRONOUSLY at click time (`upsellStore.getUpsellInvoker()`) and the
-modal restores focus to it on close (falling back to `document.activeElement`).
-Proven by a jsdom seam test + a real-WKWebView e2e (Reactivate → Esc → focus
-returns to the Reactivate button). **P6 (RESOLVED, 21-04):** the status heading
-row is now wrapped in an `aria-live="polite"` region so the silent refresh-drop
-label change is announced politely (no alert/assertive — calm tone). **P3b
-(RESOLVED, 21-04):** `aria-busy={refreshing}` added to the Refresh button.
-
-Registry audit: not applicable — `components.json` absent, no shadcn, no
-third-party blocks (21-UI-SPEC Registry Safety = N/A).
+The three deductions are **all the same root cause**: 21-UI-SPEC was frozen 2026-06-14, then Phase 22.1/22.2 walkthroughs (user-approved) re-skinned this exact pane. The audit must score against the frozen contract, hence Color 2/4 and Type 3/4. The correct resolution is almost certainly to **amend 21-UI-SPEC** (Color: permit AA-documented semantic banners; Typography: record the pitch ramp; Design System: note the light theme), not to revert working, AA-clean, user-approved UI. WCAG-AA — the binding ship bar — is fully met: visible focus rings on every control, token-documented contrast (warn ~10:1, ok/accent AA), keyboard reach via footer + palette, aria-live status transitions, no opacity-only disabled.
 
 ---
 
 ## Files Audited
-
-- `src/components/LicenseSettings.tsx` (status route, 5 states, Refresh/Deactivate/Reactivate, drop notice)
-- `src/components/UpsellPanel.tsx` (UpsellPanel + UpsellModal focus trap, activation form)
-- `src/components/Sidebar.tsx` (footer license affordance, D-88 routing, lock badge)
-- `src/components/CommandPalette.tsx` ("License" command, D-88 state routing)
-- `src/components/CopyButton.tsx` (masked-key/email copy affordance — reused)
-- `src/shell/upsellStore.ts`, `src/shell/useUpsell.ts` (shared open-state)
-- `src/App.tsx`, `src/router.tsx` (modal mount-once + `#/settings/license` route registration)
-- `src/index.css` (`@theme` token values for contrast computation)
-- `design/DevTools Mockup.html` token system (baseline)
+- `src/components/LicenseSettings.tsx` (the #/settings/license route — 5 states, Refresh, confirm-first Deactivate, drop notice, inline activation)
+- `src/components/UpsellPanel.tsx` (shared `ActivationSurface` / `InlineActivation` / `UpsellModal` — pitch, key form, problem/licensed states)
+- `src/components/Sidebar.tsx` (footer license-attention affordance, D-88 routing — partial: footer rows)
+- `src/components/CommandPalette.tsx` (⌘K "License" command routing — partial)
+- `src/index.css` (`@theme` tokens — accent/ok/bad/warn/tx/panel + light-theme block)
+- Phase 21 SUMMARYs 01–05, PLANs 01/03/04, 21-UI-SPEC.md, 21-CONTEXT.md (context)

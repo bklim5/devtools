@@ -72,8 +72,11 @@ the live Phase-20 purchase PAY-03 + CE admin):
    path (D-80).
  - Case 7: Deactivate (confirm-first) frees the seat → reactivate on a new device/fingerprint
    (use `infra/keygen/release-seat.sh`, D-81, if single-device).
- - Case 8: revoke/suspend in the prod CE admin → Refresh in-app → entitlements drop to free,
-   calm "Pro is no longer active", no crash.
+ - Case 8: revoke/suspend in the prod CE admin → the app's checkout returns 403
+   LICENSE_SUSPENDED so refresh can't renew; entitlements drop to free ("Pro is no longer
+   active") only when the cached cert LAPSES (≤~37d eventual consistency, D-82) — NOT on a
+   manual Refresh, by design (a paying user is never pre-emptively removed). Verified live
+   2026-06-17: checkout → 403 LICENSE_SUSPENDED; expiry→lapse UI is the Case-6 cargo path.
 result: [pending — blocked on Phase-20 PAY-03 live purchase / a real prod-CE key]
 
 ## Summary
