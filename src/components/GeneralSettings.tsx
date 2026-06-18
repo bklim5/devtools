@@ -19,13 +19,16 @@
 // reinvention; h3 one level under the dialog h2 preserves the Phase-22.1 heading
 // order). Every token resolves in both themes (Phase-23 light/dark).
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { platform } from "@/lib/platform";
 import { usePreferences } from "@/shell/usePreferences";
 import { ENABLED_TOOLS } from "@/lib/tools/registry";
 import { SettingToggle } from "./SettingToggle";
 
 const LAST_USED_VALUE = "last-used";
+// Calm failure copy when the OS denies the login-item plist write (e.g. a
+// managed/MDM Mac). Surfaced + announced; nothing is persisted (D-24-12).
+const LAUNCH_FAIL_MSG = "Couldn't change the login item — try again.";
 
 export function GeneralSettings() {
   const {
@@ -36,6 +39,7 @@ export function GeneralSettings() {
     setDefaultToolId,
     setShowLicenseInSidebar,
   } = usePreferences();
+  const [announcement, setAnnouncement] = useState("");
 
   // Reconcile the launch-at-login toggle with the OS truth once prefs have
   // loaded (T-24-06 — a pre-load read would seed against the default). The OS is
@@ -56,13 +60,30 @@ export function GeneralSettings() {
   async function onToggleLaunchAtLogin(next: boolean) {
     // Call the seam AND persist the intent: the persisted value keeps the UI
     // correct before the next isEnabled() read, and the native plist round-trip
-    // is what actually registers/removes the login item (D-24-12).
-    if (next) await platform.autostart.enable();
-    else await platform.autostart.disable();
-    setLaunchAtLogin(next);
+    // is what actually registers/removes the login item (D-24-12). If the OS
+    // rejects the plist write (denied/MDM-locked), persist NOTHING — the toggle
+    // keeps reflecting the unchanged OS state — and surface a calm announce
+    // instead of an unhandled rejection + silent revert.
+    try {
+      if (next) await platform.autostart.enable();
+      else await platform.autostart.disable();
+      setLaunchAtLogin(next);
+      setAnnouncement(`Launch at login ${next ? "on" : "off"}`);
+    } catch (err) {
+      console.error("[general] launch-at-login toggle failed:", err);
+      setAnnouncement(LAUNCH_FAIL_MSG);
+    }
   }
 
-  const defaultToolValue = preferences.defaultToolId ?? LAST_USED_VALUE;
+  // Guard the persisted default against a tool id that is no longer in the
+  // registry — a controlled <select> with a value matching no <option> renders
+  // blank, misrepresenting the stored preference. resolveStartupTool already
+  // falls back safely at launch; this keeps the UI honest too.
+  const defaultToolValue =
+    preferences.defaultToolId &&
+    ENABLED_TOOLS.some((t) => t.id === preferences.defaultToolId)
+      ? preferences.defaultToolId
+      : LAST_USED_VALUE;
 
   return (
     <div className="flex flex-col gap-6 overflow-auto p-8">
@@ -122,6 +143,12 @@ export function GeneralSettings() {
           onChange={setShowLicenseInSidebar}
         />
       </section>
+
+      {/* Polite live region for the launch-at-login result (WCAG-AA) — the only
+          control here with an async OS round-trip that can fail. */}
+      <div role="status" aria-live="polite" className="sr-only">
+        {announcement}
+      </div>
     </div>
   );
 }

@@ -11,6 +11,8 @@
 // state is the neutral bg-input-bg + border-bd. Every token resolves in BOTH
 // themes (Phase-23 light/dark), so no hardcoded dark hex enters here.
 
+import { useId } from "react";
+
 export interface SettingToggleProps {
   label: string;
   helper?: string;
@@ -26,11 +28,18 @@ export function SettingToggle({
   onChange,
   id,
 }: SettingToggleProps) {
+  // Associate the helper sentence with the switch so AT reads it on focus
+  // (a visual-only sibling span is invisible to screen readers — WCAG-AA).
+  const helperId = useId();
   return (
     <div className="flex items-center justify-between gap-4">
       <div className="flex flex-col gap-0.5">
         <span className="text-[13px] font-medium text-tx">{label}</span>
-        {helper ? <span className="text-[12px] text-tx-3">{helper}</span> : null}
+        {helper ? (
+          <span id={helperId} className="text-[12px] text-tx-3">
+            {helper}
+          </span>
+        ) : null}
       </div>
       <button
         id={id}
@@ -38,6 +47,7 @@ export function SettingToggle({
         role="switch"
         aria-checked={checked}
         aria-label={label}
+        aria-describedby={helper ? helperId : undefined}
         onClick={() => onChange(!checked)}
         className={[
           // Track: ≥24px tall target (WCAG 2.5.8), rounded pill, accent fill on /

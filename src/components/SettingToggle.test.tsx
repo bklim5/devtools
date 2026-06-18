@@ -67,6 +67,29 @@ describe("SettingToggle", () => {
     ).toBeDefined();
   });
 
+  it("associates the helper with the switch via aria-describedby (WCAG-AA)", () => {
+    render(
+      <SettingToggle
+        label="Launch at login"
+        helper="Start TinkerDev automatically when you log in."
+        checked={false}
+        onChange={() => {}}
+      />,
+    );
+    const sw = screen.getByRole("switch", { name: "Launch at login" });
+    const describedBy = sw.getAttribute("aria-describedby");
+    expect(describedBy).toBeTruthy();
+    expect(document.getElementById(describedBy as string)?.textContent).toBe(
+      "Start TinkerDev automatically when you log in.",
+    );
+  });
+
+  it("omits aria-describedby when there is no helper", () => {
+    render(<SettingToggle label="Start in the menu bar" checked={false} onChange={() => {}} />);
+    const sw = screen.getByRole("switch", { name: "Start in the menu bar" });
+    expect(sw.getAttribute("aria-describedby")).toBeNull();
+  });
+
   it("distinguishes on vs off by accent fill, not opacity (no opacity-only state)", () => {
     const { rerender } = render(
       <SettingToggle label="x" checked={false} onChange={() => {}} />,
