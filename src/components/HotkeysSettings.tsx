@@ -26,6 +26,7 @@ const PALETTE_CHORD = DEFAULT_PREFERENCES.paletteChord;
 // The single OS-reject case (D-24-2): rebindSummon already restored the prior
 // binding, so the pane just surfaces this calm inline message and persists nothing.
 const TAKEN_MSG = "That shortcut is already in use — try another.";
+const sameAsOtherMsg = (other: string) => `That shortcut is already used by ${other}.`;
 
 export function HotkeysSettings() {
   const { preferences, setSummonChord, setPaletteChord } = usePreferences();
@@ -34,7 +35,17 @@ export function HotkeysSettings() {
   const [announcement, setAnnouncement] = useState("");
 
   // Commit AND Reset share one path — they differ only in the target chord.
+  // Reset bypasses HotkeyCaptureField's self-collision guard, so re-check the
+  // other binding here too: no two bindings may share a chord (T-24-07). The
+  // commit path never trips this (the field already blocks accel === otherChord
+  // before onCommit). Every reject also feeds the polite live region (WCAG-AA).
   async function applySummon(accel: string) {
+    if (accel === preferences.paletteChord) {
+      const msg = sameAsOtherMsg("the command palette");
+      setRejectSummon(msg);
+      setAnnouncement(msg);
+      return;
+    }
     try {
       await rebindSummon(preferences.summonChord, accel);
       setSummonChord(accel);
@@ -44,10 +55,17 @@ export function HotkeysSettings() {
       // OS-register reject: the chord is taken/reserved. rebindSummon already
       // restored the prior OS binding — persist NOTHING (D-24-2, T-05-07).
       setRejectSummon(TAKEN_MSG);
+      setAnnouncement(TAKEN_MSG);
     }
   }
 
   function applyPalette(accel: string) {
+    if (accel === preferences.summonChord) {
+      const msg = sameAsOtherMsg("the global summon");
+      setRejectPalette(msg);
+      setAnnouncement(msg);
+      return;
+    }
     // Pure-webview (D-24-6): no native register, so no OS-reject path.
     setPaletteChord(accel);
     setRejectPalette(null);
