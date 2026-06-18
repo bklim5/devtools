@@ -267,7 +267,7 @@ Plans:
   5. Both panes are fully keyboard-reachable and WCAG-AA (rebind capture has an accessible affordance; no mouse-only path)
 **Plans**: 4 plans
 - [x] 24-01-PLAN.md — Foundation: 6 prefs fields + coercers, pure chord helpers (keyEventToAccelerator/matchesChord), default-tool seam, platform.autostart capability (the scoped v1.7 dep) — COMPLETE 2026-06-18 (suite 1108/1108, cargo build green, decoder 19/19 untouched)
-- [ ] 24-02-PLAN.md — Native/in-webview wiring: prefs-driven registerSummon + rebindSummon, start-in-tray-gated startup reveal, configurable ⌘K palette matcher
+- [x] 24-02-PLAN.md — Native/in-webview wiring: prefs-driven registerSummon + rebindSummon, native auto-reveal neutralized (window-state VISIBLE dropped) + start-in-tray-gated startup reveal, configurable ⌘K palette matcher — COMPLETE 2026-06-18 (suite 1113/1113, cargo check green, decoder 19/19 untouched)
 - [ ] 24-03-PLAN.md — Hotkeys pane: reusable HotkeyCaptureField + two binding rows + SETTINGS_PANES append + e2e + native walkthrough
 - [ ] 24-04-PLAN.md — General pane: SettingToggle + 4 controls (launch-at-login, start-in-tray, default-tool, show-license-in-sidebar) + sidebar gate + e2e + phase ship walkthrough
 **UI hint**: yes
