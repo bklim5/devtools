@@ -268,7 +268,7 @@ Plans:
 **Plans**: 4 plans
 - [x] 24-01-PLAN.md — Foundation: 6 prefs fields + coercers, pure chord helpers (keyEventToAccelerator/matchesChord), default-tool seam, platform.autostart capability (the scoped v1.7 dep) — COMPLETE 2026-06-18 (suite 1108/1108, cargo build green, decoder 19/19 untouched)
 - [x] 24-02-PLAN.md — Native/in-webview wiring: prefs-driven registerSummon + rebindSummon, native auto-reveal neutralized (window-state VISIBLE dropped) + start-in-tray-gated startup reveal, configurable ⌘K palette matcher — COMPLETE 2026-06-18 (suite 1113/1113, cargo check green, decoder 19/19 untouched)
-- [ ] 24-03-PLAN.md — Hotkeys pane: reusable HotkeyCaptureField + two binding rows + SETTINGS_PANES append + e2e + native walkthrough
+- [x] 24-03-PLAN.md — Hotkeys pane: reusable HotkeyCaptureField + two binding rows + SETTINGS_PANES append + e2e + native walkthrough
 - [ ] 24-04-PLAN.md — General pane: SettingToggle + 4 controls (launch-at-login, start-in-tray, default-tool, show-license-in-sidebar) + sidebar gate + e2e + phase ship walkthrough
 **UI hint**: yes
 
@@ -317,7 +317,7 @@ v1.7 runs 22 → 23 → 24 → 25 (started non-destructively while v1.6 is in fi
 | 22. Settings Modal Shell, Entry Points & License Pane | v1.7 | 3/3 | Complete    | 2026-06-15 |
 | 22.1 Settings Follow-ups | v1.7 | 1/2 | In progress | Plan 02 done (inline License upsell, SET-06); Plan 01 paused at native-menu human checkpoint |
 | 23. Appearance Pane | v1.7 | 4/4 | Complete    | 2026-06-17 |
-| 24. Hotkeys & General Panes | v1.7 | 0/? | Not started | - |
+| 24. Hotkeys & General Panes | v1.7 | 3/4 | In Progress|  |
 | 25. Updates Pane & Milestone Ship | v1.7 | 0/? | Not started | - |
 
 ## Backlog
@@ -343,7 +343,7 @@ Unsequenced ideas captured for future planning. Promote with `/gsd-review-backlo
 Each candidate must still pass the product wedge: offline/no-network, paste-instant (<2s), keyboard-driven, registry-driven, WCAG-AA, and the build+verify harness.
 
 **Requirements:** TBD (remaining wishlist; Cron/URL/Regex requirements now in `.planning/REQUIREMENTS.md` for v1.3)
-**Plans:** 4/4 plans complete
+**Plans:** 3/4 plans executed
 
 Plans:
 - [ ] TBD (promote remaining wishlist with /gsd-review-backlog when ready)
