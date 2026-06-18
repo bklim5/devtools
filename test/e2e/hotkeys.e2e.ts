@@ -350,10 +350,15 @@ describe("Hotkeys pane (real WKWebView)", () => {
       );
 
       // 2. Toggle OFF → the sidebar affordance disappears; aria-checked flips to false.
-      const offChecked = await toggleSwitch("Show license status in sidebar");
-      assert(
-        offChecked === "false",
-        `expected aria-checked false after toggling off, got ${JSON.stringify(offChecked)}`,
+      // (toggleSwitch's return is read synchronously on click — before React's
+      // re-render flushes — so poll switchChecked for the settled value.)
+      await toggleSwitch("Show license status in sidebar");
+      await browser.waitUntil(
+        async () => (await switchChecked("Show license status in sidebar")) === "false",
+        {
+          timeout: 5_000,
+          timeoutMsg: "expected aria-checked false after toggling Show license OFF",
+        },
       );
       await browser.waitUntil(async () => !(await sidebarLicenseAffordancePresent()), {
         timeout: 5_000,
@@ -367,10 +372,13 @@ describe("Hotkeys pane (real WKWebView)", () => {
       await saveScreenshot("hotkeys", "general-license-hidden.png", "license affordance hidden");
 
       // 3. Toggle ON → the affordance reappears; aria-checked flips back to true.
-      const onChecked = await toggleSwitch("Show license status in sidebar");
-      assert(
-        onChecked === "true",
-        `expected aria-checked true after toggling on, got ${JSON.stringify(onChecked)}`,
+      await toggleSwitch("Show license status in sidebar");
+      await browser.waitUntil(
+        async () => (await switchChecked("Show license status in sidebar")) === "true",
+        {
+          timeout: 5_000,
+          timeoutMsg: "expected aria-checked true after toggling Show license ON",
+        },
       );
       await browser.waitUntil(async () => sidebarLicenseAffordancePresent(), {
         timeout: 5_000,
