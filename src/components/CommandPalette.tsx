@@ -325,7 +325,7 @@ export function CommandPalette() {
         className="w-[min(560px,92vw)] overflow-hidden rounded-[14px] border border-bd-2 bg-palette shadow-2xl"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-[11px] border-b border-bd px-[18px] py-4">
+        <div className="flex items-center gap-3 border-b border-bd px-4 py-4">
           <input
             ref={inputRef}
             value={query}
@@ -342,13 +342,13 @@ export function CommandPalette() {
 
         <div className="max-h-[340px] overflow-auto p-2">
           {flatRows.length === 0 ? (
-            <div className="px-[10px] py-[9px] text-[14px] text-tx-3">No tools match</div>
+            <div className="px-2.5 py-2 text-[14px] text-tx-3">No tools match</div>
           ) : (
             groups.map((group) =>
               group.rows.length === 0 ? null : (
                 <div key={group.label ?? "results"}>
                   {group.label && (
-                    <div className="px-[10px] pb-[5px] pt-[10px] text-[10.5px] font-semibold uppercase tracking-[0.09em] text-tx-3">
+                    <div className="px-2.5 pb-1 pt-2.5 text-[10.5px] font-semibold uppercase tracking-[0.09em] text-tx-3">
                       {group.label}
                     </div>
                   )}
@@ -370,7 +370,7 @@ export function CommandPalette() {
                         onMouseEnter={() => setHighlight(idx)}
                         onClick={() => selectRow(row)}
                         className={[
-                          "flex w-full items-center gap-3 rounded-[8px] px-[10px] py-[9px] text-left",
+                          "flex w-full items-center gap-3 rounded-[8px] px-2.5 py-2 text-left",
                           isOn ? "bg-accent-soft text-tx" : "text-tx-2",
                         ].join(" ")}
                       >
@@ -403,7 +403,7 @@ export function CommandPalette() {
           )}
         </div>
 
-        <div className="flex gap-4 border-t border-bd px-[18px] py-[10px] font-mono text-[11px] text-tx-3">
+        <div className="flex gap-4 border-t border-bd px-4 py-2.5 font-mono text-[11px] text-tx-3">
           <span>↑↓ navigate</span>
           <span>↵ open</span>
           <span>esc close</span>

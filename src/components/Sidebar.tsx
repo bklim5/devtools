@@ -482,7 +482,7 @@ export function Sidebar() {
                   // navitem: compact padding, radius 9px, icon↔name gap 12px. Right
                   // padding leaves room for the two absolutely-positioned controls
                   // (pin + grip) so the name does not truncate under them (Pitfall 6).
-                  "flex min-w-0 flex-1 items-center gap-3 rounded-[9px] py-2 pl-[11px] pr-14",
+                  "flex min-w-0 flex-1 items-center gap-3 rounded-[9px] py-2 pl-3 pr-14",
                   "outline-none transition-colors",
                   "focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-0",
                   isActive
@@ -618,7 +618,7 @@ export function Sidebar() {
   );
 
   return (
-    <aside className="flex w-[268px] flex-none flex-col gap-3 border-r border-bd bg-sidebar p-[14px]">
+    <aside className="flex w-[268px] flex-none flex-col gap-3 border-r border-bd bg-sidebar p-3.5">
       <nav
         ref={navRef}
         // tabIndex -1 keeps the nav OUT of the normal tab order but makes it a
@@ -661,7 +661,7 @@ export function Sidebar() {
         <button
           type="button"
           onClick={(e) => openLicenseSurface(e.currentTarget)}
-          className="flex min-h-6 items-center gap-2 rounded-[6px] px-[11px] py-1 text-left text-[13px] text-tx-2 outline-none transition-colors hover:text-tx focus-visible:ring-2 focus-visible:ring-accent"
+          className="flex min-h-6 items-center gap-2 rounded-[6px] px-3 py-1 text-left text-[13px] text-tx-2 outline-none transition-colors hover:text-tx focus-visible:ring-2 focus-visible:ring-accent"
         >
           <Lock aria-hidden="true" className="h-3 w-3 flex-none" />
           {licenseAttention ? "License needs attention" : "Unlock Pro"}
@@ -677,7 +677,7 @@ export function Sidebar() {
       <button
         type="button"
         onClick={(e) => openSettings("license", e.currentTarget)}
-        className="flex min-h-6 items-center gap-2 rounded-[6px] px-[11px] py-1 text-left text-[13px] text-tx-2 outline-none transition-colors hover:text-tx focus-visible:ring-2 focus-visible:ring-accent"
+        className="flex min-h-6 items-center gap-2 rounded-[6px] px-3 py-1 text-left text-[13px] text-tx-2 outline-none transition-colors hover:text-tx focus-visible:ring-2 focus-visible:ring-accent"
       >
         <Settings aria-hidden="true" className="h-3 w-3 flex-none" />
         Settings

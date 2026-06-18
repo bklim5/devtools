@@ -183,7 +183,7 @@ export function SettingsModal() {
               3px accent left-bar + accent icon (the only accent in the nav;
               selected-only rule). aria-current="page" marks it (button-list
               model, NOT tablist — locked for Phases 23-25). */}
-          <nav className="flex w-[200px] flex-none flex-col gap-0.5 border-r border-bd bg-sidebar p-[14px]">
+          <nav className="flex w-[200px] flex-none flex-col gap-0.5 border-r border-bd bg-sidebar p-3.5">
             {SETTINGS_PANES.map((pane) => {
               const on = pane.id === active;
               const Icon = pane.icon;
@@ -193,7 +193,7 @@ export function SettingsModal() {
                   type="button"
                   aria-current={on ? "page" : undefined}
                   onClick={() => setActivePane(pane.id)}
-                  className={`relative flex items-center gap-2 rounded-[9px] px-[11px] py-2 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent ${
+                  className={`relative flex items-center gap-2 rounded-[9px] px-3 py-2 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent ${
                     on
                       ? "bg-accent-soft text-tx"
                       : "text-tx-2 hover:bg-input-bg hover:text-tx"

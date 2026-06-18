@@ -62,7 +62,7 @@ export function StatusBar({
       role="status"
       aria-live="polite"
     >
-      <div className="flex min-w-0 items-center gap-[11px]">
+      <div className="flex min-w-0 items-center gap-3">
         <span
           className={parseState === "error" ? "text-bad" : "text-tx-2"}
           aria-label="parse state"
@@ -78,7 +78,7 @@ export function StatusBar({
         ) : null}
         {encoding ? <span aria-label="encoding">{encoding}</span> : null}
       </div>
-      <div className="flex min-w-0 items-center gap-[11px]">
+      <div className="flex min-w-0 items-center gap-3">
         {error ? (
           // Clipped with `truncate`, so the full message must stay reachable: the
           // accessible name carries the actual error (not the literal word "error")
