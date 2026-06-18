@@ -109,3 +109,10 @@ tauri-plugin-window-state = "2.4.1"
 # swapping the bundle. The JS side drives it via @tauri-apps/plugin-updater behind
 # src/lib/platform/tauri.ts. Gated at runtime by `updater:default`.
 tauri-plugin-updater = "2.10.1"
+# Launch-at-login (SET-09). The ONE scoped new-dep exception of v1.7 (D-24-7):
+# an official Tauri plugins-workspace crate, no UI, no network — writes a per-user
+# LaunchAgent plist. Registered via tauri_plugin_autostart::init in lib.rs; reached
+# from JS ONLY through platform.autostart (the @tauri-apps/plugin-autostart import
+# lives solely in src/lib/platform/tauri.ts). Scoped to the three autostart:allow-*
+# perms in capabilities/default.json — no wider grant (T-24-03).
+tauri-plugin-autostart = "2.5.1"

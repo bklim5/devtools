@@ -54,6 +54,18 @@ export const noopOpener: Platform["opener"] = {
   openUrl: async () => {},
 };
 
+/** Shared no-op autostart for test Platform stubs (SET-09, D-24-7): launch-at-login
+ *  is Tauri-only, so jsdom/vite-preview NEVER touch the OS (isEnabled -> false) —
+ *  one source of truth so every inline literal / makeMemoryPlatform spread satisfies
+ *  the widened interface without re-drifting. */
+export const noopAutostart: Platform["autostart"] = {
+  async enable() {},
+  async disable() {},
+  async isEnabled() {
+    return false;
+  },
+};
+
 export function makeMemoryPlatform(
   store: Store = createStoreStub(),
   /** Optional license arm override (Phase 21 D-85 flip tests): drive a specific
@@ -70,5 +82,6 @@ export function makeMemoryPlatform(
     events: noopEvents,
     license,
     opener: noopOpener,
+    autostart: noopAutostart,
   };
 }

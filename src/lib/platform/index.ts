@@ -148,6 +148,14 @@ export interface Platform {
   opener: {
     openUrl(url: string): Promise<void>;
   };
+  /** Launch-at-login control (SET-09 / D-24-7) — the ONE new webview dep of v1.7,
+   *  reached ONLY through this seam (FND-04). No-op in the browser/test fallback
+   *  (isEnabled -> false). The native autostart plugin import lives ONLY in tauri.ts. */
+  autostart: {
+    enable(): Promise<void>;
+    disable(): Promise<void>;
+    isEnabled(): Promise<boolean>;
+  };
 }
 
 /**
@@ -200,6 +208,9 @@ export const platform: Platform = {
   },
   get opener() {
     return active.opener;
+  },
+  get autostart() {
+    return active.autostart;
   },
 };
 

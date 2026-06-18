@@ -23,6 +23,7 @@ import { relaunch } from "@tauri-apps/plugin-process";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { enable, disable, isEnabled } from "@tauri-apps/plugin-autostart";
 import type { LicenseStatusPayload, Platform } from "./index";
 import type { Store } from "./stub";
 import {
@@ -151,5 +152,13 @@ export const tauriPlatform: Platform = {
   // reaching the OS. The `@tauri-apps/plugin-opener` import lives ONLY here.
   opener: {
     openUrl: (url: string) => openUrl(url),
+  },
+  // SET-09 / D-24-7: launch-at-login via the autostart plugin (per-user LaunchAgent
+  // plist; no network, no UI). The ONLY new webview dep of v1.7, the recorded scoped
+  // exception. The native autostart plugin import (top of THIS file) lives ONLY here.
+  autostart: {
+    enable: () => enable(),
+    disable: () => disable(),
+    isEnabled: () => isEnabled(),
   },
 };

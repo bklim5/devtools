@@ -50,6 +50,17 @@ pub fn run() {
         // `opener:allow-open-url` capability (capabilities/default.json) so the app
         // can never be coerced to open non-https schemes (file:/tel:/mailto:).
         .plugin(tauri_plugin_opener::init())
+        // Launch-at-login (SET-09 / D-24-7). The ONE scoped new-dep exception of
+        // v1.7: an official Tauri plugins-workspace crate, no UI, no network — it
+        // writes a per-user LaunchAgent plist. `None::<Vec<&str>>` passes NO launch
+        // args (no shell-injection surface, T-24-03). The JS side calls
+        // enable/disable/isEnabled via @tauri-apps/plugin-autostart behind
+        // src/lib/platform/tauri.ts; scoped to the three autostart:allow-* perms in
+        // capabilities/default.json — no wider grant.
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            None::<Vec<&str>>,
+        ))
         // Tray icon + menu (NAT-02, D-02 regular dock app + tray). Tauri 2 trays are
         // Rust-only (no tauri.conf.json tray config). The menu has Show + Quit; both
         // the menu "show" and a left-click summon the main window using the D-03

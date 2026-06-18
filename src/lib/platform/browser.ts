@@ -109,4 +109,14 @@ export const browserPlatform: Platform = {
   opener: {
     async openUrl(): Promise<void> {},
   },
+  // Launch-at-login is Tauri-only (SET-09, D-24-7): outside Tauri these are no-ops
+  // that NEVER touch the OS (isEnabled -> false). This file must NOT import the
+  // native autostart package.
+  autostart: {
+    async enable(): Promise<void> {},
+    async disable(): Promise<void> {},
+    async isEnabled(): Promise<boolean> {
+      return false;
+    },
+  },
 };
