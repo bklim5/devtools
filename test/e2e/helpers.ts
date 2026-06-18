@@ -122,6 +122,7 @@ export async function runDevToggle(): Promise<void> {
     window.dispatchEvent(
       new KeyboardEvent("keydown", {
         key: "k",
+        code: "KeyK",
         metaKey: true,
         shiftKey: true,
         bubbles: true,

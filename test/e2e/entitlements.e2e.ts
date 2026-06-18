@@ -84,6 +84,7 @@ async function runLicenseCommand(): Promise<void> {
     window.dispatchEvent(
       new KeyboardEvent("keydown", {
         key: "k",
+        code: "KeyK",
         metaKey: true,
         bubbles: true,
         cancelable: true,
