@@ -52,25 +52,55 @@ export function deepLink(id: string): void {
 /**
  * Register the global summon chord through the seam, once, at startup.
  *
- * Awaits `initPlatform()` first so the real Tauri impl is installed before we
- * register (memoised — cheap to await). Registration failure (chord already
- * taken, Pitfall 2 / threat T-05-07) is NON-FATAL: it is caught and logged, never
- * rethrown, so a collision can't crash app startup. The chord stays a single
- * named constant, trivially changeable.
+ * Takes the PERSISTED chord (getSharedPreferences().summonChord) — NOT the bare
+ * SUMMON_CHORD constant — so a user-rebound chord is the one armed at launch
+ * (NAT-01/G-05-1 promoted, D-24-1). Awaits `initPlatform()` first so the real
+ * Tauri impl is installed before we register (memoised — cheap to await).
+ * Registration failure (chord already taken, Pitfall 2 / threat T-05-07) is
+ * NON-FATAL: it is caught and logged, never rethrown (D-24-5), so a collision
+ * can't crash app startup.
  */
-export async function registerSummon(): Promise<void> {
+export async function registerSummon(chord: string): Promise<void> {
   try {
     await initPlatform();
     // The handler returns the summon promise. The seam signature is `() => void`,
     // and a `() => Promise<void>` is assignable to it (the OS caller ignores the
     // return); returning it lets the unit test await the full summon chain.
-    await platform.nativeShortcut.register(SUMMON_CHORD, () => summon());
+    await platform.nativeShortcut.register(chord, () => summon());
   } catch (err) {
     // Graceful degrade: a taken chord (or a denied permission) disables summon
-    // but must not take down startup. The chord is one constant away from a fix.
-    console.warn(
-      `[summon] failed to register global chord "${SUMMON_CHORD}":`,
-      err,
-    );
+    // but must not take down startup. The user can rebind via the Hotkeys pane.
+    console.warn(`[summon] failed to register global chord "${chord}":`, err);
+  }
+}
+
+/**
+ * USER-initiated rebind of the summon chord (D-24-2/5, threat T-05-07).
+ *
+ * Ordering: unregister the OLD chord, then register the NEW chord. On a register
+ * REJECT (the new chord is taken/reserved — the OS register-result is the final
+ * gate, D-24-3) it RE-REGISTERS the old chord so the user keeps a working summon,
+ * then RE-THROWS so the caller (the Hotkeys pane) can surface the inline reject
+ * and persist NOTHING (D-24-2: persist nothing on reject — persistence is the
+ * pane's job AFTER a successful rebind).
+ *
+ * The old unregister is best-effort: an "old not registered" reject (e.g. the
+ * prior registerSummon failed at startup) must not abort the rebind.
+ */
+export async function rebindSummon(
+  oldChord: string,
+  newChord: string,
+): Promise<void> {
+  await initPlatform();
+  // Best-effort: an unregister reject (old chord was never registered) must not
+  // block binding the new one.
+  await platform.nativeShortcut.unregister(oldChord).catch(() => {});
+  try {
+    await platform.nativeShortcut.register(newChord, () => summon());
+  } catch (err) {
+    // The new chord is taken/reserved — restore the working binding so the user
+    // is never left without a summon, then surface the failure to the pane.
+    await platform.nativeShortcut.register(oldChord, () => summon()).catch(() => {});
+    throw err;
   }
 }

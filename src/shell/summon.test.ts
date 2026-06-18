@@ -13,25 +13,29 @@ import {
   type Platform,
 } from "@/lib/platform";
 import { makeMemoryPlatform } from "./testStore";
-import { SUMMON_CHORD, registerSummon } from "./summon";
+import { SUMMON_CHORD, registerSummon, rebindSummon } from "./summon";
 
 /** Build a Platform whose window + nativeShortcut are vi.fn() spies so we can
  *  assert what registerSummon called and in what order. */
 function makeSpyPlatform(
   registerImpl: Platform["nativeShortcut"]["register"] = vi.fn(async () => {}),
+  unregisterImpl: Platform["nativeShortcut"]["unregister"] = vi.fn(
+    async () => {},
+  ),
 ) {
   const unminimize = vi.fn(async () => {});
   const show = vi.fn(async () => {});
   const setFocus = vi.fn(async () => {});
   const register = vi.fn(registerImpl);
+  const unregister = vi.fn(unregisterImpl);
 
   const base = makeMemoryPlatform();
   const platform: Platform = {
     ...base,
     window: { ...base.window, unminimize, show, setFocus },
-    nativeShortcut: { ...base.nativeShortcut, register },
+    nativeShortcut: { ...base.nativeShortcut, register, unregister },
   };
-  return { platform, unminimize, show, setFocus, register };
+  return { platform, unminimize, show, setFocus, register, unregister };
 }
 
 describe("summon (NAT-01)", () => {
@@ -46,14 +50,18 @@ describe("summon (NAT-01)", () => {
     expect(SUMMON_CHORD).toBe("CommandOrControl+Shift+D");
   });
 
-  it("registers SUMMON_CHORD through the seam (platform.nativeShortcut.register)", async () => {
+  it("registers the PASSED chord through the seam (platform.nativeShortcut.register)", async () => {
     const { platform, register } = makeSpyPlatform();
     setPlatformForTest(platform);
 
-    await registerSummon();
+    // A user-rebound chord — registerSummon must use the ARGUMENT, not the constant.
+    await registerSummon("CommandOrControl+Alt+J");
 
     expect(register).toHaveBeenCalledTimes(1);
-    expect(register).toHaveBeenCalledWith(SUMMON_CHORD, expect.any(Function));
+    expect(register).toHaveBeenCalledWith(
+      "CommandOrControl+Alt+J",
+      expect.any(Function),
+    );
   });
 
   it("on fire, summons the window in order: unminimize → show → setFocus", async () => {
@@ -64,7 +72,7 @@ describe("summon (NAT-01)", () => {
     const { platform, unminimize, show, setFocus } = makeSpyPlatform(register);
     setPlatformForTest(platform);
 
-    await registerSummon();
+    await registerSummon(SUMMON_CHORD);
     expect(captured).toBeTypeOf("function");
 
     // Invoke the registered summon handler and let its awaits flush.
@@ -90,7 +98,67 @@ describe("summon (NAT-01)", () => {
     const { platform } = makeSpyPlatform(register);
     setPlatformForTest(platform);
 
-    await expect(registerSummon()).resolves.toBeUndefined();
+    await expect(registerSummon(SUMMON_CHORD)).resolves.toBeUndefined();
     expect(warn).toHaveBeenCalled();
+  });
+});
+
+describe("rebindSummon (D-24-2/5 — user-initiated rebind)", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+  afterEach(() => {
+    resetPlatformForTest();
+  });
+
+  it("unregisters the OLD chord then registers the NEW chord, in that order", async () => {
+    const { platform, register, unregister } = makeSpyPlatform();
+    setPlatformForTest(platform);
+
+    await rebindSummon("CommandOrControl+Shift+D", "CommandOrControl+Alt+J");
+
+    expect(unregister).toHaveBeenCalledWith("CommandOrControl+Shift+D");
+    expect(register).toHaveBeenCalledWith(
+      "CommandOrControl+Alt+J",
+      expect.any(Function),
+    );
+    const [u] = unregister.mock.invocationCallOrder;
+    const [r] = register.mock.invocationCallOrder;
+    expect(u).toBeLessThan(r); // unregister-old BEFORE register-new
+  });
+
+  it("on register REJECT, re-registers the OLD chord and re-throws (working summon preserved)", async () => {
+    const register = vi.fn(async (acc: string) => {
+      // Only the NEW chord is taken; the OLD-chord restore must succeed.
+      if (acc === "CommandOrControl+Alt+J") throw new Error("taken");
+    });
+    const { platform, register: registerSpy } = makeSpyPlatform(register);
+    setPlatformForTest(platform);
+
+    await expect(
+      rebindSummon("CommandOrControl+Shift+D", "CommandOrControl+Alt+J"),
+    ).rejects.toThrow("taken");
+
+    // The restore call re-registers the OLD chord so summon still works.
+    expect(registerSpy).toHaveBeenCalledWith(
+      "CommandOrControl+Shift+D",
+      expect.any(Function),
+    );
+  });
+
+  it("an unregister reject (old chord not registered) does not abort the rebind", async () => {
+    const unregister = vi.fn(async () => {
+      throw new Error("old not registered");
+    });
+    const { platform, register } = makeSpyPlatform(undefined, unregister);
+    setPlatformForTest(platform);
+
+    await expect(
+      rebindSummon("CommandOrControl+Shift+D", "CommandOrControl+Alt+J"),
+    ).resolves.toBeUndefined();
+    expect(register).toHaveBeenCalledWith(
+      "CommandOrControl+Alt+J",
+      expect.any(Function),
+    );
   });
 });
