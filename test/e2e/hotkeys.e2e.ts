@@ -33,8 +33,9 @@ import {
 } from "./helpers";
 
 /** Open the Settings modal on the License pane via the deep-link, then click the
- *  "Hotkeys" pane-nav button (asserting aria-current lands on it). */
-async function openHotkeysPane(): Promise<void> {
+ *  named pane-nav button (asserting aria-current lands on it). One opener for
+ *  every pane — call openHotkeysPane()/openGeneralPane() for readability. */
+async function openSettingsPane(paneName: string): Promise<void> {
   await browser.execute(() => {
     window.location.hash = "#/settings/license";
   });
@@ -48,63 +49,29 @@ async function openHotkeysPane(): Promise<void> {
       timeoutMsg: "expected the Settings modal to open from the #/settings/license deep-link",
     },
   );
-  await browser.execute(() => {
+  await browser.execute((name: string) => {
     const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
     const btn = Array.from(dialog?.querySelectorAll("nav button") ?? []).find(
-      (b) => (b.textContent ?? "").trim() === "Hotkeys",
+      (b) => (b.textContent ?? "").trim() === name,
     ) as HTMLElement | undefined;
     btn?.click();
-  });
+  }, paneName);
   await browser.waitUntil(
     async () =>
-      browser.execute(() => {
+      browser.execute((name: string) => {
         const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
         const current = dialog?.querySelector('[aria-current="page"]');
-        return (current?.textContent ?? "").includes("Hotkeys");
-      }),
+        return (current?.textContent ?? "").includes(name);
+      }, paneName),
     {
       timeout: 5_000,
-      timeoutMsg: 'expected the Hotkeys pane nav button to carry aria-current="page"',
+      timeoutMsg: `expected the ${paneName} pane nav button to carry aria-current="page"`,
     },
   );
 }
 
-/** Open the Settings modal on the License pane via the deep-link, then click the
- *  "General" pane-nav button (asserting aria-current lands on it). */
-async function openGeneralPane(): Promise<void> {
-  await browser.execute(() => {
-    window.location.hash = "#/settings/license";
-  });
-  await browser.waitUntil(
-    async () =>
-      browser.execute(
-        () => document.querySelector('[role="dialog"][aria-modal="true"]') !== null,
-      ),
-    {
-      timeout: 10_000,
-      timeoutMsg: "expected the Settings modal to open from the #/settings/license deep-link",
-    },
-  );
-  await browser.execute(() => {
-    const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
-    const btn = Array.from(dialog?.querySelectorAll("nav button") ?? []).find(
-      (b) => (b.textContent ?? "").trim() === "General",
-    ) as HTMLElement | undefined;
-    btn?.click();
-  });
-  await browser.waitUntil(
-    async () =>
-      browser.execute(() => {
-        const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
-        const current = dialog?.querySelector('[aria-current="page"]');
-        return (current?.textContent ?? "").includes("General");
-      }),
-    {
-      timeout: 5_000,
-      timeoutMsg: 'expected the General pane nav button to carry aria-current="page"',
-    },
-  );
-}
+const openHotkeysPane = () => openSettingsPane("Hotkeys");
+const openGeneralPane = () => openSettingsPane("General");
 
 /** Whether a binding-row label (h4) is present inside the dialog. */
 function rowLabelPresent(label: string): Promise<boolean> {
