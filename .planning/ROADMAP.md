@@ -265,7 +265,11 @@ Plans:
   3. The General pane exposes app-behavior toggles (final set decided in planning from: launch-at-login, start-in-tray, default tool on open, show-license-status-in-sidebar) — each toggle persists and takes effect
   4. Launch-at-login works via an autostart plugin — a NEW webview/native dependency that is an **explicit, scoped exception** to the zero-new-dep wedge, decided and recorded in this phase's planning (the only dep added in v1.7)
   5. Both panes are fully keyboard-reachable and WCAG-AA (rebind capture has an accessible affordance; no mouse-only path)
-**Plans**: TBD
+**Plans**: 4 plans
+- [ ] 24-01-PLAN.md — Foundation: 6 prefs fields + coercers, pure chord helpers (keyEventToAccelerator/matchesChord), default-tool seam, platform.autostart capability (the scoped v1.7 dep)
+- [ ] 24-02-PLAN.md — Native/in-webview wiring: prefs-driven registerSummon + rebindSummon, start-in-tray-gated startup reveal, configurable ⌘K palette matcher
+- [ ] 24-03-PLAN.md — Hotkeys pane: reusable HotkeyCaptureField + two binding rows + SETTINGS_PANES append + e2e + native walkthrough
+- [ ] 24-04-PLAN.md — General pane: SettingToggle + 4 controls (launch-at-login, start-in-tray, default-tool, show-license-in-sidebar) + sidebar gate + e2e + phase ship walkthrough
 **UI hint**: yes
 
 ### Phase 25: Updates Pane & Milestone Ship
