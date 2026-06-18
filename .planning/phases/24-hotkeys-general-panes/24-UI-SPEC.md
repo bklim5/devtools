@@ -56,7 +56,7 @@ Exceptions:
 
 ## Typography
 
-Three sizes, two weights — **mirrors the shipped `AppearanceSettings` pane EXACTLY** (`text-[15px]` semibold pane header, `text-[13px]` medium section headings + body, `text-[12px]` helper). Line-heights: body 1.5, headings 1.2. No new sizes/weights beyond this ramp.
+Three sizes, three weights — **mirrors the shipped `AppearanceSettings` pane EXACTLY** (`text-[15px]` 600 semibold pane header, `text-[13px]` 500 medium section headings + 400 body, `text-[12px]` 400 helper). This 600/500/400 ramp intentionally exceeds the usual 2-weight default: it is the **already-shipped Phase-23 `AppearanceSettings` weight ramp reused unchanged** — verbatim-cloned from a pane that has already passed a `gsd-ui-review` WCAG-AA audit (reuse-over-reinvention; traceable to an AA-passed precedent). Introducing a new 2-weight ramp here would *diverge* from the shipped Settings modal, which is the worse outcome. Line-heights: body 1.5, headings 1.2. No new sizes/weights beyond this ramp.
 
 | Role | Size | Weight | Line Height | Notes |
 |------|------|--------|-------------|-------|
@@ -67,7 +67,7 @@ Three sizes, two weights — **mirrors the shipped `AppearanceSettings` pane EXA
 | Helper / hint | 12px | 400 (regular) | 1.5 | Per-control helper sub-text, the "Esc cancels" capture hint, reserved-chord guidance — `text-[12px] text-tx-3` |
 | Captured chord display | 12–13px | 500 (medium) | 1.5 | The resolved accelerator (`Cmd+Shift+D` form) shown in the capture field — **`font-mono`** (JetBrains Mono), keeps chord glyphs unambiguous |
 
-**Constraint:** uses ONLY the `tx`/`tx-2`/`tx-3` color ramp + 400/500/600 weights already in the ramp. Mono (400/500) for the chord display only.
+**Constraint:** uses ONLY the `tx`/`tx-2`/`tx-3` color ramp + the 400/500/600 weights (the shipped Phase-23 ramp, reused unchanged). Mono (400/500) for the chord display only.
 
 ---
 
