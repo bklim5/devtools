@@ -5,6 +5,14 @@ import { router } from "./router";
 import { initPlatform } from "@/lib/platform";
 import { refreshEntitlements } from "@/lib/entitlements/store";
 import { refreshLicenseUi } from "@/lib/license/licenseUi";
+import {
+  ensurePreferencesLoaded,
+  getPreferencesLoaded,
+  getSharedPreferences,
+  subscribePreferences,
+} from "@/shell/usePreferences";
+import { registerSummon } from "@/shell/summon";
+import { revealOnStartup } from "@/shell/startupReveal";
 import "./index.css";
 
 // Kick off resolving the real platform impl (FND-04) early so the lazy
@@ -12,14 +20,6 @@ import "./index.css";
 // depend on this completing first — loadPreferences/savePreferences each
 // `await initPlatform()` themselves, so every read and write goes to the SAME
 // real store regardless of timing (this preload just warms the import).
-//
-// NAT-01 summon is NOT auto-registered at startup (Phase-5 decision G-05-1):
-// macOS gives no reliable "is this chord taken?" API, so any hardcoded global
-// chord either fails silently (the default Cmd+Shift+D collided with a system
-// shortcut) or shadows one of the user's own shortcuts. Summon ships this
-// milestone via the tray "Show DevTools" menu + single-instance focus instead.
-// The platform seam (platform.nativeShortcut) and shell/summon.ts registration
-// path are kept intact for a future Settings phase to reuse as an explicit opt-in.
 //
 // DST-02 (Phase 6) — the post-init action that slot now carries is the updater
 // LAUNCH CHECK, but it is co-located in App.tsx's mount effect (gated on
@@ -51,6 +51,29 @@ void refreshEntitlements().catch((err) => {
 void refreshLicenseUi().catch((err) => {
   console.error("[license] status refresh failed:", err);
 });
+
+// NAT-01/G-05-1 PROMOTED (Phase 24): register the persisted summon chord at
+// startup AND reveal the window unless start-in-tray is on — both behind the
+// prefs-load gate (Pitfall 4 / tauri-store-async-init-race). The summon chord is
+// now configurable (Hotkeys pane) and the start-in-tray no-flash contract is
+// honored at the native layer (lib.rs drops the window-state VISIBLE auto-show),
+// so this webview reveal is the SOLE normal-launch reveal (D-24-8/9).
+//
+// We gate on getPreferencesLoaded() so the PERSISTED chord registers, never the
+// default-then-real double-register (T-24-06): act only once the async prefs load
+// resolves. A one-shot latch fires runStartup exactly once and unsubscribes.
+let startupFired = false;
+const runStartup = () => {
+  if (startupFired || !getPreferencesLoaded()) return; // wait for the async load
+  startupFired = true;
+  unsubStartup();
+  const prefs = getSharedPreferences();
+  void registerSummon(prefs.summonChord); // prefs-driven, non-fatal at startup
+  void revealOnStartup(prefs); // sole reveal unless start-in-tray (D-24-8/9)
+};
+ensurePreferencesLoaded();
+const unsubStartup = subscribePreferences(runStartup);
+runStartup(); // in case the load already resolved synchronously
 
 const rootEl = document.getElementById("root");
 if (!rootEl) throw new Error('Root element "#root" not found');

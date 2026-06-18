@@ -5,6 +5,7 @@ use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Emitter, Manager,
 };
+use tauri_plugin_window_state::StateFlags;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -28,9 +29,23 @@ pub fn run() {
         // the global-shortcut:allow-* capabilities (threat T-05-01).
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         // Window position/size persistence across relaunch (SHL-05 / D-11). Auto-saves
-        // geometry; restores before the window is shown (tauri.conf.json
-        // app.windows[0].visible = false avoids the restore-flash, Pitfall 6).
-        .plugin(tauri_plugin_window_state::Builder::default().build())
+        // geometry; restores it before the window paints (tauri.conf.json
+        // app.windows[0].visible = false launches the window hidden).
+        //
+        // VISIBLE is DROPPED from the default flags (default = StateFlags::all(),
+        // which INCLUDES VISIBLE). With VISIBLE the plugin's restore_state()
+        // native-show()s + focuses the window on window-ready — at the NATIVE layer,
+        // BEFORE the webview prefs load — which is the REAL normal-launch reveal and
+        // would flash a window on EVERY launch, even with start-in-tray ON (it can't
+        // be prevented by a pure webview gate). Dropping ONLY VISIBLE keeps geometry
+        // restore (SHL-05/D-11 position/size) but stops the auto-show, so the
+        // webview's prefsLoaded-gated revealOnStartup() (Plan 02) becomes the SOLE
+        // reveal, gated on !startInTray (D-24-8/9 — no pre-webview flash).
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_state_flags(StateFlags::all() ^ StateFlags::VISIBLE)
+                .build(),
+        )
         // Clipboard seam for the platform layer (FND-04, D-11). The JS side calls
         // it via @tauri-apps/plugin-clipboard-manager behind src/lib/platform/.
         .plugin(tauri_plugin_clipboard_manager::init())
