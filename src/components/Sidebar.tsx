@@ -656,8 +656,13 @@ export function Sidebar() {
           D-43 (Phase 19): when the stored license file fails verification the
           SAME row becomes the calm "License needs attention" hint — neutral
           tokens, no red alarm styling (a hint, not an interruption); the License
-          pane renders the D-44 problem state. */}
-      {licenseAttention || !ents.has(ENT_ORDERING) || !ents.has(ENT_THEMING) ? (
+          pane renders the D-44 problem state.
+          D-24-11 (Phase 24): the General pane's "Show license status in sidebar"
+          toggle gates THIS affordance only — when off, the Unlock-Pro / attention
+          row is hidden. The bottom unconditional Settings gear row below is NOT
+          gated (SET-04 — it always shows, even unlicensed). */}
+      {preferences.showLicenseInSidebar &&
+      (licenseAttention || !ents.has(ENT_ORDERING) || !ents.has(ENT_THEMING)) ? (
         <button
           type="button"
           onClick={(e) => openLicenseSurface(e.currentTarget)}

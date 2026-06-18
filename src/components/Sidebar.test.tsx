@@ -340,6 +340,36 @@ describe("Sidebar bottom-anchored Settings row (SET-03/D-S9/D-S10/D-S11)", () =>
   });
 });
 
+describe("Sidebar show-license-status toggle gate (SET-09/D-24-11)", () => {
+  it("hides the Unlock-Pro affordance when showLicenseInSidebar is false, but KEEPS the unconditional Settings row", async () => {
+    // FREE_SET → the Unlock-Pro affordance WOULD render; the toggle being false is
+    // what hides it. Proves the gate is on the affordance, not the Settings row.
+    act(() => setEntitlementsForTest(FREE_SET));
+    await store.set(PREFERENCES_STORE_KEY, { showLicenseInSidebar: false });
+    const { getByRole, queryByRole } = renderAt("/");
+    await flushPrefsLoad();
+
+    // The license/upgrade affordance is gated off.
+    expect(
+      queryByRole("button", { name: /Unlock Pro|needs attention/ }),
+    ).toBeNull();
+
+    // The bottom unconditional Settings gear row STILL renders + still opens
+    // Settings (SET-04 — never gated by this toggle).
+    const settingsRow = getByRole("button", { name: "Settings" });
+    fireEvent.click(settingsRow);
+    expect(openSettingsSpy).toHaveBeenCalledWith("license", settingsRow);
+  });
+
+  it("shows the Unlock-Pro affordance again when showLicenseInSidebar is true (default)", async () => {
+    act(() => setEntitlementsForTest(FREE_SET));
+    await store.set(PREFERENCES_STORE_KEY, { showLicenseInSidebar: true });
+    const { getByRole } = renderAt("/");
+    await flushPrefsLoad();
+    expect(getByRole("button", { name: "Unlock Pro" })).toBeDefined();
+  });
+});
+
 describe("Sidebar license attention footer (D-43/D-88)", () => {
   it("renders 'License needs attention' under FULL_SET when the license has a problem, and OPENS the Settings modal on the License pane (D-S11)", async () => {
     // FULL_SET on purpose: a Phase-19 release build has everything unlocked —
