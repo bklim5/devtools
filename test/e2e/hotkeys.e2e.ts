@@ -1,0 +1,234 @@
+// Hotkeys pane — real macOS WKWebView gate (Phase 24, 24-03; SET-08, D-24-1/6).
+//
+// Drives the ACTUAL app's WKWebView via the embedded W3C WebDriver server
+// (tauri-plugin-webdriver on 127.0.0.1:4445, debug-only). Run by
+// scripts/e2e-spike.sh; auto-discovered by wdio.conf.ts.
+//
+// This spec proves the WebDriver-drivable half of SET-08 — the NATIVE summon
+// re-register, the OS-taken reject, and restart-persistence are the Manual-Only
+// items in the phase-boundary human walkthrough (Task 4; WebDriver cannot drive
+// native chrome or synthesize an OS global-shortcut collision — RESEARCH
+// Pitfall 6):
+//   1. Pane reachable: open Settings, navigate to the Hotkeys pane, assert both
+//      binding rows render (Global summon, Command palette) with their chords.
+//   2. Palette opens on the configured chord: the default ⌘K opens the palette
+//      (Pro tier, so the palette — not the upsell — opens, D-24-6).
+//   3. Rebind reflected: capture a new palette chord (Cmd+Shift+J, code "KeyJ"),
+//      assert the displayed chord updates AND the palette now opens on the new
+//      chord and NO LONGER on ⌘K.
+//   4. Escape cancels capture: activate capture, press Escape, chord unchanged.
+//
+// MEMORY: macos-option-key-composes-letters — every dispatched chord carries the
+// PHYSICAL `code` (matchesChord + keyEventToAccelerator read e.code, never the
+// composed character). MEMORY: license-walkthrough-state-pollutes-e2e — the
+// e2e-spike preflight wipes prefs.json to a deterministic baseline; the finally
+// block resets the palette chord to ⌘K + drops to FREE so no state leaks.
+
+import {
+  assert,
+  ensureFreeTier,
+  ensureProTier,
+  navigateToTool,
+  saveScreenshot,
+} from "./helpers";
+
+/** Open the Settings modal on the License pane via the deep-link, then click the
+ *  "Hotkeys" pane-nav button (asserting aria-current lands on it). */
+async function openHotkeysPane(): Promise<void> {
+  await browser.execute(() => {
+    window.location.hash = "#/settings/license";
+  });
+  await browser.waitUntil(
+    async () =>
+      browser.execute(
+        () => document.querySelector('[role="dialog"][aria-modal="true"]') !== null,
+      ),
+    {
+      timeout: 10_000,
+      timeoutMsg: "expected the Settings modal to open from the #/settings/license deep-link",
+    },
+  );
+  await browser.execute(() => {
+    const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
+    const btn = Array.from(dialog?.querySelectorAll("nav button") ?? []).find(
+      (b) => (b.textContent ?? "").trim() === "Hotkeys",
+    ) as HTMLElement | undefined;
+    btn?.click();
+  });
+  await browser.waitUntil(
+    async () =>
+      browser.execute(() => {
+        const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
+        const current = dialog?.querySelector('[aria-current="page"]');
+        return (current?.textContent ?? "").includes("Hotkeys");
+      }),
+    {
+      timeout: 5_000,
+      timeoutMsg: 'expected the Hotkeys pane nav button to carry aria-current="page"',
+    },
+  );
+}
+
+/** Whether a binding-row label (h4) is present inside the dialog. */
+function rowLabelPresent(label: string): Promise<boolean> {
+  return browser.execute((l: string) => {
+    const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
+    return Array.from(dialog?.querySelectorAll("h4") ?? []).some(
+      (h) => (h.textContent ?? "").trim() === l,
+    );
+  }, label);
+}
+
+/** The text of a binding row's capture field (the <button> with accessible name
+ *  "Rebind {label}"), or null when not found. */
+function captureFieldText(label: string): Promise<string | null> {
+  return browser.execute((l: string) => {
+    const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
+    const btn = Array.from(dialog?.querySelectorAll("button") ?? []).find(
+      (b) => b.getAttribute("aria-label") === `Rebind ${l}`,
+    );
+    return btn ? (btn.textContent ?? "").trim() : null;
+  }, label);
+}
+
+/** Activate a binding row's capture field (enter recording). */
+function activateCapture(label: string): Promise<void> {
+  return browser.execute((l: string) => {
+    const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
+    const btn = Array.from(dialog?.querySelectorAll("button") ?? []).find(
+      (b) => b.getAttribute("aria-label") === `Rebind ${l}`,
+    ) as HTMLElement | undefined;
+    btn?.click();
+  }, label);
+}
+
+/** Dispatch a composed chord keydown on window (where the capture listener lives,
+ *  capture phase). Carries the PHYSICAL code per macos-option-key-composes-letters. */
+function dispatchKey(init: KeyboardEventInit): Promise<void> {
+  return browser.execute((opts: KeyboardEventInit) => {
+    window.dispatchEvent(
+      new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...opts }),
+    );
+  }, init);
+}
+
+/** Whether the ⌘K command palette is open (its search input is mounted). */
+function paletteOpen(): Promise<boolean> {
+  return browser.execute(
+    () => document.querySelector('input[aria-label="Search tools"]') !== null,
+  );
+}
+
+/** Close any open overlay (modal/palette) with Escape, dispatched on document. */
+function pressEscape(): Promise<void> {
+  return browser.execute(() => {
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true, cancelable: true }),
+    );
+  });
+}
+
+function settingsModalOpen(): Promise<boolean> {
+  return browser.execute(
+    () => document.querySelector('[role="dialog"][aria-modal="true"]') !== null,
+  );
+}
+
+describe("Hotkeys pane (real WKWebView)", () => {
+  afterEach(async () => {
+    // Reset the palette chord to ⌘K + drop to the FREE baseline so the next spec
+    // starts clean (the native summon chord is never rebound in this spec).
+    try {
+      await pressEscape();
+      // Re-open the pane and Reset the Command palette binding to ⌘K.
+      if (!(await settingsModalOpen())) await openHotkeysPane();
+      await browser.execute(() => {
+        const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
+        const reset = Array.from(dialog?.querySelectorAll("button") ?? []).find(
+          (b) => b.getAttribute("aria-label") === "Reset Command palette to default",
+        ) as HTMLElement | undefined;
+        reset?.click();
+      });
+      await pressEscape();
+      await browser.waitUntil(async () => !(await settingsModalOpen()), { timeout: 5_000 }).catch(() => {});
+      await ensureFreeTier();
+    } catch (cleanupError) {
+      console.error("[hotkeys] cleanup failed:", cleanupError);
+    }
+  });
+
+  it("renders both binding rows, opens the palette on the configured chord, reflects a rebind, and cancels capture on Escape (SET-08)", async () => {
+    await navigateToTool("protobuf-decoder");
+    const firstHandle = await $('button[aria-label^="Reorder "]');
+    await firstHandle.waitForExist({ timeout: 15_000 });
+
+    // The palette is Pro-gated (a free user's ⌘K opens the upsell) — establish Pro
+    // so ⌘K opens the PALETTE, the surface SET-08 actually rebinds.
+    await ensureProTier();
+
+    // 1. Pane reachable: both binding rows render with their current chords.
+    await openHotkeysPane();
+    assert(await rowLabelPresent("Global summon"), "expected the Global summon binding row");
+    assert(await rowLabelPresent("Command palette"), "expected the Command palette binding row");
+    assert(
+      (await captureFieldText("Command palette")) === "CommandOrControl+K",
+      `expected the palette capture field to show the default chord, got ${JSON.stringify(await captureFieldText("Command palette"))}`,
+    );
+    await saveScreenshot("hotkeys", "hotkeys-pane.png", "pane");
+
+    // Close the modal so the palette chord is dispatched against a clean shell.
+    await pressEscape();
+    await browser.waitUntil(async () => !(await settingsModalOpen()), { timeout: 5_000 });
+
+    // 2. The palette opens on the configured chord (default ⌘K).
+    await dispatchKey({ key: "k", code: "KeyK", metaKey: true });
+    await browser.waitUntil(async () => paletteOpen(), {
+      timeout: 8_000,
+      timeoutMsg: "expected the default ⌘K to open the command palette (D-24-6)",
+    });
+    await pressEscape();
+    await browser.waitUntil(async () => !(await paletteOpen()), { timeout: 5_000 });
+
+    // 3. Rebind reflected: capture Cmd+Shift+J in the palette field.
+    await openHotkeysPane();
+    await activateCapture("Command palette");
+    await dispatchKey({ key: "j", code: "KeyJ", metaKey: true, shiftKey: true });
+    await browser.waitUntil(
+      async () => (await captureFieldText("Command palette")) === "CommandOrControl+Shift+J",
+      {
+        timeout: 5_000,
+        timeoutMsg: `expected the palette capture field to update to the rebound chord, got ${JSON.stringify(await captureFieldText("Command palette"))}`,
+      },
+    );
+    await saveScreenshot("hotkeys", "hotkeys-rebound.png", "rebound");
+
+    // The palette now opens on the NEW chord and NO LONGER on ⌘K.
+    await pressEscape();
+    await browser.waitUntil(async () => !(await settingsModalOpen()), { timeout: 5_000 });
+    await dispatchKey({ key: "j", code: "KeyJ", metaKey: true, shiftKey: true });
+    await browser.waitUntil(async () => paletteOpen(), {
+      timeout: 8_000,
+      timeoutMsg: "expected the rebound Cmd+Shift+J chord to open the palette",
+    });
+    await pressEscape();
+    await browser.waitUntil(async () => !(await paletteOpen()), { timeout: 5_000 });
+    // The old ⌘K must no longer open the palette.
+    await dispatchKey({ key: "k", code: "KeyK", metaKey: true });
+    await browser.pause(500);
+    assert(
+      !(await paletteOpen()),
+      "expected the old ⌘K to NO LONGER open the palette after the rebind",
+    );
+
+    // 4. Escape cancels capture: activate, press Escape, the chord is unchanged.
+    await openHotkeysPane();
+    const before = await captureFieldText("Command palette");
+    await activateCapture("Command palette");
+    await dispatchKey({ key: "Escape", code: "Escape" });
+    await browser.pause(300);
+    assert(
+      (await captureFieldText("Command palette")) === before,
+      `expected Escape to cancel capture with no chord change (was ${JSON.stringify(before)}, now ${JSON.stringify(await captureFieldText("Command palette"))})`,
+    );
+  });
+});
