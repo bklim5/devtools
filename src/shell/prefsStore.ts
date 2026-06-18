@@ -10,6 +10,8 @@
 // already makes get() return undefined on corruption) yields the defaults.
 
 import { initPlatform } from "@/lib/platform";
+import { getToolById } from "@/lib/tools/registry";
+import { isValidAccelerator } from "./hotkeyAccelerator";
 import {
   DEFAULT_PREFERENCES,
   PREFERENCES_STORE_KEY,
@@ -77,6 +79,42 @@ function coerceAccent(value: unknown): string {
 
 function coerceLastUsedId(value: unknown): string | null {
   return typeof value === "string" ? value : null;
+}
+
+/** Untrusted chord (T-24-01, D-24-12): the user can hand-edit prefs.json. Reuse
+ *  the Task-1 isValidAccelerator gate (≥1 non-shift modifier + recognized main
+ *  key); anything invalid — junk string, non-string — coerces to the shipped
+ *  default so a dead chord can never persist. */
+function coerceSummonChord(value: unknown): string {
+  return isValidAccelerator(value) ? (value as string) : DEFAULT_PREFERENCES.summonChord;
+}
+
+function coercePaletteChord(value: unknown): string {
+  return isValidAccelerator(value) ? (value as string) : DEFAULT_PREFERENCES.paletteChord;
+}
+
+/** Untrusted boolean toggles: honor only the literal booleans; everything else
+ *  (junk string, number, absent) → false. */
+function coerceLaunchAtLogin(value: unknown): boolean {
+  return value === true || value === false ? value : false;
+}
+
+function coerceStartInTray(value: unknown): boolean {
+  return value === true || value === false ? value : false;
+}
+
+/** Untrusted default-tool id (T-24-02 / T-02-08): accept only a CURRENTLY-ENABLED
+ *  tool id (validated via getToolById against ENABLED_TOOLS); an unknown/removed
+ *  id — or any non-string — coerces to null ("Last used"). Same guard
+ *  resolveStartupTool applies, applied here at the persistence boundary too. */
+function coerceDefaultToolId(value: unknown): string | null {
+  return typeof value === "string" && getToolById(value) ? value : null;
+}
+
+/** Untrusted sidebar-license visibility: default-visible — ONLY an explicit
+ *  `false` hides the row; everything else (absent, junk, true) → true. */
+function coerceShowLicenseInSidebar(value: unknown): boolean {
+  return value === false ? false : true;
 }
 
 /** Keep only string ids, de-dupe (most-recent-first wins), cap the length. */
@@ -150,6 +188,12 @@ export function mergePreferences(stored: unknown): Preferences {
     autoUpdateCheck: coerceAutoUpdateCheck(blob.autoUpdateCheck),
     entitlementsOverride: coerceEntitlementsOverride(blob.entitlementsOverride),
     licenseDropNoticeAck: coerceLicenseDropNoticeAck(blob.licenseDropNoticeAck),
+    summonChord: coerceSummonChord(blob.summonChord),
+    paletteChord: coercePaletteChord(blob.paletteChord),
+    launchAtLogin: coerceLaunchAtLogin(blob.launchAtLogin),
+    startInTray: coerceStartInTray(blob.startInTray),
+    defaultToolId: coerceDefaultToolId(blob.defaultToolId),
+    showLicenseInSidebar: coerceShowLicenseInSidebar(blob.showLicenseInSidebar),
   };
 }
 

@@ -143,6 +143,20 @@ export interface UsePreferences {
    *  the status route; `ack()` sets it true (dismissed / nothing to show). */
   markLicenseDropNotice: () => void;
   ackLicenseDropNotice: () => void;
+  /** Persist the global summon hotkey accelerator (SET-08). Caller validates/coerces
+   *  before calling; the coercer is the final defensive gate on load. */
+  setSummonChord: (chord: string) => void;
+  /** Persist the ⌘K palette hotkey accelerator (SET-08). */
+  setPaletteChord: (chord: string) => void;
+  /** Persist the launch-at-login toggle (SET-09). The native autostart side effect
+   *  is wired by a later Phase-24 plan; this only persists the preference. */
+  setLaunchAtLogin: (v: boolean) => void;
+  /** Persist the start-in-tray toggle (SET-09). */
+  setStartInTray: (v: boolean) => void;
+  /** Persist the default tool to open into (SET-09). null = "Last used". */
+  setDefaultToolId: (id: string | null) => void;
+  /** Persist sidebar License-row visibility (SET-09). */
+  setShowLicenseInSidebar: (v: boolean) => void;
 }
 
 export function usePreferences(): UsePreferences {
@@ -211,6 +225,30 @@ export function usePreferences(): UsePreferences {
     () => update({ licenseDropNoticeAck: true }),
     [update],
   );
+  const setSummonChord = useCallback(
+    (chord: string) => update({ summonChord: chord }),
+    [update],
+  );
+  const setPaletteChord = useCallback(
+    (chord: string) => update({ paletteChord: chord }),
+    [update],
+  );
+  const setLaunchAtLogin = useCallback(
+    (v: boolean) => update({ launchAtLogin: v }),
+    [update],
+  );
+  const setStartInTray = useCallback(
+    (v: boolean) => update({ startInTray: v }),
+    [update],
+  );
+  const setDefaultToolId = useCallback(
+    (id: string | null) => update({ defaultToolId: id }),
+    [update],
+  );
+  const setShowLicenseInSidebar = useCallback(
+    (v: boolean) => update({ showLicenseInSidebar: v }),
+    [update],
+  );
 
   return {
     preferences,
@@ -225,5 +263,11 @@ export function usePreferences(): UsePreferences {
     setAutoUpdateCheck,
     markLicenseDropNotice,
     ackLicenseDropNotice,
+    setSummonChord,
+    setPaletteChord,
+    setLaunchAtLogin,
+    setStartInTray,
+    setDefaultToolId,
+    setShowLicenseInSidebar,
   };
 }

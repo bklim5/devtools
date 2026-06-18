@@ -59,6 +59,32 @@ export interface Preferences {
    *  notice ("Your Pro features turned off…"), then back to `true` on dismiss.
    *  Never a mid-use toast/dialog — the flag is surfaced inline on the route. */
   licenseDropNoticeAck: boolean;
+  /** Global summon hotkey accelerator (SET-08, D-24-1). Same shipped default as
+   *  SUMMON_CHORD ("CommandOrControl+Shift+D"). UNTRUSTED (the user can hand-edit
+   *  prefs.json): a junk/invalid chord coerces to the shipped default (D-24-12),
+   *  never persists a dead binding. Re-registered natively by a later Phase-24
+   *  plan; the OS register-result is the final gate (D-24-3). */
+  summonChord: string;
+  /** In-webview ⌘K command-palette hotkey accelerator (SET-08). Default
+   *  "CommandOrControl+K". Same untrusted-coercion as summonChord (invalid →
+   *  shipped default). Matched in-webview via matchesChord (no native register). */
+  paletteChord: string;
+  /** Launch-at-login toggle (SET-09, D-24-7). Default false. Drives the
+   *  platform.autostart capability. UNTRUSTED: only the literal booleans are
+   *  honored; anything else → false. */
+  launchAtLogin: boolean;
+  /** Start hidden in the tray on launch (SET-09). Default false. UNTRUSTED: only
+   *  the literal booleans are honored; anything else → false. */
+  startInTray: boolean;
+  /** Default tool to open into (SET-09, D-12). null = "Last used" (today's
+   *  behavior). UNTRUSTED + must be a CURRENTLY-ENABLED tool id (validated via
+   *  getToolById against ENABLED_TOOLS, T-02-08); an unknown/removed id coerces to
+   *  null. resolveStartupTool consumes it between the explicit target and last-used. */
+  defaultToolId: string | null;
+  /** Show the License row in the sidebar (SET-09). Default true (preserve today's
+   *  visible affordance). UNTRUSTED: only an explicit `false` hides it; everything
+   *  else (absent, junk, true) keeps it visible. */
+  showLicenseInSidebar: boolean;
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -73,6 +99,13 @@ export const DEFAULT_PREFERENCES: Preferences = {
   autoUpdateCheck: null,
   entitlementsOverride: null,
   licenseDropNoticeAck: true,
+  // Same value as SUMMON_CHORD (summon.ts) — the single shipped default chord.
+  summonChord: "CommandOrControl+Shift+D",
+  paletteChord: "CommandOrControl+K",
+  launchAtLogin: false,
+  startInTray: false,
+  defaultToolId: null, // null = "Last used" (today's behavior)
+  showLicenseInSidebar: true,
 };
 
 /** Single namespaced store key holding the whole prefs blob. One key keeps the

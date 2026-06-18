@@ -331,3 +331,117 @@ describe("licenseDropNoticeAck coercion (D-84 — one-shot drop notice)", () => 
     expect(merged.toolOrder).toEqual(["a"]);
   });
 });
+
+// --- Phase 24 additive fields (SET-08/SET-09) --------------------------------
+
+// summonChord / paletteChord are accelerator strings read from the untrusted
+// on-disk blob (T-24-01, D-24-12). Reuse the Task-1 isValidAccelerator gate: a
+// junk/invalid/non-string chord coerces to the shipped default so a dead chord
+// can never persist; a valid chord is kept verbatim.
+describe("summonChord / paletteChord coercion (SET-08, T-24-01, D-24-12)", () => {
+  it("coerces a junk summonChord to the shipped default", () => {
+    expect(mergePreferences({ summonChord: "garbage" }).summonChord).toBe(
+      "CommandOrControl+Shift+D",
+    );
+  });
+
+  it("keeps a valid summonChord verbatim", () => {
+    expect(mergePreferences({ summonChord: "CommandOrControl+Shift+J" }).summonChord).toBe(
+      "CommandOrControl+Shift+J",
+    );
+  });
+
+  it("defaults summonChord when absent", () => {
+    expect(mergePreferences({}).summonChord).toBe("CommandOrControl+Shift+D");
+  });
+
+  it("coerces a non-string paletteChord to the shipped default", () => {
+    expect(mergePreferences({ paletteChord: 42 }).paletteChord).toBe("CommandOrControl+K");
+  });
+
+  it("keeps a valid paletteChord verbatim", () => {
+    expect(mergePreferences({ paletteChord: "Alt+P" }).paletteChord).toBe("Alt+P");
+  });
+
+  it("defaults paletteChord when absent", () => {
+    expect(mergePreferences({}).paletteChord).toBe("CommandOrControl+K");
+  });
+
+  it("rejects a bare-key chord (no non-shift modifier) → default", () => {
+    expect(mergePreferences({ summonChord: "D" }).summonChord).toBe("CommandOrControl+Shift+D");
+  });
+});
+
+// launchAtLogin / startInTray are boolean toggles (SET-09): only the literal
+// booleans are honored; everything else → false.
+describe("launchAtLogin / startInTray coercion (SET-09)", () => {
+  it("coerces a junk string launchAtLogin to false", () => {
+    expect(mergePreferences({ launchAtLogin: "yes" }).launchAtLogin).toBe(false);
+  });
+
+  it("preserves launchAtLogin true", () => {
+    expect(mergePreferences({ launchAtLogin: true }).launchAtLogin).toBe(true);
+  });
+
+  it("coerces a number startInTray to false", () => {
+    expect(mergePreferences({ startInTray: 1 }).startInTray).toBe(false);
+  });
+
+  it("preserves startInTray true", () => {
+    expect(mergePreferences({ startInTray: true }).startInTray).toBe(true);
+  });
+
+  it("both default to false when absent", () => {
+    expect(mergePreferences({}).launchAtLogin).toBe(false);
+    expect(mergePreferences({}).startInTray).toBe(false);
+  });
+});
+
+// defaultToolId is the General-pane "Default tool" (SET-09, T-24-02): accept ONLY
+// a currently-enabled tool id (validated via getToolById against ENABLED_TOOLS);
+// an unknown/removed id — or null — coerces to null ("Last used").
+describe("defaultToolId coercion (SET-09, T-24-02)", () => {
+  it("preserves a valid enabled tool id", () => {
+    expect(mergePreferences({ defaultToolId: "protobuf-decoder" }).defaultToolId).toBe(
+      "protobuf-decoder",
+    );
+  });
+
+  it("coerces an unknown id to null (= Last used)", () => {
+    expect(mergePreferences({ defaultToolId: "evil" }).defaultToolId).toBeNull();
+  });
+
+  it("preserves an explicit null", () => {
+    expect(mergePreferences({ defaultToolId: null }).defaultToolId).toBeNull();
+  });
+
+  it("defaults to null when absent (backward-compatible = Last used)", () => {
+    expect(mergePreferences({}).defaultToolId).toBeNull();
+  });
+
+  it("coerces a non-string to null", () => {
+    expect(mergePreferences({ defaultToolId: 7 }).defaultToolId).toBeNull();
+  });
+});
+
+// showLicenseInSidebar is default-visible (SET-09): ONLY an explicit `false`
+// hides it; everything else (absent, junk, true) → true.
+describe("showLicenseInSidebar coercion (SET-09 — default visible)", () => {
+  it("honors an explicit false (hide the row)", () => {
+    expect(mergePreferences({ showLicenseInSidebar: false }).showLicenseInSidebar).toBe(false);
+  });
+
+  it("defaults to true when absent (preserve today's visible affordance)", () => {
+    expect(mergePreferences({}).showLicenseInSidebar).toBe(true);
+  });
+
+  it("coerces junk to true (default-visible)", () => {
+    expect(mergePreferences({ showLicenseInSidebar: "no" }).showLicenseInSidebar).toBe(true);
+    expect(mergePreferences({ showLicenseInSidebar: 0 }).showLicenseInSidebar).toBe(true);
+  });
+
+  it("survives a save → load round-trip (false preserved)", async () => {
+    await savePreferences({ ...DEFAULT_PREFERENCES, showLicenseInSidebar: false });
+    await expect(loadPreferences()).resolves.toMatchObject({ showLicenseInSidebar: false });
+  });
+});

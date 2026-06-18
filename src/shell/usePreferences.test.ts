@@ -221,6 +221,78 @@ describe("usePreferences", () => {
     expect(prefs.current.preferences.pinnedToolIds).toEqual(["base64", "unix-time"]);
   });
 
+  // --- Phase 24 additive single-writer setters (SET-08/SET-09) ---------------
+  // Each new setter must route through updatePreferences (the ONE writer), so a
+  // round-trip through the shared seam proves the write landed. The chord setters
+  // persist whatever they're given (the coercer is the load-time gate).
+  it("setSummonChord persists through the single writer and round-trips", async () => {
+    const { result } = renderHook(() => usePreferences());
+    await act(async () => {
+      result.current.setSummonChord("CommandOrControl+Shift+J");
+    });
+    expect(result.current.preferences.summonChord).toBe("CommandOrControl+Shift+J");
+    const stored = (await platform.store.get(PREFERENCES_STORE_KEY)) as { summonChord: string };
+    expect(stored.summonChord).toBe("CommandOrControl+Shift+J");
+  });
+
+  it("setPaletteChord persists through the single writer", async () => {
+    const { result } = renderHook(() => usePreferences());
+    await act(async () => {
+      result.current.setPaletteChord("Alt+P");
+    });
+    expect(result.current.preferences.paletteChord).toBe("Alt+P");
+    const stored = (await platform.store.get(PREFERENCES_STORE_KEY)) as { paletteChord: string };
+    expect(stored.paletteChord).toBe("Alt+P");
+  });
+
+  it("setLaunchAtLogin persists the toggle", async () => {
+    const { result } = renderHook(() => usePreferences());
+    await act(async () => {
+      result.current.setLaunchAtLogin(true);
+    });
+    expect(result.current.preferences.launchAtLogin).toBe(true);
+    const stored = (await platform.store.get(PREFERENCES_STORE_KEY)) as { launchAtLogin: boolean };
+    expect(stored.launchAtLogin).toBe(true);
+  });
+
+  it("setStartInTray persists the toggle", async () => {
+    const { result } = renderHook(() => usePreferences());
+    await act(async () => {
+      result.current.setStartInTray(true);
+    });
+    expect(result.current.preferences.startInTray).toBe(true);
+    const stored = (await platform.store.get(PREFERENCES_STORE_KEY)) as { startInTray: boolean };
+    expect(stored.startInTray).toBe(true);
+  });
+
+  it("setDefaultToolId persists the id (and null = Last used)", async () => {
+    const { result } = renderHook(() => usePreferences());
+    await act(async () => {
+      result.current.setDefaultToolId("base64");
+    });
+    expect(result.current.preferences.defaultToolId).toBe("base64");
+    await act(async () => {
+      result.current.setDefaultToolId(null);
+    });
+    expect(result.current.preferences.defaultToolId).toBeNull();
+    const stored = (await platform.store.get(PREFERENCES_STORE_KEY)) as {
+      defaultToolId: string | null;
+    };
+    expect(stored.defaultToolId).toBeNull();
+  });
+
+  it("setShowLicenseInSidebar persists the toggle", async () => {
+    const { result } = renderHook(() => usePreferences());
+    await act(async () => {
+      result.current.setShowLicenseInSidebar(false);
+    });
+    expect(result.current.preferences.showLicenseInSidebar).toBe(false);
+    const stored = (await platform.store.get(PREFERENCES_STORE_KEY)) as {
+      showLicenseInSidebar: boolean;
+    };
+    expect(stored.showLicenseInSidebar).toBe(false);
+  });
+
   it("falls back to DEFAULT_PREFERENCES for a corrupt/garbage stored blob", async () => {
     // A non-object value (e.g. a corrupt entry surfaced as a primitive).
     await store.set(PREFERENCES_STORE_KEY, "not-an-object");
