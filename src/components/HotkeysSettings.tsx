@@ -16,10 +16,13 @@
 
 import { useState } from "react";
 import { usePreferences } from "@/shell/usePreferences";
+import { DEFAULT_PREFERENCES } from "@/shell/preferences";
 import { rebindSummon, SUMMON_CHORD } from "@/shell/summon";
 import { HotkeyCaptureField } from "./HotkeyCaptureField";
 
-const PALETTE_CHORD = "CommandOrControl+K";
+// Single source of truth for the shipped palette default (mirrors how the summon
+// side imports SUMMON_CHORD) — never re-spell the literal.
+const PALETTE_CHORD = DEFAULT_PREFERENCES.paletteChord;
 // The single OS-reject case (D-24-2): rebindSummon already restored the prior
 // binding, so the pane just surfaces this calm inline message and persists nothing.
 const TAKEN_MSG = "That shortcut is already in use — try another.";
@@ -30,7 +33,8 @@ export function HotkeysSettings() {
   const [rejectPalette, setRejectPalette] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
 
-  async function onCommitSummon(accel: string) {
+  // Commit AND Reset share one path — they differ only in the target chord.
+  async function applySummon(accel: string) {
     try {
       await rebindSummon(preferences.summonChord, accel);
       setSummonChord(accel);
@@ -43,28 +47,11 @@ export function HotkeysSettings() {
     }
   }
 
-  async function onResetSummon() {
-    try {
-      await rebindSummon(preferences.summonChord, SUMMON_CHORD);
-      setSummonChord(SUMMON_CHORD);
-      setRejectSummon(null);
-      setAnnouncement(`Global summon set to ${SUMMON_CHORD}`);
-    } catch {
-      setRejectSummon(TAKEN_MSG);
-    }
-  }
-
-  function onCommitPalette(accel: string) {
+  function applyPalette(accel: string) {
     // Pure-webview (D-24-6): no native register, so no OS-reject path.
     setPaletteChord(accel);
     setRejectPalette(null);
     setAnnouncement(`Command palette set to ${accel}`);
-  }
-
-  function onResetPalette() {
-    setPaletteChord(PALETTE_CHORD);
-    setRejectPalette(null);
-    setAnnouncement(`Command palette set to ${PALETTE_CHORD}`);
   }
 
   return (
@@ -83,9 +70,10 @@ export function HotkeysSettings() {
         helper="Show TinkerDev from anywhere."
         chord={preferences.summonChord}
         otherChord={preferences.paletteChord}
+        otherLabel="the command palette"
         rejectMessage={rejectSummon}
-        onCommit={onCommitSummon}
-        onReset={onResetSummon}
+        onCommit={applySummon}
+        onReset={() => applySummon(SUMMON_CHORD)}
         onRecordingClearReject={() => setRejectSummon(null)}
       />
 
@@ -94,9 +82,10 @@ export function HotkeysSettings() {
         helper="Open the ⌘K command palette."
         chord={preferences.paletteChord}
         otherChord={preferences.summonChord}
+        otherLabel="the global summon"
         rejectMessage={rejectPalette}
-        onCommit={onCommitPalette}
-        onReset={onResetPalette}
+        onCommit={applyPalette}
+        onReset={() => applyPalette(PALETTE_CHORD)}
         onRecordingClearReject={() => setRejectPalette(null)}
       />
 

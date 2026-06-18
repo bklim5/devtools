@@ -23,6 +23,7 @@ function renderField(overrides: Partial<Parameters<typeof HotkeyCaptureField>[0]
       helper="Show TinkerDev from anywhere."
       chord="CommandOrControl+Shift+D"
       otherChord="CommandOrControl+K"
+      otherLabel="the command palette"
       rejectMessage={null}
       onCommit={onCommit}
       onReset={onReset}

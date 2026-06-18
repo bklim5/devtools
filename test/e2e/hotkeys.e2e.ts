@@ -170,9 +170,10 @@ describe("Hotkeys pane (real WKWebView)", () => {
     await openHotkeysPane();
     assert(await rowLabelPresent("Global summon"), "expected the Global summon binding row");
     assert(await rowLabelPresent("Command palette"), "expected the Command palette binding row");
+    const defaultChord = await captureFieldText("Command palette");
     assert(
-      (await captureFieldText("Command palette")) === "CommandOrControl+K",
-      `expected the palette capture field to show the default chord, got ${JSON.stringify(await captureFieldText("Command palette"))}`,
+      defaultChord === "CommandOrControl+K",
+      `expected the palette capture field to show the default chord, got ${JSON.stringify(defaultChord)}`,
     );
     await saveScreenshot("hotkeys", "hotkeys-pane.png", "pane");
 
@@ -193,11 +194,14 @@ describe("Hotkeys pane (real WKWebView)", () => {
     await openHotkeysPane();
     await activateCapture("Command palette");
     await dispatchKey({ key: "j", code: "KeyJ", metaKey: true, shiftKey: true });
+    let reboundChord: string | null = null;
     await browser.waitUntil(
-      async () => (await captureFieldText("Command palette")) === "CommandOrControl+Shift+J",
+      async () =>
+        (reboundChord = await captureFieldText("Command palette")) ===
+        "CommandOrControl+Shift+J",
       {
         timeout: 5_000,
-        timeoutMsg: `expected the palette capture field to update to the rebound chord, got ${JSON.stringify(await captureFieldText("Command palette"))}`,
+        timeoutMsg: `expected the palette capture field to update to the rebound chord, got ${JSON.stringify(reboundChord)}`,
       },
     );
     await saveScreenshot("hotkeys", "hotkeys-rebound.png", "rebound");
@@ -226,9 +230,10 @@ describe("Hotkeys pane (real WKWebView)", () => {
     await activateCapture("Command palette");
     await dispatchKey({ key: "Escape", code: "Escape" });
     await browser.pause(300);
+    const after = await captureFieldText("Command palette");
     assert(
-      (await captureFieldText("Command palette")) === before,
-      `expected Escape to cancel capture with no chord change (was ${JSON.stringify(before)}, now ${JSON.stringify(await captureFieldText("Command palette"))})`,
+      after === before,
+      `expected Escape to cancel capture with no chord change (was ${JSON.stringify(before)}, now ${JSON.stringify(after)})`,
     );
   });
 });

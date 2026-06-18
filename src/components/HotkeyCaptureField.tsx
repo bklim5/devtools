@@ -44,6 +44,10 @@ export interface HotkeyCaptureFieldProps {
   /** The OTHER binding's chord — a capture equal to it is rejected (no two
    *  bindings may collide, T-24-07). */
   otherChord: string;
+  /** The OTHER binding's human name (e.g. "the command palette"), used verbatim
+   *  in the self-collision message. Travels with otherChord so this control
+   *  stays binding-agnostic. */
+  otherLabel: string;
   /** A parent-supplied calm inline message (e.g. the OS-taken case). null = none.
    *  Rendered below the field; the field's own invalid/reserved/same-as-other
    *  messages take precedence while recording. */
@@ -69,6 +73,7 @@ export function HotkeyCaptureField({
   helper,
   chord,
   otherChord,
+  otherLabel,
   rejectMessage,
   onCommit,
   onReset,
@@ -118,11 +123,7 @@ export function HotkeyCaptureField({
         return;
       }
       if (accel === propsRef.current.otherChord) {
-        setLocalMessage(
-          sameAsOtherMsg(
-            label === "Global summon" ? "the command palette" : "the global summon",
-          ),
-        );
+        setLocalMessage(sameAsOtherMsg(otherLabel));
         setRecording(false);
         return;
       }
@@ -135,7 +136,7 @@ export function HotkeyCaptureField({
 
     window.addEventListener("keydown", handleKeyDown, true);
     return () => window.removeEventListener("keydown", handleKeyDown, true);
-  }, [recording, label]);
+  }, [recording, otherLabel]);
 
   // The field's own message wins while it has one; otherwise the parent's reject.
   const message = localMessage ?? rejectMessage;
