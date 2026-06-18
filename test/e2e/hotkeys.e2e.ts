@@ -69,6 +69,43 @@ async function openHotkeysPane(): Promise<void> {
   );
 }
 
+/** Open the Settings modal on the License pane via the deep-link, then click the
+ *  "General" pane-nav button (asserting aria-current lands on it). */
+async function openGeneralPane(): Promise<void> {
+  await browser.execute(() => {
+    window.location.hash = "#/settings/license";
+  });
+  await browser.waitUntil(
+    async () =>
+      browser.execute(
+        () => document.querySelector('[role="dialog"][aria-modal="true"]') !== null,
+      ),
+    {
+      timeout: 10_000,
+      timeoutMsg: "expected the Settings modal to open from the #/settings/license deep-link",
+    },
+  );
+  await browser.execute(() => {
+    const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
+    const btn = Array.from(dialog?.querySelectorAll("nav button") ?? []).find(
+      (b) => (b.textContent ?? "").trim() === "General",
+    ) as HTMLElement | undefined;
+    btn?.click();
+  });
+  await browser.waitUntil(
+    async () =>
+      browser.execute(() => {
+        const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
+        const current = dialog?.querySelector('[aria-current="page"]');
+        return (current?.textContent ?? "").includes("General");
+      }),
+    {
+      timeout: 5_000,
+      timeoutMsg: 'expected the General pane nav button to carry aria-current="page"',
+    },
+  );
+}
+
 /** Whether a binding-row label (h4) is present inside the dialog. */
 function rowLabelPresent(label: string): Promise<boolean> {
   return browser.execute((l: string) => {
@@ -77,6 +114,67 @@ function rowLabelPresent(label: string): Promise<boolean> {
       (h) => (h.textContent ?? "").trim() === l,
     );
   }, label);
+}
+
+/** Whether a control with the given accessible text is present inside the dialog
+ *  (matches a role="switch" aria-label, a <label>, or any element's trimmed text). */
+function controlPresent(text: string): Promise<boolean> {
+  return browser.execute((t: string) => {
+    const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
+    if (!dialog) return false;
+    const sw = Array.from(dialog.querySelectorAll('[role="switch"]')).some(
+      (s) => s.getAttribute("aria-label") === t,
+    );
+    const labelled = Array.from(dialog.querySelectorAll("label, span")).some(
+      (el) => (el.textContent ?? "").trim() === t,
+    );
+    return sw || labelled;
+  }, text);
+}
+
+/** Click the General-pane toggle whose accessible name (role="switch" aria-label)
+ *  matches `label`, returning its resulting aria-checked. */
+function toggleSwitch(label: string): Promise<string | null> {
+  return browser.execute((l: string) => {
+    const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
+    const sw = Array.from(dialog?.querySelectorAll('[role="switch"]') ?? []).find(
+      (s) => s.getAttribute("aria-label") === l,
+    ) as HTMLElement | undefined;
+    sw?.click();
+    return sw?.getAttribute("aria-checked") ?? null;
+  }, label);
+}
+
+/** The aria-checked of a General-pane toggle by accessible name, or null. */
+function switchChecked(label: string): Promise<string | null> {
+  return browser.execute((l: string) => {
+    const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
+    const sw = Array.from(dialog?.querySelectorAll('[role="switch"]') ?? []).find(
+      (s) => s.getAttribute("aria-label") === l,
+    );
+    return sw?.getAttribute("aria-checked") ?? null;
+  }, label);
+}
+
+/** Whether the sidebar's license/upgrade affordance ("Unlock Pro" / "License
+ *  needs attention") is currently rendered. */
+function sidebarLicenseAffordancePresent(): Promise<boolean> {
+  return browser.execute(() =>
+    Array.from(document.querySelectorAll("aside button")).some((b) => {
+      const t = b.textContent ?? "";
+      return t.includes("Unlock Pro") || t.includes("License needs attention");
+    }),
+  );
+}
+
+/** Whether the bottom unconditional sidebar "Settings" gear row is present
+ *  (SET-04 invariant — must survive the show-license toggle in both states). */
+function sidebarSettingsRowPresent(): Promise<boolean> {
+  return browser.execute(() =>
+    Array.from(document.querySelectorAll("aside button")).some(
+      (b) => (b.textContent ?? "").trim() === "Settings",
+    ),
+  );
 }
 
 /** The text of a binding row's capture field (the <button> with accessible name
@@ -235,5 +333,102 @@ describe("Hotkeys pane (real WKWebView)", () => {
       after === before,
       `expected Escape to cancel capture with no chord change (was ${JSON.stringify(before)}, now ${JSON.stringify(after)})`,
     );
+  });
+
+  // SET-09 (the webview-testable half): the General pane renders its four controls,
+  // and "Show license status in sidebar" gates the sidebar license/upgrade
+  // affordance while the unconditional Settings gear row is unaffected (SET-04).
+  // Launch-at-login / start-in-tray-no-flash / default-tool-on-open are
+  // native/launch-time (RESEARCH Pitfall 6) — they ride the Task-4 human walkthrough.
+  it("renders the four General controls and gates the sidebar license affordance on the show-license toggle (SET-09)", async () => {
+    await navigateToTool("protobuf-decoder");
+    const firstHandle = await $('button[aria-label^="Reorder "]');
+    await firstHandle.waitForExist({ timeout: 15_000 });
+
+    try {
+      // FREE tier so the sidebar's "Unlock Pro" affordance is present (it is what
+      // the show-license toggle gates). Close any pane the tier-toggle opened.
+      await ensureFreeTier();
+      if (await settingsModalOpen()) {
+        await pressEscape();
+        await browser.waitUntil(async () => !(await settingsModalOpen()), { timeout: 5_000 });
+      }
+
+      // 1. The four controls render in the General pane.
+      await openGeneralPane();
+      assert(await controlPresent("Launch at login"), "expected the Launch at login toggle");
+      assert(
+        await controlPresent("Start in the menu bar"),
+        "expected the Start in the menu bar toggle",
+      );
+      assert(await controlPresent("Open to"), "expected the Open to default-tool label");
+      assert(
+        await controlPresent("Show license status in sidebar"),
+        "expected the Show license status in sidebar toggle",
+      );
+      await saveScreenshot("hotkeys", "general-pane.png", "general pane");
+
+      // The toggle defaults ON, and the FREE-tier sidebar affordance is present.
+      assert(
+        (await switchChecked("Show license status in sidebar")) === "true",
+        "expected Show license status in sidebar to default ON",
+      );
+      assert(
+        await sidebarLicenseAffordancePresent(),
+        "expected the sidebar license affordance to be present at the start (FREE tier, toggle ON)",
+      );
+      assert(
+        await sidebarSettingsRowPresent(),
+        "expected the unconditional Settings row to be present initially (SET-04)",
+      );
+
+      // 2. Toggle OFF → the sidebar affordance disappears; aria-checked flips to false.
+      const offChecked = await toggleSwitch("Show license status in sidebar");
+      assert(
+        offChecked === "false",
+        `expected aria-checked false after toggling off, got ${JSON.stringify(offChecked)}`,
+      );
+      await browser.waitUntil(async () => !(await sidebarLicenseAffordancePresent()), {
+        timeout: 5_000,
+        timeoutMsg: "expected the sidebar license affordance to disappear when the toggle is OFF",
+      });
+      // SET-04 invariant: the bottom Settings gear row survives.
+      assert(
+        await sidebarSettingsRowPresent(),
+        "expected the unconditional Settings row to remain when the toggle is OFF (SET-04)",
+      );
+      await saveScreenshot("hotkeys", "general-license-hidden.png", "license affordance hidden");
+
+      // 3. Toggle ON → the affordance reappears; aria-checked flips back to true.
+      const onChecked = await toggleSwitch("Show license status in sidebar");
+      assert(
+        onChecked === "true",
+        `expected aria-checked true after toggling on, got ${JSON.stringify(onChecked)}`,
+      );
+      await browser.waitUntil(async () => sidebarLicenseAffordancePresent(), {
+        timeout: 5_000,
+        timeoutMsg: "expected the sidebar license affordance to reappear when the toggle is ON",
+      });
+      assert(
+        await sidebarSettingsRowPresent(),
+        "expected the unconditional Settings row to remain when the toggle is ON (SET-04)",
+      );
+    } finally {
+      // Restore the show-license toggle to its default (ON) so no state leaks to
+      // the next spec (license-walkthrough-state-pollutes-e2e). Re-open the pane if
+      // a prior step closed it, then ensure the toggle reads ON.
+      try {
+        if (!(await settingsModalOpen())) await openGeneralPane();
+        if ((await switchChecked("Show license status in sidebar")) === "false") {
+          await toggleSwitch("Show license status in sidebar");
+        }
+        await pressEscape();
+        await browser
+          .waitUntil(async () => !(await settingsModalOpen()), { timeout: 5_000 })
+          .catch(() => {});
+      } catch (restoreError) {
+        console.error("[hotkeys] show-license restore failed:", restoreError);
+      }
+    }
   });
 });
