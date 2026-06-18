@@ -11,6 +11,10 @@ release body (falling back to the bare tag when a section is absent).
 
 ## [Unreleased]
 
+- _Nothing yet._
+
+## [0.3.2] - 2026-06-18
+
 - Add preferences pane
 - Add license deactivation flow
 - Fix/standardize padding across the app
