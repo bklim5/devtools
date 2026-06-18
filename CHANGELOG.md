@@ -11,7 +11,10 @@ release body (falling back to the bare tag when a section is absent).
 
 ## [Unreleased]
 
-- _Nothing yet._
+- Add preferences pane
+- Add license deactivation flow
+- Fix/standardize padding across the app
+- License purchase redirection URL
 
 ## [0.3.1] - 2026-06-12
 
