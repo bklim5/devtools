@@ -161,12 +161,15 @@ export function HotkeyCaptureField({
             "flex min-h-11 flex-1 items-center rounded-[7px] border px-4 py-2 text-left outline-none transition-colors",
             "focus-visible:ring-2 focus-visible:ring-accent",
             recording
-              ? "border-accent-line bg-accent-soft ring-2 ring-accent text-accent"
+              ? // Recording is signaled by the accent border + ring + soft fill;
+                // the label text stays text-tx so it clears WCAG-AA on bg-accent-soft
+                // (accent-on-accent-soft was ~3.9:1, below the 4.5:1 bar).
+                "border-accent-line bg-accent-soft ring-2 ring-accent text-tx"
               : "border-bd bg-input-bg text-tx hover:border-bd-2",
           ].join(" ")}
         >
           {recording ? (
-            <span className="text-[13px] text-accent">Press a shortcut…</span>
+            <span className="text-[13px] font-medium text-tx">Press a shortcut…</span>
           ) : (
             <span className="font-mono text-[13px] text-tx">{chord}</span>
           )}
