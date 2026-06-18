@@ -78,7 +78,7 @@ async function openPalette() {
     </MemoryRouter>,
   );
   act(() => {
-    fireEvent.keyDown(window, { key: "k", metaKey: true });
+    fireEvent.keyDown(window, { key: "k", code: "KeyK", metaKey: true });
   });
   await utils.findByPlaceholderText("Search tools…");
   return utils;

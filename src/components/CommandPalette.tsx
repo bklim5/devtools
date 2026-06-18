@@ -33,6 +33,8 @@ import { loadPreferences, savePreferences } from "@/shell/prefsStore";
 import { openSettings } from "@/shell/settingsStore";
 import { openProUpsell } from "@/shell/proUpsell";
 import { useEntitlements } from "@/shell/useEntitlements";
+import { usePreferences } from "@/shell/usePreferences";
+import { matchesChord } from "@/shell/hotkeyAccelerator";
 
 /** A selectable palette row: a registry tool OR a non-navigating command
  *  (RESEARCH Pattern 7 — smallest discriminated-union extension). */
@@ -154,6 +156,13 @@ export function CommandPalette() {
   const ents = useEntitlements();
   const pro = isPro(ents);
 
+  // D-24-6: the palette open chord is configurable (Hotkeys pane). Already coerced
+  // to a valid accelerator by the prefs coercer (Plan 01) — default ⌘K. Matched
+  // via matchesChord (physical e.code), so an Option-composed-glyph chord still
+  // matches (Pitfall 2, macos-option-key-composes-letters).
+  const { preferences } = usePreferences();
+  const paletteChord = preferences.paletteChord;
+
   const navigate = useNavigate();
   // Recents are READ-ONLY here — recording happens centrally on navigation
   // (useTrackActiveTool in App). We reload them from the store each time the
@@ -183,10 +192,24 @@ export function CommandPalette() {
   // in-palette "toggle free" command stays reachable for an interactive dev; this
   // branch is tree-shaken out of release. Re-binds when `pro` flips.
   useEffect(() => {
+    // The DEV escape (D-22.2-10) is the palette chord with Shift added. The OLD
+    // hardcoded handler entered the ⌘K branch regardless of Shift and gated with
+    // `import.meta.env.DEV && e.shiftKey`; with the strict matcher (exact modifier
+    // set) the base chord no longer matches when Shift is held, so we instead match
+    // the shift-augmented chord explicitly (same DEV-only force-open semantics).
+    // Built only under DEV (tree-shaken from release).
+    const devForceChord = import.meta.env.DEV
+      ? paletteChord.includes("Shift+")
+        ? null // already has Shift; no distinct escape
+        : paletteChord.replace(/\+([^+]+)$/, "+Shift+$1")
+      : null;
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+      const devForce =
+        import.meta.env.DEV &&
+        devForceChord !== null &&
+        matchesChord(e, devForceChord);
+      if (matchesChord(e, paletteChord) || devForce) {
         e.preventDefault();
-        const devForce = import.meta.env.DEV && e.shiftKey;
         if (!pro && !devForce) {
           // Not Pro → route by license state (openProUpsell): a free user gets the
           // focused Unlock-Pro modal; a lapsed/attention paying customer gets the
@@ -214,7 +237,7 @@ export function CommandPalette() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [pro]);
+  }, [pro, paletteChord]);
 
   // Focus the input when the palette opens (an external-system sync — DOM focus).
   useEffect(() => {

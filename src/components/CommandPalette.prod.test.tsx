@@ -54,7 +54,7 @@ it("'Toggle free tier (dev)' is absent in a PROD-simulated build — empty query
     </MemoryRouter>,
   );
   act(() => {
-    fireEvent.keyDown(window, { key: "k", metaKey: true });
+    fireEvent.keyDown(window, { key: "k", code: "KeyK", metaKey: true });
   });
   const input = await findByPlaceholderText("Search tools…");
 

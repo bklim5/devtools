@@ -81,14 +81,21 @@ function renderPalette() {
 }
 
 function pressMetaK() {
-  fireEvent.keyDown(window, { key: "k", metaKey: true });
+  // The palette now matches via matchesChord (physical e.code), so dispatch the
+  // real event shape with `code: "KeyK"` (a real ⌘K event always carries it).
+  fireEvent.keyDown(window, { key: "k", code: "KeyK", metaKey: true });
 }
 
 // Phase 22.2: the DEV-only ⌘⇧K escape hatch force-opens the palette regardless of
 // tier (so an interactive dev / e2e can reach the in-palette "toggle free" command
 // even while FREE). Plain ⌘K is Pro-gated and routes a free user to the upsell.
 function pressDevForceK() {
-  fireEvent.keyDown(window, { key: "k", metaKey: true, shiftKey: true });
+  fireEvent.keyDown(window, {
+    key: "k",
+    code: "KeyK",
+    metaKey: true,
+    shiftKey: true,
+  });
 }
 
 describe("CommandPalette — Pro gate (Phase 22.2, D-22.2-1/3)", () => {
