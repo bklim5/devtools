@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  acceleratorToKeyboardInit,
+  formatAccelerator,
   isReservedChord,
   isValidAccelerator,
   keyEventToAccelerator,
@@ -66,6 +68,25 @@ describe("keyEventToAccelerator", () => {
     expect(keyEventToAccelerator(ev({ altKey: true, code: "ArrowUp", key: "ArrowUp" }))).toBe(
       "Alt+Up",
     );
+  });
+
+  it("maps the symbol-row keys Tauri accepts (Semicolon, Quote, Bracket, etc.)", () => {
+    expect(
+      keyEventToAccelerator(ev({ metaKey: true, shiftKey: true, code: "Semicolon", key: ";" })),
+    ).toBe("CommandOrControl+Shift+;");
+    expect(keyEventToAccelerator(ev({ metaKey: true, code: "Quote", key: "'" }))).toBe(
+      "CommandOrControl+'",
+    );
+    expect(keyEventToAccelerator(ev({ altKey: true, code: "BracketLeft", key: "[" }))).toBe(
+      "Alt+[",
+    );
+    expect(keyEventToAccelerator(ev({ metaKey: true, code: "Backquote", key: "`" }))).toBe(
+      "CommandOrControl+`",
+    );
+  });
+
+  it("still returns null for a key Tauri can't bind (e.g. Tab)", () => {
+    expect(keyEventToAccelerator(ev({ metaKey: true, code: "Tab", key: "Tab" }))).toBeNull();
   });
 
   it("treats meta OR ctrl as CommandOrControl", () => {
@@ -179,5 +200,50 @@ describe("round-trip property", () => {
       expect(accel).not.toBeNull();
       expect(matchesChord(e, accel as string)).toBe(true);
     }
+  });
+});
+
+describe("formatAccelerator", () => {
+  it("renders ⌘ for CommandOrControl + the bare key", () => {
+    expect(formatAccelerator("CommandOrControl+K")).toBe("⌘K");
+  });
+
+  it("orders modifiers ⌥ ⇧ ⌘ before the key (native macOS menu order)", () => {
+    expect(formatAccelerator("CommandOrControl+Shift+D")).toBe("⇧⌘D");
+    expect(formatAccelerator("CommandOrControl+Alt+Shift+P")).toBe("⌥⇧⌘P");
+  });
+
+  it("maps named main keys to their glyphs", () => {
+    expect(formatAccelerator("Alt+Up")).toBe("⌥↑");
+    expect(formatAccelerator("CommandOrControl+Space")).toBe("⌘␣");
+  });
+
+  it("returns an unparseable string verbatim (defensive, never throws)", () => {
+    expect(formatAccelerator("not-a-chord")).toBe("not-a-chord");
+  });
+});
+
+describe("acceleratorToKeyboardInit", () => {
+  it("synthesizes an event init that matchesChord accepts for the same accelerator (round-trip)", () => {
+    const accels = [
+      "CommandOrControl+K",
+      "CommandOrControl+Shift+D",
+      "Alt+P",
+      "CommandOrControl+Shift+3",
+      "CommandOrControl+,",
+      "CommandOrControl+Shift+;",
+      "Alt+[",
+      "Alt+Up",
+    ];
+    for (const accel of accels) {
+      const init = acceleratorToKeyboardInit(accel);
+      expect(init).not.toBeNull();
+      // The init carries exactly the fields matchesChord reads (code + flags).
+      expect(matchesChord(init as ChordEvent, accel)).toBe(true);
+    }
+  });
+
+  it("returns null for an unparseable accelerator", () => {
+    expect(acceleratorToKeyboardInit("not-a-chord")).toBeNull();
   });
 });

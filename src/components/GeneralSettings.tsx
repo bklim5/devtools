@@ -1,4 +1,4 @@
-// GeneralSettings (SET-09, D-24-7..11) — the Settings ▸ General pane. Four
+// GeneralSettings (SET-09, D-24-7..10) — the Settings ▸ General pane. Three
 // app-behavior controls, each persisted via the single-writer prefs seam
 // (usePreferences setters → updatePreferences; NEVER a second prefs writer —
 // memory prefs-blob-single-writer) and each taking effect:
@@ -12,8 +12,6 @@
 //      the next launch (Plan 02).
 //   3. Open to (default tool) — a keyboard-operable native <select>: first option
 //      literal "Last used", then each ENABLED_TOOLS name (D-24-10). null = last-used.
-//   4. Show license status in sidebar — pure persist; the Sidebar gates its
-//      license/upgrade affordance on this (D-24-11).
 //
 // The pane wrapper/header clone AppearanceSettings verbatim (reuse over
 // reinvention; h3 one level under the dialog h2 preserves the Phase-22.1 heading
@@ -37,7 +35,6 @@ export function GeneralSettings() {
     setLaunchAtLogin,
     setStartInTray,
     setDefaultToolId,
-    setShowLicenseInSidebar,
   } = usePreferences();
   const [announcement, setAnnouncement] = useState("");
 
@@ -136,12 +133,6 @@ export function GeneralSettings() {
             ))}
           </select>
         </div>
-
-        <SettingToggle
-          label="Show license status in sidebar"
-          checked={preferences.showLicenseInSidebar}
-          onChange={setShowLicenseInSidebar}
-        />
       </section>
 
       {/* Polite live region for the launch-at-login result (WCAG-AA) — the only

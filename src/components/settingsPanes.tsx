@@ -27,10 +27,10 @@ export interface SettingsPane {
 
 export const SETTINGS_PANES: SettingsPane[] = [
   {
-    id: "appearance",
-    label: "Appearance",
-    icon: Contrast,
-    render: () => <AppearanceSettings />,
+    id: "general",
+    label: "General",
+    icon: SlidersHorizontal,
+    render: () => <GeneralSettings />,
   },
   {
     id: "hotkeys",
@@ -39,10 +39,10 @@ export const SETTINGS_PANES: SettingsPane[] = [
     render: () => <HotkeysSettings />,
   },
   {
-    id: "general",
-    label: "General",
-    icon: SlidersHorizontal,
-    render: () => <GeneralSettings />,
+    id: "appearance",
+    label: "Appearance",
+    icon: Contrast,
+    render: () => <AppearanceSettings />,
   },
   {
     id: "license",

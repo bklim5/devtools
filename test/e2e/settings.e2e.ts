@@ -60,6 +60,16 @@ function activeNavIsLicense(): Promise<boolean> {
   });
 }
 
+/** Whether the active nav item (aria-current="page") is the General pane — the
+ *  landing pane for the generic Settings openers (sidebar gear / app-menu / tray). */
+function activeNavIsGeneral(): Promise<boolean> {
+  return browser.execute(() => {
+    const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
+    const current = dialog?.querySelector('[aria-current="page"]');
+    return (current?.textContent ?? "").includes("General");
+  });
+}
+
 /** Dismiss the modal via Escape (the dialog's document-level keydown listener). */
 function dismissModal(): Promise<void> {
   return browser.execute(() => {
@@ -215,7 +225,7 @@ describe("Settings modal shell (real WKWebView)", () => {
     }
   });
 
-  it("the bottom-anchored sidebar Settings row opens the modal on the License pane and returns focus to itself on Esc-close (SET-03/D-S9/D-S10)", async () => {
+  it("the bottom-anchored sidebar Settings row opens the modal on the General pane and returns focus to itself on Esc-close (SET-03/D-S9/D-S10)", async () => {
     await navigateToTool("protobuf-decoder");
     const firstHandle = await $('button[aria-label^="Reorder "]');
     await firstHandle.waitForExist({ timeout: 15_000 });
@@ -232,10 +242,11 @@ describe("Settings modal shell (real WKWebView)", () => {
         timeoutMsg:
           "expected the sidebar Settings row to open the [role=dialog][aria-modal] Settings modal (SET-03)",
       });
-      // Opens on the License pane (the only pane this phase) showing the free state.
+      // Generic Settings opener lands on the General pane (the first pane);
+      // License-specific entry points (Unlock Pro / deep-link) open License.
       assert(
-        await activeNavIsLicense(),
-        "expected the sidebar Settings row to open on the License pane",
+        await activeNavIsGeneral(),
+        "expected the sidebar Settings row to open on the General pane",
       );
       await saveScreenshot(
         "settings",

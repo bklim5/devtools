@@ -155,8 +155,6 @@ export interface UsePreferences {
   setStartInTray: (v: boolean) => void;
   /** Persist the default tool to open into (SET-09). null = "Last used". */
   setDefaultToolId: (id: string | null) => void;
-  /** Persist sidebar License-row visibility (SET-09). */
-  setShowLicenseInSidebar: (v: boolean) => void;
 }
 
 export function usePreferences(): UsePreferences {
@@ -245,10 +243,6 @@ export function usePreferences(): UsePreferences {
     (id: string | null) => update({ defaultToolId: id }),
     [update],
   );
-  const setShowLicenseInSidebar = useCallback(
-    (v: boolean) => update({ showLicenseInSidebar: v }),
-    [update],
-  );
 
   return {
     preferences,
@@ -268,6 +262,5 @@ export function usePreferences(): UsePreferences {
     setLaunchAtLogin,
     setStartInTray,
     setDefaultToolId,
-    setShowLicenseInSidebar,
   };
 }

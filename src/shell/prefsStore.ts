@@ -111,12 +111,6 @@ function coerceDefaultToolId(value: unknown): string | null {
   return typeof value === "string" && getToolById(value) ? value : null;
 }
 
-/** Untrusted sidebar-license visibility: default-visible — ONLY an explicit
- *  `false` hides the row; everything else (absent, junk, true) → true. */
-function coerceShowLicenseInSidebar(value: unknown): boolean {
-  return value === false ? false : true;
-}
-
 /** Keep only string ids, de-dupe (most-recent-first wins), cap the length. */
 export function normalizeRecents(value: unknown): string[] {
   const raw = Array.isArray(value) ? value : [];
@@ -193,7 +187,6 @@ export function mergePreferences(stored: unknown): Preferences {
     launchAtLogin: coerceLaunchAtLogin(blob.launchAtLogin),
     startInTray: coerceStartInTray(blob.startInTray),
     defaultToolId: coerceDefaultToolId(blob.defaultToolId),
-    showLicenseInSidebar: coerceShowLicenseInSidebar(blob.showLicenseInSidebar),
   };
 }
 

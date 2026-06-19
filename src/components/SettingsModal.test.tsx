@@ -138,6 +138,7 @@ describe("SettingsModal (dialog shell)", () => {
 describe("SettingsModal (paned layout — License pane)", () => {
   it("marks the active pane nav item with aria-current='page'", () => {
     seedFreeState();
+    openSettings("license"); // open ON the License pane (no longer the default)
     const { getByRole } = render(<SettingsModal />);
     // The License nav item (button-list model, NOT a tab).
     const navItem = getByRole("button", { name: /License/ });
@@ -153,6 +154,7 @@ describe("SettingsModal (paned layout — License pane)", () => {
 
   it("announces the active pane via a polite aria-live region ('License settings')", () => {
     seedFreeState();
+    openSettings("license"); // open ON the License pane (no longer the default)
     const { container } = render(<SettingsModal />);
     // LicenseSettings owns its own aria-live regions (status heading etc.); the
     // modal's pane announcement is the sr-only polite region carrying "{label}
@@ -164,6 +166,7 @@ describe("SettingsModal (paned layout — License pane)", () => {
 
   it("renders the License pane content (LicenseSettings) — the sr-only 'License' landmark is present", () => {
     seedFreeState();
+    openSettings("license"); // open ON the License pane (no longer the default)
     const { getByRole } = render(<SettingsModal />);
     // LicenseSettings carries an <h3 className="sr-only">License</h3> landmark —
     // h3 nests one level under the dialog's "Settings" <h2> (no heading inversion).

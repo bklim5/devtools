@@ -30,6 +30,7 @@
 import { useEffect, useRef, useState } from "react";
 import { RotateCcw } from "lucide-react";
 import {
+  formatAccelerator,
   isReservedChord,
   keyEventToAccelerator,
 } from "@/shell/hotkeyAccelerator";
@@ -63,7 +64,11 @@ export interface HotkeyCaptureFieldProps {
 
 // The verbatim UI-SPEC copy for the field's own (non-OS) classifications.
 const INVALID_MSG = "Add Cmd, Ctrl, or Alt to set a shortcut.";
-const RESERVED_MSG = "That shortcut is reserved by macOS — try another.";
+// A modifier IS held but the pressed main key can't be part of a shortcut (e.g. a
+// dead key, or a key Tauri's accelerator parser doesn't accept). Distinct from
+// INVALID_MSG so we never tell a user to "add a modifier" they already pressed.
+const UNUSABLE_KEY_MSG = "That key can't be used — try a letter, number, or symbol.";
+const RESERVED_MSG = "That shortcut is reserved by the system — try another.";
 function sameAsOtherMsg(otherLabel: string): string {
   return `That shortcut is already used by ${otherLabel}.`;
 }
@@ -113,8 +118,11 @@ export function HotkeyCaptureField({
 
       const accel = keyEventToAccelerator(e);
       if (accel === null) {
-        // No non-shift modifier (or modifier-only press) — keep recording, nudge.
-        setLocalMessage(INVALID_MSG);
+        // Two distinct null cases: keep recording, but nudge with the RIGHT reason.
+        // A non-shift modifier present means the main key is the problem (unmappable);
+        // otherwise the user still needs to add a modifier.
+        const hasModifier = e.metaKey || e.ctrlKey || e.altKey;
+        setLocalMessage(hasModifier ? UNUSABLE_KEY_MSG : INVALID_MSG);
         return;
       }
       if (isReservedChord(accel)) {
@@ -171,7 +179,9 @@ export function HotkeyCaptureField({
           {recording ? (
             <span className="text-[13px] font-medium text-tx">Press a shortcut…</span>
           ) : (
-            <span className="font-mono text-[13px] text-tx">{chord}</span>
+            <span className="font-mono text-[13px] tracking-[0.15em] text-tx">
+              {formatAccelerator(chord)}
+            </span>
           )}
         </button>
 

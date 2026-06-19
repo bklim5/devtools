@@ -23,7 +23,7 @@
 
 let open = false;
 let invoker: HTMLElement | null = null;
-let activePane = "license"; // default + only pane this phase (D-S3)
+let activePane = "general"; // default landing pane (D-S3); SETTINGS_PANES[0]
 const listeners = new Set<() => void>();
 
 function notify(): void {
@@ -71,7 +71,7 @@ export function setActivePane(pane: string): void {
  *  EXPLICIT `invokerEl` (a persistent element that survives the close, e.g. the
  *  pre-palette focus or document.body) used verbatim. */
 export function openSettings(
-  pane = "license",
+  pane = "general",
   invokerEl?: HTMLElement | null,
 ): void {
   if (open) return;
@@ -101,6 +101,6 @@ export function closeSettings(): void {
   if (!open) return;
   open = false;
   invoker = null;
-  activePane = "license";
+  activePane = "general";
   notify();
 }

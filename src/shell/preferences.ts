@@ -81,10 +81,6 @@ export interface Preferences {
    *  getToolById against ENABLED_TOOLS, T-02-08); an unknown/removed id coerces to
    *  null. resolveStartupTool consumes it between the explicit target and last-used. */
   defaultToolId: string | null;
-  /** Show the License row in the sidebar (SET-09). Default true (preserve today's
-   *  visible affordance). UNTRUSTED: only an explicit `false` hides it; everything
-   *  else (absent, junk, true) keeps it visible. */
-  showLicenseInSidebar: boolean;
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -105,7 +101,6 @@ export const DEFAULT_PREFERENCES: Preferences = {
   launchAtLogin: false,
   startInTray: false,
   defaultToolId: null, // null = "Last used" (today's behavior)
-  showLicenseInSidebar: true,
 };
 
 /** Single namespaced store key holding the whole prefs blob. One key keeps the

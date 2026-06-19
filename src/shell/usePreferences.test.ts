@@ -281,18 +281,6 @@ describe("usePreferences", () => {
     expect(stored.defaultToolId).toBeNull();
   });
 
-  it("setShowLicenseInSidebar persists the toggle", async () => {
-    const { result } = renderHook(() => usePreferences());
-    await act(async () => {
-      result.current.setShowLicenseInSidebar(false);
-    });
-    expect(result.current.preferences.showLicenseInSidebar).toBe(false);
-    const stored = (await platform.store.get(PREFERENCES_STORE_KEY)) as {
-      showLicenseInSidebar: boolean;
-    };
-    expect(stored.showLicenseInSidebar).toBe(false);
-  });
-
   it("falls back to DEFAULT_PREFERENCES for a corrupt/garbage stored blob", async () => {
     // A non-object value (e.g. a corrupt entry surfaced as a primitive).
     await store.set(PREFERENCES_STORE_KEY, "not-an-object");

@@ -9,6 +9,10 @@ import { UpsellModal } from "./components/UpsellPanel";
 import { useTrackActiveTool } from "./shell/useTrackActiveTool";
 import { useAppearance } from "./shell/useAppearance";
 import { usePreferences } from "./shell/usePreferences";
+import {
+  acceleratorToKeyboardInit,
+  formatAccelerator,
+} from "./shell/hotkeyAccelerator";
 import { useSettingsOpen } from "./shell/useSettings";
 import { useUpsellOpen } from "./shell/useUpsell";
 import { openSettings } from "./shell/settingsStore";
@@ -35,10 +39,13 @@ import { initPlatform, platform, type UpdateInfo } from "@/lib/platform";
 // it shares the banner state and never fires a network call when the user has not
 // opted in (offline-by-design, T-06-11).
 
-// Dispatch a synthetic ⌘K so the header pill opens the same palette the global
-// keydown handler does — the palette stays the single owner of its open state.
-function openPalette() {
-  window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }));
+// Dispatch a synthetic keydown for the CONFIGURED palette chord so the header pill
+// opens the same palette the global keydown handler does — the palette stays the
+// single owner of its open state. Synthesizing the configured chord (not a
+// hard-coded ⌘K) keeps the click in sync with the rebound chord the pill displays.
+function openPalette(paletteChord: string) {
+  const init = acceleratorToKeyboardInit(paletteChord);
+  if (init) window.dispatchEvent(new KeyboardEvent("keydown", init));
 }
 
 export function App() {
@@ -136,7 +143,7 @@ export function App() {
       await initPlatform();
       if (!alive) return;
       const u = await platform.events.onOpenSettings(() =>
-        openSettings("license", document.body),
+        openSettings("general", document.body),
       );
       if (alive) unlisten = u;
       else u();
@@ -204,12 +211,14 @@ export function App() {
         <header className="flex h-11 flex-none items-center justify-end border-b border-bd px-4">
           <button
             type="button"
-            onClick={openPalette}
+            onClick={() => openPalette(preferences.paletteChord)}
             aria-label="Open command palette"
             className="flex items-center gap-2 rounded-[8px] border border-bd bg-panel px-2.5 py-1.5 text-tx-2 outline-none transition-colors hover:text-tx focus-visible:ring-2 focus-visible:ring-accent"
           >
             <span className="text-[11.5px]">Search tools</span>
-            <kbd className="font-mono text-[11px] text-tx-2">⌘K</kbd>
+            <kbd className="font-mono text-[11px] tracking-[0.15em] text-tx-2">
+              {formatAccelerator(preferences.paletteChord)}
+            </kbd>
           </button>
         </header>
         <div className="min-h-0 flex-1 overflow-auto">

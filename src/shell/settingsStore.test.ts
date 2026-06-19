@@ -16,17 +16,17 @@ afterEach(() => {
   closeSettings(); // restore the module singleton between tests
 });
 
-it("starts closed on the default license pane", () => {
+it("starts closed on the default general pane", () => {
   expect(getSettingsOpen()).toBe(false);
-  expect(getActivePane()).toBe("license");
+  expect(getActivePane()).toBe("general");
 });
 
-it("openSettings flips the flag, defaults the pane to license, and notifies", () => {
+it("openSettings flips the flag, defaults the pane to general, and notifies", () => {
   const fn = vi.fn();
   const unsub = subscribeSettings(fn);
   openSettings();
   expect(getSettingsOpen()).toBe(true);
-  expect(getActivePane()).toBe("license");
+  expect(getActivePane()).toBe("general");
   expect(fn).toHaveBeenCalledTimes(1);
   unsub();
 });
@@ -49,7 +49,7 @@ it("openSettings is a no-op when already open (no extra notify, pane/invoker unt
   unsub();
 });
 
-it("closeSettings flips back, resets the pane to license, and notifies; no-op when already closed", () => {
+it("closeSettings flips back, resets the pane to general, and notifies; no-op when already closed", () => {
   openSettings();
   setActivePane("appearance");
   expect(getActivePane()).toBe("appearance");
@@ -57,7 +57,7 @@ it("closeSettings flips back, resets the pane to license, and notifies; no-op wh
   const unsub = subscribeSettings(fn);
   closeSettings();
   expect(getSettingsOpen()).toBe(false);
-  expect(getActivePane()).toBe("license"); // reset to default on close
+  expect(getActivePane()).toBe("general"); // reset to default on close
   expect(fn).toHaveBeenCalledTimes(1);
   closeSettings(); // already closed — no extra notify
   expect(fn).toHaveBeenCalledTimes(1);

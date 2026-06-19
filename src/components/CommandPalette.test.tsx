@@ -450,7 +450,7 @@ describe("CommandPalette — Settings command (D-S8)", () => {
     expect(labels.some((t) => t.includes("License"))).toBe(true);
   });
 
-  it("running it opens the Settings modal on the License pane with the pre-palette focus as the return target", async () => {
+  it("running it opens the Settings modal on the General pane with the pre-palette focus as the return target", async () => {
     const { findByPlaceholderText, findByText, queryByPlaceholderText } =
       renderPalette();
     act(() => pressMetaK());
@@ -461,9 +461,10 @@ describe("CommandPalette — Settings command (D-S8)", () => {
 
     fireEvent.click(await findByText("Settings"));
 
-    // Opens the single Settings surface on the License pane (D-S8), passing the
-    // explicit return target; the palette closes and never navigates.
-    expect(openSettingsSpy).toHaveBeenCalledWith("license", expect.anything());
+    // The generic Settings command opens the single Settings surface on the General
+    // pane (D-S8), passing the explicit return target; the palette closes and never
+    // navigates. (The License command opens the License pane.)
+    expect(openSettingsSpy).toHaveBeenCalledWith("general", expect.anything());
     expect(navigateSpy).not.toHaveBeenCalled();
     await waitFor(() =>
       expect(queryByPlaceholderText("Search tools…")).toBeNull(),

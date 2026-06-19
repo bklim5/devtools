@@ -1,6 +1,6 @@
-// SettingToggle (SET-09, D-24-8..11 / T-24-08) — a reusable, accessible boolean
-// switch row. The General pane's three boolean controls (launch-at-login,
-// start-in-tray, show-license-in-sidebar) all render through this.
+// SettingToggle (SET-09, D-24-8..10 / T-24-08) — a reusable, accessible boolean
+// switch row. The General pane's boolean controls (launch-at-login,
+// start-in-tray) all render through this.
 //
 // A11y contract (WCAG-AA, the gsd-ui-review bar): a native <button> with
 // role="switch" + aria-checked reflecting `checked`; the native button handles

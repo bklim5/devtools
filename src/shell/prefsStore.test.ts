@@ -423,25 +423,3 @@ describe("defaultToolId coercion (SET-09, T-24-02)", () => {
     expect(mergePreferences({ defaultToolId: 7 }).defaultToolId).toBeNull();
   });
 });
-
-// showLicenseInSidebar is default-visible (SET-09): ONLY an explicit `false`
-// hides it; everything else (absent, junk, true) → true.
-describe("showLicenseInSidebar coercion (SET-09 — default visible)", () => {
-  it("honors an explicit false (hide the row)", () => {
-    expect(mergePreferences({ showLicenseInSidebar: false }).showLicenseInSidebar).toBe(false);
-  });
-
-  it("defaults to true when absent (preserve today's visible affordance)", () => {
-    expect(mergePreferences({}).showLicenseInSidebar).toBe(true);
-  });
-
-  it("coerces junk to true (default-visible)", () => {
-    expect(mergePreferences({ showLicenseInSidebar: "no" }).showLicenseInSidebar).toBe(true);
-    expect(mergePreferences({ showLicenseInSidebar: 0 }).showLicenseInSidebar).toBe(true);
-  });
-
-  it("survives a save → load round-trip (false preserved)", async () => {
-    await savePreferences({ ...DEFAULT_PREFERENCES, showLicenseInSidebar: false });
-    await expect(loadPreferences()).resolves.toMatchObject({ showLicenseInSidebar: false });
-  });
-});

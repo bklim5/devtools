@@ -265,16 +265,17 @@ export function CommandPalette() {
   );
 
   // D-S8: the "Settings" command — sibling to the License command, opens the
-  // single Settings modal on the License pane (the only pane this phase). Passes
-  // the pre-palette focus as the explicit return target (the palette row unmounts
-  // on close — finding 3).
+  // single Settings modal on the General pane (the generic Settings landing pane,
+  // matching the sidebar gear / app-menu / tray openers; the License command below
+  // is the License-specific entry point). Passes the pre-palette focus as the
+  // explicit return target (the palette row unmounts on close — finding 3).
   const settingsCommand = useMemo<CommandRow>(
     () => ({
       kind: "command",
       id: "settings",
       name: "Settings",
       icon: Settings,
-      run: () => openSettings("license", preOpenFocus),
+      run: () => openSettings("general", preOpenFocus),
     }),
     [preOpenFocus],
   );

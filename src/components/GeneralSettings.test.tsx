@@ -15,7 +15,6 @@ import { ENABLED_TOOLS } from "@/lib/tools/registry";
 const setLaunchAtLogin = vi.fn();
 const setStartInTray = vi.fn();
 const setDefaultToolId = vi.fn();
-const setShowLicenseInSidebar = vi.fn();
 const enable = vi.fn<() => Promise<void>>();
 const disable = vi.fn<() => Promise<void>>();
 const isEnabled = vi.fn<() => Promise<boolean>>();
@@ -24,7 +23,6 @@ let mockPreferences: {
   launchAtLogin: boolean;
   startInTray: boolean;
   defaultToolId: string | null;
-  showLicenseInSidebar: boolean;
 };
 let prefsLoaded: boolean;
 
@@ -44,7 +42,6 @@ vi.mock("@/shell/usePreferences", () => ({
     setLaunchAtLogin,
     setStartInTray,
     setDefaultToolId,
-    setShowLicenseInSidebar,
   }),
 }));
 
@@ -63,7 +60,6 @@ beforeEach(() => {
     launchAtLogin: false,
     startInTray: false,
     defaultToolId: null,
-    showLicenseInSidebar: true,
   };
 });
 afterEach(cleanup);

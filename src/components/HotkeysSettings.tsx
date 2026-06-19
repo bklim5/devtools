@@ -97,7 +97,7 @@ export function HotkeysSettings() {
 
       <HotkeyCaptureField
         label="Command palette"
-        helper="Open the ⌘K command palette."
+        helper="Open the command palette."
         chord={preferences.paletteChord}
         otherChord={preferences.summonChord}
         otherLabel="the global summon"

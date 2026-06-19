@@ -657,12 +657,9 @@ export function Sidebar() {
           SAME row becomes the calm "License needs attention" hint — neutral
           tokens, no red alarm styling (a hint, not an interruption); the License
           pane renders the D-44 problem state.
-          D-24-11 (Phase 24): the General pane's "Show license status in sidebar"
-          toggle gates THIS affordance only — when off, the Unlock-Pro / attention
-          row is hidden. The bottom unconditional Settings gear row below is NOT
-          gated (SET-04 — it always shows, even unlicensed). */}
-      {preferences.showLicenseInSidebar &&
-      (licenseAttention || !ents.has(ENT_ORDERING) || !ents.has(ENT_THEMING)) ? (
+          The bottom unconditional Settings gear row below is NOT gated (SET-04 —
+          it always shows, even unlicensed). */}
+      {licenseAttention || !ents.has(ENT_ORDERING) || !ents.has(ENT_THEMING) ? (
         <button
           type="button"
           onClick={(e) => openLicenseSurface(e.currentTarget)}
@@ -681,7 +678,7 @@ export function Sidebar() {
           click/Enter/Space. */}
       <button
         type="button"
-        onClick={(e) => openSettings("license", e.currentTarget)}
+        onClick={(e) => openSettings("general", e.currentTarget)}
         className="flex min-h-6 items-center gap-2 rounded-[6px] px-3 py-1 text-left text-[13px] text-tx-2 outline-none transition-colors hover:text-tx focus-visible:ring-2 focus-visible:ring-accent"
       >
         <Settings aria-hidden="true" className="h-3 w-3 flex-none" />

@@ -22,11 +22,21 @@ export type ChordEvent = Pick<
 >;
 
 /** Physical-code → main-key normalization table. Punctuation/space/arrows map to
- *  Tauri's accelerator spelling; letters/digits/Fn keys fall through below. */
+ *  Tauri's accelerator spelling; letters/digits/Fn keys fall through below. The
+ *  symbol-row keys (`;`, `'`, `[`, `]`, `\`, `` ` ``, `-`, `=`) are all accepted by
+ *  Tauri's global-shortcut parser (global-hotkey parse_key), so they're bindable. */
 const CODE_TO_KEY: Readonly<Record<string, string>> = {
   Comma: ",",
   Period: ".",
   Slash: "/",
+  Semicolon: ";",
+  Quote: "'",
+  BracketLeft: "[",
+  BracketRight: "]",
+  Backslash: "\\",
+  Backquote: "`",
+  Minus: "-",
+  Equal: "=",
   Space: "Space",
   ArrowUp: "Up",
   ArrowDown: "Down",
@@ -95,16 +105,10 @@ interface ParsedAccelerator {
   mainKey: string;
 }
 
-const KNOWN_MAIN_KEYS: ReadonlySet<string> = new Set([
-  ",",
-  ".",
-  "/",
-  "Space",
-  "Up",
-  "Down",
-  "Left",
-  "Right",
-]);
+/** The recognized non-letter/digit/Fn main keys — derived from CODE_TO_KEY (the
+ *  single source) so adding a bindable key in one place keeps capture, validation,
+ *  and the reverse synthesis in agreement. */
+const KNOWN_MAIN_KEYS: ReadonlySet<string> = new Set(Object.values(CODE_TO_KEY));
 
 /** True iff a parsed main-key segment is a recognized key (a letter, a digit, an
  *  F1..F12, or one of the punctuation/space/arrow names). */
@@ -189,4 +193,74 @@ const RESERVED_CHORDS: ReadonlySet<string> = new Set(
  */
 export function isReservedChord(accelerator: string): boolean {
   return RESERVED_CHORDS.has(accelerator.toLowerCase());
+}
+
+/** Modifier → macOS glyph. CommandOrControl renders as ⌘ (this is a macOS-first
+ *  app); the glyph order below follows the native menu convention (⌥ ⇧ ⌘ … key). */
+const MODIFIER_GLYPHS = { alt: "⌥", shift: "⇧", commandOrControl: "⌘" } as const;
+/** Named main keys → their glyph (letters/digits render as-is). */
+const MAIN_KEY_GLYPHS: Readonly<Record<string, string>> = {
+  Up: "↑",
+  Down: "↓",
+  Left: "←",
+  Right: "→",
+  Space: "␣",
+};
+
+/**
+ * Render a canonical accelerator string as macOS display glyphs for the UI
+ * (e.g. "CommandOrControl+K" → "⌘K", "CommandOrControl+Shift+D" → "⇧⌘D"). This is
+ * the SINGLE formatter every surface uses so a rebound chord shows consistently
+ * (the header palette pill, the Hotkeys-pane fields). A string that does not parse
+ * is returned verbatim (defensive — never throws).
+ */
+export function formatAccelerator(accelerator: string): string {
+  const parsed = parseAccelerator(accelerator);
+  if (parsed === null) return accelerator;
+  let mods = "";
+  if (parsed.alt) mods += MODIFIER_GLYPHS.alt;
+  if (parsed.shift) mods += MODIFIER_GLYPHS.shift;
+  if (parsed.commandOrControl) mods += MODIFIER_GLYPHS.commandOrControl;
+  return mods + (MAIN_KEY_GLYPHS[parsed.mainKey] ?? parsed.mainKey);
+}
+
+/** Inverse of CODE_TO_KEY (",": "Comma" → ",") so the main-key segment can be
+ *  turned back into a physical code. Derived from the SINGLE source above. */
+const KEY_TO_CODE: Readonly<Record<string, string>> = Object.fromEntries(
+  Object.entries(CODE_TO_KEY).map(([code, key]) => [key, code]),
+);
+
+/** Map a parsed main-key segment back to its physical code (the inverse of
+ *  normalizeMainKey): "K" → "KeyK", "3" → "Digit3", "F5" → "F5", "," → "Comma". */
+function mainKeyToCode(mainKey: string): string | null {
+  if (/^[A-Z]$/.test(mainKey)) return `Key${mainKey}`;
+  if (/^[0-9]$/.test(mainKey)) return `Digit${mainKey}`;
+  if (/^F([1-9]|1[0-2])$/.test(mainKey)) return mainKey;
+  return KEY_TO_CODE[mainKey] ?? null;
+}
+
+/**
+ * Build a KeyboardEvent init that `matchesChord(_, accelerator)` accepts — the
+ * inverse of capture. Used to SYNTHESIZE the configured chord (e.g. the header
+ * pill dispatches the user's palette chord, not a hard-coded ⌘K, so a rebind
+ * keeps the click in sync with what the pill displays). `CommandOrControl` is
+ * synthesized as `metaKey` (macOS-first; matchesChord accepts meta OR ctrl).
+ * Returns null for an unparseable accelerator (defensive — never throws). The
+ * `key` field is best-effort (matchesChord keys off `code`, never the character).
+ */
+export function acceleratorToKeyboardInit(
+  accelerator: string,
+): KeyboardEventInit | null {
+  const parsed = parseAccelerator(accelerator);
+  if (parsed === null) return null;
+  const code = mainKeyToCode(parsed.mainKey);
+  if (code === null) return null;
+  return {
+    code,
+    key: parsed.mainKey.length === 1 ? parsed.mainKey.toLowerCase() : parsed.mainKey,
+    metaKey: parsed.commandOrControl,
+    ctrlKey: false,
+    altKey: parsed.alt,
+    shiftKey: parsed.shift,
+  };
 }

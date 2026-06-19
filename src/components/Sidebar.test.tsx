@@ -297,7 +297,7 @@ describe("Sidebar free tier (D-26/D-28)", () => {
 });
 
 describe("Sidebar bottom-anchored Settings row (SET-03/D-S9/D-S10/D-S11)", () => {
-  it("renders an unconditional Settings row even under FULL_SET (no Unlock-Pro/attention row), opening the Settings modal on the License pane", async () => {
+  it("renders an unconditional Settings row even under FULL_SET (no Unlock-Pro/attention row), opening the Settings modal on the General pane", async () => {
     // FULL_SET + notActivated → the Unlock-Pro / attention footer row is ABSENT,
     // so this proves the Settings row is UNCONDITIONAL (D-S10), not nested under
     // the licenseAttention ternary.
@@ -313,7 +313,9 @@ describe("Sidebar bottom-anchored Settings row (SET-03/D-S9/D-S10/D-S11)", () =>
     fireEvent.click(settingsRow);
     // MED-22-02: the clicked row is passed as the explicit focus-return target
     // (e.currentTarget) so focus returns reliably on a WKWebView mouse click.
-    expect(openSettingsSpy).toHaveBeenCalledWith("license", settingsRow);
+    // The generic Settings gear lands on General (the first pane); License-specific
+    // entry points (Unlock Pro / attention) still open the License pane.
+    expect(openSettingsSpy).toHaveBeenCalledWith("general", settingsRow);
   });
 
   it("renders the Settings row in the free tier too (opens for everyone, D-S10)", async () => {
@@ -323,7 +325,7 @@ describe("Sidebar bottom-anchored Settings row (SET-03/D-S9/D-S10/D-S11)", () =>
 
     const settingsRow = getByRole("button", { name: "Settings" });
     fireEvent.click(settingsRow);
-    expect(openSettingsSpy).toHaveBeenCalledWith("license", settingsRow);
+    expect(openSettingsSpy).toHaveBeenCalledWith("general", settingsRow);
   });
 
   it("free-tier 'Unlock Pro' opens Settings ▸ License (22.1-04 — converges with the Settings row, no separate upsell modal)", async () => {
@@ -340,30 +342,9 @@ describe("Sidebar bottom-anchored Settings row (SET-03/D-S9/D-S10/D-S11)", () =>
   });
 });
 
-describe("Sidebar show-license-status toggle gate (SET-09/D-24-11)", () => {
-  it("hides the Unlock-Pro affordance when showLicenseInSidebar is false, but KEEPS the unconditional Settings row", async () => {
-    // FREE_SET → the Unlock-Pro affordance WOULD render; the toggle being false is
-    // what hides it. Proves the gate is on the affordance, not the Settings row.
+describe("Sidebar Unlock-Pro affordance (SET-09)", () => {
+  it("shows the Unlock-Pro affordance for a free-tier user (no longer gated by a preference)", async () => {
     act(() => setEntitlementsForTest(FREE_SET));
-    await store.set(PREFERENCES_STORE_KEY, { showLicenseInSidebar: false });
-    const { getByRole, queryByRole } = renderAt("/");
-    await flushPrefsLoad();
-
-    // The license/upgrade affordance is gated off.
-    expect(
-      queryByRole("button", { name: /Unlock Pro|needs attention/ }),
-    ).toBeNull();
-
-    // The bottom unconditional Settings gear row STILL renders + still opens
-    // Settings (SET-04 — never gated by this toggle).
-    const settingsRow = getByRole("button", { name: "Settings" });
-    fireEvent.click(settingsRow);
-    expect(openSettingsSpy).toHaveBeenCalledWith("license", settingsRow);
-  });
-
-  it("shows the Unlock-Pro affordance again when showLicenseInSidebar is true (default)", async () => {
-    act(() => setEntitlementsForTest(FREE_SET));
-    await store.set(PREFERENCES_STORE_KEY, { showLicenseInSidebar: true });
     const { getByRole } = renderAt("/");
     await flushPrefsLoad();
     expect(getByRole("button", { name: "Unlock Pro" })).toBeDefined();

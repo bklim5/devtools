@@ -54,9 +54,10 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("HotkeyCaptureField", () => {
-  it("idle shows the current chord and an accessible Rebind name", () => {
+  it("idle shows the current chord (formatted as macOS glyphs) and an accessible Rebind name", () => {
     renderField();
-    expect(screen.getByText("CommandOrControl+Shift+D")).toBeTruthy();
+    // CommandOrControl+Shift+D renders as the native glyph form ⇧⌘D.
+    expect(screen.getByText("⇧⌘D")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Rebind Global summon" })).toBeTruthy();
   });
 
@@ -91,7 +92,7 @@ describe("HotkeyCaptureField", () => {
     pressKey({ key: " ", code: "Space", metaKey: true });
     expect(onCommit).not.toHaveBeenCalled();
     expect(
-      screen.getByText("That shortcut is reserved by macOS — try another."),
+      screen.getByText("That shortcut is reserved by the system — try another."),
     ).toBeTruthy();
   });
 
@@ -103,6 +104,26 @@ describe("HotkeyCaptureField", () => {
     expect(screen.getByText("Add Cmd, Ctrl, or Alt to set a shortcut.")).toBeTruthy();
     // Still recording (the prompt remains).
     expect(screen.getByText("Press a shortcut…")).toBeTruthy();
+  });
+
+  it("a symbol key (Cmd+Shift+;) commits — symbol-row keys are bindable", () => {
+    renderField();
+    startRecording();
+    pressKey({ key: ";", code: "Semicolon", metaKey: true, shiftKey: true });
+    expect(onCommit).toHaveBeenCalledWith("CommandOrControl+Shift+;");
+  });
+
+  it("a modifier + an unusable main key shows the key-specific hint (not the add-a-modifier one)", () => {
+    renderField();
+    startRecording();
+    // Cmd is held, but Tab isn't a bindable main key → the hint must NOT tell the
+    // user to add a modifier they already pressed.
+    pressKey({ key: "Tab", code: "Tab", metaKey: true });
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(
+      screen.getByText("That key can't be used — try a letter, number, or symbol."),
+    ).toBeTruthy();
+    expect(screen.getByText("Press a shortcut…")).toBeTruthy(); // still recording
   });
 
   it("an Option+P composed glyph (key:π, code:KeyP) commits Alt+P via the physical code", () => {
