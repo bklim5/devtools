@@ -326,7 +326,7 @@ Unsequenced ideas captured for future planning. Promote with `/gsd-review-backlo
 
 ### Phase 999.1: More tools for the app (PROMOTED → v1.3 More Tools, in progress)
 
-**Status:** PROMOTED — the Cron, URL, Regex tools + Protobuf decimal-byte-array input are being delivered as milestone v1.3 "More Tools" (Phases 12–15). What remains parked here is the rest of the candidate wishlist below (SQL formatter still needs a lib; Date, JSON↔YAML, Number Base, Escape/Unescape, comparers, etc. unscheduled).
+**Status:** PROMOTED — the Cron, URL, Regex tools + Protobuf decimal-byte-array input are being delivered as milestone v1.3 "More Tools" (Phases 12–15). What remains parked here is the rest of the candidate wishlist below (SQL + JavaScript/TS formatters still need a lib; Date, JSON↔YAML, Number Base, Escape/Unescape, comparers, etc. unscheduled).
 
 **Goal:** [Captured for future planning] — expand beyond the v1 six tools. NOTE: v1 locked "six tools only" — promoting this means deliberately reopening that constraint. There is no code-level limit (registry is a plain array; router/sidebar/palette auto-derive), so growth is mechanical; the constraint is product focus, not architecture. v1.1 already added the JSON + XML formatters from this list; v1.3 adds Cron + URL + Regex; SQL remains parked.
 
@@ -335,7 +335,7 @@ Unsequenced ideas captured for future planning. Promote with `/gsd-review-backlo
 - **Converters** — Cron Parser ✓ (v1.3), Date, JSON Array → Table/CSV, JSON ↔ YAML, Number Base
 - **Text** — Escape / Unescape, List Comparer, Markdown Preview, Analyzer & Utilities, Text Comparer
 - **Encoders / Decoders** — Base64 Image, Base64 Text, Certificate, GZIP, HTML, JWT, QR Code, URL ✓ (v1.3)
-- **Formatters** — JSON ✓ (v1.1), XML ✓ (v1.1), **SQL** (still parked — needs `sql-formatter` lib; reformats only, can't lint)
+- **Formatters** — JSON ✓ (v1.1), XML ✓ (v1.1), **JavaScript/TypeScript** (NEW — prettify/format a pasted JS/TS blob; reformats only, not a linter; needs a formatter lib — Prettier standalone (heavy, pulls plugins) or a lighter engine — so it must be weighed against the zero-dep wedge + the lazy-loaded `src/lib/` pattern), **SQL** (still parked — needs `sql-formatter` lib; reformats only, can't lint)
 - **Generators** — Hash / Checksum, Lorem Ipsum, Password, UUID
 - **Graphic** — Color Blind Simulator, Image Converter
 - **Testers** — JSONPath, Regular Expression ✓ (v1.3), XML / XSD
@@ -448,3 +448,26 @@ Plans:
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.10: Mac App Store distribution (BACKLOG — Apple Developer enrolment now done)
+
+**Status:** BACKLOG — **unblocked 2026-06-20: the Apple Developer Account is signed up** (this was the prerequisite that kept notarisation/App-Store deferred, see 999.2 + D-02). Ready to promote to a milestone (likely v1.8). Direct distribution (signed DMG + Tauri auto-updater) stays the primary channel; this ADDS a second App Store channel.
+
+**Goal:** [Captured for future planning] — ship TinkerDev on the **Mac App Store** as a second distribution channel alongside the existing direct DMG + updater. The hard prerequisite (paid Apple Developer enrolment) is cleared; the rest is signing/sandbox/policy work.
+
+**Two related deliverables this unblocks:**
+1. **Proper Developer ID notarisation for the DIRECT channel** (smaller, do first) — flip the currently ad-hoc-signed DMG/updater (Phase 6/11) to a Developer-ID-signed + `notarytool`-notarised + stapled build. The release scripts are already "notarisation-ready" (honor `APPLE_*` env, per 999.2 + RELEASE.md "post-enrolment flip"); this is mostly wiring the cert + `APPLE_ID/APPLE_TEAM_ID/APPLE_API_KEY` secrets and re-cutting a notarised release. Removes the Gatekeeper "unidentified developer" friction for direct downloads.
+2. **Mac App Store build + submission** (larger, the real item) — a separate App-Store-target build uploaded to App Store Connect.
+
+**Key open questions / risks for promotion (App Store target):**
+- **⚠️ Licensing vs In-App Purchase (the BIG product/policy decision).** The Pro unlock today is an external Lemon Squeezy (MoR) purchase → Keygen license key → activation, with a "Buy license" link to `tinkerdev.io`. App Store guidelines generally require **StoreKit In-App Purchase** for unlocking features (Apple takes 15–30%) and heavily restrict external-purchase links for digital goods. Options to weigh: (a) App Store build uses **StoreKit IAP** for Pro (new integration: map an IAP receipt → the same `pro.theming`/`pro.ordering` entitlements, bypassing Keygen for App Store users); (b) App Store build ships **free / no Pro** (loss-leader / funnel to the direct version); (c) attempt the external-link entitlement (narrow, risky, region-dependent). **This decision gates the whole item.**
+- **App Sandbox is mandatory on the App Store** (`com.apple.security.app-sandbox`) and conflicts with current native features: **global summon** (global-shortcut may be restricted/need entitlements), **launch-at-login** (the current autostart plugin writes a `LaunchAgent` plist — NOT sandbox-compatible; must move to the sandbox-safe `SMAppService` login-item API), and possibly the **tray**. Each needs a sandbox-compatible path or a graceful feature-flag-off on the App Store build.
+- **Auto-updater MUST be removed from the App Store build** — Apple forbids self-updating apps (the store handles updates). The Tauri `updater` plugin + `latest.json` flow (DST-02) must be **conditionally compiled out** for the App-Store target → two build variants (direct = with updater; App Store = without). The Updates pane (SET-10 / Phase 25) should hide/disable its check on App Store builds.
+- **Build + upload mechanics:** App-Store-target `tauri build` (universal) → `.pkg` signed with the Apple Distribution cert + provisioning profile → upload via Transporter / `xcrun altool`/`notarytool` to App Store Connect; metadata, screenshots, privacy nutrition labels, age rating, review (1–3 days).
+- **Constraints that still hold:** offline/no-network at runtime (the licensing exception aside), HashRouter, the six-tools wedge, decoder + its 19 tests untouched, WCAG-AA, the full build+verify harness.
+
+**Requirements:** TBD (APP-STORE-01.. on promotion)
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog or seed `/gsd-new-milestone` when ready; recommend resolving the IAP-vs-external-licensing decision FIRST)
