@@ -63,23 +63,29 @@ path.
 
 ### 3.1 Inner loop — runs per GSD **task**
 
-Every task's Definition of Done = **all four gates green**, in this order, before the next
+Every task's Definition of Done = **all five gates green**, in this order, before the next
 task starts:
 
 1. **`/simplify`** — run on the just-written changes to apply reuse / simplification /
    efficiency / altitude cleanups. Quality only (it does not hunt for bugs — that's the next
    step). Running it first means review and tests cover the simplified code, not throwaway.
-2. **`/codex:review`** — `/codex:review --wait --scope working-tree` on the task's diff.
-   Review-only (it never patches). Findings are addressed before moving on. Because we use
-   TDD, unit tests already exist and are green by review time, so review scrutinizes design
-   and correctness, not broken plumbing.
-3. **Unit tests** — `vitest` green + `tsc --noEmit` clean. The decoder's **19 cases are the
+2. **`/code-review xhigh`** — recall-mode multi-angle bug hunt over the task's diff (9 finder
+   angles → 1-vote verify → sweep). Catch every real bug; address each confirmed finding.
+   Runs before the adversarial pass so the deep line-level defects are already fixed when the
+   second opinion looks at design.
+3. **`/codex:adversarial-review`** — `/codex:adversarial-review --wait --scope working-tree`
+   on the task's diff. An independent adversarial second opinion that challenges the
+   implementation approach + design choices (not just line bugs). Review-only (it never
+   patches); findings are addressed before moving on. Because we use TDD, unit tests already
+   exist and are green by review time, so review scrutinizes design and correctness, not
+   broken plumbing.
+4. **Unit tests** — `vitest` green + `tsc --noEmit` clean. The decoder's **19 cases are the
    immovable bar**; every new tool/feature adds its own cases (TDD: tests first).
-4. **UI test** — against **`tauri dev`** (the real WKWebView, hot-reload). Screenshot +
+5. **UI test** — against **`tauri dev`** (the real WKWebView, hot-reload). Screenshot +
    computed-ARIA / a11y check + DOM assertions, diffed against `design/DevTools Mockup.html`
    and the §9 binding constraints. Driven via the macOS WebDriver path (see §3.3).
 
-Gate order is the user's explicit sequence: **simplify → review → unit → ui**.
+Gate order is the user's explicit sequence: **simplify → code-review xhigh → adversarial review → unit → ui**.
 
 ### 3.2 Outer loop — runs per **phase boundary** (human sign-off)
 
@@ -125,7 +131,8 @@ young (0.1.x).
 
 | Concern | Tool |
 |---|---|
-| Code review gate | `/codex:review --wait --scope working-tree` |
+| Bug-hunt gate | `/code-review xhigh` (recall-mode, 9 angles) |
+| Adversarial review gate | `/codex:adversarial-review --wait --scope working-tree` |
 | Unit / logic | `vitest`, `@testing-library/react`, jsdom; `tsc --noEmit` |
 | Real-webview UI (per task) | `tauri dev` + macOS WebDriver plugin (spike) **or** `screencapture` + `chrome-devtools-mcp` (fallback) |
 | Build (per phase) | `tauri build` (macOS) |
@@ -148,9 +155,9 @@ phases, in order, no interleaving:
 | 4. Native polish | Global shortcut, tray, single-instance | macOS only for now |
 | 5. Distribution | Code signing + notarisation (macOS), DMG, auto-updater | Windows/Linux deferred |
 
-The **three-gate Definition of Done (review → unit → ui)** and the **phase-boundary human
-sign-off** become project conventions in `PROJECT.md`, so every `gsd-execute-phase` enforces
-them.
+The **five-gate Definition of Done (simplify → code-review xhigh → adversarial review → unit → ui)**
+and the **phase-boundary human sign-off** become project conventions in `PROJECT.md`, so every
+`gsd-execute-phase` enforces them.
 
 ---
 

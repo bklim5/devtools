@@ -19,9 +19,10 @@ This file is the slim entry point. The full detail lives in the docs below — r
 
 **Per task, Definition of Done in this order:**
 1. **`/simplify`** — apply reuse/simplification/efficiency/altitude cleanups to the just-written changes (quality only, no bug-hunting), so the steps below cover the simplified code.
-2. **`/codex:review`** (`--wait --scope working-tree`) — address findings.
-3. **Unit tests green** — `vitest` + `tsc --noEmit` clean. The decoder's **19 tests are the immovable bar**; new features add their own (TDD).
-4. **Real-webview UI verification** — against `tauri dev` (the actual WKWebView), screenshot + a11y/DOM checks vs `design/`.
+2. **`/code-review xhigh`** — recall-mode multi-angle bug hunt over the diff (9 finder angles → verify → sweep). Address every confirmed finding.
+3. **`/codex:adversarial-review`** (`--wait --scope working-tree`) — an independent adversarial second opinion that challenges the implementation approach + design choices (not just line bugs). Address findings.
+4. **Unit tests green** — `vitest` + `tsc --noEmit` clean. The decoder's **19 tests are the immovable bar**; new features add their own (TDD).
+5. **Real-webview UI verification** — against `tauri dev` (the actual WKWebView), screenshot + a11y/DOM checks vs `design/`.
 
 **Per phase boundary:** the agent auto-runs `pnpm tauri build` at the human-verify checkpoint (its final non-zero exit is only the absent updater-signing key — confirm via the `.app`/`.dmg` under `src-tauri/target/release/bundle/macos/`, not the exit code), then hands off the built-app path so the human only launches/tests/approves; sign-off requires that walkthrough + a passing `gsd-ui-review` WCAG-AA audit. **Rebuild as the LAST step, after every source change has landed** — in a multi-plan phase an earlier checkpoint plan can build before later plans land webview changes; verify the bundle binary mtime is newer than the last source commit before any walkthrough (never hand off a stale `.app`).
 

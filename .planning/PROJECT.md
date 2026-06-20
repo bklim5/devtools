@@ -170,7 +170,7 @@ Remaining backlog parked: 999.1 tool wishlist (SQL/Date/JSON↔YAML/Number Base/
 - **Post-design, pre-implementation handoff.** Full spec in `docs/design-and-plan.md`; harness + locked decisions in `docs/harness-and-decisions.md`; original agent brief preserved in `docs/handoff-instructions.md`.
 - **Verified assets exist:** `scaffold/src/lib/` (decoder.ts ~295 lines zero-deps + 19 tests, bytes.ts, tool types/registry) — port unchanged. `design/DevTools Mockup.html` is the canonical visual system (CSS vars, IBM Plex Sans + JetBrains Mono). React components in `scaffold/` are structure-reference only — rebuild the visual layer against `design/`.
 - **macOS WKWebView automation gap:** official `tauri-driver` supports only Linux/Windows. Community W3C WebDriver plugins for macOS exist (early 2026, 0.1.x). Phase 0 spikes one; fallback is `screencapture` + `chrome-devtools-mcp` against the identical static bundle.
-- **Codex CLI + `/codex:review` are installed** and used as the first per-task gate.
+- **Codex CLI + `/codex:adversarial-review` are installed** and used as the per-task adversarial-review gate (after `/code-review xhigh`).
 
 ## Constraints
 
@@ -180,7 +180,7 @@ Remaining backlog parked: 999.1 tool wishlist (SQL/Date/JSON↔YAML/Number Base/
 - **Zero new runtime dependencies** — every tool so far is built on native browser/Web APIs (`JSON`, `DOMParser`, Web Crypto, `Uint8Array` base64/hex); the only runtime dep is `js-md5`. Hold this line.
 - **Do not refactor `decoder.ts` or its 19 tests** without explicit approval — the test bar is the hero feature's spec.
 - **Performance**: paste-to-interpretation < 2s; the app should feel instant (OS webview, small binary).
-- **Verification (binding harness)**: every task's Definition of Done = **`/codex:review` → unit tests green (`vitest` + `tsc`) → real-webview UI verification**, in that order. Every phase ends with a **human sign-off** on a `tauri build` + `gsd-ui-review` audit. **Parallelize plans, but never let a plan advance past these gates — no skipping ahead.**
+- **Verification (binding harness)**: every task's Definition of Done = **`/simplify` → `/code-review xhigh` → `/codex:adversarial-review` → unit tests green (`vitest` + `tsc`) → real-webview UI verification**, in that order. Every phase ends with a **human sign-off** on a `tauri build` + `gsd-ui-review` audit. **Parallelize plans, but never let a plan advance past these gates — no skipping ahead.**
 - **Platform (current)**: macOS only for build/verify; Windows + Linux deferred.
 
 ## Key Decisions
