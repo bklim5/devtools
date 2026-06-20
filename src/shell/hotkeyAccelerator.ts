@@ -56,6 +56,13 @@ const MODIFIER_CODES: ReadonlySet<string> = new Set([
   "AltRight",
 ]);
 
+/** True iff a physical key code is a pure modifier (Cmd/Ctrl/Alt/Shift down on its
+ *  own). Lets capture UIs tell a mid-chord modifier press ("keep recording, no
+ *  main key yet") apart from a real-but-unbindable key (Tab, Enter, …). */
+export function isModifierCode(code: string): boolean {
+  return MODIFIER_CODES.has(code);
+}
+
 /** Normalize a PHYSICAL key code to its accelerator main-key segment, or null if
  *  the code is a pure modifier (no main key). NEVER reads the composed character
  *  (macOS Option+letter glyph corruption). */

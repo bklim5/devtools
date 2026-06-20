@@ -31,6 +31,7 @@ import { useEffect, useRef, useState } from "react";
 import { RotateCcw } from "lucide-react";
 import {
   formatAccelerator,
+  isModifierCode,
   isReservedChord,
   keyEventToAccelerator,
 } from "@/shell/hotkeyAccelerator";
@@ -118,11 +119,16 @@ export function HotkeyCaptureField({
 
       const accel = keyEventToAccelerator(e);
       if (accel === null) {
-        // Two distinct null cases: keep recording, but nudge with the RIGHT reason.
-        // A non-shift modifier present means the main key is the problem (unmappable);
-        // otherwise the user still needs to add a modifier.
+        // Three distinct null cases — keep recording, but show the RIGHT (or no) hint:
+        //   • no non-shift modifier yet → nudge to add one.
+        //   • a non-shift modifier IS held but the press is itself a bare modifier
+        //     (Cmd/Ctrl/Alt down, no main key yet) → mid-chord, stay silent.
+        //   • a non-shift modifier + a real-but-unbindable key (Tab, Enter, …) → that
+        //     key can't be used.
         const hasModifier = e.metaKey || e.ctrlKey || e.altKey;
-        setLocalMessage(hasModifier ? UNUSABLE_KEY_MSG : INVALID_MSG);
+        if (!hasModifier) setLocalMessage(INVALID_MSG);
+        else if (isModifierCode(e.code)) setLocalMessage(null);
+        else setLocalMessage(UNUSABLE_KEY_MSG);
         return;
       }
       if (isReservedChord(accel)) {

@@ -113,6 +113,20 @@ describe("HotkeyCaptureField", () => {
     expect(onCommit).toHaveBeenCalledWith("CommandOrControl+Shift+;");
   });
 
+  it("a bare modifier press mid-chord shows NO error and keeps recording (not the unusable-key hint)", () => {
+    renderField();
+    startRecording();
+    // Cmd held down on its own — the natural first step of building a chord; no
+    // main key yet. Must NOT flash "that key can't be used".
+    pressKey({ key: "Meta", code: "MetaLeft", metaKey: true });
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(
+      screen.queryByText("That key can't be used — try a letter, number, or symbol."),
+    ).toBeNull();
+    expect(screen.queryByText("Add Cmd, Ctrl, or Alt to set a shortcut.")).toBeNull();
+    expect(screen.getByText("Press a shortcut…")).toBeTruthy(); // still recording, calm
+  });
+
   it("a modifier + an unusable main key shows the key-specific hint (not the add-a-modifier one)", () => {
     renderField();
     startRecording();

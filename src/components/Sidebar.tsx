@@ -673,8 +673,9 @@ export function Sidebar() {
       {/* D-S9/D-S10: bottom-anchored Settings row — anchored at the very bottom of
           the footer, BELOW the Unlock-Pro / "License needs attention" affordance.
           UNCONDITIONAL: opens for everyone, including unlicensed (SET-04), with NO
-          lock badge. Opens the single Settings modal on the License pane
-          (openSettings — the one Settings surface, D-S6). Native button:
+          lock badge. Opens the single Settings modal on the GENERAL pane — the
+          generic Settings landing pane (Phase 24); License-specific entry points
+          (Unlock-Pro above, deep-link) pass "license" instead. Native button:
           click/Enter/Space. */}
       <button
         type="button"
