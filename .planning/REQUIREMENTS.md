@@ -102,11 +102,11 @@ A native macOS Settings/Preferences surface (promotes backlog 999.9; absorbs 999
 | LIC-02 | Phase 19 | 19-03, 19-04 | Complete |
 | LIC-03 | Phase 19 | 19-02, 19-04 | Complete |
 | LIC-04 | Phase 19 | 19-02, 19-03 | Complete |
-| LIC-05 | Phase 21 | — | Pending |
+| LIC-05 | Phase 21 | 21-01, 21-02 | Validated |
 | LIC-06 | Phase 19 | 19-02, 19-04 | Complete |
-| LIC-07 | Phase 21 | — | Pending |
+| LIC-07 | Phase 21 | 21-03 | Validated |
 | LIC-08 | Phase 21 | 21-03 | Complete |
-| LIC-09 | Phase 21 | — | Pending |
+| LIC-09 | Phase 21 | 21-04 | Validated |
 | PAY-01 | Phase 20 | 20-01 | Done |
 | PAY-02 | Phase 20 | 20-02 | Done |
 | PAY-03 | Phase 20 | 20-02 | Done |

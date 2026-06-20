@@ -92,8 +92,8 @@ One-time-payment lifetime license: MoR checkout → webhook → Keygen (perpetua
 
 - [x] **Phase 18: Entitlements Seam & Central Gate** - Pure-frontend entitlement gating (registry + app-level) with lock badges + upsell panel; lazy registry loaders; everything-unlocked in-Tauri default until licensing lands (completed 2026-06-10)
 - [x] **Phase 19: License Activation & Offline Verification** - Keygen Rust core: paste-key activation, fingerprint, Ed25519 offline launch verify, Keychain storage, fail-closed; includes the key→token exchange SPIKE (completed 2026-06-12)
-- [ ] **Phase 20: Purchase Pipeline** - MoR checkout (Lemon Squeezy default) → webhook backend → Keygen license creation → key emailed; privileged tokens server-side only (parallel-capable with Phase 19)
-- [ ] **Phase 21: License Lifecycle & Ship Gate** - TTL refresh + offline grace, self-serve transfer, revocation propagation, license status UI; flip the free-tier default live; full 8-case ship-gate matrix
+- [x] **Phase 20: Purchase Pipeline** - MoR checkout (Lemon Squeezy default) → webhook backend → Keygen license creation → key emailed; privileged tokens server-side only (parallel-capable with Phase 19) — **COMPLETE** (PAY-01/02/03 Done; prod CE live on `license.tinkerdev.io`; the one pending gate — a live LS purchase — was proven end-to-end **2026-06-17** (real order 8722394))
+- [x] **Phase 21: License Lifecycle & Ship Gate** - TTL refresh + offline grace, self-serve transfer, revocation propagation, license status UI; flip the free-tier default live; full 8-case ship-gate matrix — **COMPLETE** (code 5/5 verified; live walkthrough + ship-gate live cases 1/2/7/8 run + passed by the user; LIC-05/07/08/09 closed)
 
 ### 🚧 v1.7 Settings & Preferences (Phases 22–25) — IN PROGRESS
 
@@ -160,7 +160,7 @@ Plans:
 Plans:
 - [x] 20-01-PLAN.md — Buy-CTA opener seam (https-scoped) + UpsellPanel wiring + config.rs cfg(debug_assertions) prod/dev constant switch + dist-grep + Buy e2e (PAY-01, D-52/D-67/D-68; autonomous, wave 1) ✓ 2026-06-13 (PAY-01 Validated; e2e wave-merge gate blocked by a pre-existing shared dev-toggle flake — deferred-items.md)
 - [x] 20-02-PLAN.md — TypeScript/Node webhook backend: LS order_created signature verify + Keygen idempotent license create (metadata.orderId, pro.theming/pro.ordering) + Resend key email; TDD, joins the vitest/tsc/eslint gate (PAY-02/PAY-03; autonomous, wave 1)
-- [ ] 20-03-PLAN.md — Production CE bring-up: committed infra/keygen/ (real-ACME Caddy + webhook container + swap + idempotent setup) + human RUNBOOK (VPS/DNS/LS/Resend/secrets) + real prod constants + live D-63 purchase + grep-clean (PAY-01/02/03; NOT autonomous, wave 2)
+- [x] 20-03-PLAN.md — Production CE bring-up: committed infra/keygen/ (real-ACME Caddy + webhook container + swap + idempotent setup) + human RUNBOOK (VPS/DNS/LS/Resend/secrets) + real prod constants + live D-63 purchase + grep-clean (PAY-01/02/03; NOT autonomous, wave 2) — DONE; live purchase proven 2026-06-17 (order 8722394)
 **UI hint**: yes
 
 ### Phase 21: License Lifecycle & Ship Gate
@@ -179,8 +179,8 @@ Plans:
 - [x] 21-01-PLAN.md — Expiry-aware resolve_status: OfflineGrace + RefreshNeeded states, TTL/grace/poll consts, needs_refresh helper (LIC-05; D-73/74/75; TDD, wave 1) — DONE 2026-06-14 (cargo license:: 66/66)
 - [x] 21-02-PLAN.md — Background refresh scheduler (launch + 24h poll, online + needs_refresh gated, silent) + 5-state TS payload mirror (LIC-05; D-76/77; wave 2) — DONE 2026-06-14 (cargo license:: 69/69, vitest 893/893; tokio time-feature dep)
 - [x] 21-03-PLAN.md — Transfer/revocation surface: webhook email-embed (D-89) + verify.rs email + maskedKey payload + revocation tests + infra/ seat-release helper (LIC-07/08; D-78..82/89/81; wave 3) — DONE 2026-06-14 (cargo license:: 81/81, vitest 895/895; D-79 + revocation pinned by cargo tests; release-seat.sh committed)
-- [ ] 21-04-PLAN.md — D-85 live free-tier flip + #/settings/license status route + confirm-first deactivate + drop notice + footer/palette routing + real-WKWebView e2e (LIC-09/05/07/08; D-83..88; NOT autonomous, wave 4)
-- [ ] 21-05-PLAN.md — 8-case ship-gate matrix on a fresh prod build (D-90; gated on Phase 20 completion for the live cases 1/2/7/8; NOT autonomous, wave 5)
+- [x] 21-04-PLAN.md — D-85 live free-tier flip + #/settings/license status route + confirm-first deactivate + drop notice + footer/palette routing + real-WKWebView e2e (LIC-09/05/07/08; D-83..88; NOT autonomous, wave 4) — DONE; live walkthrough passed
+- [x] 21-05-PLAN.md — 8-case ship-gate matrix on a fresh prod build (D-90; gated on Phase 20 completion for the live cases 1/2/7/8; NOT autonomous, wave 5) — DONE; live cases 1/2/7/8 run + passed against prod CE
 **UI hint**: yes
 
 ## Phase Details (v1.7)
@@ -312,10 +312,10 @@ v1.7 runs 22 → 23 → 24 → 25 (started non-destructively while v1.6 is in fi
 | 17. Pinned sidebar section | v1.5 | 2/2 | Complete    | 2026-06-07 |
 | 18. Entitlements Seam & Central Gate | v1.6 | 4/4 | Complete    | 2026-06-10 |
 | 19. License Activation & Offline Verification | v1.6 | 4/4 | Complete    | 2026-06-12 |
-| 20. Purchase Pipeline | v1.6 | 2/3 | In progress | PAY-01/02/03 |
-| 21. License Lifecycle & Ship Gate | v1.6 | 3/5 | In Progress|  |
+| 20. Purchase Pipeline | v1.6 | 3/3 | Complete | PAY-01/02/03 Done; live purchase 2026-06-17 |
+| 21. License Lifecycle & Ship Gate | v1.6 | 5/5 | Complete | 2026-06-17 (live walkthrough + ship-gate cases 1/2/7/8 passed; LIC-05/07/08/09 closed) |
 | 22. Settings Modal Shell, Entry Points & License Pane | v1.7 | 3/3 | Complete    | 2026-06-15 |
-| 22.1 Settings Follow-ups | v1.7 | 1/2 | In progress | Plan 02 done (inline License upsell, SET-06); Plan 01 paused at native-menu human checkpoint |
+| 22.1 Settings Follow-ups | v1.7 | 2/2 | Complete | 2026-06-16 (verification passed 6/6; app-menu name + inline License upsell) |
 | 23. Appearance Pane | v1.7 | 4/4 | Complete    | 2026-06-17 |
 | 24. Hotkeys & General Panes | v1.7 | 4/4 | Complete | SET-08 + SET-09 validated 2026-06-19 |
 | 25. Updates Pane & Milestone Ship | v1.7 | 0/? | Not started | - |
