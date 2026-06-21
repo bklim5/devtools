@@ -284,7 +284,7 @@ Plans:
 **Plans**: 5 plans (planned 2026-06-21)
 
 Plans:
-- [ ] 25-01-PLAN.md — Add `app.getVersion()` to the platform seam (index/tauri/browser/stub) for the version readout (wave 1, autonomous)
+- [x] 25-01-PLAN.md — Add `app.getVersion()` to the platform seam (index/tauri/browser/stub) for the version readout (wave 1, autonomous) ✓ 2026-06-21 (vitest 1168/1168, decoder untouched; `9cda4837`/`7d577bba`)
 - [ ] 25-02-PLAN.md — Add `lastUpdateCheck` prefs field + coercer + single-writer setter (wave 1, autonomous)
 - [ ] 25-03-PLAN.md — Lift updater state into a shared `useUpdater` singleton + stamp `lastUpdateCheck` on every check; App.tsx consumes it (wave 2, autonomous)
 - [ ] 25-04-PLAN.md — `UpdatesSettings` pane (ungated: version + last-checked + Check + auto-check toggle, install defers to banner) + append-only `SETTINGS_PANES` entry + e2e (wave 3, autonomous)
