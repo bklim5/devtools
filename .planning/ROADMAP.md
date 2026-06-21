@@ -204,17 +204,6 @@ Plans:
 Plans:
 - [ ] TBD (promote the remaining CI track with /gsd-review-backlog or seed `/gsd-new-milestone` when ready)
 
-### Phase 999.3: Theme settings (✅ PROMOTED → v1.7 Phase 23 Appearance pane)
-
-**Status:** PROMOTED into milestone v1.7 "Settings & Preferences" as the **Appearance pane (Phase 23, SET-07)** — theme (light/dark/system) + accent, persisted via the prefs seam and applied live. Original capture below.
-
-**Goal:** [Captured for future planning] — user-facing theme/appearance settings (beyond the current theme/accent persistence), e.g. light/dark/system toggle and accent customization in a settings surface.
-**Requirements:** TBD
-**Plans:** 0 plans
-
-Plans:
-- [ ] TBD (promote with /gsd-review-backlog when ready)
-
 ### Phase 999.4: DevTools CLI (BACKLOG)
 
 **Goal:** [Captured for future planning] — let users invoke the tools from the command line, e.g. `devtools hash.sha256 xxx` to print a SHA-256 hash, `devtools base64.encode ...`, etc. Implies sharing the pure transform logic (`src/lib/`) between the GUI and a CLI entrypoint so behavior stays identical. Open questions for promotion: distribution of the CLI binary (bundled with the app vs separate), namespacing/command grammar (`tool.action`), stdin/pipe support, and how it coexists with the offline/no-network ethos (a CLI is inherently offline-friendly). The pure-logic-in-`src/lib/` separation already in place is the enabler.
@@ -279,7 +268,7 @@ Plans:
 
 ### Phase 999.10: Mac App Store distribution (BACKLOG — Apple Developer enrolment now done)
 
-**Status:** BACKLOG — **unblocked 2026-06-20: the Apple Developer Account is signed up** (this was the prerequisite that kept notarisation/App-Store deferred, see 999.2 + D-02). Direct distribution (signed DMG + Tauri auto-updater) stays the primary channel; this ADDS a second App Store channel. **Licensing decision RESOLVED 2026-06-20 (StoreKit IAP) — no longer gated; ready to promote (likely v1.8).**
+**Status:** PROMOTING → v1.8 (selected via `/gsd-review-backlog` 2026-06-21). Open the milestone with `/gsd-new-milestone` to scope APP-STORE-01.. — this entry is the seed. **Unblocked 2026-06-20: the Apple Developer Account is signed up** (the prerequisite that kept notarisation/App-Store deferred, see 999.2 + D-02). Direct distribution (signed DMG + Tauri auto-updater) stays the primary channel; this ADDS a second App Store channel. **Licensing decision RESOLVED 2026-06-20 (StoreKit IAP).**
 
 **Goal:** [Captured for future planning] — ship TinkerDev on the **Mac App Store** as a second distribution channel alongside the existing direct DMG + updater. The hard prerequisite (paid Apple Developer enrolment) is cleared; the rest is signing/sandbox/policy work.
 
