@@ -15,11 +15,18 @@
 // picks its own per-pane glyph in its entry below.
 
 import type { ComponentType, ReactNode } from "react";
-import { Contrast, Keyboard, Settings, SlidersHorizontal } from "lucide-react";
+import {
+  Contrast,
+  Keyboard,
+  RefreshCw,
+  Settings,
+  SlidersHorizontal,
+} from "lucide-react";
 import { LicenseSettings } from "./LicenseSettings";
 import { AppearanceSettings } from "./AppearanceSettings";
 import { HotkeysSettings } from "./HotkeysSettings";
 import { GeneralSettings } from "./GeneralSettings";
+import { UpdatesSettings } from "./UpdatesSettings";
 
 export interface SettingsPane {
   id: string;
@@ -46,6 +53,14 @@ export const SETTINGS_PANES: SettingsPane[] = [
     label: "Appearance",
     icon: Contrast,
     render: () => <AppearanceSettings />,
+  },
+  {
+    // Updates pane (SET-10) — ungated; every user sees it. Appended append-only
+    // (the modal shell derives 1:1 from this array, so no SettingsModal change).
+    id: "updates",
+    label: "Updates",
+    icon: RefreshCw,
+    render: () => <UpdatesSettings />,
   },
   {
     id: "license",
