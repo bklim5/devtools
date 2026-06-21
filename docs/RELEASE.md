@@ -11,9 +11,10 @@ later phase.
 > **Two independent signatures — do not conflate them:**
 > - **minisign** signs the *update payload* (`.app.tar.gz`). Mandatory, on by default, cannot be
 >   disabled. This is the DST-02 "verify before apply" backstop.
-> - **Apple Developer-ID + notarisation** signs the *app identity* for Gatekeeper (DST-01). This is
->   **DEFERRED to post-enrolment (D-02)** — the current builds are ad-hoc (`signingIdentity: "-"`).
->   Ad-hoc Gatekeeper friction on first install is **expected and acceptable** this milestone.
+> - **Apple Developer-ID + notarisation** signs the *app identity* for Gatekeeper (DST-01). **LIVE
+>   since 2026-06-21** (Apple enrolment done, D-02 resolved): release builds are Developer-ID-signed +
+>   notarised + stapled when the `APPLE_*` env is set (Team ID `FK4HQK83WX`). Without that env (dev
+>   builds), signing stays ad-hoc (`signingIdentity: "-"`) — fast, but no Gatekeeper guarantee.
 
 ---
 
@@ -101,8 +102,9 @@ export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="<the password for ~/.tauri/devtools.k
 - If `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` is wrong or unset, `tauri build` fails to produce the
   `.sig` (password-protected key cannot be decrypted) — that is the gate working, not a bug.
 
-> **Post-enrolment (Apple Developer-ID + notarisation) — see § "Post-enrolment notarisation flip"
-> below.** For this milestone, do NOT set the `APPLE_*` vars; ad-hoc signing is the path.
+> **Apple Developer-ID + notarisation is LIVE — see § "Post-enrolment notarisation flip" below.**
+> Set the `APPLE_*` notary env for release builds to produce a Gatekeeper-clean, notarised DMG.
+> Omit it for dev builds (ad-hoc, fast).
 
 ---
 
@@ -237,12 +239,12 @@ host's arch and document the gap here; both-arch / universal coverage is **defer
 
 ---
 
-## Callout: Post-enrolment notarisation flip (D-02/D-03)
+## Callout: Post-enrolment notarisation flip (D-02/D-03) — ✅ DONE 2026-06-21
 
-DST-01's Gatekeeper-clean / Developer-ID notarisation clause is **DEFERRED** to after Apple Developer
-Program enrolment and is **NOT a blocker** for the current milestone. When the cert exists, the flip
-is **credentials + one config line** — no structural change (the hardened runtime + entitlements are
-already committed):
+DST-01's Gatekeeper-clean / Developer-ID notarisation is **LIVE**. Apple Developer enrolment is done,
+the **Developer ID Application** cert is installed (Team `FK4HQK83WX`), the notary API key is
+validated, and `providerShortName` is committed. The flip was **credentials + one config line** — no
+structural change (hardened runtime + entitlements were already committed). The standing procedure:
 
 1. Export the App Store Connect API key notary env (`.p8`, gitignored — D-03/D-05):
    ```bash
@@ -251,14 +253,14 @@ already committed):
    export APPLE_API_KEY_PATH="$HOME/.appstoreconnect/AuthKey_<key-id>.p8"
    export APPLE_SIGNING_IDENTITY="Developer ID Application: <Name> (<TeamID>)"
    ```
-2. Add `"providerShortName": "<TeamID>"` to `bundle.macOS` in `tauri.conf.json`.
-   (Optionally also flip `signingIdentity` from `"-"` to the Developer-ID string, or let
-   `APPLE_SIGNING_IDENTITY` override it.)
+2. `"providerShortName": "FK4HQK83WX"` is committed in `bundle.macOS` (`tauri.conf.json`).
+   `signingIdentity` stays `"-"` so dev builds remain ad-hoc/fast; `APPLE_SIGNING_IDENTITY` overrides
+   it for release builds.
 3. Rebuild: `pnpm tauri build`. **Tauri notarises automatically when the `APPLE_*` env is present.**
 4. **THEN re-verify Gatekeeper-clean install** on a clean machine (no right-click→Open needed).
 
-Until then, an ad-hoc build shows expected Gatekeeper friction on first install — right-click → Open
-to bypass. This is the accepted state for the milestone (D-02).
+A **dev** build (no `APPLE_*` env) is still ad-hoc and shows Gatekeeper friction (right-click → Open);
+that is expected for local builds. **Release** builds (env set) are notarised + Gatekeeper-clean.
 
 ---
 

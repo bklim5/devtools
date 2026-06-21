@@ -39,6 +39,7 @@
     ],
     "macOS": {
       "signingIdentity": "-",
+      "providerShortName": "FK4HQK83WX",
       "hardenedRuntime": true,
       "entitlements": "entitlements.plist",
       "minimumSystemVersion": "10.15"
