@@ -146,6 +146,22 @@ describe("useUpdater — stamp on every resolution (D-25-6)", () => {
     expect(typeof getSharedPreferences().lastUpdateCheck).toBe("number");
     expect(getUpdateStatus()).toBeNull();
   });
+
+  it("CLEAN-BASELINE: a re-check that detects an update clears a stale 'up to date' status (no contradictory toast)", async () => {
+    // First check: no update → the manual "You're up to date" toast is set (and in
+    // the real app is showing inside its 3s auto-clear window).
+    let info: UpdateInfo | null = null;
+    installPlatform({ check: async () => info });
+    await runUpdateCheck(true);
+    expect(getUpdateStatus()).toBe("You're up to date");
+
+    // Re-check now finds an update. The stale status MUST be cleared so the App
+    // overlay can't render the toast AND the UpdateBanner with contradictory copy.
+    info = SAMPLE_UPDATE;
+    await runUpdateCheck(true);
+    expect(getUpdateInfo()).toEqual(SAMPLE_UPDATE);
+    expect(getUpdateStatus()).toBeNull();
+  });
 });
 
 describe("useUpdater — load-safe stamp does NOT clobber persisted prefs (T-25-17)", () => {

@@ -83,6 +83,12 @@ export function runUpdateCheck(manual: boolean): Promise<void> {
   if (inFlight) return inFlight; // reuse the running check — one network call
   inFlight = (async () => {
     setChecking(true);
+    // Reset any stale transient status to a clean baseline for THIS check (mirrors
+    // installPendingUpdate). Without this a prior "You're up to date"/"Update check
+    // failed" toast can still be on screen (inside its 3s auto-clear window) when a
+    // re-check detects an update — the App overlay would then render that stale toast
+    // AND the UpdateBanner with contradictory copy at the same time.
+    setStatus(null);
     try {
       const result = await checkForUpdate();
       // Wait for the REAL persisted blob before merging the stamp so the merge can
