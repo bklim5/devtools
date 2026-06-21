@@ -164,6 +164,36 @@ describe("useUpdater — stamp on every resolution (D-25-6)", () => {
   });
 });
 
+describe("useUpdater — stamp is SKIPPED on a failed prefs read (no clobber)", () => {
+  it("a degraded read (store.get rejects → fail-soft defaults) does NOT persist defaults+stamp", async () => {
+    // loadPreferences catches a read failure and returns DEFAULT_PREFERENCES. If the
+    // stamp wrote through that fallback, savePreferences would overwrite the user's
+    // real on-disk blob with defaults+timestamp — a transient read failure becoming
+    // permanent preference loss (Codex adversarial finding). The stamp must be gated
+    // on a SUCCESSFUL load.
+    const setSpy = vi.fn();
+    const failingStore: Store = {
+      get() {
+        return Promise.reject(new Error("store read failed"));
+      },
+      set(key, value) {
+        setSpy(key, value);
+        return Promise.resolve();
+      },
+    };
+    installPlatform({ check: async () => null, store: failingStore });
+
+    await runUpdateCheck(true);
+
+    // The check itself ran and surfaced its manual status...
+    expect(getUpdateStatus()).toBe("You're up to date");
+    // ...but the stamp was skipped: NO write of defaults+stamp to the store, and
+    // lastUpdateCheck stays at its (un-loaded) default — the real blob is untouched.
+    expect(setSpy).not.toHaveBeenCalled();
+    expect(getSharedPreferences().lastUpdateCheck).toBeNull();
+  });
+});
+
 describe("useUpdater — load-safe stamp does NOT clobber persisted prefs (T-25-17)", () => {
   it("a stamp fired before a DELAYED non-default load preserves the real theme/pins", async () => {
     // Back the store with a DELAYED get that returns a NON-DEFAULT blob only after

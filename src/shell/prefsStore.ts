@@ -206,16 +206,29 @@ export function mergePreferences(stored: unknown): Preferences {
 // later writes hit prefs.json on disk — reads and writes land in different
 // backings and last-used never restores in the packaged app.
 
-/** Load + validate the prefs blob from the store seam. Never throws: a
- *  corrupt/absent value degrades to DEFAULT_PREFERENCES. */
-export async function loadPreferences(): Promise<Preferences> {
+/** Load + validate the prefs blob from the store seam, reporting whether the
+ *  value actually came from a successful store read (`ok: true`) or is the
+ *  fail-soft fallback after a read/init error (`ok: false`). Callers that PERSIST
+ *  must distinguish these: writing the blob back when `ok` is false would overwrite
+ *  the user's real on-disk prefs with DEFAULT_PREFERENCES (a transient read failure
+ *  must never become permanent preference loss). Never throws. */
+export async function loadPreferencesResult(): Promise<{
+  prefs: Preferences;
+  ok: boolean;
+}> {
   try {
     const { store } = await initPlatform();
     const stored = await store.get(PREFERENCES_STORE_KEY);
-    return mergePreferences(stored);
+    return { prefs: mergePreferences(stored), ok: true };
   } catch {
-    return { ...DEFAULT_PREFERENCES, recentToolIds: [] };
+    return { prefs: { ...DEFAULT_PREFERENCES, recentToolIds: [] }, ok: false };
   }
+}
+
+/** Load + validate the prefs blob from the store seam. Never throws: a
+ *  corrupt/absent value degrades to DEFAULT_PREFERENCES. */
+export async function loadPreferences(): Promise<Preferences> {
+  return (await loadPreferencesResult()).prefs;
 }
 
 /** Persist the whole prefs blob through the store seam (single set per change,

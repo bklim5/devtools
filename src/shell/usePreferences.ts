@@ -15,7 +15,7 @@ import {
   type ProtobufTreeStyle,
   type ThemeName,
 } from "./preferences";
-import { loadPreferences, savePreferences } from "./prefsStore";
+import { loadPreferencesResult, savePreferences } from "./prefsStore";
 
 // --- Cross-instance shared prefs store (Rule 1 fix, Phase 23-03) -------------
 //
@@ -28,6 +28,11 @@ import { loadPreferences, savePreferences } from "./prefsStore";
 // settingsStore / the entitlements store. The public hook API is unchanged.
 let sharedPrefs: Preferences = DEFAULT_PREFERENCES;
 let sharedLoaded = false;
+// True only when sharedPrefs came from a SUCCESSFUL persisted store read (not the
+// fail-soft DEFAULT fallback after a read/init error). Auto-writers that fire near
+// launch (the updater lastUpdateCheck stamp) gate on this so a transient read
+// failure can never persist DEFAULT_PREFERENCES over the user's real on-disk blob.
+let sharedLoadOk = false;
 let loadStarted = false;
 // True once ANY setter has written — the async mount-load must not clobber a
 // value the user already changed (Pitfall 3 timing).
@@ -70,6 +75,13 @@ export function getPreferencesLoaded(): boolean {
   return sharedLoaded;
 }
 
+/** True once the mount-load resolved AND it came from a successful persisted read
+ *  (not the DEFAULT fallback after a store/init error). Auto-writers gate persisting
+ *  on this so a transient read failure never clobbers the real on-disk blob. */
+export function getPreferencesLoadOk(): boolean {
+  return sharedLoadOk;
+}
+
 /** Subscribe to shared-prefs changes; returns an unsubscribe fn. */
 export function subscribePreferences(fn: () => void): () => void {
   listeners.add(fn);
@@ -85,8 +97,9 @@ export function subscribePreferences(fn: () => void): () => void {
 export function ensurePreferencesLoaded(): void {
   if (loadStarted) return;
   loadStarted = true;
-  void loadPreferences().then((loaded) => {
-    if (!dirty) sharedPrefs = loaded;
+  void loadPreferencesResult().then(({ prefs, ok }) => {
+    if (!dirty) sharedPrefs = prefs;
+    sharedLoadOk = ok;
     sharedLoaded = true;
     notify();
   });
@@ -133,6 +146,7 @@ export function updatePreferences(patch: Partial<Preferences>): void {
 export function resetPreferencesForTest(): void {
   sharedPrefs = DEFAULT_PREFERENCES;
   sharedLoaded = false;
+  sharedLoadOk = false;
   loadStarted = false;
   dirty = false;
   listeners.clear();

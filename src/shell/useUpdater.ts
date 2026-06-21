@@ -22,7 +22,11 @@
 
 import { useEffect, useState } from "react";
 import { checkForUpdate, installUpdate } from "./update";
-import { updatePreferences, whenPreferencesLoaded } from "./usePreferences";
+import {
+  getPreferencesLoadOk,
+  updatePreferences,
+  whenPreferencesLoaded,
+} from "./usePreferences";
 import type { UpdateInfo } from "@/lib/platform";
 
 // --- Module singleton: the single source of updater UX state -----------------
@@ -95,7 +99,14 @@ export function runUpdateCheck(manual: boolean): Promise<void> {
       // never clobber the user's theme/pins/license with DEFAULT_PREFERENCES during
       // the async-init race (T-25-17). updatePreferences is the single-writer fn.
       await whenPreferencesLoaded();
-      updatePreferences({ lastUpdateCheck: Date.now() }); // every check, single writer
+      // Only stamp when the load came from a SUCCESSFUL store read. If the read
+      // failed and degraded to DEFAULT_PREFERENCES (loadPreferences' fail-soft
+      // catch), persisting now would write defaults+stamp over the user's real
+      // on-disk prefs — a transient read failure must never become permanent data
+      // loss. Skipping the stamp just leaves "Last checked" at its prior value.
+      if (getPreferencesLoadOk()) {
+        updatePreferences({ lastUpdateCheck: Date.now() }); // every check, single writer
+      }
       if (result.kind === "update") {
         setUpdateInfo(result.info); // re-show the banner on every detection (D-11c)
       } else if (manual && result.kind === "current") {
