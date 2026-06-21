@@ -219,6 +219,27 @@ export function hasAppleIdNotaryEnv(env: ProcessEnv): boolean {
 }
 
 /**
+ * True when notarisation is configured (the API-key set is present, so `tauri build`
+ * will submit the `.app` to Apple) but the build has NO Developer ID signing identity
+ * — `APPLE_SIGNING_IDENTITY` is unset AND `tauri.conf.json`'s `bundle.macOS.signingIdentity`
+ * is the ad-hoc `"-"` (or absent). In that state the binary is signed ad-hoc and
+ * notarisation REJECTS it ("The binary is not signed with a valid Developer ID
+ * certificate" + "no secure timestamp") ~15 min into the build. The preflight uses
+ * this to FAIL CLOSED before the build. `confSigningIdentity` is the value the driver
+ * reads from tauri.conf (pure: the helper decides, the driver supplies the string).
+ * Boolean only — never echoes the identity.
+ */
+export function notarizeNeedsSigningIdentity(
+  env: ProcessEnv,
+  confSigningIdentity: string | null | undefined,
+): boolean {
+  if (!hasNotaryApiKeyEnv(env)) return false; // not notarising → ad-hoc is fine
+  const conf = (confSigningIdentity ?? "").trim();
+  const hasDeveloperId = !!env.APPLE_SIGNING_IDENTITY || (conf !== "" && conf !== "-");
+  return !hasDeveloperId;
+}
+
+/**
  * Build the `xcrun notarytool submit` argv for notarising the DMG. Tauri notarises
  * only the `.app` inside the bundle, leaving the DMG Developer-ID-signed but
  * UNNOTARISED — so a downloaded DMG is Gatekeeper-rejected ("Apple cannot check it

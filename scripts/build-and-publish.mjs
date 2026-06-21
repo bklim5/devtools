@@ -64,6 +64,7 @@ import {
   hasNotaryApiKeyEnv,
   someNotaryApiKeyEnv,
   hasAppleIdNotaryEnv,
+  notarizeNeedsSigningIdentity,
   shouldMaterializeSigningKey,
   notarizeDmgArgs,
   buildPublishPlanView,
@@ -203,6 +204,24 @@ function preflights(view) {
   ) {
     abort(
       "Apple notarisation is configured but the DMG-notarise step needs the COMPLETE App Store Connect API-key set (APPLE_API_KEY_PATH + APPLE_API_KEY + APPLE_API_ISSUER). The Apple-ID auth set (APPLE_ID/APPLE_PASSWORD/APPLE_TEAM_ID) is NOT supported for the DMG. Use the API-key set, or unset the Apple notary env for a sign-only/ad-hoc build.",
+    );
+  }
+
+  // 2c. Notarising REQUIRES a Developer ID signing identity. If the API-key notary
+  //     set is present but neither APPLE_SIGNING_IDENTITY nor tauri.conf
+  //     bundle.macOS.signingIdentity names a real cert (it ships ad-hoc "-"), the
+  //     build signs the binary ad-hoc and notarisation REJECTS it ~15 min in ("not
+  //     signed with a valid Developer ID certificate" + "no secure timestamp"). Fail
+  //     closed BEFORE the build (never echo the identity — boolean check only).
+  const confSigningIdentity = JSON.parse(
+    readFileSync("src-tauri/tauri.conf.json", "utf8"),
+  )?.bundle?.macOS?.signingIdentity;
+  if (notarizeNeedsSigningIdentity(process.env, confSigningIdentity)) {
+    abort(
+      "Apple notarisation is configured (API-key set present) but no Developer ID " +
+        "signing identity is set — the build would sign ad-hoc and FAIL notarisation. " +
+        'Export APPLE_SIGNING_IDENTITY (e.g. "Developer ID Application: <Name> (TEAMID)") ' +
+        "and re-run, or unset the Apple notary env for a sign-only/ad-hoc build.",
     );
   }
 

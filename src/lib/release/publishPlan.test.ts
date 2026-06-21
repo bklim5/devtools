@@ -10,6 +10,7 @@ import {
   hasNotaryApiKeyEnv,
   hasSigningEnv,
   notarizeDmgArgs,
+  notarizeNeedsSigningIdentity,
   parseLipoArchs,
   parsePublishArgs,
   renderPublishPlan,
@@ -342,6 +343,46 @@ describe("hasAppleIdNotaryEnv", () => {
     expect(
       hasAppleIdNotaryEnv({ APPLE_SIGNING_IDENTITY: "Developer ID..." }),
     ).toBe(false);
+  });
+});
+
+describe("notarizeNeedsSigningIdentity", () => {
+  const apiEnv = {
+    APPLE_API_KEY_PATH: "/home/me/.appstoreconnect/AuthKey_ABC.p8",
+    APPLE_API_KEY: "ABC123",
+    APPLE_API_ISSUER: "issuer-uuid",
+  };
+
+  it("trips when notarising but neither env nor conf names a Developer ID identity (ad-hoc '-')", () => {
+    expect(notarizeNeedsSigningIdentity(apiEnv, "-")).toBe(true);
+  });
+
+  it("trips when conf identity is absent (null/undefined) while notarising", () => {
+    expect(notarizeNeedsSigningIdentity(apiEnv, null)).toBe(true);
+    expect(notarizeNeedsSigningIdentity(apiEnv, undefined)).toBe(true);
+    expect(notarizeNeedsSigningIdentity(apiEnv, "  ")).toBe(true);
+  });
+
+  it("is satisfied by APPLE_SIGNING_IDENTITY even when conf stays ad-hoc '-'", () => {
+    expect(
+      notarizeNeedsSigningIdentity(
+        { ...apiEnv, APPLE_SIGNING_IDENTITY: "Developer ID Application: Me (TEAM)" },
+        "-",
+      ),
+    ).toBe(false);
+  });
+
+  it("is satisfied by a real conf signingIdentity even without the env var", () => {
+    expect(
+      notarizeNeedsSigningIdentity(apiEnv, "Developer ID Application: Me (TEAM)"),
+    ).toBe(false);
+  });
+
+  it("does NOT trip when not notarising (no API-key set) — ad-hoc is legitimate", () => {
+    expect(notarizeNeedsSigningIdentity({}, "-")).toBe(false);
+    expect(
+      notarizeNeedsSigningIdentity({ APPLE_API_KEY: "ABC123" }, "-"),
+    ).toBe(false); // partial key set ≠ notarising (hasNotaryApiKeyEnv false)
   });
 });
 
