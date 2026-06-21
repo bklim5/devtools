@@ -44,6 +44,15 @@ function coerceAutoUpdateCheck(value: unknown): boolean | null {
   return value === true || value === false ? value : null;
 }
 
+/** Untrusted (the user can hand-edit prefs.json): accept only a finite POSITIVE
+ *  number (epoch ms); everything else — non-number, NaN, Infinity, <= 0 — → null
+ *  ("never checked"). Mirrors coerceAutoUpdateCheck's untrusted discipline. */
+function coerceLastUpdateCheck(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value > 0
+    ? value
+    : null;
+}
+
 /** True under vitest or a dev build — never in a production bundle. Mirrors the
  *  guard in src/lib/entitlements/store.ts (setEntitlementsForTest). */
 function isTestOrDev(): boolean {
@@ -180,6 +189,7 @@ export function mergePreferences(stored: unknown): Preferences {
     pinnedToolIds: coercePinnedToolIds(blob.pinnedToolIds),
     protobufTreeStyle: coerceTreeStyle(blob.protobufTreeStyle),
     autoUpdateCheck: coerceAutoUpdateCheck(blob.autoUpdateCheck),
+    lastUpdateCheck: coerceLastUpdateCheck(blob.lastUpdateCheck),
     entitlementsOverride: coerceEntitlementsOverride(blob.entitlementsOverride),
     licenseDropNoticeAck: coerceLicenseDropNoticeAck(blob.licenseDropNoticeAck),
     summonChord: coerceSummonChord(blob.summonChord),

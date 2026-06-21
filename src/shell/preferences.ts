@@ -45,6 +45,11 @@ export interface Preferences {
    *  prompt on first launch); true = silent check at launch; false = no automatic
    *  network call ever. A manual check is always available regardless. */
   autoUpdateCheck: boolean | null;
+  /** Epoch-ms timestamp of the last COMPLETED update check (D-25-6), stamped on
+   *  every check resolution (manual pane, tray, silent launch). null = never
+   *  checked (renders "Never"). UNTRUSTED (hand-editable): a non-finite / non-positive
+   *  / non-number value coerces to null. */
+  lastUpdateCheck: number | null;
   /** Dev/test entitlement override (D-31). "free" forces the free-tier set
    *  through the central gate in ANY build — downgrade-only, the prod invariant
    *  (T-18-10/T-21-15). "full" is DEV-ONLY: it grants Pro under
@@ -93,6 +98,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   pinnedToolIds: [],
   protobufTreeStyle: "cards",
   autoUpdateCheck: null,
+  lastUpdateCheck: null,
   entitlementsOverride: null,
   licenseDropNoticeAck: true,
   // Same value as SUMMON_CHORD (summon.ts) — the single shipped default chord.
