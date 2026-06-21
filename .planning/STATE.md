@@ -1,26 +1,28 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.7
-milestone_name: Settings & Preferences
-status: complete
-last_updated: "2026-06-21T23:00:00.000Z"
-last_activity: 2026-06-21 -- v1.6 + v1.7 milestones archived
+milestone: v1.8
+milestone_name: Mac App Store Distribution
+status: defining-requirements
+last_updated: "2026-06-21T23:30:00.000Z"
+last_activity: 2026-06-21 -- Milestone v1.8 started (defining requirements)
 progress:
-  total_phases: 17
-  completed_phases: 9
-  total_plans: 38
-  completed_plans: 38
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Current Position
 
-Milestone: **v1.6 "Licensing" (Phases 18–21) + v1.7 "Settings" (Phases 22–25) — BOTH SHIPPED & ARCHIVED 2026-06-21.** v1.6 shipped 2026-06-17 (live purchases + ship-gate); v1.7 shipped as app v0.4.1. Both archived to `.planning/milestones/v1.{6,7}-{ROADMAP,REQUIREMENTS}.md`; tags `v1.6`/`v1.7` (local-only). `REQUIREMENTS.md` deleted (fresh one created by the next `/gsd-new-milestone`).
-Phase: none active — between milestones.
-Plan: none active.
-Status: **No active milestone.** Next: `/gsd-new-milestone` (or `/gsd-review-backlog` to promote a 999.x backlog item). Last shipped phase: 25 (SET-10 Validated, app v0.4.1).
+Milestone: **v1.8 "Mac App Store Distribution" — STARTED 2026-06-21 (defining requirements).** Promotes backlog 999.10. Scope = the App Store target ONLY (StoreKit IAP + App Sandbox + SMAppService login-item + the build-variant seam + App Store Connect submission); direct-channel Developer-ID notarisation is already shipped (v0.4.1) and out of scope. Continues phase numbering from Phase 25 → first phase is **Phase 26**.
+Phase: Not started (defining requirements).
+Plan: —
+Status: Defining requirements. Next after roadmap: `/gsd-discuss-phase 26` (or `/gsd-plan-phase 26`).
+
+**Prior milestones (shipped & archived 2026-06-21):** v1.6 "Licensing" (Phases 18–21, shipped 2026-06-17 — live purchases + ship-gate) + v1.7 "Settings & Preferences" (Phases 22–25, shipped as app v0.4.1). Both archived to `.planning/milestones/v1.{6,7}-{ROADMAP,REQUIREMENTS}.md`; tags `v1.6`/`v1.7` local-only. Accumulated context below.
 
 **Phase 25 COMPLETE (2026-06-21, Updates pane + v1.7 milestone close — SET-10 Validated, human-approved):** the Settings ▸ Updates pane (ungated, D-25-1) shows the running version via the new `platform.app.getVersion()` seam (25-01), "Last checked" from the new `lastUpdateCheck` epoch-ms pref (25-02), a Check-for-updates button + an **Install button** — both second entry points to the ONE shared `useUpdater` singleton (25-03; de-duped check AND install behind in-flight promises, load-safe `lastUpdateCheck` stamp) that App.tsx now consumes (no divergent direct path). Pane + registry append (25-04, `SettingsModal` byte-unchanged). **D-25-5 REVISED at the human checkpoint:** the pane now offers Install (not status-only) — a second entry point to the shared `install()`, banner stays as the ambient affordance. Harness fixes folded in at the gate: clear stale updater status per check (no contradictory toast); **gate the stamp on a successful prefs load** (codex HIGH — a failed read returning defaults must not persist defaults over the real blob); install in-flight de-dupe (two on-screen install affordances); + two test-stability fixes (async aria-checked flip in the Updates e2e; widened the lazy-route findByLabelText timeout under full-suite load). Gates: **vitest 1200/1200** (stable across 3 runs), tsc + eslint clean, real-WKWebView e2e **24/24 spec files**, `gsd-ui-review` WCAG-AA **PASS 23/24** (no blocking, `25-UI-REVIEW.md`), decoder + 19 tests byte-for-byte untouched across the phase committed history (`9ee48366..HEAD`), fresh non-stale **0.4.0** `tauri build` (TinkerDev.app + DMG). **Human walkthrough APPROVED 2026-06-21** incl. the real update-available + Install round-trip against the live endpoint (a throwaway 0.3.9 build → fetched/verified/relaunched the genuine published 0.4.0). Summaries: `25-0{1..5}-SUMMARY.md`; verification: `25-VERIFICATION.md`.
 
