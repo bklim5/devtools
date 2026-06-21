@@ -412,3 +412,29 @@ describe("platform seam — license (LIC-01..04)", () => {
     expect(activate).toHaveBeenCalledWith("KEY-1");
   });
 });
+
+// SET-10 / D-25-2: the seam's app-metadata capability. Outside Tauri (jsdom) it
+// MUST resolve a safe fallback string with NO native call so tests + `vite
+// preview` never touch the runtime, and the `platform` accessor MUST forward
+// app.getVersion() to the ACTIVE impl (getter wiring, not a snapshot) so the
+// Updates pane (Plan 04) reads the real version in the packaged app.
+describe("platform seam — app.getVersion (SET-10)", () => {
+  it("browser fallback app.getVersion resolves a non-empty string with no native call (Test 16)", async () => {
+    setPlatformForTest(browserPlatform);
+    const v = await platform.app.getVersion();
+    expect(typeof v).toBe("string");
+    expect(v.length).toBeGreaterThan(0);
+  });
+
+  it("accessor delegates app.getVersion to the active injected impl (Test 17)", async () => {
+    // Spread the shared factory and override ONLY the app arm so the delegate is
+    // proven to read the active impl (not a snapshot) — the sentinel can only
+    // surface if `platform.app` forwards to the injected stub.
+    const stub: Platform = {
+      ...browserPlatform,
+      app: { getVersion: vi.fn().mockResolvedValue("9.9.9-fixture") },
+    };
+    setPlatformForTest(stub);
+    await expect(platform.app.getVersion()).resolves.toBe("9.9.9-fixture");
+  });
+});
