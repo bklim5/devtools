@@ -175,6 +175,113 @@ function pressPaletteKey(key: string): Promise<void> {
   }, key);
 }
 
+// --- Updates pane (SET-10) helpers ------------------------------------------
+
+/** Open the Settings modal (deep-link) then click the "Updates" pane-nav button,
+ *  asserting aria-current lands on it (the real keyboard-reachable nav, mirroring
+ *  the Appearance-pane pattern). */
+async function openUpdatesPane(): Promise<void> {
+  await openLicenseDeepLink();
+  await browser.waitUntil(async () => settingsModalOpen(), {
+    timeout: 10_000,
+    timeoutMsg: "expected the Settings modal to open from the #/settings/license deep-link",
+  });
+  await browser.execute(() => {
+    const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
+    const btn = Array.from(dialog?.querySelectorAll("nav button") ?? []).find(
+      (b) => (b.textContent ?? "").trim() === "Updates",
+    ) as HTMLElement | undefined;
+    btn?.click();
+  });
+  await browser.waitUntil(
+    async () =>
+      browser.execute(() => {
+        const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
+        const current = dialog?.querySelector('[aria-current="page"]');
+        return (current?.textContent ?? "").includes("Updates");
+      }),
+    {
+      timeout: 5_000,
+      timeoutMsg: 'expected the Updates pane nav button to carry aria-current="page"',
+    },
+  );
+}
+
+/** The Updates pane's version line text ("TinkerDev v…"), or null when absent. */
+function updatesVersionText(): Promise<string | null> {
+  return browser.execute(() => {
+    const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
+    const node = Array.from(dialog?.querySelectorAll("span") ?? []).find((s) =>
+      (s.textContent ?? "").startsWith("TinkerDev v"),
+    );
+    return node ? (node.textContent ?? "").trim() : null;
+  });
+}
+
+/** The Updates pane's "Last checked:" line text, or null when absent. */
+function lastCheckedText(): Promise<string | null> {
+  return browser.execute(() => {
+    const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
+    const node = Array.from(dialog?.querySelectorAll("span") ?? []).find((s) =>
+      (s.textContent ?? "").startsWith("Last checked:"),
+    );
+    return node ? (node.textContent ?? "").trim() : null;
+  });
+}
+
+/** Click the "Check for updates" button inside the dialog. */
+function clickCheckForUpdates(): Promise<void> {
+  return browser.execute(() => {
+    const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
+    const btn = Array.from(dialog?.querySelectorAll("button") ?? []).find(
+      (b) => (b.textContent ?? "").trim() === "Check for updates",
+    ) as HTMLElement | undefined;
+    btn?.click();
+  });
+}
+
+/** The Updates pane's polite live-region result text (empty when idle). */
+function checkResultText(): Promise<string> {
+  return browser.execute(() => {
+    const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
+    const region = dialog?.querySelector('[role="status"][aria-live="polite"]:not(.sr-only)');
+    return (region?.textContent ?? "").trim();
+  });
+}
+
+/** Whether the auto-check toggle reads on (aria-checked="true"). */
+function autoCheckToggleChecked(): Promise<boolean> {
+  return browser.execute(() => {
+    const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
+    const sw = Array.from(dialog?.querySelectorAll('[role="switch"]') ?? []).find(
+      (b) =>
+        (b.getAttribute("aria-label") ?? "").includes(
+          "Automatically check for updates on launch",
+        ),
+    );
+    return sw?.getAttribute("aria-checked") === "true";
+  });
+}
+
+/** Keyboard-operate the auto-check toggle: focus it + dispatch a Space keydown +
+ *  click (the role=switch native button responds to click; this also proves it is
+ *  focusable/keyboard-reachable). Returns the new aria-checked value. */
+function toggleAutoCheckByKeyboard(): Promise<boolean | null> {
+  return browser.execute(() => {
+    const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
+    const sw = Array.from(dialog?.querySelectorAll('[role="switch"]') ?? []).find((b) =>
+      (b.getAttribute("aria-label") ?? "").includes(
+        "Automatically check for updates on launch",
+      ),
+    ) as HTMLElement | null;
+    if (!sw) return null;
+    sw.focus();
+    const focused = document.activeElement === sw;
+    sw.click(); // native <button role=switch> click = the keyboard-activatable path
+    return focused ? sw.getAttribute("aria-checked") === "true" : null;
+  });
+}
+
 describe("Settings modal shell (real WKWebView)", () => {
   it("the #/settings/license deep-link mounts the aria-modal Settings dialog on the License pane, dismissible by Escape (SET-04/05/06)", async () => {
     // Land on a deterministic tool so the shell is mounted.
@@ -359,6 +466,82 @@ describe("Settings modal shell (real WKWebView)", () => {
         }
       } catch (cleanupError) {
         console.error("[settings] ⌘K cleanup failed:", cleanupError);
+      }
+    }
+  });
+});
+
+// Updates pane (SET-10, D-25-1/4/5/7/8) — the real-WKWebView gate for the pane's
+// render + keyboard reach. The lastUpdateCheck PERSISTENCE-across-restart + the
+// toggle-survives-restart checks are the Plan 05 human walkthrough (WebDriver can't
+// restart the packaged app between assertions — memory tauri-store-async-init-race).
+// The e2e-spike preflight wipes prefs.json to a deterministic FREE baseline, so the
+// pane starts with lastUpdateCheck=null ("Never") and autoUpdateCheck=null (off).
+describe("Settings ▸ Updates pane (real WKWebView)", () => {
+  it("renders version + Never last-checked, the Check button surfaces a result, and the auto-check toggle is keyboard-operable (SET-10)", async () => {
+    await navigateToTool("protobuf-decoder");
+    const firstHandle = await $('button[aria-label^="Reorder "]');
+    await firstHandle.waitForExist({ timeout: 15_000 });
+
+    try {
+      // The Updates pane is reachable via the keyboard-navigable pane nav (ungated —
+      // it opens for everyone, no Pro tier needed, D-25-1).
+      await openUpdatesPane();
+
+      // (a) A version line renders. In the packaged app this is the real
+      // tauri.conf version (semver); the dash placeholder would never satisfy
+      // "TinkerDev vX.Y.Z", so a matched semver proves getVersion() resolved.
+      await browser.waitUntil(
+        async () => /^TinkerDev v\d+\.\d+\.\d+/.test((await updatesVersionText()) ?? ""),
+        {
+          timeout: 5_000,
+          timeoutMsg: `expected a "TinkerDev vX.Y.Z" version line, got ${JSON.stringify(await updatesVersionText())}`,
+        },
+      );
+
+      // (b) "Last checked: Never" on the fresh (preflight-wiped) prefs state (D-25-7).
+      assert(
+        ((await lastCheckedText()) ?? "").includes("Never"),
+        `expected "Last checked: Never" on a fresh prefs state, got ${JSON.stringify(await lastCheckedText())}`,
+      );
+      await saveScreenshot("settings", "settings-updates-pane.png", "updates-pane");
+
+      // (c) Clicking "Check for updates" surfaces an inline result. The real
+      // updater check() resolves null (no published newer version) → the up-to-date
+      // copy appears in the polite live region (WCAG-AA, never opacity-only).
+      await clickCheckForUpdates();
+      await browser.waitUntil(
+        async () => (await checkResultText()).includes("up to date"),
+        {
+          timeout: 10_000,
+          timeoutMsg: `expected the Check button to surface an inline "up to date" result, got ${JSON.stringify(await checkResultText())}`,
+        },
+      );
+
+      // (d) The auto-check toggle is keyboard-reachable + operable: focus it +
+      // activate → aria-checked flips on (it started off on the fresh state).
+      assert(
+        (await autoCheckToggleChecked()) === false,
+        "expected the auto-check toggle to start OFF on the fresh prefs state",
+      );
+      const nowChecked = await toggleAutoCheckByKeyboard();
+      assert(
+        nowChecked === true,
+        `expected the auto-check toggle to be focusable + flip ON when activated, got ${JSON.stringify(nowChecked)}`,
+      );
+    } finally {
+      // Leave no modal open + reset the auto-check toggle so this spec leaves no
+      // prefs pollution for later specs in the WDIO run.
+      try {
+        if (await settingsModalOpen()) {
+          if (await autoCheckToggleChecked()) await toggleAutoCheckByKeyboard();
+          await dismissModal();
+          await browser.waitUntil(async () => !(await settingsModalOpen()), {
+            timeout: 5_000,
+          });
+        }
+      } catch (cleanupError) {
+        console.error("[settings] Updates pane cleanup failed:", cleanupError);
       }
     }
   });
