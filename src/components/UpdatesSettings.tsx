@@ -16,9 +16,12 @@
 //   4. An "Automatically check for updates on launch" toggle (SettingToggle) bound to
 //      autoUpdateCheck/setAutoUpdateCheck (D-25-8; tri-state null renders OFF).
 //
-// Install is NOT duplicated here — the existing UpdateBanner (App.tsx mounts on
-// detection) owns install (D-25-5). This pane shows the "vX available" STATUS only,
-// no Install button.
+// Install IS offered here (D-25-5, revised at the Phase-25 human checkpoint): when an
+// update is detected the pane shows an Install button as a SECOND entry point to the
+// SAME shared install() action (mirrors how Check is a second entry point to the same
+// check). Because useUpdater (D-25-3) is the one source of install state, the pane
+// button and the bottom-right UpdateBanner share `installing`/`progress` — they can't
+// diverge. The banner stays as the ambient affordance when Settings is closed.
 //
 // The wrapper/header clone GeneralSettings verbatim (reuse over reinvention; h3 one
 // level under the dialog h2 preserves the Phase-22.1 heading order). Every token
@@ -47,7 +50,17 @@ function resultLine(
 
 export function UpdatesSettings() {
   const { preferences, setAutoUpdateCheck } = usePreferences();
-  const { updateInfo, status, checking, runCheck } = useUpdater();
+  const { updateInfo, status, checking, installing, progress, runCheck, install } =
+    useUpdater();
+
+  // Install button copy mirrors the UpdateBanner: while installing, the label
+  // carries the state (+ best-effort percent) so the in-flight signal is text,
+  // never opacity-only (WCAG-AA).
+  const installLabel = installing
+    ? typeof progress === "number"
+      ? `Installing… ${Math.round(progress)}%`
+      : "Installing…"
+    : `Install version ${updateInfo?.version ?? ""}`.trimEnd();
 
   // Read the running app version once on mount via the Plan 01 seam (never
   // the native plugin directly — FND-04). null until it resolves; the `alive` latch
@@ -127,6 +140,26 @@ export function UpdatesSettings() {
             <span className="text-[13px] text-tx-2">{result}</span>
           ) : null}
         </div>
+
+        {/* Install — a SECOND entry point to the shared install() (D-25-5 revised),
+            shown only when an update is detected. Disabled-while-installing is an
+            aria-disabled + label change (progress in text), never opacity-only. */}
+        {updateInfo ? (
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={installing ? undefined : () => void install()}
+              aria-disabled={installing}
+              className={[
+                "flex items-center gap-1.5 rounded-[7px] border border-accent-line bg-accent-soft px-4 py-2 text-[13px] font-medium text-accent outline-none transition-colors",
+                "focus-visible:ring-2 focus-visible:ring-accent",
+                installing ? "cursor-default" : "cursor-pointer hover:opacity-90",
+              ].join(" ")}
+            >
+              {installLabel}
+            </button>
+          </div>
+        ) : null}
 
         <SettingToggle
           label="Automatically check for updates on launch"

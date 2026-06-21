@@ -40,6 +40,13 @@ let progress: number | undefined = undefined;
 // nobody re-invokes checkForUpdate() (one network call). Cleared in the finally.
 let inFlight: Promise<void> | null = null;
 
+// The install de-dupe guard: install is now reachable from TWO entry points (the
+// bottom-right banner AND the Updates pane, D-25-5 revised) which can be on screen
+// at once. The `installing` flag disables both, but only after a re-render — this
+// guard makes a concurrent second trigger a no-op deterministically (mirrors the
+// check de-dupe). Cleared in the finally so a failed install can be retried.
+let installInFlight: Promise<void> | null = null;
+
 const listeners = new Set<() => void>();
 
 function notify(): void {
@@ -126,17 +133,23 @@ export function runUpdateCheck(manual: boolean): Promise<void> {
  *  handleInstall). On success the app relaunches; an install failure (signature
  *  mismatch, write error) surfaces an error status and clears progress so the
  *  banner can be retried/dismissed (T-06-12/T-06-13) — never a crash. */
-export async function installPendingUpdate(): Promise<void> {
-  setInstalling(true);
-  setStatus(null);
-  try {
-    await installUpdate((pct) => setProgress(pct));
-    // On success the app relaunches; nothing more to do here.
-  } catch {
-    setInstalling(false);
-    setProgress(undefined);
-    setStatus("Update failed to install");
-  }
+export function installPendingUpdate(): Promise<void> {
+  if (installInFlight) return installInFlight; // de-dupe concurrent banner+pane clicks
+  installInFlight = (async () => {
+    setInstalling(true);
+    setStatus(null);
+    try {
+      await installUpdate((pct) => setProgress(pct));
+      // On success the app relaunches; nothing more to do here.
+    } catch {
+      setInstalling(false);
+      setProgress(undefined);
+      setStatus("Update failed to install");
+    } finally {
+      installInFlight = null;
+    }
+  })();
+  return installInFlight;
 }
 
 /** Dismiss the detected update (clears the banner + any install progress). */
@@ -184,6 +197,7 @@ export function resetUpdaterForTest(): void {
   installing = false;
   progress = undefined;
   inFlight = null;
+  installInFlight = null;
   listeners.clear();
 }
 

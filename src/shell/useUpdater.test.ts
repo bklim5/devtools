@@ -31,6 +31,7 @@ import {
   getChecking,
   getUpdateInfo,
   getUpdateStatus,
+  installPendingUpdate,
   resetUpdaterForTest,
   runUpdateCheck,
 } from "./useUpdater";
@@ -102,6 +103,27 @@ describe("useUpdater — in-flight de-dupe (D-25-3, T-25-18)", () => {
     await runUpdateCheck(true);
     await runUpdateCheck(true);
     expect(check).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("useUpdater — install de-dupe (banner + pane, D-25-5 revised)", () => {
+  it("two concurrent install triggers fire downloadAndInstall EXACTLY once", async () => {
+    const gate = deferred<void>();
+    const downloadAndInstall = vi.fn(() => gate.promise);
+    const base = makeMemoryPlatform(createStoreStub());
+    setPlatformForTest({
+      ...base,
+      updater: { ...base.updater, downloadAndInstall },
+    });
+
+    // Banner + pane both fire install before the first settles — overlapping.
+    const a = installPendingUpdate();
+    const b = installPendingUpdate();
+    gate.resolve();
+    await Promise.all([a, b]);
+
+    // The second trigger reused the in-flight install → ONE download/install.
+    expect(downloadAndInstall).toHaveBeenCalledTimes(1);
   });
 });
 

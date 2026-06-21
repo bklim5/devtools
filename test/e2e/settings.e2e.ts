@@ -535,6 +535,54 @@ describe("Settings ▸ Updates pane (real WKWebView)", () => {
         timeout: 5_000,
         timeoutMsg: `expected the auto-check toggle to flip ON after keyboard activation, got ${JSON.stringify(await autoCheckToggleChecked())}`,
       });
+
+      // (e) When an update is detected (dev-only inject — the real download/verify
+      // is Manual-Only, Plan 05), the pane offers an Install button as a SECOND
+      // entry point to the shared install() action (D-25-5 revised). Assert it
+      // renders inside the pane AND is keyboard-reachable; do NOT click it (no real
+      // artifact to download in the gate).
+      await browser.execute(() => {
+        (
+          window as unknown as {
+            __injectUpdate?: (i: {
+              version: string;
+              notes: string | null;
+              date: string | null;
+            }) => void;
+          }
+        ).__injectUpdate?.({ version: "9.9.9", notes: "e2e", date: null });
+      });
+      const installFocusable = await browser.waitUntil(
+        async () =>
+          browser.execute(() => {
+            const dialog = document.querySelector(
+              '[role="dialog"][aria-modal="true"]',
+            );
+            const btn = Array.from(
+              dialog?.querySelectorAll("button") ?? [],
+            ).find((b) =>
+              (b.textContent ?? "").includes("Install version 9.9.9"),
+            ) as HTMLElement | undefined;
+            if (!btn) return false;
+            btn.focus();
+            return document.activeElement === btn;
+          }),
+        {
+          timeout: 5_000,
+          timeoutMsg:
+            "expected a keyboard-focusable pane Install button after a detected update",
+        },
+      );
+      assert(
+        installFocusable === true,
+        "expected the pane Install button to be keyboard-focusable",
+      );
+      // Clear the injected update (also removes the bottom-right banner) so this
+      // spec leaves no updater state behind.
+      await browser.execute(() => {
+        document.getElementById("update-dismiss")?.focus();
+      });
+      await browser.keys("Enter");
     } finally {
       // Leave no modal open + reset the auto-check toggle so this spec leaves no
       // prefs pollution for later specs in the WDIO run.

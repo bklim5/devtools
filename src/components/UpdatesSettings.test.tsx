@@ -10,9 +10,11 @@
 //     copy inline (polite aria-live, WCAG-AA);
 //   • the auto-check toggle reflects autoUpdateCheck (null/false → off, true → on) and
 //     flipping writes through the single-writer seam (getSharedPreferences changes);
-//   • NO install affordance is rendered (D-25-5 — the banner owns install);
+//   • an Install button appears ONLY when an update is detected and is wired to the
+//     shared install() — a second entry point to the same action as the banner
+//     (D-25-5 revised at the Phase-25 checkpoint);
 // plus the append-only SETTINGS_PANES registry shape (Updates present, General first).
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   cleanup,
   fireEvent,
@@ -31,7 +33,7 @@ import {
   resetPreferencesForTest,
   updatePreferences,
 } from "@/shell/usePreferences";
-import { resetUpdaterForTest } from "@/shell/useUpdater";
+import { resetUpdaterForTest, setUpdateInfoForTest } from "@/shell/useUpdater";
 import { UpdatesSettings } from "./UpdatesSettings";
 import { SETTINGS_PANES } from "./settingsPanes";
 
@@ -95,9 +97,28 @@ describe("UpdatesSettings — check for updates", () => {
     );
   });
 
-  it("renders NO install affordance (the banner owns install, D-25-5)", () => {
+  it("renders NO install button until an update is detected", () => {
     render(<UpdatesSettings />);
     expect(screen.queryByRole("button", { name: /install/i })).toBeNull();
+  });
+
+  it("shows an Install button when an update is detected, wired to the shared install() (D-25-5 revised)", async () => {
+    const downloadAndInstall = vi.fn(async () => {});
+    const base = makeMemoryPlatform();
+    setPlatformForTest({
+      ...base,
+      app: { getVersion: async () => "1.2.3" },
+      updater: { ...base.updater, check: async () => null, downloadAndInstall },
+    });
+    // A detected update flows through the SAME shared singleton the banner reads.
+    setUpdateInfoForTest({ version: "9.9.9", notes: "shiny", date: "2026-06-21" });
+    render(<UpdatesSettings />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /install version 9\.9\.9/i }),
+    );
+    // The pane button is a second entry point to the ONE shared install action.
+    await waitFor(() => expect(downloadAndInstall).toHaveBeenCalledTimes(1));
   });
 });
 
