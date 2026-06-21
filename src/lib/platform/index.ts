@@ -156,6 +156,13 @@ export interface Platform {
     disable(): Promise<void>;
     isEnabled(): Promise<boolean>;
   };
+  /** App metadata (SET-10/D-25-2). getVersion() returns the packaged app version
+   *  (tauri.conf.json `version`). Reached ONLY through the seam (FND-04) — the pane
+   *  never imports @tauri-apps/*. The real arm (tauri.ts) reads Tauri's app
+   *  getVersion(); the browser/test arms return a safe fallback (no native call). */
+  app: {
+    getVersion(): Promise<string>;
+  };
 }
 
 /**
@@ -211,6 +218,9 @@ export const platform: Platform = {
   },
   get autostart() {
     return active.autostart;
+  },
+  get app() {
+    return active.app;
   },
 };
 

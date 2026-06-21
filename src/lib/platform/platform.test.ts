@@ -62,6 +62,7 @@ describe("platform seam", () => {
         disable: vi.fn().mockResolvedValue(undefined),
         isEnabled: vi.fn().mockResolvedValue(false),
       },
+      app: { getVersion: vi.fn().mockResolvedValue("0.0.0-test") },
     };
     setPlatformForTest(stub);
 
@@ -178,6 +179,7 @@ describe("platform seam — native capabilities (NAT-01)", () => {
         disable: vi.fn().mockResolvedValue(undefined),
         isEnabled: vi.fn().mockResolvedValue(false),
       },
+      app: { getVersion: vi.fn().mockResolvedValue("0.0.0-test") },
     };
     setPlatformForTest(stub);
 
@@ -253,6 +255,7 @@ describe("platform seam — auto-updater (DST-02)", () => {
         disable: vi.fn().mockResolvedValue(undefined),
         isEnabled: vi.fn().mockResolvedValue(false),
       },
+      app: { getVersion: vi.fn().mockResolvedValue("0.0.0-test") },
     };
     setPlatformForTest(stub);
 
@@ -310,6 +313,7 @@ describe("platform seam — events bind to the resolved impl (HIGH-22-01)", () =
         disable: vi.fn().mockResolvedValue(undefined),
         isEnabled: vi.fn().mockResolvedValue(false),
       },
+      app: { getVersion: vi.fn().mockResolvedValue("0.0.0-test") },
     };
     // setPlatformForTest seeds the memoised init promise with the stub, so
     // `await initPlatform()` resolves to it — mirroring how App.tsx awaits init

@@ -66,6 +66,16 @@ export const noopAutostart: Platform["autostart"] = {
   },
 };
 
+/** Shared app-metadata arm for test Platform stubs (SET-10, D-25-2): outside Tauri
+ *  there is no native version, so getVersion() resolves a deterministic test
+ *  sentinel — one source of truth so every inline literal / makeMemoryPlatform
+ *  spread satisfies the widened interface without re-drifting. */
+export const noopApp: Platform["app"] = {
+  async getVersion() {
+    return "0.0.0-test";
+  },
+};
+
 export function makeMemoryPlatform(
   store: Store = createStoreStub(),
   /** Optional license arm override (Phase 21 D-85 flip tests): drive a specific
@@ -83,5 +93,6 @@ export function makeMemoryPlatform(
     license,
     opener: noopOpener,
     autostart: noopAutostart,
+    app: noopApp,
   };
 }

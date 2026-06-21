@@ -119,4 +119,13 @@ export const browserPlatform: Platform = {
       return false;
     },
   },
+  // App version is read from the build-time env fallback outside Tauri (SET-10,
+  // D-25-2); this file must NOT import @tauri-apps/*. `VITE_APP_VERSION` is
+  // undefined unless explicitly injected, so the `0.0.0-dev` constant is the safe
+  // fallback that jsdom/vite-preview render without any native call.
+  app: {
+    async getVersion(): Promise<string> {
+      return import.meta.env.VITE_APP_VERSION ?? "0.0.0-dev";
+    },
+  },
 };
