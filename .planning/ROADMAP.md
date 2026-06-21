@@ -104,7 +104,7 @@ A native macOS Settings/Preferences surface (promotes backlog 999.9; absorbs 999
 - [x] **Phase 22.2: Pro-gate ⌘K + focused upsell modal (INSERTED)** — user-approved scope (2026-06-16): gate the ⌘K command palette behind Pro (free users get a focused Unlock-Pro modal instead of the palette) and route the contextual locked customization triggers (pin/drag/Alt+P/Reset order) to that SAME focused modal rather than the full Settings ▸ License redirect. Re-introduces a thin modal wrapper over the existing shared `ActivationSurface` (one activation surface, two presentations — partially un-reverts D-22.1-5) driven by a minimal shared `upsellStore`. Gating via a new `isPro(ents)` predicate (frontend-only; existing licenses keep ⌘K immediately — no Keygen re-issue). Explicit license entry points (sidebar Settings row + Unlock-Pro footer + app-menu/tray + deep link) stay free → Settings ▸ License so a free user can still buy. Revises SET-04 (⌘K no longer opens for everyone)
 - [x] **Phase 23: Appearance Pane** (completed 2026-06-17) — theme (light/dark — "system" dropped at user request) + accent, persisted via the prefs seam and applied live whole-app, flash-free launch, Pro gate-on-Save (absorbs backlog 999.3); SET-07. Human-approved on a fresh build after 3 walkthrough rounds (removed system, redesigned theme cards, widened upsell modal, fixed a cross-writer prefs-clobber data-loss bug)
 - [x] **Phase 24: Hotkeys & General Panes (native-touching)** — rebind the global summon hotkey (Rust global-shortcut re-register + conflict handling, promotes NAT-01/G-05-1) and the ⌘K palette chord (in-webview); General toggles (launch-at-login [autostart plugin → scoped dep exception], start-in-tray, default tool); SET-08, SET-09 — **COMPLETE 2026-06-19** (show-license-in-sidebar toggle dropped at the walkthrough per user; native summon/reveal required granting `core:window:allow-show/set-focus/unminimize`)
-- [ ] **Phase 25: Updates Pane & Milestone Ship** — version + last-checked + Check-for-updates over the existing updater seam (mirrors the tray action); milestone polish + human sign-off; SET-10
+- [x] **Phase 25: Updates Pane & Milestone Ship** — version + last-checked + Check-for-updates over the existing updater seam (mirrors the tray action); milestone polish + human sign-off; SET-10 (completed 2026-06-21)
 
 ## Phase Details (v1.6)
 
@@ -288,7 +288,7 @@ Plans:
 - [x] 25-02-PLAN.md — Add `lastUpdateCheck` prefs field + coercer + single-writer setter (wave 1, autonomous) ✓ 2026-06-21 (vitest 1178/1178, decoder untouched; `082a733a`/`69ba769d`)
 - [x] 25-03-PLAN.md — Lift updater state into a shared `useUpdater` singleton + stamp `lastUpdateCheck` on every check (load-safe, in-flight de-duped); App.tsx consumes it (wave 2, autonomous) ✓ 2026-06-21 (vitest 1188/1188, decoder untouched; `947d0707`/`32fbc542`)
 - [x] 25-04-PLAN.md — `UpdatesSettings` pane (ungated: version + last-checked + Check + auto-check toggle, install defers to banner) + append-only `SETTINGS_PANES` entry + e2e (wave 3, autonomous) ✓ 2026-06-21 (vitest 1196/1196, decoder untouched, SettingsModal byte-unchanged; `42a40860`/`25550611`)
-- [ ] 25-05-PLAN.md — Milestone-close sign-off: five-pane `gsd-ui-review` WCAG-AA audit + fresh `tauri build` human walkthrough (restart-persistence) + decoder-untouched proof (wave 4, NOT autonomous)
+- [x] 25-05-PLAN.md — Milestone-close sign-off: five-pane `gsd-ui-review` WCAG-AA audit + fresh `tauri build` human walkthrough (restart-persistence) + decoder-untouched proof (wave 4, NOT autonomous)
 **UI hint**: yes
 
 ## Progress
@@ -325,7 +325,7 @@ v1.7 runs 22 → 23 → 24 → 25 (started non-destructively while v1.6 is in fi
 | 22.1 Settings Follow-ups | v1.7 | 2/2 | Complete | 2026-06-16 (verification passed 6/6; app-menu name + inline License upsell) |
 | 23. Appearance Pane | v1.7 | 4/4 | Complete    | 2026-06-17 |
 | 24. Hotkeys & General Panes | v1.7 | 4/4 | Complete | SET-08 + SET-09 validated 2026-06-19 |
-| 25. Updates Pane & Milestone Ship | v1.7 | 4/5 | In Progress | SET-10 delivered (pending Plan 05 sign-off) |
+| 25. Updates Pane & Milestone Ship | v1.7 | 5/5 | Complete    | 2026-06-21 |
 
 ## Backlog
 
@@ -350,7 +350,7 @@ Unsequenced ideas captured for future planning. Promote with `/gsd-review-backlo
 Each candidate must still pass the product wedge: offline/no-network, paste-instant (<2s), keyboard-driven, registry-driven, WCAG-AA, and the build+verify harness.
 
 **Requirements:** TBD (remaining wishlist; Cron/URL/Regex requirements now in `.planning/REQUIREMENTS.md` for v1.3)
-**Plans:** 3/4 plans executed
+**Plans:** 5/5 plans complete
 
 Plans:
 - [ ] TBD (promote remaining wishlist with /gsd-review-backlog when ready)

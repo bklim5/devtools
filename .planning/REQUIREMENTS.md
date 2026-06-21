@@ -64,7 +64,7 @@ A native macOS Settings/Preferences surface (promotes backlog 999.9; absorbs 999
 - [x] **SET-07**: The **Appearance** pane lets the user choose theme (**light/dark** — "system" dropped at user request, 2026-06-17) and accent, persisted via the existing prefs seam and applied live (absorbs backlog 999.3). _(Validated in Phase 23: live whole-app apply via `useAppearance`, flash-free launch via the index.html pre-paint script, Pro gate-on-Save, durable single-writer persistence, WCAG-AA both themes. Human-approved on a fresh build 2026-06-17.)_
 - [x] **SET-08**: The **Hotkeys** pane lets the user view and rebind (a) the global summon hotkey (Rust global-shortcut re-register + conflict handling — promotes NAT-01/G-05-1) and (b) the ⌘K command-palette hotkey (in-webview key handler keyed off the configured chord); both persist via the prefs seam. — **VALIDATED 2026-06-19** (native walkthrough on the fresh build; required granting `core:window:allow-show/set-focus/unminimize` for summon to actually reveal the window).
 - [x] **SET-09**: The **General** pane exposes app-behavior toggles — final set: launch-at-login (autostart plugin, the scoped dep exception), start-in-tray, default tool on open. (The candidate show-license-status-in-sidebar toggle was DROPPED at the walkthrough per user — its only effect was hiding the sidebar Unlock-Pro button.) — **VALIDATED 2026-06-19**.
-- [ ] **SET-10**: The **Updates** pane shows the current version + last-checked and offers Check-for-updates, reusing the existing updater seam (mirrors the tray action).
+- [x] **SET-10**: The **Updates** pane shows the current version + last-checked and offers Check-for-updates, reusing the existing updater seam (mirrors the tray action). Also offers Install (D-25-5 revised — second entry point to the shared install()). Validated in Phase 25 (2026-06-21).
 
 ---
 
@@ -119,4 +119,4 @@ A native macOS Settings/Preferences surface (promotes backlog 999.9; absorbs 999
 | SET-07 | Phase 23 | 23-01, 23-02, 23-03, 23-04 | Validated (light/dark; "system" dropped) |
 | SET-08 | Phase 24 | 24-03/24-04 | Validated |
 | SET-09 | Phase 24 | 24-04 | Validated |
-| SET-10 | Phase 25 | — | Pending |
+| SET-10 | Phase 25 | 25-VERIFICATION.md | Validated |
