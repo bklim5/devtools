@@ -1,164 +1,173 @@
 # Project Research Summary
 
-**Project:** DevTools — milestone v1.3 "More Tools"
-**Domain:** Offline, paste-instant developer utilities in a Tauri 2 + Vite + React + TS desktop app (macOS WKWebView)
-**Researched:** 2026-06-03
-**Confidence:** HIGH
+**Project:** TinkerDev (DevTools)
+**Domain:** v1.8 "Mac App Store Distribution" — adding a sandboxed Mac App Store channel + StoreKit IAP + App Sandbox to an existing shipped Tauri 2 + Vite + React + TS macOS app
+**Researched:** 2026-06-22
+**Confidence:** HIGH (Apple rules + Tauri sandbox failure modes verified from official docs + dated GitHub issues; in-repo seams cited file:line). MEDIUM only on the StoreKit-bridge *internals* — spike-gated.
 
 ## Executive Summary
 
-v1.3 adds three new tools (Cron explainer, URL parser/encoder, Regex tester) plus a Protobuf decimal-byte-array input mode to the existing Protobuf decoder. The single most important cross-cutting finding, confirmed independently by all four research streams, is that **every feature ships with ZERO new runtime dependencies and ZERO new devDependencies.** Each maps cleanly onto a native Web/JS API already present in the WKWebView baseline: `URL`/`URLSearchParams`/`encodeURIComponent` for URL; `RegExp`/`matchAll`/`replace` for Regex; `Date` + `Intl.DateTimeFormat` for cron local-time display; and a hand-rolled `Uint8Array` parser for decimal bytes. This is the same playbook the app already shipped for the v1.1 formatters and the Unix Time tool. **`Temporal` is explicitly ruled out** — it would simplify cron DST math but it is not in the macOS WKWebView baseline (mid-2026) and a polyfill would be a forbidden new dependency.
+v1.8 adds a **second distribution channel** (Mac App Store) to an already-shipped, notarized direct-DMG app. The direct channel is OUT of scope. This is fundamentally a **build-variant + compliance** problem, not a feature problem: the same app must ship as two artifacts that differ in entitlement source (Keygen key-paste → StoreKit IAP), update mechanism (self-updater → store-delivered, compiled OUT), and security model (hardened-runtime Developer-ID → App Sandbox). The locked decisions (999.10) make this tractable — both variants resolve to the **same `pro.theming`/`pro.ordering` map through the one existing central gate**, so the webview gate, registry, and every tool consumer are byte-unchanged. The work concentrates at exactly three new seams.
 
-Architecturally the work is low-friction. The app is a mature, registry-driven three-layer pattern (pure logic in `src/lib/<domain>/` → thin React tool in `src/tools/<tool>/` → one additive registry append). Registering a tool is two additive edits with no router/sidebar wiring. The four features are independent pure-logic islands and can be built in parallel. The one important architecture nuance: **`FormatterView` is NOT reusable** here — it is hard-shaped to the formatting domain (indent/minify/sort). The new tools need bespoke layouts built on the genuinely generic primitives (`ResizableSplit`, `StatusBar`, `CopyButton`, `useCopyFeedback`, the platform seam). Two deliberate extractions are recommended: promote `FormatterView`'s private `Toggle`/`toggleClasses` to a shared component (reused by all three new tools), and add `decimalToBytes` to `src/lib/bytes.ts` alongside the existing `hexToBytes`/`base64ToBytes` family.
+The recommended approach is **one variant axis with three synchronized layers**, every one of which already has an in-repo precedent: a Rust cargo feature (`appstore`, mirrors the existing `webdriver` feature), a `tauri.appstore.conf.json` `--config` RFC-7396 overlay (sandbox entitlements, `minimumSystemVersion` 13.0, `targets:["app"]`, no updater), and a Vite `VITE_CHANNEL` define that **tree-shakes** (not hides) the Keygen surface. Bind all three in one `package.json` build script so a half-variant can't ship. The StoreKit bridge slots behind `platform/` exactly like `platform.license` (real arm in `tauri.ts` only, deterministic no-op arm for tests); the entitlement-source swap is a **single new branch in one function** (`resolveEntitlements()`). The highest-risk dependency is the StoreKit bridge itself — there is no first-class Tauri plugin; `tauri-plugin-iap@0.9.0` is a 72-star single-maintainer plugin that must be **spiked first**, with a `swift-rs` hand-rolled bridge as the fallback (same seam shape either way).
 
-Risk is highly concentrated. **URL and Protobuf-decimal are low-risk** (thin views over native APIs). **Regex is medium-risk**, dominated by one structural danger: a user-supplied pattern AND text run synchronously on the single JS thread, so a ReDoS pattern freezes the entire window — the recommended mitigation is a Web Worker + timeout watchdog (native, zero-dep). **Cron is the only high-complexity feature**, carrying four correctness traps: DOM/DOW OR-union semantics, 0/7=Sunday + 1-based-month numbering, DST-correct wall-clock next-run (NOT millisecond-delta iteration), and a hard iteration bound so impossible expressions (Feb-30) cannot hang the window. Within cron, `L`/`nL` (last-day / last-weekday) is the deepest slice and should be isolated as its own high-risk requirement.
+The dominant risks are **App Store rejections and a sandbox-only white-screen** — most are invisible to the existing unit + WebDriver gates and surface only on the signed sandboxed `.app`. The four ship-gate killers: (1) missing `com.apple.security.network.client` → blank webview on launch (the IPC channel is treated as network — mandatory *despite* the offline ethos); (2) any Keygen key-paste UI / `license.tinkerdev.io` / `$9` / `BUY_LICENSE_URL` surviving in the bundle → guideline 3.1.1 rejection (must be **compile-out + grep-verifiable**, not hidden); (3) updater/autostart plugins merely hidden but still linked → 2.4.5 / sandbox rejection; (4) IAP not testable by the reviewer (Paid-Apps Agreement, "Ready to Submit", **mandatory Restore Purchases**, Notes-for-Review). Plus a structural harness limit: **WebDriver cannot drive StoreKit purchases, the sandbox, refunds, or login items** — a human ship-gate walkthrough with a Sandbox tester account is mandatory at every StoreKit/sandbox phase boundary.
 
 ## Key Findings
 
 ### Recommended Stack
 
-No stack change. All four features are pure TypeScript over native APIs already in the WKWebView, unit-tested with the existing `vitest` + `tsc --noEmit` + `eslint` harness and verified on the real webview via the existing e2e gate. The sole third-party logic dependency (`js-md5`) is untouched; none of the new features add to `dependencies` or `devDependencies`. See `STACK.md`.
+The App Store variant adds StoreKit 2 (on-device JWS verification — mirrors the existing offline Ed25519 model, **no server**), App Sandbox, and a sandbox-safe login item, all gated behind the `appstore` cargo feature so the direct build never compiles them. The headline trade-off: **`minimumSystemVersion` must bump 10.15 → 13.0 for the store variant ONLY** (both `tauri-plugin-iap` and `SMAppService` pin 13.0); the direct DMG stays at 10.15 via the per-variant `--config` merge — a leak of 13.0 onto the base config silently drops direct-channel Monterey users. Full detail in [STACK.md](./STACK.md).
 
-**Core technologies (all already present):**
-- Native `URL` / `URLSearchParams` / `encodeURIComponent` — URL parse + component-vs-full encode/decode — zero dep, fully covers scope.
-- Native `RegExp` / `matchAll` / `replace` — the regex engine the tool exists to expose — `matchAll` sidesteps the `lastIndex` footgun; flags `g/i/m/s/u` all in baseline.
-- Native `Date` + `Intl.DateTimeFormat` — cron field-matching + local-time next-run display — mirrors the shipped Unix Time tool (`src/lib/timeFormat.ts`).
-- Hand-rolled cron parser/iterator + `Uint8Array` decimal parser — consistent with the hand-rolled-decoder ethos; avoids `cron-parser`/`croner`/`Temporal`.
+**Core technologies (additions for the store variant):**
+- **StoreKit 2** (`Transaction.currentEntitlements` / `Product.purchase()` / `VerificationResult`): on-device IAP with built-in JWS verify — serverless, mirrors the offline model
+- **`tauri-plugin-iap@0.9.0`**: the only Tauri-2 StoreKit-on-macOS bridge — **SPIKE FIRST** (72-star, single maintainer); fallback = hand-rolled Swift via **`swift-rs@1.0.7`** (mature) behind the same seam
+- **App Sandbox** (`com.apple.security.app-sandbox` + **mandatory `com.apple.security.network.client`** + app-id/team/`keychain-access-groups` from the provisioning profile): required for MAS; network.client is for the webview IPC, not features
+- **`SMAppService`** (macOS 13+, via `smappservice-rs@0.1.3` or `objc2-service-management` direct): sandbox-safe launch-at-login replacing the non-sandbox-safe `tauri-plugin-autostart` LaunchAgent plist
+- **Build/sign toolchain**: `tauri build` emits the signed `.app` only → `xcrun productbuild` (Mac Installer Distribution cert) → `.pkg` → `xcrun altool` upload. **Apple Distribution** + **Mac Installer Distribution** certs + embedded provisioning profile (NOT Developer ID / notarytool)
 
 ### Expected Features
 
-The milestone scope IS the launch scope (the user chose fullest scope per tool). See `FEATURES.md`.
+The governing rule is guideline **3.1.1**: a Mac App Store app may not unlock features via license keys or present a license screen. Everything follows from this — the store variant is StoreKit-only and the entire Keygen surface compiles out. The US-storefront external-link loophole (post-Epic) is an **explicitly-rejected** option (StoreKit-only is the simplest globally-shippable path). The submission metadata items (privacy label, screenshots of real states, Notes-for-Review, IAP-attached-to-binary) are treated as **deliverables**, not afterthoughts — 2.1/2.3 metadata is the top utility-rejection bucket (40%+). Full detail in [FEATURES.md](./FEATURES.md).
 
-**Must have (table stakes):**
-- Cron: 5-field parse, human-readable description, next-N runs in local time, `*`/ranges/lists/steps, 0/7=Sunday, per-field validation.
-- URL: scheme/host/port/path/query/fragment split, query → key→value table (repeated keys preserved), component-vs-full encode/decode both ways, error-on-unparseable.
-- Regex: live pattern + test-string matching, highlight all matches, flag toggles `g/i/m/s/u`, capture-group breakdown, invalid-pattern error, match count.
-- Protobuf decimal: parse comma/space-separated decimals → `Uint8Array`, byte-range (0–255) validation, per-token errors, auto-detect alongside hex/base64.
+**Must have (table stakes — any missing = rejection or non-functional purchase):**
+- One **non-consumable "Pro" IAP** in App Store Connect, **attached to the binary** for first review, "Ready to Submit", Paid-Apps Agreement active
+- Native **`Product.purchase()`** flow handling `.success` / `.userCancelled` / `.pending` (calm "waiting for approval", not an error)
+- **On-device JWS verify** (`VerificationResult.verified` only; `.unverified` → fail closed to free tier — mirrors the Ed25519 model) → `Transaction.finish()` → `currentEntitlements` → SAME `pro.*` map
+- **MANDATORY Restore Purchases** in Settings -> License (`AppStore.sync()` then re-read; gated behind the explicit button, never silent at launch)
+- **`Transaction.updates` refund/revoke listener** at boot → live-drop Pro (reuses the existing `refreshEntitlements()` + "Pro features turned off" drop-notice)
+- Store License pane showing status + Buy(`Product.displayPrice`) + Restore — **NO key field, NO external buy link, NO literal `$9`**
+- App Sandbox enabled; updater + Keygen UI + `license.tinkerdev.io` **compiled out**
+- Submission checklist: privacy label = **Data Not Collected** (+ `PrivacyInfo.xcprivacy`), 4+ age rating, **screenshots of real testable states**, working support/privacy URLs, **Notes-for-Review** documenting how to exercise the Pro IAP
 
-**Should have (differentiators, all in chosen scope):**
-- Cron: 6-field (seconds) auto-detected by token count, macros (`@daily`/`@hourly`/`@reboot`), day/month names, `?`, DOM/DOW OR semantics.
-- URL: per-row decoded values, per-component / per-param copy, live update.
-- Regex: named capture groups, live `$1`/`$<name>`/`$&` replace preview, minimal pattern library (email/URL/IPv4 only).
+**Should have (parity, degrade gracefully if blocked):**
+- Global summon hotkey kept under sandbox (Tauri uses `RegisterEventHotKey` — sandbox-safe, zero entitlements; keep Cmd/Ctrl in the chord for macOS-15)
+- Launch-at-login via `SMAppService` (explicit toggle, default OFF)
+- Tray / menu-bar parity (native `NSStatusItem`, expected sandbox-safe — verify in spike)
 
-**Defer (post-v1.3 / hold the wedge):**
-- Cron `W`/`#` (parse-tolerate, do NOT compute), year-field/7-field, generator UI, timezone selector.
-- URL editable-recompose, shortener, IDN converter.
-- Regex explainer, multi-flavor engines, permalinks; pattern library beyond the three named.
-- Decimal: hex tokens, >255 multi-byte, signed bytes.
+**Defer (v1.x / v2+):**
+- Family Sharing toggle, offer/promo codes, "Manage Purchases" deep link
+- Windows/Linux store channels (explicitly deferred)
 
 ### Architecture Approach
 
-All four slot into the existing registry-driven three-layer pattern with no changes to registry mechanics, the platform seam, or `decoder.ts`. Pure logic lives in new `src/lib/{cron,url,regex}/` folders (TDD); tools are thin React components; each tool is one additive `index.ts` + one `TOOLS` array append (Protobuf needs NO registry change — same tool). The four features share nothing and are parallelizable. See `ARCHITECTURE.md`.
+The variant is a **SINGLE axis with THREE synchronized layers**, bound in one build command so it can't drift. The cleanest part is that the entitlement-source swap is a **one-branch change to one function** — `resolveEntitlements()` (`resolve.ts:51`) is already documented in-code as "the single resolution point... flip HERE and nowhere else"; the store variant adds a `baseFromStoreKit(currentEntitlements)` branch that fills the SAME `EntitlementSet`. The StoreKit bridge mirrors `platform.license` exactly (interface in `index.ts`, real arm in `tauri.ts`, no-op arm in `browser.ts`/`stub.ts`); `platform.autostart` swaps its impl behind the flag with the interface unchanged; the updater compiles out with no component fork. `decoder.ts` + its 19 tests are untouched throughout. Full detail in [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 **Major components:**
-1. `src/lib/cron/` (`parse.ts` / `describe.ts` / `nextRuns.ts`) — hand-rolled; reuses `timeFormat.ts` for local-time display. The only non-trivial logic; most test surface.
-2. `src/lib/url/` + `src/lib/regex/` — thin native-API wrappers; error-as-value, never throw to UI.
-3. Protobuf decimal seam — tool-local: widen `detectEncoding.ts` union to add `"decimal"`, add `decimalToBytes` (recommended in `src/lib/bytes.ts`), one line in `useDecode.ts`, one new segment in `ProtobufDecoder.tsx`'s encoding toggle. `decoder.ts` + its 19 tests stay byte-for-byte untouched.
-4. Shared primitives — reuse `ResizableSplit`/`StatusBar`/`CopyButton`/`useCopyFeedback`/platform seam everywhere; extract `Toggle`/`toggleClasses` out of `FormatterView` into a shared component. Do NOT reuse `FormatterView` itself.
+1. **The variant seam (3 layers)** — `appstore` cargo feature (gates plugin registration, mirrors `webdriver`) + `tauri.appstore.conf.json` `--config` overlay (sandbox/13.0/app-only/no-updater) + `VITE_CHANNEL`/`IS_APPSTORE` tree-shake constant — bound in one `package.json` script
+2. **`platform.iap` StoreKit bridge** (NEW) — `products`/`purchase`/`restore`/`currentEntitlements` + `onPurchaseUpdated` event behind the seam; new Rust `iap_*` commands + `storekit://updated` event; mirrors `platform.license`
+3. **`resolveEntitlements()` source swap** (MODIFIED, one branch) — `baseFromStoreKit` vs `baseFromLicense`, selected by `IS_APPSTORE`; central gate / `useEntitlements` / registry UNCHANGED
+4. **`StoreLicenseSettings.tsx`** (NEW sibling, not inline branch) — status + Buy(`displayPrice`) + Restore; keeps Keygen copy out of the store bundle
+5. **`SMAppService` autostart arm** + updater compile-out — same `{enable,disable,isEnabled}` interface; updater gated `#[cfg(not(feature="appstore"))]` + Updates pane filtered from `SETTINGS_PANES` + `App.tsx` effects guarded
+6. **`.pkg`/submission pipeline** — `productbuild` → `altool`, separate from the direct channel's Developer-ID/notarytool path
 
 ### Critical Pitfalls
 
-Top 5 (full list of 12 in `PITFALLS.md`). Two of these freeze the entire window in a single-threaded webview — ordered first.
+(Ranked by likelihood x cost; full list of 15 in [PITFALLS.md](./PITFALLS.md). The first four are SHIP-GATE — one occurrence = rejection or a dead binary.)
 
-1. **Cron next-run loop hangs on impossible/sparse expressions** (`0 0 30 2 *` = Feb-30) — use a hard iteration bound + field-jump (not minute-jump) algorithm; return "no upcoming run" on the bound.
-2. **Regex ReDoS freezes the window** (user owns pattern AND text) — run matching in a Web Worker with a ~250–500ms timeout watchdog; surface "pattern too slow." Do not heuristically "detect ReDoS." This is structural and hard to bolt on late.
-3. **Cron DOM/DOW AND-instead-of-OR** — when both day fields are restricted they UNION (`30 4 1,15 * 5` fires 1st + 15th + every Friday). Named, four-quadrant-tested `dayMatches`; description must reflect the OR.
-4. **Cron DST + numbering** — match on local wall-clock components, re-read constructed-time components to defend against the silent spring-forward roll (NOT `+ms`-delta); months 1–12 vs JS 0–11; DOW 0/7=Sunday; `@reboot` has no next run.
-5. **Regex `lastIndex` / zero-width loops + highlight XSS** — use `matchAll` (not `.exec()` loops); render highlights as React text nodes, never `dangerouslySetInnerHTML`. Wrap `new RegExp`/`new URL`/`decodeURIComponent` in try/catch (error-as-value).
+1. **Missing `network.client` → sandbox white-screen (SHIP-GATE)** — the webview IPC (`http://ipc.localhost`) is treated as a network connection; works in `tauri dev`, dies only on the signed sandboxed `.app`. The offline ethos does NOT exempt it. *Avoid:* set both `app-sandbox` + `network.client` from the first sandbox build; verify via `codesign -d --entitlements` then **launch the signed `.app`**.
+2. **Keygen surface survives → 3.1.1 rejection (SHIP-GATE)** — key field / `license.tinkerdev.io` / `$9` / `BUY_LICENSE_URL` merely hidden, not removed. *Avoid:* tree-shake via `VITE_CHANNEL` + Rust-gate the Keygen transport; **grep the store bundle clean** (`license.tinkerdev.io`, `license key`, `$9` → empty).
+3. **Updater/autostart hidden but still linked → 2.4.5 / sandbox rejection (SHIP-GATE)** — both plugins are unconditionally in `Cargo.toml` today; a debug-cfg dep does NOT exclude a crate, only a feature flag does. *Avoid:* gate registration `#[cfg(not(feature="appstore"))]`; verify `cargo tree --features appstore | grep -E 'updater|autostart'` empty.
+4. **IAP not testable in review → 2.1 rejection (SHIP-GATE)** — Paid-Apps Agreement inactive / product not "Ready to Submit" / first IAP not attached to binary / no Restore / no Notes-for-Review. *Avoid:* a pre-submission checklist phase + Sandbox-tester human walkthrough.
+5. **Variant drift + harness blindness (HIGH, structural)** — three decoupled layers with no compiler enforcing their sync, and **WebDriver can't drive StoreKit/sandbox/refunds/login-items**. *Avoid:* one canonical build entry point + a committed `scripts/verify-appstore-bundle.sh` artifact-assertion script; **mandatory human ship-gate walkthrough** (signed `.app`, real purchase, restore on a fresh container, refund->drop, login-item over a real logout/login). Plus: `.unverified` → fail closed + `Transaction.finish()` (no replay); `keyring`/Keychain gated out of the store build (no `MissingEntitlement`, no speculative entitlement); `minimumSystemVersion` 13.0 store-only (direct stays 10.15); correct cert chain for `.pkg` (Apple Distribution + Mac Installer Distribution, no `--deep`, no notarytool).
 
 ## Implications for Roadmap
 
-Phase numbering continues from v1.2's Phase 11. Order by **risk and shared-helper extraction**, not by hard dependency (there are none between features). Ship the easy wins first to bank momentum; concentrate verification budget on the two deep features (Regex UI, Cron logic) last.
+Build order is **dependency-forced**: nothing store-side compiles, resolves, or renders without a working `platform.iap` arm, so the bridge spike is the critical-path first phase. Phases continue from Phase 25 → start at **26**.
 
-### Phase 12: Protobuf decimal input
-**Rationale:** Smallest change; de-risks the hardest constraint ("don't touch `decoder.ts`") first; forces the auto-detection precedence question to be answered early.
-**Delivers:** Decimal-byte-array input mode auto-detected alongside hex/base64; `decimalToBytes` in `src/lib/bytes.ts`.
-**Addresses:** Protobuf decimal table stakes (parse, 0–255 validation, per-token errors, auto-detect).
-**Avoids:** Pitfall 11 (`decoder.ts` + 19 tests byte-for-byte untouched — verify via `git diff`); Pitfall 12 (detection precedence: "comma anywhere ⇒ decimal list, all tokens ≤255," with manual override; out-of-range tokens error, never wrap).
+### Phase 26: StoreKit bridge spike (CRITICAL PATH)
+**Rationale:** The highest-risk, longest-pole dependency — no first-class plugin exists; everything downstream gates on it.
+**Delivers:** `tauri-plugin-iap@0.9` proven inside a universal sandboxed build (or `swift-rs` fallback); `platform.iap` seam shape (real `tauri.ts` arm + deterministic no-op `browser.ts`/`stub.ts` arm); `iap_*` Rust commands returning real `currentEntitlements`/`products`; on-device JWS verify confirmed serverless.
+**Uses:** StoreKit 2, `tauri-plugin-iap`/`swift-rs`.
+**Implements:** Component 2 (StoreKit bridge).
+**Avoids:** Pitfalls 6/7/9 are gated here; confirms the spike-first decision.
+**Gate:** Real purchase round-trip in the App Store Connect sandbox (needs a `.storekit` file + Sandbox tester) — human.
 
-### Phase 13: URL tool
-**Rationale:** Lowest-novelty pure logic; almost entirely a view over native `URL`/`URLSearchParams`; establishes the bespoke "parsed-components readout + key→value table" layout the other tools echo.
-**Delivers:** Component split, query key→value table (repeated keys preserved), component-vs-full encode/decode both ways, per-component/per-row copy.
-**Uses:** Native `URL`/`URLSearchParams`/`encodeURI(Component)`; shared `StatusBar`/`CopyButton`/platform seam; extracted `Toggle` for direction/mode.
-**Avoids:** Pitfall 10 (error-as-value on `new URL`/`decodeURIComponent` throws; preserve repeated keys via `getAll`; label component-vs-full; `+`→space awareness).
+### Phase 27: The variant seam (3 layers)
+**Rationale:** With the IAP plugin existing, stand up the axis that switches everything; produces the first sandboxed `.app`.
+**Delivers:** `appstore` cargo feature + cfg-gated registrations; `tauri.appstore.conf.json` overlay + `entitlements.appstore.plist` (sandbox + `network.client`); `VITE_CHANNEL`/`channel.ts`; bound `package.json` scripts; updater compiled out (Rust + pane filter + `App.tsx` guard); **`scripts/verify-appstore-bundle.sh`** delivered.
+**Uses:** Tauri `--config` RFC-7396, cargo features, Vite define.
+**Implements:** Component 1 (variant seam) + Component 5 (updater compile-out).
+**Avoids:** Pitfalls 1 (network.client white-screen — verify the sandboxed `.app` renders), 3 (updater/autostart linked), 8 (variant drift), 11 (min-version leak — store=13.0, direct stays 10.15).
 
-### Phase 14: Regex tool
-**Rationale:** Highest UI novelty — match-highlight overlay, capture-group breakdown, replace preview — plus the structural ReDoS risk. Allow extra UI-verification budget.
-**Delivers:** Live matching with highlight, flag toggles `g/i/m/s/u`, capture + named groups, live `$1` replace preview, 3-pattern library.
-**Uses:** Native `RegExp` + `matchAll` + `replace`; extracted `Toggle` for flags; React-node highlighting (escaped text, no raw HTML).
-**Avoids:** Pitfall 6 (Web Worker + timeout — recommended), Pitfall 7 (`matchAll` over `.exec()`), Pitfall 8 (no `dangerouslySetInnerHTML`), Pitfall 9 (invalid ≠ no-match, error-as-value).
+### Phase 28: Entitlement-source swap + Store License pane
+**Rationale:** Wire the spiked bridge into the existing gate and replace the Keygen surface; the 3.1.1 compliance phase.
+**Delivers:** `baseFromStoreKit` branch in `resolveEntitlements`; `StoreLicenseSettings.tsx` (status + Buy(`displayPrice`) + **Restore**); `onPurchaseUpdated` → `refreshEntitlements` boot wiring; Keygen surface (`$9`/`BUY_LICENSE_URL`/key field/`license.tinkerdev.io`) compiled out + grep-verified.
+**Uses:** the existing central gate + drop-notice (reused).
+**Implements:** Components 3 + 4.
+**Avoids:** Pitfalls 2 (3.1.1 surface — grep clean), 6 (refund listener), 9 (`.unverified` fail-closed + `finish()`).
+**Gate:** purchase → Pro unlocks live; refund → Pro drops live — human.
 
-### Phase 15: Cron tool
-**Rationale:** Highest logic novelty (hand-rolled next-run); most unit-test surface. Sequenced last so the easy wins land first; can also run as a parallel side-plan after Phase 12/13.
-**Delivers:** 5/6-field parse, macros, day/month names, ranges/steps/lists, `?`, DOM/DOW OR, human description, next-5 runs in local time.
-**Uses:** Hand-rolled `src/lib/cron/`; `timeFormat.ts` for local-time display; `Date` component matching.
-**Avoids:** Pitfalls 1–5 (bounded field-jump iterator; OR `dayMatches`; DST component read-back; field-count/numbering/macro correctness; field-set expansion).
+### Phase 29: Sandbox-safe native features
+**Rationale:** Independent of StoreKit (can partly parallelize with 28 once 27 lands); makes the sandboxed build feature-complete.
+**Delivers:** `SMAppService` autostart arm (same seam interface, default OFF); sandbox audit of global-shortcut (keep — `RegisterEventHotKey`) + tray (keep); `keyring`/Keychain gated out of the store build (or the access-group entitlement justified + validated on the SIGNED build).
+**Uses:** `smappservice-rs`/`objc2-service-management`.
+**Avoids:** Pitfalls 5 (Keychain `MissingEntitlement` — runtime-only), 12 (SMAppService register / Ventura 13.0.1 codesign bug — min-13.5 caveat), 14 (prefs container path).
+**Gate:** login-item over a real logout/login — human (WebDriver can't).
 
-### Phase 15b (isolated slice): Cron `L` / `nL`
-**Rationale:** Last-day / last-weekday math (month-length + leap-year + weekday) is the single highest-complexity item in the milestone. Isolate it as its own requirement with explicit fixtures so the rest of cron ships even if this is hard.
-**Delivers:** `L` (last day of month) and `nL` (last weekday) in the next-run iterator.
-**Avoids:** Deepening Pitfall 1's iterator risk; give it dedicated leap-day fixtures (last day of Feb leap vs non-leap; last Friday in 4- vs 5-Friday months).
+### Phase 30: `.pkg` build + App Store Connect submission
+**Rationale:** Irreversible/integration-bound; runs last, after every source change lands (verify bundle mtime > last source commit).
+**Delivers:** `productbuild` → `.pkg` → `altool` pipeline (separate from the direct publish script); Apple Distribution + Mac Installer Distribution certs + embedded profile; IAP attached to binary; privacy label / `PrivacyInfo.xcprivacy` / age rating / screenshots / Notes-for-Review.
+**Uses:** `productbuild`, `altool`, App Store Connect.
+**Avoids:** Pitfalls 4 (IAP testable), 10 (`.pkg` cert chain — no `--deep`, no notarytool, ITMS-90238/90296), 13 (privacy label).
+**Gate:** full ship-gate human walkthrough (mirrors the v1.6 live-purchase gate) + the direct channel un-regressed (DMG still notarises, decoder + 19 tests untouched).
 
 ### Phase Ordering Rationale
-- No inter-feature dependencies exist — the only shared touchpoint is the mechanical registry append. Ordering is purely risk-driven.
-- Phase 12 first proves the untouched-decoder promise and answers the detection-precedence design question before anything depends on it.
-- The two deep features (Regex UI, Cron logic) come last so the two window-freeze risks (ReDoS, unbounded loop) get concentrated verification and the worker/bound decisions are made deliberately, not retrofitted.
-- `Toggle` extraction in Phase 13 pays off across Phases 14 and 15.
+- **Dependency-forced:** the StoreKit bridge is the long pole — nothing store-side compiles/renders without it, so it spikes first (Phase 26), then the seam that registers it (27), then the UI that consumes it (28).
+- **Architecture-grouped:** the variant seam (27) is foundation for both the StoreKit UI (28) and the sandbox features (29); 29 shares only the sandbox-enable change with 28, so it can run in parallel once 27 lands.
+- **Pitfall-aware:** the white-screen + 3.1.1 + updater-linked + variant-drift ship-gates are designed into the seam phase (27) with a verify script as a deliverable; the irreversible submission runs LAST (30) with a mandatory human gate, matching the project's proven "spike highest-risk first, integration-bound flows last" discipline.
 
 ### Research Flags
 
-Phases likely needing `/gsd-research-phase` during planning:
-- **Phase 14 (Regex):** the Web-Worker-vs-debounce execution-model decision and the highlight-overlay technique warrant a focused spike. ReDoS mitigation is structural.
-- **Phase 15 (Cron):** DST wall-clock handling (component read-back, skipped/repeated-hour behavior) and the bounded field-jump algorithm benefit from deeper design before coding.
-- **Phase 15b (Cron `L`/`nL`):** highest-risk math; dedicated fixture design.
+Phases likely needing deeper research / a `/gsd-research-phase` during planning:
+- **Phase 26:** the StoreKit bridge internals are spike-gated and MEDIUM-confidence — `tauri-plugin-iap` is a 72-star single-maintainer plugin; confirm universal-sandboxed compile, seam mapping, serverless JWS verify, and `objc2` coexistence with `keyring`'s `apple-native`. Have the `swift-rs` fallback ready.
+- **Phase 30:** the Tauri-specific `productbuild`/provisioning-profile/`.pkg` signing sequence is community-reported (MEDIUM), not officially walked through end-to-end; ITMS bounce modes need validation against the real universal bundle + the new IAP-bridge nested code.
 
-Phases with standard patterns (skip research-phase):
-- **Phase 12 (Protobuf decimal):** seam is precisely mapped; ~3 additive edits.
-- **Phase 13 (URL):** thin view over well-documented native APIs.
+Phases with standard / well-documented patterns (skip research-phase):
+- **Phase 27:** the variant seam is the existing in-repo `webdriver`-feature idiom + documented Tauri `--config` merge — HIGH confidence.
+- **Phase 28:** the entitlement-source swap is a one-branch change to an already-tested resolver; the seam, gate, and drop-notice all exist and are reused.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Zero-dep confirmed against `package.json` + existing `timeFormat.ts`/`bytes.ts` precedents; native API support verified for the WKWebView baseline; `Temporal` absence confirmed. |
-| Features | HIGH | Field syntax/semantics grounded in crontab.guru + man7 crontab.5; regex/URL behavior from MDN; scope decisions tied to PROJECT.md. |
-| Architecture | HIGH | Every integration point read directly from the codebase; only lucide-react exact glyph names are MEDIUM (verify at build). |
-| Pitfalls | HIGH | DOM/DOW union + 0/7-Sunday verified against man7; `lastIndex`/zero-width and ReDoS verified against MDN; decoder-untouched constraint from PROJECT.md. |
+| Stack | HIGH (versions/Apple reqs) / MEDIUM (bridge integration) | Apple docs + Tauri docs + crate registries are HIGH; the StoreKit-bridge integration path rests on a 72-star single-maintainer plugin, spike-flagged, with a mature `swift-rs` fallback |
+| Features | HIGH | Apple guidelines + StoreKit APIs cited from current developer.apple.com; sandbox/hotkey behavior cross-checked across multiple sources |
+| Architecture | HIGH (in-repo seams) / MEDIUM (bridge internals) | Every seam cited file:line from the real codebase; the `--config`/cargo-feature idiom has an in-repo precedent; only the bridge internals are spike-gated |
+| Pitfalls | HIGH | Apple rules + Tauri sandbox failures from dated GitHub issues; StoreKit lifecycle from Apple docs + multiple threads; MEDIUM only on the exact Tauri `.pkg` signing sequence |
 
-**Overall confidence:** HIGH
-
-### Open UX Decisions for the Requirements Author
-
-Research is conclusive on stack/architecture/pitfalls; these are product calls the requirements author must lock (recommendations given):
-- **Cron time format:** 24h vs 12h — recommend **24h** (developer audience, matches Unix Time tool).
-- **Cron next-N count:** recommend **5**.
-- **Cron timezone label:** whether to surface the resolved IANA TZ label alongside local-time runs.
-- **Regex execution model:** Web Worker + timeout (recommended) vs debounce + input-size cap (minimum bar).
-- **Protobuf decimal precedence:** confirm "comma anywhere ⇒ decimal list, all tokens ≤255," with manual override; space-only-separated digits fall through to hex/base64.
-- **Decimal home:** `decimalToBytes` in `src/lib/bytes.ts` (recommended for symmetry) vs tool-local.
+**Overall confidence:** HIGH — the integration is well-understood and the seams exist; the single concentrated unknown is the StoreKit bridge, isolated behind a first-phase spike with a known fallback.
 
 ### Gaps to Address
-- **lucide-react glyph names** (`Regex`, `Link`, `Clock`): MEDIUM — verify availability against the installed version during phase work.
-- **DST skipped/repeated-hour behavior:** must be a deliberate, documented choice with injectable "now" for testing — flag during Phase 15 planning.
-- **Regex worker bundling under Vite:** confirm the worker bundles without a new dependency during Phase 14 planning.
+
+- **StoreKit bridge viability** (the one real unknown): resolve in the Phase 26 spike — compile into the universal sandboxed build, seam mapping, serverless JWS verify, `objc2`-vs-`keyring` link coexistence. Fallback = `swift-rs` hand-roll, same seam.
+- **Keychain decision:** if the store build truly compiles out all Keygen code, NO Keychain access should remain → gate `keyring` out and DON'T add the access-group entitlement (App Review flags unjustified entitlements). Verify in the spike; validate on the SIGNED `.pkg` (runtime-only `MissingEntitlement`).
+- **`generate_handler!` cfg-arm growth:** adding the `appstore` dimension to the existing debug/webdriver arms is a known ergonomic wart (`lib.rs:322-343`) — accept the duplication or add a small helper; not a blocker.
+- **Keygen Rust-core gating depth:** minimal (webview-only compile-out) vs defense-in-depth (also Rust-gate the `reqwest` Keygen transport). Minimal is lower-risk for v1.8; roadmapper decision point.
+- **App Store Connect external setup** (Paid-Apps Agreement, Business page, IAP "Ready to Submit", Sandbox testers): non-code but on the critical path — propagation can take hours; start early enough that products reach "Ready to Submit" before Phase 30.
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- DevTools `.planning/PROJECT.md` — zero-dep constraint, registry/platform-seam/FormatterView contracts, frozen `decoder.ts` + 19 tests, paste-instant/WCAG-AA, Unix Time local-time precedent.
-- Codebase: `src/lib/tools/registry.ts`, `types.ts`, `src/tools/json-formatter/*`, `src/components/FormatterView.tsx`/`StatusBar.tsx`/`CopyButton.tsx`, `src/tools/protobuf-decoder/{detectEncoding,useDecode}.ts` + `ProtobufDecoder.tsx`, `src/lib/{timeFormat,bytes}.ts`, `src/lib/platform/index.ts` — every integration point read directly.
-- man7.org crontab(5) — DOM/DOW union semantics, field ranges, 0/7=Sunday, `@reboot`.
-- MDN — `RegExp`/`matchAll`/`replace`/`exec` (`lastIndex`, zero-width, named groups), `URL`/`URLSearchParams`/`encodeURI(Component)` semantics and throw behavior.
-- crontab.guru + Healthchecks.io cron cheatsheet — field syntax, macros, deliberate omissions.
+- [Tauri 2 — Distribute to the App Store](https://v2.tauri.app/distribute/app-store/) + [macOS Application Bundle](https://v2.tauri.app/distribute/macos-application-bundle/) + [Configuration Files](https://v2.tauri.app/develop/configuration-files/) — sandbox entitlements, `--config` RFC-7396 merge, `productbuild`/`altool` flow, `bundle.macOS` keys
+- [Apple — App Review Guidelines](https://developer.apple.com/app-store/review/guidelines/) — 3.1.1 (license keys banned, Restore mandatory), 2.1, 2.3, 2.4.5
+- [Apple — Transaction.currentEntitlements](https://developer.apple.com/documentation/storekit/transaction/currententitlements) + [VerificationResult.unverified](https://developer.apple.com/documentation/storekit/verificationresult/unverified(_:_:)) + [Transaction](https://developer.apple.com/documentation/storekit/transaction) — entitlement semantics, fail-closed, refund/revoke
+- [tauri-docs #3171](https://github.com/tauri-apps/tauri-docs/issues/3171) + [tauri #13878](https://github.com/tauri-apps/tauri/issues/13878) — mandatory `network.client` / sandbox white-screen
+- [Apple — Keychain Access Groups](https://developer.apple.com/documentation/bundleresources/entitlements/keychain-access-groups) + [App Privacy Details](https://developer.apple.com/app-store/app-privacy-details/) + [App Sandbox info](https://developer.apple.com/help/app-store-connect/reference/app-uploads/app-sandbox-information)
+- In-repo (primary integration evidence): `src/lib/entitlements/resolve.ts` (the single resolution point), `src/lib/platform/{index,tauri,browser,stub}.ts` (the seam), `src/components/{LicenseSettings,UpsellPanel,settingsPanes}.tsx`, `src/App.tsx`, `src-tauri/{Cargo.toml,src/lib.rs,tauri.conf.json}` (webdriver-feature precedent, plugin registration, config)
 
 ### Secondary (MEDIUM confidence)
-- croner / cron-parser (npm) — reviewed to confirm what to deliberately NOT add and the DST semantics replicated hand-rolled.
-- DEV / Groundy — native `Date` DST gotcha + `Temporal` availability timeline (Chrome 144 Jan 2026 / Firefox 139 May 2025; Safari/JSC not yet) justifying hand-rolled over Temporal.
-- V8 / Mathias Bynens — regex flag history/support, corroborating MDN.
+- [GitHub — Choochmeque/tauri-plugin-iap](https://github.com/Choochmeque/tauri-plugin-iap) — v0.9.0, Swift bridge, macOS 13.0+, 72-star (spike-flagged)
+- [gethopp/smappservice-rs](https://github.com/gethopp/smappservice-rs) + [Brendonovich/swift-rs](https://github.com/Brendonovich/swift-rs) — login-item + Swift-FFI versions/deps
+- [The Swift Dev — currentEntitlements vs updates](https://www.theswift.dev/posts/storekit-current-entitlements-vs-updates/) + [WWDC by Sundell — StoreKit 2](https://wwdcbysundell.com/2021/working-with-in-app-purchases-in-storekit2/) — updates listener, finish(), rebuild-not-merge
+- [RevenueCat](https://www.revenuecat.com/docs/test-and-launch/app-store-rejections) + [IAPHUB](https://www.iaphub.com/docs/troubleshooting/app-store-rejections/) + [Apphud](https://apphud.com/blog/restoring-purchases) — Paid-Apps Agreement, Ready-to-Submit, Restore-mandatory
+- [nextnative](https://nextnative.dev/blog/app-store-review-guidelines) — "40%+ of rejections are 2.1 App Completeness"
 
-### Tertiary (LOW confidence)
-- lucide-react exact glyph names — training data; verify at build.
+### Tertiary (LOW confidence / needs validation)
+- [Apple forum 823454](https://developer.apple.com/forums/thread/823454) + [808757](https://developer.apple.com/forums/thread/808757) — `currentEntitlements`/products empty until sync/business-setup propagation (empty-in-review trap)
+- [Apple forum 673869 / 740606](https://developer.apple.com/forums/thread/673869) + [Qt forum](https://forum.qt.io/topic/151712/) — ITMS-90238/90296 `.pkg`/signing bounces (Tauri-specific productbuild sequence not officially documented end-to-end — validate in Phase 30)
+- [9to5Mac 2025-05-01](https://9to5mac.com/2025/05/01/apple-app-store-guidelines-external-links/) — US-storefront external-link loophole (explicitly rejected option)
 
 ---
-*Research completed: 2026-06-03*
+*Research completed: 2026-06-22*
 *Ready for roadmap: yes*

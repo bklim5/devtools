@@ -1,341 +1,219 @@
 # Feature Research
 
-**Domain:** Developer utility tools — Cron explainer, URL parser, Regex tester, + Protobuf decimal-byte-array input (DevTools v1.3 "More Tools")
-**Researched:** 2026-06-03
-**Confidence:** HIGH
+**Domain:** v1.8 "Mac App Store Distribution" — adding a Mac App Store channel + StoreKit IAP to an existing shipped Tauri 2 + React + TS macOS app (TinkerDev)
+**Researched:** 2026-06-22
+**Confidence:** HIGH (Apple rules cited from current docs / guidelines page; StoreKit 2 APIs verified against developer.apple.com; sandbox/hotkey behavior cross-checked against multiple sources)
 
-> Scope note for the requirements author: the USER has already chosen the **fullest scope** for each tool (per the milestone brief). So this research does NOT relitigate scope — it makes the table-stakes vs differentiator vs anti-feature split testable, enumerates cron field syntax exhaustively, notes complexity, and flags where "fullest scope" still risks creeping past the wedge (called out inline as ⚠ SCOPE-CREEP). Every tool inherits the binding workflow constraints (paste-instant <2s, visible focusable copy, status bar, WCAG-AA, registry-driven, **zero new runtime deps**) — these are NOT re-listed per tool.
+> Scope reminder: the **direct DMG + updater channel already ships** (v0.4.1, notarized) and is OUT of scope. Every feature below is what the **App Store build variant** must add or change. Locked decisions from the 999.10 backlog are treated as given — this file researches the *implications*, not whether.
 
 ---
 
-## Existing-component dependencies (read first)
+## The governing rule (everything else follows from this)
 
-Which existing UI scaffolding each new tool can lean on. Confirmed from `PROJECT.md`:
+Apple guideline **3.1.1** (current, In-App Purchase):
 
-| Component | What it is | How the new tools use it |
-|---|---|---|
-| **Tool registry** (`src/lib/`, plain array) | Single control plane — sidebar, ⌘K palette, router all derive from it. Adding a tool = one registry entry + one component. | **All three** new tools. Mechanical. The decimal-byte mode is NOT a new registry entry (it's inside the existing Protobuf tool). |
-| **`StatusBar`** | Shared status bar; `byteCount` is an **optional** prop (Phase 8 / UIX-01) rendered only when a number is passed; otherwise parse-state label + error + timing. | All three reuse it, but **drop `byteCount`** for Cron/URL/Regex (like Hash/JWT/UnixTime/UUID did — none are byte-oriented). Pass parse-state + error + timing. URL *could* show input length but it's not byte-meaningful — recommend omit. |
-| **`FormatterView`** | Shared **two-pane** paste-instant layout (input→output) used by JSON + XML formatters; pure logic in `src/lib/format/`. | ⚠ **Partial fit only.** All three new tools want **richer output than one text pane** (Cron: description + run list; URL: param table; Regex: highlighted matches + group table + replace pane). Treat `FormatterView` as a *pattern to mirror* (paste-instant, pure logic in `src/lib/<tool>/`, copy via the platform seam), not a literal component to force-fit. URL's encode/decode sub-panes are the closest literal reuse. |
-| **Platform seam** (`src/lib/platform/`) | Clipboard/store/shortcuts; tools never import `@tauri-apps/*`. | All copy affordances route here. |
-| **Unix Time tool** | Existing local-time rendering convention. | **Cron** "next runs" MUST mirror its local-time formatting (milestone-explicit). |
-| **Protobuf decoder + 19 tests** | `decoder.ts`, byte-for-byte frozen. | **Decimal-byte input** is a *pre-decode parse layer* producing the `Uint8Array` the decoder already accepts — **do not touch `decoder.ts` or its tests.** |
+> "If you want to unlock features or functionality within your app … you must use in-app purchase. **Apps may not use their own mechanisms to unlock content or functionality, such as license keys**, augmented reality markers, QR codes, cryptocurrencies and cryptocurrency wallets, etc."
 
-**Pure-logic placement (mirror the v1.1 ethos):** `src/lib/cron/`, `src/lib/url/`, `src/lib/regex/`, and a decimal parser alongside the existing byte-input detection. GUI thin; logic unit-tested (TDD).
+And the macOS-specific corollary that reviewers apply: **a Mac App Store app may not present a license screen at launch, require license keys, or implement its own copy protection** ([Apple guideline 3.1.1](https://developer.apple.com/app-store/review/guidelines/)).
+
+This is the hard reason the store variant must compile OUT the entire Keygen key-paste surface (`InlineActivation`, the "I have a license key" reveal, the key input, `license.tinkerdev.io` calls, and the `BUY_LICENSE_URL` external link) and replace it with StoreKit. It is not stylistic — shipping the key field would be a guaranteed rejection.
+
+**US-storefront nuance (verify, don't assume):** post-*Epic v. Apple* (guidelines updated May 2025), apps **on the US storefront** may now include external-purchase links/buttons without an entitlement ([9to5Mac, 2025-05-01](https://9to5mac.com/2025/05/01/apple-app-store-guidelines-external-links/)). This is a *real* loophole, but the locked decision is **StoreKit-only, no external links** — which is the simplest, globally-shippable, lowest-rejection-risk path and avoids dual-surfacing. Treat the US loophole as an explicitly-rejected option (see Anti-Features), not a feature.
 
 ---
 
 ## Feature Landscape
 
-### TOOL 1 — CRON (explainer + next runs)
+### Table Stakes (Required for an approvable submission)
 
-Reference: **crontab.guru** (description + a list of next runs). Note crontab.guru *deliberately omits* seconds and `L`/`W`/`#`; the chosen scope is intentionally **broader** (6-field seconds + macros + `L`).
+Missing any of these = either a non-functional purchase or an outright rejection.
 
-#### Table Stakes
+| Feature | Why Expected / Required | Complexity | Notes / Dependency |
+|---------|--------------------------|------------|--------------------|
+| **One non-consumable "Pro" IAP product** configured in App Store Connect | The ONLY sanctioned unlock mechanism (3.1.1). Non-consumable = bought once, perpetual — matches today's node-locked one-time model | MEDIUM | First IAP **must be submitted attached to the app binary** in the same review ([App Store Connect help](https://developer.apple.com/help/app-store-connect/manage-in-app-purchases/create-consumable-or-non-consumable-in-app-purchases/)). Needs its own localized display name, description, **review screenshot**, and price tier |
+| **Native StoreKit 2 purchase flow** (`Product.purchase()` → system payment sheet) | The user-facing buy action. StoreKit renders the Apple payment sheet (price, Face/Touch ID/password) — app does not draw it | HIGH | New native Swift/ObjC bridge behind `src/lib/platform/` (spike first per locked decision). Replaces the `Buy license` button's `platform.opener.openUrl(BUY_LICENSE_URL)` path in `UpsellPanel.tsx` |
+| **Purchase result handling** (`.success(verification)` / `.userCancelled` / `.pending`) | StoreKit returns a `Product.PurchaseResult`; app must branch all three calmly | MEDIUM | `.pending` (Ask-to-Buy / SCA) must show a calm "waiting for approval" state, NOT an error. Mirrors the existing calm-tone error model in `UpsellPanel`/`LicenseSettings` |
+| **On-device JWS verification** of the transaction (`VerificationResult`) | The locked "no server" model. StoreKit 2 cryptographically verifies the JWS against Apple's public keys on-device | MEDIUM | Unwrap `.verified(transaction)`; **treat `.unverified(_, error)` as NOT entitled** (fail closed — mirrors today's Ed25519 `machine.lic` fail-closed) ([VerificationResult.unverified](https://developer.apple.com/documentation/storekit/verificationresult/unverified(_:_:))) |
+| **`Transaction.finish()` after granting** | Required to mark the transaction consumed; un-finished transactions replay on every launch and can hang/duplicate | LOW | Call after the entitlement is granted/persisted. Standard StoreKit 2 lifecycle |
+| **Compute "is Pro" from `Transaction.currentEntitlements`** | The single source of truth for entitlement on the store build. Returns the latest entitling transactions for non-consumables; **refunded/revoked products do NOT appear** ([Transaction.currentEntitlements](https://developer.apple.com/documentation/storekit/transaction/currententitlements)) | MEDIUM | Resolves to the SAME `pro.theming`/`pro.ordering` map the central gate already consumes — no webview-gate change (per locked decision) |
+| **"Restore Purchases" affordance** in Settings ▸ License | **MANDATORY** for non-consumables under 3.1.1 — "make sure you have a restore mechanism for any restorable in-app purchases." A common rejection cause if absent ([guideline 3.1.1](https://developer.apple.com/app-store/review/guidelines/), [Apphud restore guide](https://apphud.com/blog/restoring-purchases)) | LOW–MEDIUM | A clearly-labeled button; calls `AppStore.sync()` (forces an account refresh) then re-reads `currentEntitlements`. Lives where today's `LicenseSettings` Activate/Deactivate live |
+| **`Transaction.updates` listener** at launch | Keeps entitlement in sync for purchases made on another device, **refunds, and revocations**. A refunded txn emits here with `revocationDate`/`revocationReason` set | MEDIUM | App-lifetime task started at boot. On a revocation → drop Pro live (reuses the existing live-flip `refreshEntitlements()` path; reuses the calm "Pro features turned off" drop-notice card already in `LicenseSettings`) |
+| **License pane variant for the store build** | The store pane must show entitlement status (Pro / not-Pro) + Buy + Restore, and must NOT show: a key field, "buy on our website", `$9` text, or any price the app invents | MEDIUM | Branch on the build-variant seam. The pane shows the **StoreKit-localized price string** from `Product.displayPrice`, never a hardcoded `$9` |
+| **App Sandbox enabled** (`com.apple.security.app-sandbox`) | Mandatory for any Mac App Store app ([App Sandbox info](https://developer.apple.com/help/app-store-connect/reference/app-uploads/app-sandbox-information)) | HIGH | Cross-cutting; gates native-feature behavior below. Direct build stays un-sandboxed |
+| **Auto-updater compiled OUT** of the store build | Apple forbids self-updating apps (the store handles updates) | LOW | The Updates pane (SET-10) hides/disables on store builds (already a locked decision) |
+| **Privacy "nutrition label" = Data Not Collected** | Required for every submission. App is fully offline/no-tracking → "On-device-only data is not 'collected'" so the label is **Data Not Collected** ([App Privacy Details](https://developer.apple.com/app-store/app-privacy-details/)) | LOW | A form in App Store Connect, not code. Honest and trivially true here. Add a Privacy Manifest (`PrivacyInfo.xcprivacy`) declaring no tracking / no collected data types if any required-reason APIs are touched |
+| **Complete, accurate submission metadata** | 2.1 (App Completeness) + 2.3 (Accurate Metadata) — the #1 rejection bucket for utilities | MEDIUM | See the submission checklist below. Screenshots must show **real, testable states** of the actual store build |
+| **Age rating questionnaire** | Required to submit. A dev utility = **4+** (no objectionable content) | LOW | App Store Connect form |
+| **Support URL + (functional) marketing/privacy URLs** | 2.1 requires fully-functional URLs; placeholder/empty sites are rejected | LOW | `tinkerdev.io` exists; ensure a support page + privacy page resolve |
 
-| Feature | Why Expected | Complexity | Notes |
-|---|---|---|---|
-| Parse **standard 5-field** (min hour dom month dow) | The universal cron format | MEDIUM | Fixed field order; each field has a defined range (table below). |
-| **Human-readable description** ("At 02:00, every day") | The signature crontab.guru behavior; the point of the tool | MEDIUM–HIGH | See "what a good description covers" below — hardest correctness surface. |
-| **Next N run times in LOCAL time** | Milestone-explicit; mirror Unix Time tool | MEDIUM–HIGH | Hand-rolled iterator (no `cron-parser` — zero-dep). N = **5** default. |
-| **`*` (all)** | Foundational | LOW | — |
-| **Ranges `a-b`** (`1-5`) | Foundational | LOW | Inclusive both ends. |
-| **Lists `a,b,c`** (`1,15,30`) | Foundational | LOW | May mix with ranges/steps (`1-5,10`). |
-| **Steps `*/n`, `a-b/n`, `a/n`** (`*/15`, `0-30/10`) | Foundational | LOW–MED | `*/n` = every n from field min; `a/n` = open-ended start (Vixie). |
-| **DOW `0-7`, both 0 and 7 = Sunday** | POSIX convention; constant source of user error | LOW | *Verified.* Must accept `7` as Sunday. |
-| **Per-field validation + clear errors** | Paste-instant tools must explain bad input | MEDIUM | "Minute field: 60 is out of range (0–59)." Point at the field, not a generic "invalid". |
-
-#### Differentiators (all explicitly in chosen scope)
-
-| Feature | Value Proposition | Complexity | Notes |
-|---|---|---|---|
-| **6-field (seconds-first)** `sec min hour dom month dow` | Quartz/Spring/many schedulers; crontab.guru can't | MEDIUM | **Auto-detect by token count** (6 tokens → seconds prepended). No mode picker. |
-| **Macros** `@yearly`/`@annually`, `@monthly`, `@weekly`, `@daily`/`@midnight`, `@hourly` | Common shorthand pasted from crontabs | LOW | Alias table → expand to 5-field, then describe + compute. |
-| **`@reboot`** | Vixie/cronie shorthand | LOW | **Special-case:** NO next-run time. Describe "At system startup"; show "runs at boot — no scheduled time" instead of a run list. Must not crash the iterator. |
-| **Day names `MON-SUN` / month names `JAN-DEC`** (case-insensitive) | Very common in real crontabs (Vixie) | LOW–MED | Map to numbers before evaluating; allow in ranges (`MON-FRI`). |
-| **`?` (no-specific-value)** | Quartz dom/dow; appears in pasted Quartz expressions | LOW | Treat as `*` for evaluation; accept silently so Quartz expressions don't error. |
-| **`L` (last day) / `nL` (last weekday)** | "Run on the last day / last Friday" is a real need | MED–HIGH | `L` in dom = last day of month (month-length + leap aware); `5L` in dow = last Friday. Hardest iterator math. ⚠ SCOPE-CREEP risk — see note. |
-
-#### Cron field reference (enumerate ALL of this for testable reqs)
-
-| Field | Position (5-field) | Range | Special chars |
-|---|---|---|---|
-| Second | 6-field only, 1st | 0–59 | `* , - /` |
-| Minute | 1 | 0–59 | `* , - /` |
-| Hour | 2 | 0–23 | `* , - /` |
-| Day-of-month | 3 | 1–31 | `* , - / ? L` (`W` = anti-feature) |
-| Month | 4 | 1–12 / `JAN-DEC` | `* , - /` |
-| Day-of-week | 5 | 0–7 (0 & 7 = Sun) / `SUN-SAT` | `* , - / ? L nL` (`#` = anti-feature) |
-
-**The DOM/DOW OR-combination quirk (verified — must be specified):** when **both** day-of-month and day-of-week are restricted (neither is `*`/`?`), Vixie cron runs on days matching **either** field (OR/union), not both (AND). Counter-intuitive and a classic bug. Decision: the run iterator **MUST implement OR semantics**, and the description SHOULD make it explicit ("on day-of-month 1, **and on** every Monday" — not "Mondays that fall on the 1st"). This is a correctness requirement, not polish.
-
-#### What a "good description" covers (testable checklist)
-
-- States **time** ("At 02:00") and **cadence** ("every day", "every 15 minutes", "every hour").
-- Names **specific days/months** in words ("on Monday and Friday", "in January").
-- Verbalizes **ranges** ("Monday through Friday"), **lists** ("on the 1st and 15th"), **steps** ("every 2 hours").
-- Correctly phrases the **DOM/DOW OR** case (above).
-- Uses 24h or 12h consistently — recommend **24h** to match the developer audience / Unix Time tool (flag as a UX decision).
-- **Degrades gracefully:** if a sub-expression is too complex to phrase naturally, fall back to a literal field readout rather than emit a wrong sentence.
-
-#### Cron anti-features
-
-| Feature | Why Requested | Why Problematic | Alternative |
-|---|---|---|---|
-| **`W` (nearest weekday)** | Quartz completeness | Rare in real Unix crontabs; weekday-proximity + month-boundary math is a disproportionate test burden | Parse-tolerate, describe as "(W modifier — not interpreted)", don't compute. Recommend EXCLUDE from compute. |
-| **`#` (nth weekday, `6#3`)** | Quartz "3rd Friday" | Same niche/complexity as W | Same handling. Recommend EXCLUDE from compute. |
-| **Year field / 7-field (Quartz/AWS)** | "Full Quartz" | Adds a 6-vs-7 field-count ambiguity + longer horizon math | Out of scope; crontab.guru omits it too. |
-| **Cron *generator* UI** (build via dropdowns) | "Help me write one" | A generator is a different product; dilutes the paste-instant explainer wedge | Explainer only — paste in, read out. |
-| **Timezone selector** | "What time in UTC?" | Multi-TZ math + UI; tool already mirrors Unix Time's single local-time convention | Local time only; optionally show the IANA TZ label for clarity. |
-
-> ⚠ **Cron scope honesty:** `L`/`nL` is the single biggest complexity/test item in the whole milestone — month-length + leap-year + weekday math in a hand-rolled iterator. It's in scope, but the requirements author should give it its **own requirement(s)** with explicit test cases (last day of Feb leap vs non-leap; last Friday in a month with 4 vs 5 Fridays) and treat it as the deepest-research / highest-risk slice. `W`/`#` should be **dropped from computation** (parse-tolerant only).
-
----
-
-### TOOL 2 — URL (full parser + encoder/decoder)
-
-Reference: native `URL` + `URLSearchParams` (zero-dep, standard WebView APIs). The whole tool is a presentation layer over these — **lowest complexity of the three new tools.**
-
-#### Table Stakes
-
-| Feature | Why Expected | Complexity | Notes |
-|---|---|---|---|
-| **Split into components** scheme/host/port/path/query/fragment | The core "parse a URL" job | LOW | `URL`: `protocol, hostname, port, pathname, search, hash` (+ `username/password/origin` available). Surface the milestone-named parts. |
-| **Query string → key→value table** | Reading messy query strings is the #1 use | LOW–MED | `URLSearchParams` iterates pairs; **preserves order & duplicates.** |
-| **Full-string decode** | Paste an encoded blob → read it | LOW | See component-vs-full below. |
-| **Full-string encode** | Build/share a URL | LOW | `encodeURI` — preserves reserved structure. |
-| **Component encode/decode** | Encode/decode a single value, not the whole URL | LOW | `encodeURIComponent` / `decodeURIComponent` — escapes `&=?/:#`. The key distinction (below). |
-| **Both directions, both modes** | "encode/decode both ways" is milestone-explicit | LOW | 2 transforms × 2 scopes = 4 operations. |
-| **Validation / error on unparseable input** | Paste-instant must explain failure | LOW | `new URL()` throws → "Not a valid URL (no scheme?)". Offer to treat schemeless input as a bare query-string / component. |
-
-#### Component vs full encode — the distinction to surface (testable)
-
-| | Encode | Decode |
-|---|---|---|
-| **Full-string** (whole URL) | `encodeURI` — leaves reserved chars `:/?#[]@!$&'()*+,;=` intact so the URL stays valid | `decodeURIComponent` over the whole string (or per-component) |
-| **Component** (one value/segment) | `encodeURIComponent` — escapes reserved chars too, so a value containing `&`/`=` doesn't break the query | `decodeURIComponent` |
-
-Concrete test case: value `a&b=c`. Component-encoded → `a%26b%3Dc`. Full-encoded (as URL) → `a&b=c` (unchanged, because `&`/`=` are structural). Showing both side-by-side is the differentiator.
-
-#### Differentiators
+### Differentiators (Nice-to-have, not required to ship)
 
 | Feature | Value Proposition | Complexity | Notes |
-|---|---|---|---|
-| **Per-row decoded value in the param table** | See `%20`→space inline | LOW | `URLSearchParams` auto-decodes on read; show decoded by default. |
-| **Show empty values & valueless keys distinctly** | `?a=&b&c=1` is ambiguous; good tools disambiguate | LOW | `a` (empty) vs `b` (no `=`). Both become `""` via `URLSearchParams`; distinguish in a raw view. Flag the nuance. |
-| **Copy individual component / individual param** | Pull one value out fast (no-hover-only-copy rule) | LOW | Per-row + per-component copy via the platform seam. |
-| **Live update both panes as you type** | Paste-instant ethos | LOW | Re-parse on input. |
+|---------|-------------------|------------|-------|
+| **Global summon hotkey kept WORKING under sandbox** | The biggest "graceful degradation" win: `RegisterEventHotKey` (Carbon) **works in a sandboxed Mac App Store app with zero entitlements** — global hotkey apps remain welcome ([Macworld](https://macworld.com/article/1166857/apps_using_global_hotkeys_will_remain_welcome_in_the_mac_app_store/), [KeyboardShortcuts](https://github.com/sindresorhus/keyboardshortcuts)). So the summon feature need NOT degrade if Tauri's `global-shortcut` plugin uses `RegisterEventHotKey` | MEDIUM | **Verify in the bridge spike** which API Tauri's plugin uses. `CGEventTap` is NOT allowed in the sandbox; `RegisterEventHotKey` and `NSEvent` global monitors are. If the plugin path is sandbox-incompatible, fall back to feature-off (table-stakes graceful path) |
+| **Launch-at-login via `SMAppService`** | The autostart plugin writes a `LaunchAgent` plist (NOT sandbox-safe). `SMAppService.mainApp` registers a login item that **works sandboxed + is App-Store compatible** (macOS 13+) ([nilcoalescing](https://nilcoalescing.com/blog/LaunchAtLoginSetting/)) | MEDIUM | Must be an explicit user setting, default OFF (Apple: "may not auto-launch … without user consent"). The General pane already exists to host the toggle |
+| **Tray / menu-bar item kept** | Tray is native Rust (NSStatusItem); generally sandbox-safe. Keeping it avoids a visible feature regression vs the direct build | LOW–MEDIUM | Verify in spike; no entitlement expected. If it works, it's free parity |
+| **Localized price string everywhere price is shown** | Using `Product.displayPrice` (e.g. "$9.99", "€9,99") instead of a literal makes the pane correct in every storefront and never contradicts App Store pricing | LOW | Falls out of the StoreKit integration; also satisfies the "don't show contradicting pricing" anti-feature |
+| **`AppStore.sync()` only on explicit Restore** | Calling sync silently can prompt an Apple ID password sheet; gating it behind the user-pressed Restore button keeps launches prompt-free (entitlement at launch comes from `currentEntitlements`, which needs no auth) | LOW | UX polish; matches the app's "no surprise system prompts" ethos already noted in the Keychain hint copy |
 
-#### URL anti-features
-
-| Feature | Why Requested | Why Problematic | Alternative |
-|---|---|---|---|
-| **Editable param table that rebuilds the URL** | "Tweak and recompose" | Round-trip rebuild (ordering, re-encoding, `+` vs `%20`) is fiddly; turns a reader into an editor | Read-only table; recompose is a separate later concern. |
-| **URL shortening / expanding** | Convenience | Requires **network** — violates the offline constraint | Hard no. |
-| **IDN / punycode converter** | Internationalized domains | `URL.hostname` already punycodes; extra UI is niche | Surface what `URL.hostname` gives; don't build a converter. |
-| **`+` vs `%20` parsing toggle** | Form-encoding pedantry | `URLSearchParams` decodes `+`→space (form semantics); a toggle confuses | Document behavior in a tooltip, not a toggle. (Minor — flag only.) |
-
-> URL is the fastest tool to build — almost entirely a view over native `URL`/`URLSearchParams`. Good candidate to ship first to bank a win.
-
----
-
-### TOOL 3 — REGEX (tester)
-
-Reference: **regex101**, scaled down. Native `RegExp` (zero-dep, ECMAScript flavor). regex101 is huge; the chosen scope is a focused subset — keep it that way.
-
-#### Table Stakes
-
-| Feature | Why Expected | Complexity | Notes |
-|---|---|---|---|
-| **Pattern + test-string inputs, live matching** | The core tester loop | LOW | Recompile every keystroke; paste-instant. |
-| **Highlight all matches in the test string** | The signature regex-tester behavior | MEDIUM | `matchAll` (needs `g`) gives matches + `.index`; render highlights from index+length. See edge cases. |
-| **Flag toggles `g i m s u`** | Milestone-explicit; flags change everything | LOW | Toggles → rebuild `RegExp(pattern, flags)`. |
-| **Capture-group breakdown per match** | "What did group 1 grab?" | MEDIUM | Each `matchAll` result is `[full, g1, g2, …]`; show per-match, per-group. |
-| **Invalid-pattern error** | Paste-instant must explain bad regex | LOW | `new RegExp()` throws `SyntaxError` → surface message. |
-| **Match count + positions** | Status-bar-worthy ("3 matches") | LOW | From `matchAll` length + `.index`. |
-
-#### Differentiators (all explicitly in scope)
-
-| Feature | Value Proposition | Complexity | Notes |
-|---|---|---|---|
-| **Named capture groups** `(?<name>…)` | Modern, far more readable | LOW–MED | *Verified:* `match.groups` holds named captures. Show name alongside number. Cheap once numbered groups work. |
-| **Live replace/substitution preview** with `$1` refs | regex101's killer feature | MEDIUM | `str.replace(re, tmpl)`. Supports `$1…$n`, `$<name>`, `$&` (whole match), `` $` ``/`$'` (before/after), `$$` (literal `$`). Needs `g` to replace all. *Verified.* |
-| **Common-pattern library to insert** (email, URL, IPv4) | Speeds the 80% case; teaching aid | LOW | Tiny static `{label, pattern, flags}` array inserted into the pattern field. Keep minimal. |
-
-#### Flag interaction notes (testable)
-
-| Flag | Effect | Interaction to test |
-|---|---|---|
-| `g` | All matches, not just first | **Required** for `matchAll` to find all and `replace` to replace all. Without `g`: highlight/replace only the first. Make this explicit, not surprising. |
-| `i` | Case-insensitive | Independent. |
-| `m` | `^`/`$` per-line | Combine with multi-line test strings. |
-| `s` | `.` matches newline (dotAll) | Independent. |
-| `u` | Unicode mode | Enables `\u{…}`; **stricter** escapes — toggling `u` can turn a valid pattern into a `SyntaxError`. Test that surfacing. |
-
-> A newer `v` (unicodeSets) flag exists in modern engines but is **not** in the chosen `g/i/m/s/u` set — exclude to hold scope. Likewise exclude `d` (indices) and `y` (sticky).
-
-#### Minimal pattern library (recommendation)
-
-`email`, `URL`, `IPv4` are milestone-named — **ship exactly those three first.** More (IPv6, UUID, hex color, ISO date) is trivial to add later but each "official" pattern invites bikeshedding/correctness complaints (email regex is famously contentious). Label them as "starting points," not authoritative.
-
-#### Regex match-rendering edge cases (must specify)
-
-- **Zero-width matches** (`a*`, lookaheads): `matchAll` can return empty-string matches; advance by 1 to avoid infinite loops; render as a caret/marker, not a span.
-- **Overlapping highlights:** regex matches are non-overlapping (left-to-right scan), so whole-match highlighting is clean segmentation — but groups nest *within* a match. Recommend: highlight the whole match, **list** groups in a table (matches the "breakdown" framing; simpler than nested highlights).
-- **`lastIndex` statefulness:** a `g`-flagged regex reused via `.exec()`/`.test()` carries `lastIndex` between calls → wrong results. *Verified.* Use **`matchAll`** (clones internally, no `lastIndex` mutation). Specify `matchAll`, not an `.exec()` loop.
-
-#### Regex anti-features
+### Anti-Features (Seem reasonable, but wrong for THIS app)
 
 | Feature | Why Requested | Why Problematic | Alternative |
-|---|---|---|---|
-| **Regex *explainer*** (tokenize + explain in English) | regex101 has it | A whole sub-product; not the messy-bytes wedge | Out of scope. Match/group/replace is the wedge. |
-| **Multiple flavors** (PCRE/Python/.NET) | "My pattern is PCRE" | Needs non-native engines = **new runtime deps** | JS `RegExp` only; state the flavor in UI so users aren't surprised. |
-| **Cheat-sheet reference panel** | regex101 has a token ref | Static content bloat; not paste-instant value | Skip or a tiny footnote. Low priority. |
-| **Save/share permalinks** | regex101 permalinks | Needs storage/network | No. (Could persist last pattern via the existing prefs store — minor, optional.) |
-| **Match-history / step-debugger** | Power feature | Heavy; far past the wedge | No. |
-
-> Regex is **medium complexity**, concentrated in match-highlight rendering + the zero-width/`lastIndex` edge cases. The matching/replace logic is thin (native `RegExp`); the work is presentation (highlight overlay, per-match group table, live replace pane).
-
----
-
-### FEATURE 4 — PROTOBUF decimal-byte-array input (hero extension, NOT a new tool)
-
-A **pre-decode input-parsing layer** feeding the existing frozen `decoder.ts`, alongside the current hex/base64 auto-detection. The decoder + its 19 tests are **untouched**.
-
-#### Table Stakes
-
-| Feature | Why Expected | Complexity | Notes |
-|---|---|---|---|
-| **Parse comma/space-separated decimals** `10, 3, 80, 81, 82` → `Uint8Array` | The whole feature (user-requested at Phase-3 sign-off) | LOW | Split on commas and/or whitespace; tolerate mixed (`10,3 80, 81`). |
-| **Tolerate flexible separators & whitespace** | Real paste is messy (newlines, double spaces, trailing comma) | LOW | Split on `/[\s,]+/`, drop empties, trim. |
-| **Byte-range validation (0–255)** | A value >255 isn't a byte | LOW | Per-token: integer 0–255. Reject `256`, `-1`, `3.5`, `0x10`. |
-| **Clear per-token error** | Which token is bad? | LOW | "Byte 6 (`300`) is out of range (0–255)." Point at the offending value. |
-| **Auto-detect alongside hex/base64** | Milestone-explicit: no mode picker | MEDIUM | The detection-disambiguation problem (below) is the only non-trivial part. |
-
-#### The auto-detection problem (the one thing to get right — testable)
-
-Decimal-list input overlaps with other input formats:
-
-- **Comma anywhere ⇒ decimal list** — commas are a near-unique signal (hex/base64 don't use them). Cleanest rule.
-- Whitespace-only-separated digits are ambiguous with hex pairs; bias toward existing hex/base64 detection but provide a **manual override** to force decimal (consistent with the decoder's per-node override ethos).
-- A multi-digit token >`ff`-as-hex-but-valid-decimal (e.g. `200`) also signals decimal.
-- Recommendation: comma present ⇒ decimal; else fall through existing hex/base64 detection; always allow explicit override.
-
-#### Decimal-input anti-features
-
-| Feature | Why Requested | Why Problematic | Alternative |
-|---|---|---|---|
-| **Accept `0x10` hex tokens in decimal mode** | "Be helpful" | Reintroduces the ambiguity decimal mode removes | Decimal mode = base-10 only; hex has its existing path. |
-| **Accept >255 as multi-byte ints** | "Parse `300` as two bytes" | Endianness ambiguity, silent surprise | Hard error with a clear message. It's a byte array. |
-| **Signed bytes (-128..127)** | Some languages print signed | Doubles validation surface, ambiguous with 0–255 | Out of scope; 0–255 only. Flag if requested later. |
+|---------|---------------|-----------------|-------------|
+| **Server-side receipt validation** | "Validate the purchase properly" | The locked model is on-device JWS verify (no server), mirroring the offline Ed25519 model. A validation server reintroduces the network dependency the app explicitly avoids and adds infra/availability risk for zero security gain on a $9 perpetual unlock | StoreKit 2 `VerificationResult` on-device verify; fail closed on `.unverified` |
+| **Dual-surfacing Keygen + StoreKit in one build** | "Let store users also paste a key" | Direct violation of 3.1.1 ("may not use … license keys") + "may not present a license screen / require license keys" on macOS → guaranteed rejection. Also confuses entitlement source-of-truth | One build-variant seam: store build = StoreKit ONLY, key-paste UI + `license.tinkerdev.io` compiled out; both variants resolve to the same `pro.*` map |
+| **External "buy on tinkerdev.io" link in the store build** | "The US storefront now allows it (post-Epic)" | Technically legal on the US storefront only; but it splits the funnel, can't ship globally, invites scrutiny, and contradicts the locked StoreKit-only decision. `BUY_LICENSE_URL` must be compiled out | StoreKit `Product.purchase()` only |
+| **Hardcoded `$9` price in the store pane** | "Reuse the existing pitch copy" | The current `UpsellPanel` literally renders `$9 · once · lifetime license`. In the store build the price is set in App Store Connect and may differ by storefront/tax; showing an invented price risks a 2.3 metadata-accuracy rejection and is simply wrong abroad | Render `Product.displayPrice` from StoreKit; never a literal |
+| **A license screen / paywall gate at launch** | "Prompt to buy on first run" | macOS-specific reviewer rule: "may not present a license screen at launch." Also the app's free tier (all 11 tools) is the whole point | Pro stays an optional unlock reached via Settings ▸ License / contextual Unlock-Pro modal; the app is fully usable free on first launch (unchanged) |
+| **Keychain-stored fingerprint / node-lock on the store build** | "Keep the one-machine model" | StoreKit entitlements are tied to the Apple ID + Family Sharing, not a machine fingerprint. Re-implementing node-locking fights the platform and breaks Restore | Let `currentEntitlements` be the entitlement truth; the fingerprint/`machine.lic` path is Keygen-only and compiles out |
+| **Custom "Restore" that replays `Transaction.all`** | "Restore everything manually" | Over-engineered; `currentEntitlements` already yields the active non-consumable, and a 2026 forum thread notes edge cases where `Transaction.all` returns empty for valid IAPs ([forum](https://developer.apple.com/forums/thread/823454)) | Restore = `AppStore.sync()` then re-read `currentEntitlements` |
+| **Self-update / "check for updates" in the store build** | Parity with the direct build | Forbidden by Apple; the store delivers updates | Compile the updater out; Updates pane hidden/disabled (locked) |
+| **Hiding/obfuscating the gated features from the reviewer** | "Pro is dormant until purchased" | 2.3.1 bans hidden/dormant/undocumented features; the reviewer must be able to exercise the IAP. The current `dev_set_license_state` seam is release-stripped — reviewers need a real path | IAP must be reviewable; document the Pro unlock in Notes for Review; ensure the purchase flow works in the App Sandbox test environment for the reviewer |
 
 ---
 
 ## Feature Dependencies
 
 ```
-Tool registry entry ──required by──> [Cron, URL, Regex] (sidebar/palette/router derive from it)
-Platform seam (clipboard) ──required by──> copy affordances in all tools
+App Sandbox enabled (com.apple.security.app-sandbox)
+    ├──gates──> Global summon hotkey  (RegisterEventHotKey OK sandboxed → keep;
+    │                                   CGEventTap NOT OK → must not be used)
+    ├──gates──> Launch-at-login  (LaunchAgent plist NOT OK → migrate to SMAppService)
+    └──gates──> Tray / menu-bar  (verify sandbox-safe in spike)
 
-CRON:
-  field parser ──required by──> description generator
-  field parser ──required by──> next-run iterator
-  next-run iterator ──reuses──> Unix Time tool's local-time formatting
-  macros + day/month names ──expand-to──> 5-field ──> (field parser)
-  L / nL ──deepens──> next-run iterator (highest-risk math; isolate)
+Build-variant seam (direct | app-store)
+    ├──switches──> Updater in/out
+    ├──switches──> Entitlement source: Keygen+key-paste UI  |  StoreKit-only
+    │                   └──store build──> compile OUT InlineActivation,
+    │                                     "I have a license key", key input,
+    │                                     license.tinkerdev.io, BUY_LICENSE_URL, "$9"
+    └──switches──> Sandbox feature-flags
 
-URL:
-  native URL parse ──required by──> component split + param table
-  native URLSearchParams ──required by──> param table (repeated keys, decode)
-  encode/decode ──independent of──> parse (pure string transforms)
+StoreKit IAP (store build only)
+    └──requires──> Native StoreKit bridge behind src/lib/platform/  (SPIKE FIRST)
+                        ├──requires──> One non-consumable "Pro" product in App Store Connect
+                        ├──requires──> VerificationResult on-device verify (fail closed)
+                        ├──requires──> Transaction.finish()
+                        ├──produces──> currentEntitlements → resolve "isPro" →
+                        │                  SAME pro.* map → existing central gate (UNCHANGED)
+                        ├──requires──> Restore Purchases  (AppStore.sync + re-read)   [MANDATORY]
+                        └──requires──> Transaction.updates listener (refund/revoke → live drop Pro)
 
-REGEX:
-  RegExp compile ──required by──> matches, groups, replace preview
-  matchAll ──required by──> all-matches + group breakdown (avoids lastIndex footgun)
-  g flag ──required by──> replace-all + all-match highlight
-  pattern library ──enhances──> pattern input (independent, trivial)
-
-PROTOBUF DECIMAL:
-  decimal parser ──feeds──> EXISTING frozen decoder.ts (do not modify)
-  auto-detect heuristic ──gates──> which parser runs (decimal vs hex vs base64)
+Store License pane  ──replaces──>  today's LicenseSettings Activate/Deactivate/Refresh
+    └──reuses──>  the calm "Pro turned off" drop-notice card (for revocation)
+    └──reuses──>  the central gate + refreshEntitlements() live-flip
 ```
 
 ### Dependency Notes
 
-- **Cron description and next-runs share one field parser** — build it once; both consumers read its normalized output. Don't parse twice.
-- **Cron `L`/`nL` only affects the iterator**, not the parser much — isolate it so the rest of cron can ship even if `L` math is hard.
-- **Regex `matchAll` is load-bearing** — it sidesteps the `lastIndex` statefulness bug; specify it rather than `.exec()` loops.
-- **Decimal parser is strictly upstream of the decoder** — zero coupling into `decoder.ts`; it just produces the `Uint8Array` the decoder already accepts.
+- **Everything store-side requires the native StoreKit bridge** — it does not exist yet and there is no first-class Tauri plugin, so it must be spiked behind `src/lib/platform/` before any UI work. This is the critical-path long pole.
+- **`currentEntitlements` → the existing central gate is the key reuse.** Both variants resolve to the same `pro.theming`/`pro.ordering` map (locked decision), so NO webview-gate or tool-registry change is needed — only the *source* that fills the map changes.
+- **Restore Purchases depends on the StoreKit bridge**, not on Keygen; it is independent of the activation form (which is gone in the store build).
+- **The `Transaction.updates` listener depends on `App` boot wiring** (like today's `useUpdater` singleton consumed in `App.tsx`) — it must be a single app-lifetime task, not per-component.
+- **Sandbox feature decisions are independent of StoreKit** and can be spiked in parallel, but all three (hotkey, launch-at-login, tray) gate on the same sandbox-enable change.
+
+---
 
 ## MVP Definition
 
-### Launch With (v1.3)
+### Launch With (the approvable v1.8 submission)
 
-The milestone scope IS the launch scope (user chose fullest). Ruthless ordering within it:
+- [ ] Native StoreKit 2 bridge behind `src/lib/platform/` (spike → real) — **everything depends on it**
+- [ ] One non-consumable "Pro" product in App Store Connect, attached to the binary
+- [ ] `Product.purchase()` flow with `.success/.userCancelled/.pending` handling
+- [ ] `VerificationResult` on-device verify, fail closed on `.unverified`
+- [ ] `Transaction.finish()` + `currentEntitlements` → `isPro` → existing `pro.*` map
+- [ ] **Restore Purchases** button in Settings ▸ License (mandatory)
+- [ ] `Transaction.updates` listener → live Pro drop on refund/revocation
+- [ ] Store License pane variant (status + Buy + Restore; NO key field, NO external link, NO literal price)
+- [ ] App Sandbox enabled; updater + Keygen UI + `license.tinkerdev.io` compiled out via the variant seam
+- [ ] Launch-at-login migrated to `SMAppService` (explicit toggle, default OFF) OR feature-off if deferred
+- [ ] Global summon: keep if Tauri's plugin is `RegisterEventHotKey`-based (sandbox-OK), else feature-off
+- [ ] Privacy nutrition label = Data Not Collected (+ Privacy Manifest), 4+ age rating, screenshots of real states, working support/privacy URLs, Notes-for-Review documenting the Pro IAP
 
-- [ ] **URL tool** (full) — lowest complexity, pure view over native APIs; ship first.
-- [ ] **Protobuf decimal input** — small, high-value hero extension; get the auto-detect heuristic right.
-- [ ] **Regex tester** — medium; native `RegExp` + `matchAll`; work is in match-highlight presentation.
-- [ ] **Cron core** (5+6-field, macros, names, ranges/steps/lists, `?`, DOM/DOW-OR, next-5, description) — the heavy one.
-- [ ] **Cron `L`/`nL`** — own slice; highest-risk, deepest test cases.
+### Add After Validation (v1.x)
 
-### Add After Validation (if demand confirmed)
+- [ ] Family Sharing for the non-consumable (App Store Connect toggle) — trigger: user requests, or to match competitor generosity
+- [ ] Offer codes / promo for Pro (now supported for non-consumables, 2025) — trigger: marketing need
+- [ ] In-app "Manage Purchases" deep link — minimal value for a one-time non-consumable, likely skip
 
-- [ ] Regex pattern library beyond the 3 named (IPv6, UUID, hex color, ISO date).
-- [ ] URL per-row raw-vs-decoded toggle; valueless-key disambiguation polish.
-- [ ] Cron: persist last expression; show resolved IANA TZ label.
+### Future Consideration (v2+)
 
-### Future / Out of Scope (hold the wedge)
+- [ ] Windows/Linux store channels — explicitly deferred (macOS-only)
+- [ ] Schema-aware Protobuf as a second paid tier — already a parked product idea, orthogonal to v1.8
 
-- [ ] Regex explainer, multi-flavor engines, permalinks.
-- [ ] Cron `W`/`#`/year-field, cron generator UI, timezone selector.
-- [ ] URL editable-recompose, shortener, IDN converter.
-- [ ] Decimal: hex tokens, >255 multi-byte, signed bytes.
+---
 
 ## Feature Prioritization Matrix
 
 | Feature | User Value | Implementation Cost | Priority |
-|---|---|---|---|
-| URL component split + param table | HIGH | LOW | P1 |
-| URL component-vs-full encode/decode | HIGH | LOW | P1 |
-| Protobuf decimal parse + auto-detect | HIGH | LOW–MED | P1 |
-| Regex matches + groups + flags | HIGH | MED | P1 |
-| Regex live replace preview | HIGH | MED | P1 |
-| Regex named groups | MED | LOW | P1 |
-| Regex pattern library (3 patterns) | MED | LOW | P1 |
-| Cron 5-field parse + description | HIGH | MED–HIGH | P1 |
-| Cron next-5 runs (local time) | HIGH | MED–HIGH | P1 |
-| Cron 6-field + macros + day/month names | HIGH | LOW–MED | P1 |
-| Cron DOM/DOW OR semantics | HIGH (correctness) | MED | P1 |
-| Cron `L`/`nL` last-day/last-weekday | MED | HIGH | P2 (own slice) |
-| Cron `W` / `#` (parse-tolerant, no compute) | LOW | LOW | P3 |
+|---------|------------|---------------------|----------|
+| Native StoreKit bridge (spike) | HIGH (enabler) | HIGH | P1 |
+| Non-consumable Pro product + purchase flow | HIGH | HIGH | P1 |
+| On-device JWS verify (fail closed) | HIGH | MEDIUM | P1 |
+| `currentEntitlements` → existing gate | HIGH | MEDIUM | P1 |
+| Restore Purchases | MEDIUM (but MANDATORY) | LOW–MEDIUM | P1 |
+| `Transaction.updates` refund/revoke listener | MEDIUM (correctness) | MEDIUM | P1 |
+| Store License pane variant (no key/link/price) | HIGH (compliance) | MEDIUM | P1 |
+| App Sandbox + updater/Keygen compiled out | HIGH (compliance) | HIGH | P1 |
+| Launch-at-login → SMAppService | MEDIUM | MEDIUM | P2 |
+| Global hotkey kept under sandbox | MEDIUM | MEDIUM | P2 |
+| Tray parity under sandbox | LOW–MEDIUM | LOW–MEDIUM | P2 |
+| Privacy label / age rating / screenshots / URLs | HIGH (submission) | LOW–MEDIUM | P1 (non-code) |
+| Family Sharing | LOW | LOW | P3 |
 
-**Priority key:** P1 = must have this milestone · P2 = in scope, isolate as a risky slice · P3 = tolerate-don't-interpret.
+**Priority key:** P1 = must have for the submission · P2 = ship for parity, degrade gracefully if blocked · P3 = future.
 
-## Competitor Feature Analysis
+---
 
-| Feature | crontab.guru | regex101 | Our Approach |
-|---|---|---|---|
-| Cron seconds (6-field) | ✗ omits | — | ✓ auto-detect by field count |
-| Cron macros / `@reboot` | partial | — | ✓ full alias table; `@reboot` = no run list |
-| Cron `L`/`W`/`#` | ✗ | — | `L`/`nL` ✓ compute; `W`/`#` tolerate-only |
-| Cron next-runs list | ✓ a few | — | ✓ next **5**, local time (Unix Time convention) |
-| Regex named groups | — | ✓ | ✓ via `match.groups` |
-| Regex replace preview | — | ✓ | ✓ `$1`/`$<name>`/`$&` |
-| Regex explainer | — | ✓ | ✗ anti-feature (scope) |
-| Regex multi-flavor | — | ✓ | ✗ ECMAScript only (zero-dep) |
-| URL param table w/ repeated keys | various | — | ✓ `URLSearchParams`, duplicates preserved |
-| Offline / no network | ✗ web | ✗ web | ✓ **the differentiator** — all four 100% offline native-API |
+## Competitor / Pattern Analysis (how comparable utility apps handle this)
+
+| Concern | Common pattern in shipped Mac utilities | Our Approach |
+|---------|------------------------------------------|--------------|
+| Direct + MAS dual channel with different unlock | Many indie Mac utilities (menu-bar/dev tools) ship a Developer-ID build with a license key AND a separate MAS build with StoreKit IAP, gated by a build flag | One build-variant seam; store build is StoreKit-only, direct build keeps Keygen |
+| Restore Purchases placement | In a Settings/Preferences "License" or "About" tab, clearly labeled | Settings ▸ License pane, where Activate/Deactivate live today |
+| Global hotkey under sandbox | Keep it via `RegisterEventHotKey` (no entitlement); apps remain MAS-eligible | Keep if Tauri plugin uses it; verify in spike, else feature-off |
+| Launch-at-login under sandbox | `SMAppService` (modern) with an explicit, default-off toggle | Migrate from the LaunchAgent-plist autostart plugin to `SMAppService` |
+| Pricing display | Show the StoreKit-localized price, never a hardcoded number | `Product.displayPrice` |
+| Privacy label for offline tools | "Data Not Collected" (e.g. on-device-only utilities) | Data Not Collected + Privacy Manifest |
+
+---
+
+## Submission Checklist (these metadata items ARE features for v1.8)
+
+Treat each as a testable deliverable, not paperwork-as-afterthought (2.1/2.3 metadata is the top utility-rejection bucket):
+
+- [ ] **IAP product** created (non-consumable), reference name + localized display name + description, **review screenshot**, price tier set, **attached to the binary** for first review
+- [ ] **Restore Purchases** present and functional (reviewer will look for it on a non-consumable)
+- [ ] **Privacy nutrition label** completed → Data Not Collected; **Privacy Manifest** (`PrivacyInfo.xcprivacy`) declaring no tracking
+- [ ] **Age rating** questionnaire → 4+
+- [ ] **Screenshots** (3–4) of real, accessible states of the submitted build — no mocked/unavailable features, no "title screen only"
+- [ ] **App description + keywords + name (≤30 chars)** accurate, no price text, no trademark stuffing
+- [ ] **Support URL + Privacy Policy URL** resolve (no placeholder/empty pages)
+- [ ] **Notes for Review** documenting the Pro unlock + how to exercise the IAP (the gated features must be reviewable, not dormant/hidden — 2.3.1)
+- [ ] **No key field / no external buy link / no invented price** anywhere in the submitted store build
+- [ ] App boots fully usable (free tier) on first launch — **no license screen at launch** (macOS 3.1.1 corollary)
+- [ ] App Sandbox entitlement present; updater absent; crash-free on a clean machine (2.1)
+
+---
 
 ## Sources
 
-- crontab.guru — examples, tips, crontab.5 manpage (field syntax, macros, what it deliberately omits): https://crontab.guru/ , https://crontab.guru/tips.html , https://crontab.guru/crontab.5.html — HIGH
-- Healthchecks.io cron cheatsheet (field ranges, special chars, macro-support matrix): https://healthchecks.io/docs/cron/ — HIGH
-- Cron DOM/DOW OR-combination + 0/7 Sunday (Debian bug thread, inngest issue): https://groups.google.com/g/linux.debian.bugs.dist/c/LM4Rqrf9oQM , https://github.com/inngest/inngest/issues/2631 — HIGH (multiple independent sources agree)
-- MDN — `RegExp`, `String.prototype.matchAll`, `String.prototype.replace`, Groups/backreferences (named groups, `$1`/`$<name>`/`$&`, `lastIndex` statefulness, flag effects): https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/RegExp , https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/matchAll , https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/replace — HIGH
-- MDN — `URL` / `URLSearchParams` (component access, repeated-key iteration, decode-on-read) [standard WebView APIs, training-verified] — HIGH
-- DevTools `.planning/PROJECT.md` (registry, StatusBar opt-in byteCount, FormatterView, platform seam, Unix Time local-time convention, zero-dep constraint, frozen decoder) — HIGH
+- [App Review Guidelines — Apple](https://developer.apple.com/app-store/review/guidelines/) — 3.1.1 (license keys banned, restore mechanism required, US-storefront external-link exception), 2.1, 2.3, 4.2; verified 2026-06-22
+- [Guidelines updated for external links post-Epic, May 2025 — 9to5Mac](https://9to5mac.com/2025/05/01/apple-app-store-guidelines-external-links/) and [AppleInsider](https://appleinsider.com/articles/25/05/02/apples-app-store-guidelines-updated-to-reflect-court-order-over-external-purchases)
+- [Transaction.currentEntitlements — Apple Developer](https://developer.apple.com/documentation/storekit/transaction/currententitlements) (refunded/revoked excluded)
+- [VerificationResult.unverified — Apple Developer](https://developer.apple.com/documentation/storekit/verificationresult/unverified(_:_:)) (fail-closed handling)
+- [Transaction — Apple Developer](https://developer.apple.com/documentation/storekit/transaction) (revocationDate/revocationReason, updates, finish)
+- [Restore mechanism mandatory — Apphud](https://apphud.com/blog/restoring-purchases) (currentEntitlements + Restore button placement)
+- [App Privacy Details — Apple](https://developer.apple.com/app-store/app-privacy-details/) (on-device data = not collected)
+- [App Sandbox info — App Store Connect](https://developer.apple.com/help/app-store-connect/reference/app-uploads/app-sandbox-information) (sandbox mandatory for MAS)
+- [SMAppService launch-at-login (sandbox-safe) — nilcoalescing](https://nilcoalescing.com/blog/LaunchAtLoginSetting/)
+- [Global hotkeys remain MAS-eligible (RegisterEventHotKey, no entitlement) — Macworld](https://macworld.com/article/1166857/apps_using_global_hotkeys_will_remain_welcome_in_the_mac_app_store/) and [KeyboardShortcuts (API tradeoffs: Carbon OK, CGEventTap not allowed)](https://github.com/sindresorhus/keyboardshortcuts)
+- [Tauri global-shortcut plugin (uses RegisterEventHotKey, app-level) — Tauri v2 docs](https://v2.tauri.app/plugin/global-shortcut/)
+- [First IAP must ship attached to the binary — App Store Connect help](https://developer.apple.com/help/app-store-connect/manage-in-app-purchases/create-consumable-or-non-consumable-in-app-purchases/)
+- [Top utility rejection reasons (metadata/screenshots/minimum functionality), 2025 — nextnative](https://nextnative.dev/blog/app-store-review-guidelines)
+- Local: existing `src/components/UpsellPanel.tsx`, `src/components/LicenseSettings.tsx` (the activation/license surfaces the store variant must branch/compile out)
 
 ---
-*Feature research for: DevTools v1.3 "More Tools" — Cron, URL, Regex tools + Protobuf decimal-byte input*
-*Researched: 2026-06-03*
+*Feature research for: v1.8 "Mac App Store Distribution" (TinkerDev)*
+*Researched: 2026-06-22*
