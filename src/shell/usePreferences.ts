@@ -92,6 +92,30 @@ export function ensurePreferencesLoaded(): void {
   });
 }
 
+/** Resolves once the async mount-load of the persisted blob has landed (or
+ *  immediately if it already has). Lets a NON-React writer (the updater
+ *  singleton's lastUpdateCheck stamp, Plan 03) wait for the REAL persisted prefs
+ *  before merging a field, so it can never persist DEFAULT_PREFERENCES+stamp over
+ *  the user's real blob during the load window (memory tauri-store-async-init-race
+ *  + prefs-blob-single-writer). It also KICKS the load (ensurePreferencesLoaded)
+ *  so a stamp that fires before any hook mounted still resolves.
+ *
+ *  Additive-only: it reads the existing latches (loadStarted / dirty / sharedLoaded
+ *  via ensurePreferencesLoaded + getPreferencesLoaded + subscribePreferences) and
+ *  changes NONE of their semantics. */
+export function whenPreferencesLoaded(): Promise<void> {
+  ensurePreferencesLoaded(); // idempotent kick — resolves even if no hook mounted
+  if (getPreferencesLoaded()) return Promise.resolve();
+  return new Promise((resolve) => {
+    const unsubscribe = subscribePreferences(() => {
+      if (getPreferencesLoaded()) {
+        unsubscribe();
+        resolve();
+      }
+    });
+  });
+}
+
 /** Apply a partial change to the shared blob AND persist it. The merge ALWAYS
  *  reads the LIVE `sharedPrefs`, so concurrent writers (usePreferences +
  *  useRecentTools) never clobber each other's fields. Notifies all subscribers
