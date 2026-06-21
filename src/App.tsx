@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { Lock } from "lucide-react";
 import { Outlet } from "react-router-dom";
 import { Sidebar } from "./components/Sidebar";
@@ -9,6 +9,7 @@ import { UpsellModal } from "./components/UpsellPanel";
 import { useTrackActiveTool } from "./shell/useTrackActiveTool";
 import { useAppearance } from "./shell/useAppearance";
 import { usePreferences } from "./shell/usePreferences";
+import { setUpdateInfoForTest, useUpdater } from "./shell/useUpdater";
 import {
   acceleratorToKeyboardInit,
   formatAccelerator,
@@ -17,12 +18,7 @@ import { useSettingsOpen } from "./shell/useSettings";
 import { useUpsellOpen } from "./shell/useUpsell";
 import { openSettings } from "./shell/settingsStore";
 import { closeUpsell } from "./shell/upsellStore";
-import {
-  checkForUpdate,
-  installUpdate,
-  needsOptInPrompt,
-  shouldAutoCheck,
-} from "./shell/update";
+import { needsOptInPrompt, shouldAutoCheck } from "./shell/update";
 import { initPlatform, platform, type UpdateInfo } from "@/lib/platform";
 
 // The registry-driven application shell (SHL-01/02). All layout chrome lives
@@ -62,28 +58,25 @@ export function App() {
 
   const { preferences, prefsLoaded, setAutoUpdateCheck } = usePreferences();
 
-  // The detected update (banner shown only when set), install progress/error, and
-  // a transient "you're up to date" surfaced after a MANUAL check with no update.
-  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
-  const [installing, setInstalling] = useState(false);
-  const [progress, setProgress] = useState<number | undefined>(undefined);
-  const [status, setStatus] = useState<string | null>(null);
+  // D-25-3: ALL updater UX state (detected update / install progress / transient
+  // status / checking) now lives in the shared useUpdater singleton, so the Updates
+  // pane (Plan 04), the tray, and the silent launch check are SECOND entry points to
+  // the SAME check — no divergent state machine, no direct check/install path here.
+  // `runCheck` de-dupes concurrent triggers behind one in-flight promise and stamps
+  // lastUpdateCheck (load-safe) on every resolution; `clearStatus` drives the
+  // auto-clear timer below.
+  const {
+    updateInfo,
+    status,
+    installing,
+    progress,
+    runCheck,
+    install,
+    dismiss,
+    clearStatus,
+  } = useUpdater();
   // Guards the launch auto-check so it runs at most once per app session.
   const launchChecked = useRef(false);
-
-  // Run a check and reflect the result into shell state. `manual` decides whether a
-  // no-update / error result is surfaced (manual checks give feedback; the silent
-  // launch check stays quiet on "current"/"error").
-  const runCheck = useCallback(async (manual: boolean) => {
-    const result = await checkForUpdate();
-    if (result.kind === "update") {
-      setUpdateInfo(result.info); // re-show the banner on every detection (D-11c)
-    } else if (manual && result.kind === "current") {
-      setStatus("You're up to date");
-    } else if (manual && result.kind === "error") {
-      setStatus("Update check failed");
-    }
-  }, []);
 
   // Silent launch check — ONLY when the user has explicitly opted in (D-09). false
   // (opted out) and null (never asked) make NO automatic network call (T-06-11).
@@ -154,12 +147,14 @@ export function App() {
     };
   }, []);
 
-  // A resolving "up to date"/error toast auto-clears so it never lingers.
+  // A resolving "up to date"/error toast auto-clears so it never lingers. The
+  // status lives in the shared hook now, so the timer clears it through the hook's
+  // action (clearStatus is a stable module reference).
   useEffect(() => {
     if (!status) return;
-    const id = setTimeout(() => setStatus(null), 3000);
+    const id = setTimeout(() => clearStatus(), 3000);
     return () => clearTimeout(id);
-  }, [status]);
+  }, [status, clearStatus]);
 
   // DEV/E2E-ONLY hook: the real download/verify round-trip can't be driven by
   // WebDriver (Manual-Only, Plan 05), so the real-WKWebView e2e renders the banner
@@ -168,25 +163,10 @@ export function App() {
   useEffect(() => {
     if (!import.meta.env.DEV) return;
     const w = window as unknown as { __injectUpdate?: (info: UpdateInfo) => void };
-    w.__injectUpdate = (info: UpdateInfo) => setUpdateInfo(info);
+    w.__injectUpdate = (info: UpdateInfo) => setUpdateInfoForTest(info);
     return () => {
       delete w.__injectUpdate;
     };
-  }, []);
-
-  const handleInstall = useCallback(async () => {
-    setInstalling(true);
-    setStatus(null);
-    try {
-      await installUpdate((pct) => setProgress(pct));
-      // On success the app relaunches; nothing more to do here.
-    } catch {
-      // A signature mismatch / install failure surfaces as an error, never a crash
-      // (T-06-12/T-06-13). The banner stays so the user can retry or dismiss.
-      setInstalling(false);
-      setProgress(undefined);
-      setStatus("Update failed to install");
-    }
   }, []);
 
   const showOptIn = prefsLoaded && needsOptInPrompt(preferences.autoUpdateCheck);
@@ -247,11 +227,8 @@ export function App() {
         {updateInfo ? (
           <UpdateBanner
             info={updateInfo}
-            onInstall={() => void handleInstall()}
-            onDismiss={() => {
-              setUpdateInfo(null);
-              setProgress(undefined);
-            }}
+            onInstall={() => void install()}
+            onDismiss={dismiss}
             installing={installing}
             progress={progress}
           />
