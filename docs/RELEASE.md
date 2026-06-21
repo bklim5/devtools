@@ -86,8 +86,10 @@ password:
 # Option A — pass the key CONTENTS inline (recommended; version-agnostic):
 export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.tauri/devtools.key)"
 
-# Option B — pass the key by path (only on bundler versions that honor it;
-# if you see "A public key has been found, but no private key", use Option A):
+# Option B — pass the key by path. `pnpm release:publish` reads this file into the
+# CONTENT form for you (shouldMaterializeSigningKey), so it works there regardless
+# of bundler version. NOTE: a raw `pnpm tauri build` OUTSIDE the script still needs
+# Option A — the bundler itself reads ONLY TAURI_SIGNING_PRIVATE_KEY:
 export TAURI_SIGNING_PRIVATE_KEY_PATH="$HOME/.tauri/devtools.key"
 
 # REQUIRED in both cases — the password you chose at key generation:

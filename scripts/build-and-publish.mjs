@@ -17,6 +17,7 @@
 //   -> [--dry-run short-circuits here, NO build, ZERO writes]
 //   -> rustup target add (idempotent) -> clear stale .sig -> universal tauri build
 //   -> lipo both-arch assert -> fresh-.sig single-match glob -> resolve assets
+//   -> notarise+staple the DMG (when APPLE_* present) -> spctl assert
 //   -> write latest.json (generate-only, never git add — REL-08)
 //   -> gh release create (assets FIRST) -> gh release upload latest.json (LAST)
 //   -> curl verify served version -> print the manual round-trip gate.
@@ -60,7 +61,11 @@ import {
   extractServedVersion,
   assertVersionMatches,
   hasSigningEnv,
-  hasAppleEnv,
+  hasNotaryApiKeyEnv,
+  someNotaryApiKeyEnv,
+  hasAppleIdNotaryEnv,
+  shouldMaterializeSigningKey,
+  notarizeDmgArgs,
   buildPublishPlanView,
   universalMachoPath,
   renderPublishPlan,
@@ -185,11 +190,29 @@ function preflights(view) {
   }
   log("  - signing env present");
 
-  // 2. Apple notarisation: log ONLY the boolean branch, NEVER a value (T-11-10).
+  // 2. The DMG-notarise step (step 6.5) supports ONLY the App Store Connect
+  //    API-key notary set. If notarisation is signalled ANY other recognised way —
+  //    a PARTIAL API-key set (typo/half-export), OR the COMPLETE Apple-ID auth set
+  //    that Tauri honours to notarise the `.app` — we cannot notarise the DMG, so
+  //    FAIL CLOSED here (before the ~15-min build) rather than silently publish a
+  //    Gatekeeper-rejected DMG (.app notarised, DMG not). A bare APPLE_SIGNING_IDENTITY
+  //    (Developer-ID-sign WITHOUT notarising) is legitimate and does NOT trip this.
+  if (
+    !hasNotaryApiKeyEnv(process.env) &&
+    (someNotaryApiKeyEnv(process.env) || hasAppleIdNotaryEnv(process.env))
+  ) {
+    abort(
+      "Apple notarisation is configured but the DMG-notarise step needs the COMPLETE App Store Connect API-key set (APPLE_API_KEY_PATH + APPLE_API_KEY + APPLE_API_ISSUER). The Apple-ID auth set (APPLE_ID/APPLE_PASSWORD/APPLE_TEAM_ID) is NOT supported for the DMG. Use the API-key set, or unset the Apple notary env for a sign-only/ad-hoc build.",
+    );
+  }
+
+  // 2b. Log what will ACTUALLY happen — keyed off the API-key set the DMG step
+  //     uses, so it can never claim 'notarising' when the DMG gate will be skipped
+  //     (log only; NEVER a secret value — T-11-10).
   log(
-    hasAppleEnv(process.env)
-      ? "  - Apple notarisation env detected — notarising."
-      : "  - Ad-hoc signing (no APPLE_* env) — default.",
+    hasNotaryApiKeyEnv(process.env)
+      ? "  - API-key notary env detected — notarising the .app + DMG."
+      : "  - No notary key — sign-only / ad-hoc build (no notarisation).",
   );
 
   // 3. rustup both-targets present? Only REPORT here (the add happens post-dry-run).
@@ -250,6 +273,27 @@ function preflights(view) {
  * un-publish (revert-by-republish ethos).
  */
 function publish(view, version, { x86Present }) {
+  // 0. Materialize the signing key for `tauri build`: it reads ONLY
+  //    TAURI_SIGNING_PRIVATE_KEY (the key CONTENT), never *_PATH. The preflight
+  //    accepts either form, so a maintainer who exported only the PATH form would
+  //    otherwise pass preflight, run the full ~15-min build, then die at the very
+  //    last `.sig` step ("a public key has been found, but no private key"). Read
+  //    the file into the content var here so the PATH form actually works.
+  const signingKeyPath = shouldMaterializeSigningKey(process.env);
+  if (signingKeyPath) {
+    try {
+      process.env.TAURI_SIGNING_PRIVATE_KEY = readFileSync(
+        signingKeyPath,
+        "utf8",
+      ).trim();
+    } catch (err) {
+      abort(
+        `could not read TAURI_SIGNING_PRIVATE_KEY_PATH (${signingKeyPath}): ${err?.message ?? err}`,
+      );
+    }
+    log("  - materialized TAURI_SIGNING_PRIVATE_KEY from the key path (content var)");
+  }
+
   // 1. rustup add (idempotent), then re-verify present (offline cold cache).
   if (!x86Present) {
     log("\nInstalling the missing universal target:");
@@ -306,6 +350,38 @@ function publish(view, version, { x86Present }) {
   const dmg = assertSingleSig(globSync(`${UNIVERSAL_DMG_DIR}/*.dmg`));
   log(`Updater payload: ${tarball}`);
   log(`First-install DMG: ${dmg}`);
+
+  // 6.5. Notarise + staple the DMG (when Apple env present). `tauri build`
+  //      notarises only the `.app` inside the bundle, leaving the DMG
+  //      Developer-ID-signed but UNNOTARISED → Gatekeeper rejects a *downloaded*
+  //      DMG ("Apple cannot check it for malicious software"). Submit the DMG,
+  //      staple the ticket, and assert `spctl` accepts — all BEFORE any publish, so
+  //      a Gatekeeper-rejected DMG can never reach the releases repo. notarytool
+  //      needs the API-key path/key-id/issuer on its argv (the `.p8` CONTENT stays
+  //      a file); use run() (not runGate()) so those identifiers are never logged
+  //      (T-11-10). A notarytool/staple failure throws → caught by main() before
+  //      publish (fail-closed). Keyed off the API-key notary set (preflight 2b
+  //      already rejected a partial set); skipped on a sign-only/ad-hoc build.
+  if (hasNotaryApiKeyEnv(process.env)) {
+    log("\nNotarising the DMG (the .app is notarised in-build; the DMG needs its own ticket):");
+    run("xcrun", notarizeDmgArgs(process.env, dmg));
+    log("  - notarytool submit --wait: accepted");
+    run("xcrun", ["stapler", "staple", dmg]);
+    log("  - stapler staple: ticket attached");
+    const verdict = run(
+      "spctl",
+      ["-a", "-t", "open", "--context", "context:primary-signature", dmg],
+      { allowFailure: true },
+    );
+    if (verdict.status !== 0) {
+      abort(
+        "the DMG is still not Gatekeeper-clean after notarise+staple (spctl rejected it). Refusing to publish.",
+      );
+    }
+    log("  - spctl: accepted (Gatekeeper-clean DMG)");
+  } else {
+    log("\nSkipping DMG notarisation (no API-key notary env — sign-only/ad-hoc build).");
+  }
 
   // 7. Build latest.json via the PURE fn (generate-only; never `git add` — REL-08).
   //    Real CHANGELOG notes for this version, falling back to the tag (resilient).

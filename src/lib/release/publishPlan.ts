@@ -164,6 +164,91 @@ export function hasAppleEnv(env: ProcessEnv): boolean {
   return APPLE_VARS.some((v) => !!env[v]);
 }
 
+/**
+ * `tauri build` reads the minisign signing key ONLY from `TAURI_SIGNING_PRIVATE_KEY`
+ * (the key CONTENT) — it ignores `TAURI_SIGNING_PRIVATE_KEY_PATH`. But `hasSigningEnv`
+ * (and the preflight) accept EITHER form, so a maintainer who exports only the PATH
+ * form passes preflight and then the ~15-min build dies at the very last `.sig` step
+ * ("A public key has been found, but no private key"). This returns the PATH the
+ * driver must read into the content var before building, or `null` when no
+ * materialization is needed (content already set, or no path given). Pure: it
+ * decides WHICH file to read; the driver does the reading.
+ */
+export function shouldMaterializeSigningKey(env: ProcessEnv): string | null {
+  if (env.TAURI_SIGNING_PRIVATE_KEY) return null;
+  return env.TAURI_SIGNING_PRIVATE_KEY_PATH ?? null;
+}
+
+/**
+ * Presence-check the App Store Connect API-key notary set specifically — the exact
+ * auth `notarizeDmgArgs` requires. `hasAppleEnv` is broader (it also admits the
+ * Apple-ID auth set), so the preflight uses THIS to fail fast: if notarisation is
+ * configured but the API-key set is incomplete, reject BEFORE the ~15-min build
+ * instead of throwing in `notarizeDmgArgs` after it. Boolean only.
+ */
+export function hasNotaryApiKeyEnv(env: ProcessEnv): boolean {
+  return (
+    !!env.APPLE_API_KEY_PATH && !!env.APPLE_API_KEY && !!env.APPLE_API_ISSUER
+  );
+}
+
+/**
+ * True when *some but not necessarily all* of the API-key notary vars are set —
+ * i.e. the maintainer clearly intends API-key notarisation. The preflight uses
+ * `someNotaryApiKeyEnv && !hasNotaryApiKeyEnv` to catch a PARTIAL/typo'd set (2 of
+ * 3) and fail fast, WITHOUT firing for an unrelated Apple var like a bare
+ * `APPLE_SIGNING_IDENTITY` (a legitimate Developer-ID-sign-but-don't-notarise
+ * build — `hasAppleEnv` would wrongly trip on that). Boolean only.
+ */
+export function someNotaryApiKeyEnv(env: ProcessEnv): boolean {
+  return (
+    !!env.APPLE_API_KEY_PATH || !!env.APPLE_API_KEY || !!env.APPLE_API_ISSUER
+  );
+}
+
+/**
+ * True when the *complete* Apple-ID notary auth set is present — the OTHER way
+ * Tauri notarises the `.app` (`xcrun notarytool --apple-id/--password/--team-id`).
+ * The DMG-notarise step does NOT support this mode (it would put the app-specific
+ * password on the argv), so the preflight uses this to FAIL CLOSED: if a build is
+ * Apple-ID-notarised but the API-key set is absent, abort rather than silently ship
+ * an unnotarised DMG (the .app would be notarised, the DMG would not). Boolean only.
+ */
+export function hasAppleIdNotaryEnv(env: ProcessEnv): boolean {
+  return !!env.APPLE_ID && !!env.APPLE_PASSWORD && !!env.APPLE_TEAM_ID;
+}
+
+/**
+ * Build the `xcrun notarytool submit` argv for notarising the DMG. Tauri notarises
+ * only the `.app` inside the bundle, leaving the DMG Developer-ID-signed but
+ * UNNOTARISED — so a downloaded DMG is Gatekeeper-rejected ("Apple cannot check it
+ * for malicious software"). The driver runs this (then `stapler staple` + an `spctl`
+ * assert) before uploading. Uses the App Store Connect API-key auth set; the `.p8`
+ * CONTENT stays a file — only its path + the public key-id / issuer-id reach the
+ * argv, mirroring what Tauri itself does for the `.app`. Throws a clear Error if any
+ * of the three API-key vars is missing (the Apple-ID + app-specific-password path is
+ * deliberately unsupported — it would put the password on the argv).
+ */
+export function notarizeDmgArgs(env: ProcessEnv, dmgPath: string): string[] {
+  if (!hasNotaryApiKeyEnv(env)) {
+    throw new Error(
+      "DMG notarisation needs the App Store Connect API-key env: APPLE_API_KEY_PATH (.p8), APPLE_API_KEY (key-id), APPLE_API_ISSUER (issuer-id).",
+    );
+  }
+  return [
+    "notarytool",
+    "submit",
+    dmgPath,
+    "--key",
+    env.APPLE_API_KEY_PATH as string,
+    "--key-id",
+    env.APPLE_API_KEY as string,
+    "--issuer",
+    env.APPLE_API_ISSUER as string,
+    "--wait",
+  ];
+}
+
 /** The macos sub-dir of the UNIVERSAL bundle output — NOT the arm64 `target/release/...`. */
 const UNIVERSAL_BUNDLE_MACOS_DIR =
   "src-tauri/target/universal-apple-darwin/release/bundle/macos";
@@ -234,6 +319,9 @@ export function renderPublishPlan(view: PublishPlanView): string {
     `  - ${view.universalBundleDir}/*.app.tar.gz       (updater payload)`,
     `  - ${view.sigGlob}   (fresh signature — single-match)`,
     `  - ${view.universalBundleDir.replace("/macos", "/dmg")}/*.dmg          (first-install asset)`,
+    "",
+    "DMG notarisation (when the API-key notary env is present, before upload):",
+    "  - xcrun notarytool submit --wait -> xcrun stapler staple -> spctl assert (Gatekeeper-clean DMG)",
     "",
     "latest.json (dual-key from ONE url+sig — Phase 9 buildLatestJson):",
     `  - darwin-aarch64 -> ${view.assetUrlExample}`,

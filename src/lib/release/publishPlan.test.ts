@@ -6,11 +6,16 @@ import {
   buildPublishPlanView,
   extractServedVersion,
   hasAppleEnv,
+  hasAppleIdNotaryEnv,
+  hasNotaryApiKeyEnv,
   hasSigningEnv,
+  notarizeDmgArgs,
   parseLipoArchs,
   parsePublishArgs,
   renderPublishPlan,
   renderPublishRecovery,
+  shouldMaterializeSigningKey,
+  someNotaryApiKeyEnv,
   universalMachoPath,
 } from "./publishPlan";
 
@@ -229,6 +234,147 @@ describe("renderPublishPlan", () => {
     const view = buildPublishPlanView("0.2.2", "TinkerDev");
     expect(renderPublishPlan(view)).toBe(renderPublishPlan(view));
     expect(typeof renderPublishPlan(view)).toBe("string");
+  });
+
+  it("documents the DMG notarisation + staple step", () => {
+    const out = renderPublishPlan(
+      buildPublishPlanView("0.2.2", "TinkerDev"),
+    ).toLowerCase();
+    expect(out).toContain("notarytool");
+    expect(out).toContain("staple");
+  });
+});
+
+describe("shouldMaterializeSigningKey", () => {
+  it("returns the path when only the PATH form is set (the doomed-build case)", () => {
+    expect(
+      shouldMaterializeSigningKey({
+        TAURI_SIGNING_PRIVATE_KEY_PATH: "/home/me/.tauri/app.key",
+        TAURI_SIGNING_PRIVATE_KEY_PASSWORD: "pw",
+      }),
+    ).toBe("/home/me/.tauri/app.key");
+  });
+
+  it("returns null when the content form is already set (no materialization needed)", () => {
+    expect(
+      shouldMaterializeSigningKey({
+        TAURI_SIGNING_PRIVATE_KEY: "inline-content",
+        TAURI_SIGNING_PRIVATE_KEY_PATH: "/home/me/.tauri/app.key",
+      }),
+    ).toBeNull();
+  });
+
+  it("returns null when neither form is set", () => {
+    expect(shouldMaterializeSigningKey({})).toBeNull();
+  });
+});
+
+describe("hasNotaryApiKeyEnv", () => {
+  it("is true only when all three API-key vars are present", () => {
+    expect(
+      hasNotaryApiKeyEnv({
+        APPLE_API_KEY_PATH: "/p/AuthKey.p8",
+        APPLE_API_KEY: "ABC123",
+        APPLE_API_ISSUER: "issuer-uuid",
+      }),
+    ).toBe(true);
+  });
+
+  it("is false when any one is missing (so preflight can fail fast, not the build)", () => {
+    expect(
+      hasNotaryApiKeyEnv({ APPLE_API_KEY: "ABC123", APPLE_API_ISSUER: "x" }),
+    ).toBe(false);
+  });
+
+  it("is false for the Apple-ID auth set (not supported for the DMG step)", () => {
+    expect(
+      hasNotaryApiKeyEnv({
+        APPLE_ID: "me@example.com",
+        APPLE_PASSWORD: "app-specific",
+        APPLE_TEAM_ID: "TEAM",
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("someNotaryApiKeyEnv", () => {
+  it("is true when ANY API-key var is set (catches a partial/typo'd set)", () => {
+    expect(someNotaryApiKeyEnv({ APPLE_API_KEY: "ABC123" })).toBe(true);
+  });
+
+  it("does NOT trip on a bare APPLE_SIGNING_IDENTITY (sign-only build stays valid)", () => {
+    expect(
+      someNotaryApiKeyEnv({
+        APPLE_SIGNING_IDENTITY: "Developer ID Application: Me (TEAM)",
+      }),
+    ).toBe(false);
+  });
+
+  it("is false for an empty env", () => {
+    expect(someNotaryApiKeyEnv({})).toBe(false);
+  });
+
+  it("pairs with hasNotaryApiKeyEnv to detect a partial set (some but not all)", () => {
+    const partial = { APPLE_API_KEY: "ABC123", APPLE_API_ISSUER: "x" };
+    expect(someNotaryApiKeyEnv(partial)).toBe(true);
+    expect(hasNotaryApiKeyEnv(partial)).toBe(false);
+  });
+});
+
+describe("hasAppleIdNotaryEnv", () => {
+  it("is true only with the complete Apple-ID auth set", () => {
+    expect(
+      hasAppleIdNotaryEnv({
+        APPLE_ID: "me@example.com",
+        APPLE_PASSWORD: "app-specific",
+        APPLE_TEAM_ID: "TEAM",
+      }),
+    ).toBe(true);
+  });
+
+  it("is false when any Apple-ID var is missing", () => {
+    expect(
+      hasAppleIdNotaryEnv({ APPLE_ID: "me@example.com", APPLE_TEAM_ID: "TEAM" }),
+    ).toBe(false);
+  });
+
+  it("is false for a bare APPLE_SIGNING_IDENTITY (sign-only build)", () => {
+    expect(
+      hasAppleIdNotaryEnv({ APPLE_SIGNING_IDENTITY: "Developer ID..." }),
+    ).toBe(false);
+  });
+});
+
+describe("notarizeDmgArgs", () => {
+  const apiEnv = {
+    APPLE_API_KEY_PATH: "/home/me/.appstoreconnect/AuthKey_ABC.p8",
+    APPLE_API_KEY: "ABC123",
+    APPLE_API_ISSUER: "issuer-uuid",
+  };
+
+  it("builds the notarytool submit argv from the API-key env (path stays a file arg)", () => {
+    expect(notarizeDmgArgs(apiEnv, "/out/App.dmg")).toEqual([
+      "notarytool",
+      "submit",
+      "/out/App.dmg",
+      "--key",
+      "/home/me/.appstoreconnect/AuthKey_ABC.p8",
+      "--key-id",
+      "ABC123",
+      "--issuer",
+      "issuer-uuid",
+      "--wait",
+    ]);
+  });
+
+  it.each([
+    ["APPLE_API_KEY_PATH", { ...apiEnv, APPLE_API_KEY_PATH: undefined }],
+    ["APPLE_API_KEY", { ...apiEnv, APPLE_API_KEY: undefined }],
+    ["APPLE_API_ISSUER", { ...apiEnv, APPLE_API_ISSUER: undefined }],
+  ])("throws a clear error when %s is missing", (_missing, env) => {
+    expect(() => notarizeDmgArgs(env, "/out/App.dmg")).toThrow(
+      /App Store Connect API-key env/,
+    );
   });
 });
 
