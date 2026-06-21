@@ -11,6 +11,10 @@ release body (falling back to the bare tag when a section is absent).
 
 ## [Unreleased]
 
+- _Nothing yet._
+
+## [0.4.1] - 2026-06-21
+
 - Add updates pane in settings
 
 ## [0.4.0] - 2026-06-21
