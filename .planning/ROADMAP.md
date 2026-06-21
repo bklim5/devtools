@@ -281,7 +281,14 @@ Plans:
   2. The pane offers a Check-for-updates action that reuses the existing updater seam (mirroring the tray action) — the result (up-to-date / update available) surfaces in the pane
   3. The pane is keyboard-reachable and WCAG-AA, consistent with the other panes
   4. The full Settings surface (all five panes, every entry point) passes a `gsd-ui-review` WCAG-AA audit and a human sign-off on a fresh `tauri build`, with `decoder.ts` + its 19 tests byte-for-byte untouched
-**Plans**: TBD
+**Plans**: 5 plans (planned 2026-06-21)
+
+Plans:
+- [ ] 25-01-PLAN.md — Add `app.getVersion()` to the platform seam (index/tauri/browser/stub) for the version readout (wave 1, autonomous)
+- [ ] 25-02-PLAN.md — Add `lastUpdateCheck` prefs field + coercer + single-writer setter (wave 1, autonomous)
+- [ ] 25-03-PLAN.md — Lift updater state into a shared `useUpdater` singleton + stamp `lastUpdateCheck` on every check; App.tsx consumes it (wave 2, autonomous)
+- [ ] 25-04-PLAN.md — `UpdatesSettings` pane (ungated: version + last-checked + Check + auto-check toggle, install defers to banner) + append-only `SETTINGS_PANES` entry + e2e (wave 3, autonomous)
+- [ ] 25-05-PLAN.md — Milestone-close sign-off: five-pane `gsd-ui-review` WCAG-AA audit + fresh `tauri build` human walkthrough (restart-persistence) + decoder-untouched proof (wave 4, NOT autonomous)
 **UI hint**: yes
 
 ## Progress
@@ -318,7 +325,7 @@ v1.7 runs 22 → 23 → 24 → 25 (started non-destructively while v1.6 is in fi
 | 22.1 Settings Follow-ups | v1.7 | 2/2 | Complete | 2026-06-16 (verification passed 6/6; app-menu name + inline License upsell) |
 | 23. Appearance Pane | v1.7 | 4/4 | Complete    | 2026-06-17 |
 | 24. Hotkeys & General Panes | v1.7 | 4/4 | Complete | SET-08 + SET-09 validated 2026-06-19 |
-| 25. Updates Pane & Milestone Ship | v1.7 | 0/? | Not started | - |
+| 25. Updates Pane & Milestone Ship | v1.7 | 0/5 | Planned | - |
 
 ## Backlog
 
