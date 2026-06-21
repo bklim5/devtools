@@ -2,6 +2,14 @@
 
 *A living document updated after each milestone. Lessons feed forward into future planning.*
 
+> **Milestone-close step — promote learnings to the global doc.**
+> After writing a milestone's "Key Lessons" / "Patterns Established" below, ask of each:
+> *would this help a different project?* If yes, promote it to `~/.claude/engineering-learnings.md`
+> (generalizable section, or the tagged Tauri/lefthook section if stack-specific) — distil, don't
+> copy verbatim, and fold into an existing bullet rather than appending a duplicate. Project-only
+> specifics stay here + in `~/.claude/projects/<...>/memory/`. This keeps the cross-project doc
+> current instead of drifting.
+
 ## Milestone: v1.1 — Formatters
 
 **Shipped:** 2026-06-02
