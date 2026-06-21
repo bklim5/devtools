@@ -110,6 +110,11 @@ describe("HashRouter (FND-02 runtime proof)", () => {
     const { findByLabelText } = render(<RouterProvider router={router} />);
     await router.navigate(`/tools/${HERO_TOOL_ID}`);
     // 03-04 swapped the placeholder for the real hero UI — its input is present.
-    expect(await findByLabelText("Protobuf input")).toBeDefined();
+    // The tool is React.lazy-loaded, so allow the dynamic import room to resolve
+    // under heavy full-suite fork contention (the default 1000ms wait times out on
+    // a loaded machine even though the route renders fine in isolation).
+    expect(
+      await findByLabelText("Protobuf input", undefined, { timeout: 10_000 }),
+    ).toBeDefined();
   });
 });
