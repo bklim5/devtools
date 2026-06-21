@@ -285,7 +285,7 @@ Plans:
 
 Plans:
 - [x] 25-01-PLAN.md — Add `app.getVersion()` to the platform seam (index/tauri/browser/stub) for the version readout (wave 1, autonomous) ✓ 2026-06-21 (vitest 1168/1168, decoder untouched; `9cda4837`/`7d577bba`)
-- [ ] 25-02-PLAN.md — Add `lastUpdateCheck` prefs field + coercer + single-writer setter (wave 1, autonomous)
+- [x] 25-02-PLAN.md — Add `lastUpdateCheck` prefs field + coercer + single-writer setter (wave 1, autonomous) ✓ 2026-06-21 (vitest 1178/1178, decoder untouched; `082a733a`/`69ba769d`)
 - [ ] 25-03-PLAN.md — Lift updater state into a shared `useUpdater` singleton + stamp `lastUpdateCheck` on every check; App.tsx consumes it (wave 2, autonomous)
 - [ ] 25-04-PLAN.md — `UpdatesSettings` pane (ungated: version + last-checked + Check + auto-check toggle, install defers to banner) + append-only `SETTINGS_PANES` entry + e2e (wave 3, autonomous)
 - [ ] 25-05-PLAN.md — Milestone-close sign-off: five-pane `gsd-ui-review` WCAG-AA audit + fresh `tauri build` human walkthrough (restart-persistence) + decoder-untouched proof (wave 4, NOT autonomous)
@@ -325,7 +325,7 @@ v1.7 runs 22 → 23 → 24 → 25 (started non-destructively while v1.6 is in fi
 | 22.1 Settings Follow-ups | v1.7 | 2/2 | Complete | 2026-06-16 (verification passed 6/6; app-menu name + inline License upsell) |
 | 23. Appearance Pane | v1.7 | 4/4 | Complete    | 2026-06-17 |
 | 24. Hotkeys & General Panes | v1.7 | 4/4 | Complete | SET-08 + SET-09 validated 2026-06-19 |
-| 25. Updates Pane & Milestone Ship | v1.7 | 0/5 | Planned | - |
+| 25. Updates Pane & Milestone Ship | v1.7 | 2/5 | In Progress | - |
 
 ## Backlog
 

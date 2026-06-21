@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Licensing
 status: executing
-last_updated: "2026-06-21T20:38:00.000Z"
-last_activity: 2026-06-21 -- Phase 25 plan 01 complete (app.getVersion seam)
+last_updated: "2026-06-21T20:43:00.000Z"
+last_activity: 2026-06-21 -- Phase 25 plan 02 complete (lastUpdateCheck prefs field)
 progress:
   total_phases: 17
   completed_phases: 8
   total_plans: 38
-  completed_plans: 34
-  percent: 89
+  completed_plans: 35
+  percent: 92
 ---
 
 # Project State
@@ -19,10 +19,12 @@ progress:
 
 Milestone: **v1.6 "Licensing"** — started 2026-06-09, roadmap created 2026-06-09.
 Phase: 25 (updates-pane-milestone-ship) — EXECUTING
-Plan: 2 of 5 (01 complete)
+Plan: 3 of 5 (01, 02 complete)
 Status: Executing Phase 25
 Progress: [■■□□] · Phase 22 + 22.1 complete · **Phase 22.2 COMPLETE (2026-06-16)** — user-approved mid-Phase-23 scope change: the **⌘K command palette is now Pro-gated** (a free user's ⌘K + the header pill open a focused Unlock-Pro modal; a Pro user gets the palette unchanged) and the **contextual locked customization triggers** (pin/drag/Alt+P/Reset) open that SAME focused modal instead of the 22.1 redirect-to-Settings. Gate via `isPro` (any Pro entitlement — frontend-only, no Keygen re-issue). Restored `UpsellModal` + `upsellStore`/`useUpsell` wrapping the SAME shared `ActivationSurface` (one activation surface, two presentations — partially un-reverts D-22.1-5). `openProUpsell` routes lapsed/attention paying customers (refreshNeeded/problem) to the Settings recovery form, NEVER the pitch (D-44). DEV-only ⌘⇧K force-open escape (tree-shaken from release, confirmed absent from `dist/`). Explicit license entry points (sidebar Settings row + Unlock-Pro footer + app-menu/tray + deep link) stay free → Settings ▸ License so a free user can still buy. **SET-04 revised** (⌘K no longer a free-tier path). Gates: vitest **986/986**, tsc+eslint clean, real-WKWebView e2e **22/22 spec files** (incl. new `cmdk-pro.e2e`), fresh `tauri build` (TinkerDev.app + DMG). decoder + 19 tests untouched. Deferred (non-blocking): `useFocusTrap` extraction (UpsellModal + SettingsModal share the Tab-trap), tinkerdev.io Pro-card copy sync.
-Last activity: 2026-06-21 -- Phase 25 plan 01 complete (app.getVersion seam)
+Last activity: 2026-06-21 -- Phase 25 plan 02 complete (lastUpdateCheck prefs field)
+
+**Phase 25 plan 02 decisions (2026-06-21, lastUpdateCheck prefs field — SET-10 partial, D-25-6/D-25-10, T-25-04/05):** the `lastUpdateCheck` epoch-ms timestamp (`number | null`; null = never checked → "Never") landed end-to-end through the single-writer prefs seam (Wave 1, no deps; parallel with Plan 01 — no file overlap). **(1) `preferences.ts`** — `lastUpdateCheck: number | null` on `Preferences` (after `autoUpdateCheck`) + `lastUpdateCheck: null` in `DEFAULT_PREFERENCES`. **(2) `prefsStore.ts`** — `coerceLastUpdateCheck` accepts ONLY a finite POSITIVE number (`typeof === "number" && Number.isFinite && > 0`), everything else — non-number/NaN/Infinity/0/negative/absent — → null (T-25-04: a hand-edited garbage value can never render a misleading future/garbage date); wired into `mergePreferences`. **(3) `usePreferences.ts`** — `setLastUpdateCheck: (ms) => void` setter routed through the single-writer `updatePreferences` singleton (T-25-05: merges against live state, never clobbers theme/pins; no new direct disk writer). No caller wired — stamping on every check resolution is Plan 03; display is Plan 04. Tests: `prefsStore.test.ts` lastUpdateCheck coercion (valid passthrough + each invalid arm → null, via `mergePreferences`); `usePreferences.test.ts` `setLastUpdateCheck` persists + round-trips through a fresh load + does NOT clobber a prior theme/pin. **No deviations** — the three edits matched the plan `<interfaces>` block verbatim. Gates: **vitest 1178/1178** (+10), tsc + eslint clean (the same 2 pre-existing SidebarResetMenu warnings, out of scope); `git diff --stat` decoder.ts = 0 changes (decoder + 19 tests byte-for-byte untouched); zero new deps. **SET-10 stays PARTIAL** — foundation only; the Updates pane UI + Check-for-updates wiring + real-WKWebView e2e land in Plans 03/04. `/simplify` + `/codex:review` not auto-invoked by the executor — recommend `/codex:review --scope working-tree` at the phase checkpoint. Commits: `082a733a` (field + coercer + setter), `69ba769d` (coercer + single-writer setter tests). Summary: `25-02-SUMMARY.md`.
 
 **Phase 25 plan 01 decisions (2026-06-21, app.getVersion seam — SET-10 partial, D-25-2):** the foundational seam surface the Updates pane (Plan 04) reads version from (Wave 1, no deps; parallel with Plan 02 prefs work — no file overlap). Added an `app: { getVersion(): Promise<string> }` capability mirroring `updater`/`opener`/`autostart`: **(1) `index.ts`** — capability on the `Platform` interface + `get app()` delegate (active-impl getter, not a snapshot). **(2) `tauri.ts`** — real arm `import { getVersion } from "@tauri-apps/api/app"` → `app: { getVersion: () => getVersion() }` (single source of truth = `tauri.conf.json` `version`); the ONLY file importing the native app API. **(3) `browser.ts`** — fallback `import.meta.env.VITE_APP_VERSION ?? "0.0.0-dev"` (D-25-2 "constant or build-time inject" → constant; no `@tauri-apps/*` import, no native call). **(4) shared test arm** — `noopApp` (returns `"0.0.0-test"`) added to `src/shell/testStore.ts` + wired into `makeMemoryPlatform` (the canonical factory ~50 specs consume); the 4 inline `Platform` literals in `platform.test.ts` widened. **Deviation (Rule 3 blocking):** the plan said the factory lives in `stub.ts`, but `stub.ts` has no full-Platform factory — `makeMemoryPlatform` lives in `src/shell/testStore.ts`; added `noopApp` there (mirrors the Phase-24 `noopAutostart` precedent). Two new tests pin the fallback (non-empty string, no native call) + the active-impl delegate (injected `9.9.9-fixture` sentinel surfaces only if `platform.app` forwards to the stub). Gates: **vitest 1168/1168** (+2), tsc + eslint clean (the same 2 pre-existing SidebarResetMenu warnings, out of scope); decoder + 19 tests byte-for-byte untouched; zero new deps. **SET-10 stays PARTIAL** — this is foundation only (the seam capability); the Updates pane UI + `lastUpdateCheck` prefs + Check-for-updates wiring + real-WKWebView e2e land in Plans 02/03/04. `/simplify` + `/codex:review` not auto-invoked by the executor — recommend `/codex:review --scope working-tree` at the phase checkpoint. Commits: `9cda4837` (seam capability + arms), `7d577bba` (fallback + delegate tests). Summary: `25-01-SUMMARY.md`.
 
