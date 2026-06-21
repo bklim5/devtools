@@ -263,10 +263,14 @@ function autoCheckToggleChecked(): Promise<boolean> {
   });
 }
 
-/** Keyboard-operate the auto-check toggle: focus it + dispatch a Space keydown +
- *  click (the role=switch native button responds to click; this also proves it is
- *  focusable/keyboard-reachable). Returns the new aria-checked value. */
-function toggleAutoCheckByKeyboard(): Promise<boolean | null> {
+/** Keyboard-operate the auto-check toggle: focus it + activate it (a native
+ *  <button role=switch> click is exactly what Space/Enter trigger on a focused
+ *  button, so this proves the control is keyboard-reachable + operable). Returns
+ *  whether the switch was actually focusable. The aria-checked flip is ASYNC (it
+ *  routes onChange → setAutoUpdateCheck → updatePreferences → notify → React
+ *  re-render), so the caller must WAIT for the flip via autoCheckToggleChecked() —
+ *  reading aria-checked synchronously in this same tick would see the stale value. */
+function activateAutoCheckToggle(): Promise<boolean> {
   return browser.execute(() => {
     const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
     const sw = Array.from(dialog?.querySelectorAll('[role="switch"]') ?? []).find((b) =>
@@ -274,11 +278,11 @@ function toggleAutoCheckByKeyboard(): Promise<boolean | null> {
         "Automatically check for updates on launch",
       ),
     ) as HTMLElement | null;
-    if (!sw) return null;
+    if (!sw) return false;
     sw.focus();
     const focused = document.activeElement === sw;
     sw.click(); // native <button role=switch> click = the keyboard-activatable path
-    return focused ? sw.getAttribute("aria-checked") === "true" : null;
+    return focused;
   });
 }
 
@@ -519,22 +523,30 @@ describe("Settings ▸ Updates pane (real WKWebView)", () => {
       );
 
       // (d) The auto-check toggle is keyboard-reachable + operable: focus it +
-      // activate → aria-checked flips on (it started off on the fresh state).
+      // activate → aria-checked flips on (it started off on the fresh state). The
+      // flip is async (React re-render after the prefs write), so wait for it.
       assert(
         (await autoCheckToggleChecked()) === false,
         "expected the auto-check toggle to start OFF on the fresh prefs state",
       );
-      const nowChecked = await toggleAutoCheckByKeyboard();
-      assert(
-        nowChecked === true,
-        `expected the auto-check toggle to be focusable + flip ON when activated, got ${JSON.stringify(nowChecked)}`,
-      );
+      const focused = await activateAutoCheckToggle();
+      assert(focused, "expected the auto-check toggle to be keyboard-focusable");
+      await browser.waitUntil(async () => await autoCheckToggleChecked(), {
+        timeout: 5_000,
+        timeoutMsg: `expected the auto-check toggle to flip ON after keyboard activation, got ${JSON.stringify(await autoCheckToggleChecked())}`,
+      });
     } finally {
       // Leave no modal open + reset the auto-check toggle so this spec leaves no
       // prefs pollution for later specs in the WDIO run.
       try {
         if (await settingsModalOpen()) {
-          if (await autoCheckToggleChecked()) await toggleAutoCheckByKeyboard();
+          if (await autoCheckToggleChecked()) {
+          await activateAutoCheckToggle();
+          await browser.waitUntil(
+            async () => !(await autoCheckToggleChecked()),
+            { timeout: 5_000 },
+          );
+        }
           await dismissModal();
           await browser.waitUntil(async () => !(await settingsModalOpen()), {
             timeout: 5_000,
