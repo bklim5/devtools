@@ -186,6 +186,50 @@ A distinct "Pinned" sidebar section (PIN-01..09) extending v1.4's personalizatio
 
 ---
 
+## Milestone: v1.6 — Licensing
+
+**Shipped:** 2026-06-17 · **Phases:** 18–21 (16 plans)
+
+### What Was Built
+A one-time-payment lifetime-license system, proven live end-to-end: MoR checkout (Lemon Squeezy) → webhook backend → Keygen license (perpetual, node-locked, `maxMachines=1`) → emailed key → in-app paste-activation (HMAC fingerprint, one machine) → offline Ed25519-verified `machine.lic` thereafter, with self-serve transfer + revocation propagation, behind a central frontend entitlement gate (free keeps all 11 tools; Pro unlocks customization). Prod CE on `license.tinkerdev.io`; real purchase order 8722394.
+
+### What Worked
+- A pure Rust license core (HMAC fingerprint + fail-closed Ed25519 verify) cross-validated against a real CE-issued fixture caught the auth model early; trait-mocked Keychain kept it unit-testable.
+- The D-42 spike (client-side key→token exchange) was run BEFORE committing the storage design — it came back denied on CE, so the raw key went to Keychain; no rework.
+- The entitlement gate shipped dormant in Phase 18 and was flipped live only in Phase 21, so the risky free-tier flip landed last, after everything else was proven.
+
+### What Was Inefficient
+- The milestone audit (2026-06-12) ran mid-milestone and reported `gaps_found` for LIC-05/07/08/09 — which were simply not built yet; the audit was never re-run after Phase 21 closed them, leaving a stale `gaps_found` artifact at archive time.
+- v1.6 was never formally archived when it finished sign-off (2026-06-17); it sat unarchived under the v1.7 work and both were archived together later — the "close v1.6 once signed off" intent slipped.
+
+### Key Lessons
+- **Run the milestone audit at the END, not mid-stream** — a mid-milestone audit reports unbuilt requirements as gaps and goes stale.
+- **Archive a milestone the moment it's signed off** — deferring it let a second milestone (v1.7) accumulate in the same ROADMAP/REQUIREMENTS, forcing a manual file-split at archive time.
+- **Live ops are their own gate** — the un-notarized 0.4.1 (and the ad-hoc-signing notarization failure) surfaced only at real `release:publish`, exactly like prior milestones' "the real run catches what unit tests can't."
+
+## Milestone: v1.7 — Settings & Preferences
+
+**Shipped:** 2026-06-21 (app v0.4.1) · **Phases:** 22, 22.1, 22.2, 23, 24, 25 (19 plans)
+
+### What Was Built
+A five-pane in-window Settings modal (License · Appearance · Hotkeys · General · Updates) reachable from app menu (⌘,) / tray / sidebar / ⌘K via the `platform/` event seam: live theming, rebindable hotkeys (incl. the OS global summon), app-behavior toggles (incl. launch-at-login), and in-app update check + install. Mounted shell-level via `openSettings()`, NOT a separate OS window.
+
+### What Worked
+- The registry stayed the single control plane: every pane was an append-only `SETTINGS_PANES` entry, and `SettingsModal.tsx` was byte-unchanged across four pane additions.
+- Phase 25's shared `useUpdater` singleton made the pane a second entry point to the SAME check/install action as the tray/banner — no divergent state — which is exactly what made the checkpoint "add Install to the pane" decision a thin, safe change.
+- Two inserted phases (22.1, 22.2) absorbed walkthrough-driven scope changes (inline upsell; Pro-gate ⌘K) without derailing the numbered plan.
+
+### What Was Inefficient
+- Two e2e/test flakes shipped green and only failed at the milestone gate under full-suite load: a synchronous `aria-checked` read after a click (React re-render is async), and a lazy-route `findByLabelText` exceeding its default 1000ms under fork contention. Both were latent before this milestone's added test volume tipped them over.
+- The Updates-pane e2e was written in Phase 25-04 but not executed until the 25-05 gate, so its timing bug surfaced late.
+
+### Key Lessons
+- **Run a newly-written e2e spec against the real engine in the SAME phase it's written** — deferring execution to a later gate hides timing bugs until the worst moment.
+- **Adversarial review earns its place on data-flow changes** — the codex pass caught a real data-loss path (the updater stamp persisting DEFAULT_PREFERENCES over the real blob after a failed prefs read) that line-level review and unit tests missed; it generalized the existing `prefs-blob-single-writer` rule to "gate auto-writers on a *successful* load, not just load-completed."
+- **A human checkpoint is where product decisions actually get made** — D-25-5 (status-only vs Install-in-pane) flipped at the walkthrough; the shared-singleton architecture made honoring it cheap.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -209,8 +253,10 @@ A distinct "Pinned" sidebar section (PIN-01..09) extending v1.4's personalizatio
 | v1.3 More Tools | 650 vitest | URL + Regex + Cron tools + Protobuf decimal (native `URL`/`RegExp`/`Intl` + a Web Worker) | **0** |
 | v1.4 Reorderable Tools | 668 vitest | reorderable sidebar — `toolOrder` overlay + pure reconciliation helpers (native HTML5 drag + Alt+arrow, no dnd library) | **0** |
 | v1.5 Pinned Tools | 694 vitest | pinned sidebar section — `pinnedToolIds` overlay + pure `partitionTools`/`resolveRovingTarget` helpers (Alt+P, arrow focus-nav, per-group reorder) | **0** |
+| v1.6 Licensing | ~895 vitest + 81 cargo | central entitlement gate + lazy registry (frontend); Rust license core (HMAC fingerprint, Ed25519 verify) | **0 webview** (Rust `ed25519-dalek`/`keyring`/HMAC expected + allowed) |
+| v1.7 Settings & Preferences | 1200 vitest | five-pane in-window Settings modal + shared `useUpdater` singleton + pure chord/prefs helpers | **1** (`@tauri-apps/plugin-autostart` — explicit scoped exception for launch-at-login) |
 
-Constant across all six: the hero decoder (`src/lib/protobuf/decoder.ts`) + its **19 tests** stayed byte-for-byte untouched.
+Constant across all eight: the hero decoder (`src/lib/protobuf/decoder.ts`) + its **19 tests** stayed byte-for-byte untouched.
 
 ### Top Lessons (Verified Across Milestones)
 

@@ -1,5 +1,37 @@
 # Milestones
 
+## v1.7 Settings & Preferences (Shipped: 2026-06-21)
+
+**Phases:** 22, 22.1, 22.2, 23, 24, 25 · **Released:** app v0.4.1 (notarized DMG)
+
+A native macOS Settings surface — a five-pane in-window modal (License · Appearance · Hotkeys · General · Updates) reached from app menu (⌘,) / tray / sidebar / ⌘K through the `platform/` event seam.
+
+**Key accomplishments:**
+
+- Shell-level `openSettings()` store + accessible in-window modal (Esc, focus trap + return-focus, `aria-modal`) + keyboard-navigable paned layout; License pane reuses `LicenseSettings` unchanged; all entry points (app menu ⌘, + tray via the platform seam, sidebar row, ⌘K) — SET-01..06.
+- Follow-ups (22.1): app-menu product-name labels ("TinkerDev"); inline upsell/activation in the License pane via a shared `ActivationSurface`; the standalone `UpsellModal` removed → one upsell surface.
+- Pro-gate ⌘K (22.2): a free user's ⌘K (and pin/drag/Alt+P/Reset) opens a focused Unlock-Pro modal over the shared `ActivationSurface`; `isPro(ents)` predicate (frontend-only); explicit license entry points stay free — revises SET-04.
+- Appearance pane (23): theme (light/dark; "system" dropped) + accent, persisted via the prefs seam, applied live whole-app, flash-free launch, Pro gate-on-Save; fixed a cross-writer prefs-clobber data-loss bug — SET-07.
+- Hotkeys + General panes (24): rebind the OS global summon (Rust re-register + conflict handling) + the ⌘K palette chord; launch-at-login (autostart plugin, the one scoped new-dep exception), start-in-tray, default tool — SET-08, SET-09.
+- Updates pane (25): version + last-checked + Check-for-updates + Install, all via one shared `useUpdater` singleton (de-duped check + install, load-safe `lastUpdateCheck` stamp); App.tsx consumes it. D-25-5 revised (Install in the pane); a codex adversarial pass fixed a HIGH data-loss path (stamp could persist defaults over the real blob after a failed read) — SET-10.
+
+Gates held: decoder.ts + its 19 tests byte-for-byte untouched; WCAG-AA (gsd-ui-review per phase); real-WKWebView e2e + human sign-off per phase. Full detail: `milestones/v1.7-ROADMAP.md` · `milestones/v1.7-REQUIREMENTS.md`.
+
+## v1.6 Licensing (Shipped: 2026-06-17)
+
+**Phases:** 18–21
+
+A one-time-payment lifetime-license system: MoR checkout → webhook → Keygen → emailed key → in-app paste-activation (HMAC fingerprint, one machine) → offline Ed25519-verified `machine.lic` thereafter, with self-serve transfer + revocation, behind a central frontend entitlement gate (free keeps all 11 tools; Pro unlocks customization).
+
+**Key accomplishments:**
+
+- Entitlements seam + central gate (18): registry + app-level gating, lock badges + upsell panel, lazy registry loaders; everything-unlocked in-Tauri default until Phase 21 flips it — ENT-01..05.
+- License activation + offline verification (19): pure Rust core (HMAC fingerprint, fail-closed Ed25519 `machine.lic` verify, atomic store, Keychain), 4 Tauri commands behind the `platform.license` seam, activation UX; the D-42 spike (client-side key→token exchange denied on CE → raw key Keychain-stored) — LIC-01/02/03/04/06.
+- Purchase pipeline (20): MoR checkout → webhook backend (LS `order_created` verify + idempotent Keygen create + Resend email) → key emailed; prod CE live on `license.tinkerdev.io`; live purchase proven end-to-end 2026-06-17 (order 8722394) — PAY-01/02/03.
+- License lifecycle + ship gate (21): TTL refresh + offline grace, self-serve transfer, revocation propagation, status UI; flipped the free-tier default live; full 8-case ship-gate matrix (live cases 1/2/7/8 run + passed by the user vs prod CE) — LIC-05/07/08/09.
+
+Key decisions: Keygen perpetual + node-locked (`maxMachines=1`); license key in Keychain (Rust-owned, never in JS); webview gating = UX-gating, not DRM; "no network at runtime" gained a narrow licensing-only exception. Gates held: decoder.ts + its 19 tests untouched; zero new webview runtime deps. Full detail: `milestones/v1.6-ROADMAP.md` · `milestones/v1.6-REQUIREMENTS.md`.
+
 ## v1.5 Pinned Tools (Shipped: 2026-06-07)
 
 **Phases completed:** 1 phase (17), 2 plans, 4 tasks (+ post-walkthrough gap-closure fixes)

@@ -8,8 +8,8 @@
 - ✅ **v1.3 More Tools** — Phases 12–15 (shipped 2026-06-04) — see `milestones/v1.3-ROADMAP.md`
 - ✅ **v1.4 Reorderable Tools** — Phase 16 (shipped 2026-06-05) — see `milestones/v1.4-ROADMAP.md`
 - ✅ **v1.5 Pinned Tools** — Phase 17 (shipped 2026-06-07) — see `milestones/v1.5-ROADMAP.md`
-- 🚧 **v1.6 Licensing** — Phases 18–21 (in progress, started 2026-06-09)
-- 🚧 **v1.7 Settings & Preferences** — Phases 22–25 (started 2026-06-15, non-destructively while v1.6 finishes sign-off)
+- ✅ **v1.6 Licensing** — Phases 18–21 (shipped 2026-06-17) — see `milestones/v1.6-ROADMAP.md`
+- ✅ **v1.7 Settings & Preferences** — Phases 22–25 (shipped 2026-06-21, app v0.4.1) — see `milestones/v1.7-ROADMAP.md`
 
 ## Phases
 
@@ -86,210 +86,31 @@ All 9 PIN requirements complete; human-signed-off (full suite 694/694, decoder 1
 
 </details>
 
-### 🚧 v1.6 Licensing (Phases 18–21) — IN PROGRESS
+<details>
+<summary>✅ v1.6 Licensing (Phases 18–21) — SHIPPED 2026-06-17</summary>
 
-One-time-payment lifetime license: MoR checkout → webhook → Keygen (perpetual, node-locked, `maxMachines=1`); paste-key one-time activation (fingerprint `HMAC-SHA256(IOPlatformUUID, app-salt)`); thereafter fully-offline Ed25519-verified `machine.lic` (~30-day TTL) in Rust; license key in macOS Keychain (Rust-owned); free tier keeps all 11 tools; Pro gates customization (theming + ordering/pinning) behind ONE central entitlement gate (D-18 pivot — tool-gating mechanism ships dormant). Architecture locked in `docs/licensing-research.md`. Webview gating accepted as UX-gating, not DRM. Webview runtime deps stay zero (Rust crates `ed25519-dalek`/`keyring`/HMAC allowed); `decoder.ts` + its 19 tests byte-for-byte untouched.
+- [x] Phase 18: Entitlements Seam & Central Gate (4/4 plans) — completed 2026-06-10
+- [x] Phase 19: License Activation & Offline Verification (4/4 plans) — completed 2026-06-12
+- [x] Phase 20: Purchase Pipeline (3/3 plans) — live LS purchase 2026-06-17 (order 8722394)
+- [x] Phase 21: License Lifecycle & Ship Gate (5/5 plans) — live walkthrough + ship-gate cases 1/2/7/8 passed 2026-06-17
 
-- [x] **Phase 18: Entitlements Seam & Central Gate** - Pure-frontend entitlement gating (registry + app-level) with lock badges + upsell panel; lazy registry loaders; everything-unlocked in-Tauri default until licensing lands (completed 2026-06-10)
-- [x] **Phase 19: License Activation & Offline Verification** - Keygen Rust core: paste-key activation, fingerprint, Ed25519 offline launch verify, Keychain storage, fail-closed; includes the key→token exchange SPIKE (completed 2026-06-12)
-- [x] **Phase 20: Purchase Pipeline** - MoR checkout (Lemon Squeezy default) → webhook backend → Keygen license creation → key emailed; privileged tokens server-side only (parallel-capable with Phase 19) — **COMPLETE** (PAY-01/02/03 Done; prod CE live on `license.tinkerdev.io`; the one pending gate — a live LS purchase — was proven end-to-end **2026-06-17** (real order 8722394))
-- [x] **Phase 21: License Lifecycle & Ship Gate** - TTL refresh + offline grace, self-serve transfer, revocation propagation, license status UI; flip the free-tier default live; full 8-case ship-gate matrix — **COMPLETE** (code 5/5 verified; live walkthrough + ship-gate live cases 1/2/7/8 run + passed by the user; LIC-05/07/08/09 closed)
+One-time-payment lifetime license: MoR checkout → webhook → Keygen → emailed key → paste-activation (HMAC fingerprint, one machine) → offline Ed25519-verified machine.lic thereafter, with self-serve transfer + revocation, behind a central frontend entitlement gate (free keeps all 11 tools; Pro unlocks customization). Full detail: `milestones/v1.6-ROADMAP.md` · requirements: `milestones/v1.6-REQUIREMENTS.md`
 
-### 🚧 v1.7 Settings & Preferences (Phases 22–25) — IN PROGRESS
+</details>
 
-A native macOS Settings/Preferences surface (promotes backlog 999.9; absorbs 999.3 theme settings + the parked NAT-01/G-05-1 summon hotkey). **Architecture (locked):** a full **in-window modal overlay** (Claude-style) mounted shell-level via an `openSettings()` store — the Phase-21 upsell-modal pattern (`src/shell/upsellStore.ts`/`useUpsell.ts` + `src/App.tsx` mount) — **NOT a separate OS window** (lowest risk; shares the single React root + prefs/entitlements/HashRouter; no multi-window, no IPC). Native app-menu (`TinkerDev ▸ Settings…`, ⌘,) + tray `Settings…` entry points live in Rust and reach the webview through the `src/lib/platform/` event seam (tools/components never import `@tauri-apps/*` directly). The License pane **reuses `src/components/LicenseSettings.tsx` unchanged**. WCAG-AA mandatory (focus trap + return-focus, `aria-modal`, `aria-live`, full keyboard path); HashRouter only; layout-agnostic; zero new webview runtime deps **except** the autostart plugin needed by SET-09 launch-at-login (a NEW dep → explicit scoped exception, called out in Phase 24); `src/lib/protobuf/decoder.ts` + its 19 tests stay byte-for-byte untouched; the real-WKWebView e2e gate + a phase-boundary human sign-off + `gsd-ui-review` apply to every phase.
+<details>
+<summary>✅ v1.7 Settings & Preferences (Phases 22–25) — SHIPPED 2026-06-21 (app v0.4.1)</summary>
 
-- [x] **Phase 22: Settings Modal Shell, Entry Points & License Pane** — shell-level `openSettings()` store + full in-window modal (Esc-dismiss, focus trap + return-focus, `aria-modal`) + paned layout (left nav / right content, keyboard-navigable); all four entry points (app menu ⌘, + tray via the `platform/` event seam, sidebar "Settings" row above "Unlock Pro", ⌘K); License pane reusing `LicenseSettings` unchanged; SET-01..06 (completed 2026-06-15)
-- [x] **Phase 22.1: Settings Follow-ups (INSERTED)** — gap closure from `22-FOLLOWUP.md`: (1) app-menu product-name labels (App submenu title "TinkerDev" + explicit About/Hide/Quit text, not the `devtools-app` bin name); (2) inline upsell/activation in the Settings ▸ License pane via a shared `ActivationSurface` extracted from `UpsellPanel`. Grew to 4 plans + a post-review fix batch: **the standalone `UpsellModal` was REMOVED** (D-22.1-5/D-28/D-29 reversed — every opener routes to Settings ▸ License = ONE upsell surface), the pane was redesigned (warn/ok token triads, $9 in-app pricing reversing D-20, amber/green/red banners), a dev-only license-state e2e seam was added, and the UI-audit/Codex findings were fixed (masked-key detailed refresh, heading order h2→h4, locked-affordance focus-return, dead-Done removal). WCAG-AA + native menu re-verify (completed 2026-06-16)
-- [x] **Phase 22.2: Pro-gate ⌘K + focused upsell modal (INSERTED)** — user-approved scope (2026-06-16): gate the ⌘K command palette behind Pro (free users get a focused Unlock-Pro modal instead of the palette) and route the contextual locked customization triggers (pin/drag/Alt+P/Reset order) to that SAME focused modal rather than the full Settings ▸ License redirect. Re-introduces a thin modal wrapper over the existing shared `ActivationSurface` (one activation surface, two presentations — partially un-reverts D-22.1-5) driven by a minimal shared `upsellStore`. Gating via a new `isPro(ents)` predicate (frontend-only; existing licenses keep ⌘K immediately — no Keygen re-issue). Explicit license entry points (sidebar Settings row + Unlock-Pro footer + app-menu/tray + deep link) stay free → Settings ▸ License so a free user can still buy. Revises SET-04 (⌘K no longer opens for everyone)
-- [x] **Phase 23: Appearance Pane** (completed 2026-06-17) — theme (light/dark — "system" dropped at user request) + accent, persisted via the prefs seam and applied live whole-app, flash-free launch, Pro gate-on-Save (absorbs backlog 999.3); SET-07. Human-approved on a fresh build after 3 walkthrough rounds (removed system, redesigned theme cards, widened upsell modal, fixed a cross-writer prefs-clobber data-loss bug)
-- [x] **Phase 24: Hotkeys & General Panes (native-touching)** — rebind the global summon hotkey (Rust global-shortcut re-register + conflict handling, promotes NAT-01/G-05-1) and the ⌘K palette chord (in-webview); General toggles (launch-at-login [autostart plugin → scoped dep exception], start-in-tray, default tool); SET-08, SET-09 — **COMPLETE 2026-06-19** (show-license-in-sidebar toggle dropped at the walkthrough per user; native summon/reveal required granting `core:window:allow-show/set-focus/unminimize`)
-- [x] **Phase 25: Updates Pane & Milestone Ship** — version + last-checked + Check-for-updates over the existing updater seam (mirrors the tray action); milestone polish + human sign-off; SET-10 (completed 2026-06-21)
+- [x] Phase 22: Settings Modal Shell, Entry Points & License Pane (3/3 plans) — completed 2026-06-15
+- [x] Phase 22.1: Settings Follow-ups (INSERTED) (4 plans + fix batch) — completed 2026-06-16
+- [x] Phase 22.2: Pro-gate ⌘K + focused upsell modal (INSERTED) (1 plan) — completed 2026-06-16
+- [x] Phase 23: Appearance Pane (4/4 plans) — completed 2026-06-17
+- [x] Phase 24: Hotkeys & General Panes (4/4 plans) — completed 2026-06-19
+- [x] Phase 25: Updates Pane & Milestone Ship (5/5 plans) — completed 2026-06-21
 
-## Phase Details (v1.6)
+A five-pane in-window Settings modal (License · Appearance · Hotkeys · General · Updates) reachable from app menu ⌘, / tray / sidebar / ⌘K via the platform event seam: live theming, rebindable hotkeys (incl. OS global summon), app-behavior toggles (incl. launch-at-login), in-app update check + install. Full detail: `milestones/v1.7-ROADMAP.md` · requirements: `milestones/v1.7-REQUIREMENTS.md`
 
-### Phase 18: Entitlements Seam & Central Gate
-**Goal**: Feature gating exists as one central, testable seam — tools and app-level features resolve entitlements through a single gate, locked features stay visible-but-locked, and the registry is lazified — while the in-Tauri default keeps everything unlocked until licensing lands (flipped at Phase 21 integration)
-**Depends on**: Nothing (pure frontend; first phase of v1.6)
-**Requirements**: ENT-01, ENT-02, ENT-03, ENT-04, ENT-05
-**Success Criteria** (what must be TRUE):
-  1. With a free-tier entitlement set applied via the dev/test toggle, a fixture-locked tool stays visible in the sidebar and ⌘K palette with a neutral lock badge, and opening it shows a WCAG-AA unlock/upsell panel in place of the tool UI (mechanism proven, dormant in production — D-18; never hidden, no opacity-only state)
-  2. Theming and tool ordering/pinning gate through the same app-level entitlement map — flipping the resolved set locks/unlocks them with no scattered per-feature checks (one central gate, registry stays the single control plane)
-  3. React consumes only a resolved entitlement set (Rust command inside Tauri; deterministic free-tier default in browser/jsdom/vite-preview so tests never touch licensing); the in-Tauri default resolves to everything-unlocked pre-licensing, so shipped behavior is unchanged
-  4. All registry tool entries load via lazy `component` loaders and the app behaves identically (paste-instant, full suite green, real-WKWebView e2e green) — a future free-build decoder code-split exclusion is now a real seam, with `decoder.ts` + its 19 tests byte-for-byte untouched
-**Plans**: 4 plans (4/4 executed — phase complete, human sign-off 2026-06-10)
-
-Plans:
-- [x] 18-01-PLAN.md — Entitlements core seam: vocabulary + isToolLocked/gatePreferences, env-split resolver (Tauri→FULL, browser→FREE, D-31 downgrade-only override), snapshot store + useEntitlements, shared UpsellPanel (D-19..D-22)
-- [x] 18-02-PLAN.md — Lazy registry (11 entries → LazyComponent loaders) + ToolRoute element gate (locked→upsell, no chunk fetch) + per-tool chunk/decoder-isolation proof (ENT-05/D-30)
-- [x] 18-03-PLAN.md — Lock UX surfaces: sidebar D-26 gating + D-28 locked-affordance upsell + D-29 footer "Unlock Pro" + dormant lock badges (D-23..25); palette badges + DEV-only free-tier toggle (D-32)
-- [x] 18-04-PLAN.md — D-18 doc reconciliation, real-WKWebView entitlements e2e + full e2e re-proof, dist-grep dev-strip check, phase-boundary build + human walkthrough
-
-**UI hint**: yes
-
-### Phase 19: License Activation & Offline Verification
-**Goal**: A user with a license key can activate this Mac once online and thereafter launch fully licensed, fully offline — all verification and key material Rust-owned, never in the webview
-**Depends on**: Phase 18 (entitlement gate to feed the resolved set into)
-**Requirements**: LIC-01, LIC-02, LIC-03, LIC-04, LIC-06
-**Success Criteria** (what must be TRUE):
-  1. User pastes a license key in-app → one online activation validates against Keygen, binds the machine (fingerprint `HMAC-SHA256(IOPlatformUUID, app-salt)` computed in Rust), checks out and caches the Ed25519-signed `machine.lic` (Rust-owned app data), and full entitlements unlock without restart
-  2. Activating the same key on a second Mac is rejected with a clear, calm error that names the resolution path (deactivate the other machine)
-  3. After activation, launching with networking disabled still resolves licensed entitlements — Rust verifies the `machine.lic` Ed25519 signature with the embedded public key and checks the fingerprint, with zero network calls
-  4. A corrupt, tampered, or foreign-machine `machine.lic` fails closed to the free tier — no crash, calm status messaging, re-activation offered
-  5. The license key lives only in the macOS Keychain (Rust-owned, `keyring` crate) — never readable from JS, never in the Tauri store or app-data files; the SPIKE outcome on client-side license-key → license-token exchange against the live Keygen API is recorded (store a scoped token instead of the raw key if confirmed)
-**Plans**: 4 plans
-
-Plans:
-- [x] 19-01-PLAN.md — Local Keygen CE bring-up (Docker compose + bootstrap) + the blocking D-42 SPIKE: lifecycle proven live, key→token denial + seat-limit payloads recorded in 19-SPIKE-OUTCOME.md, real machine.lic + pubkey fixtures committed
-- [x] 19-02-PLAN.md — Pure Rust license core: per-env consts (D-40/D-41), HMAC fingerprint, fail-closed Ed25519 machine.lic verify (TDD, 9+ fixture cases incl. real-CE cross-validation), atomic store, trait-mocked Keychain, pure-local status path
-- [x] 19-03-PLAN.md — Keygen HTTP client (validate→activate→checkout, D-38 offline/unreachable split, dev-only CA trust) + activation state machine + the 4 Tauri commands + platform-seam exposure with deterministic browser/test stubs
-- [x] 19-04-PLAN.md — Activation UX in the shared upsell panel (D-33..D-39, D-44 problem state via Rust-side stored-key reactivation), D-43 footer attention, real-WKWebView e2e, phase-boundary build + human walkthrough vs live CE + gsd-ui-review
-**UI hint**: yes
-
-### Phase 20: Purchase Pipeline
-**Goal**: A buyer can pay once through a merchant-of-record checkout and automatically receive a working license key by email — no manual fulfillment, no privileged credentials anywhere near the app
-**Depends on**: Phase 18 (in-app "Buy license" affordance lives in the upsell panel); parallel-capable with Phase 19 (external infra — MoR + webhook backend)
-**Requirements**: PAY-01, PAY-02, PAY-03
-**Success Criteria** (what must be TRUE):
-  1. The in-app "Buy license" affordance opens the MoR purchase page in the default browser (Lemon Squeezy default, seller payout-country verified before committing); checkout completes a one-time payment
-  2. A completed purchase fires the `order_created` webhook → the small backend creates the Keygen license (perpetual, node-locked, `maxMachines=1`, entitlements embedded in the signed license) without manual steps
-  3. The buyer receives the license key by email automatically after purchase, and that key activates successfully through the Phase 19 in-app flow
-  4. Privileged Keygen tokens exist only server-side — verifiably absent from the app bundle, the repo, and every client-reachable surface
-**Plans**: 3 plans (planned 2026-06-13)
-
-Plans:
-- [x] 20-01-PLAN.md — Buy-CTA opener seam (https-scoped) + UpsellPanel wiring + config.rs cfg(debug_assertions) prod/dev constant switch + dist-grep + Buy e2e (PAY-01, D-52/D-67/D-68; autonomous, wave 1) ✓ 2026-06-13 (PAY-01 Validated; e2e wave-merge gate blocked by a pre-existing shared dev-toggle flake — deferred-items.md)
-- [x] 20-02-PLAN.md — TypeScript/Node webhook backend: LS order_created signature verify + Keygen idempotent license create (metadata.orderId, pro.theming/pro.ordering) + Resend key email; TDD, joins the vitest/tsc/eslint gate (PAY-02/PAY-03; autonomous, wave 1)
-- [x] 20-03-PLAN.md — Production CE bring-up: committed infra/keygen/ (real-ACME Caddy + webhook container + swap + idempotent setup) + human RUNBOOK (VPS/DNS/LS/Resend/secrets) + real prod constants + live D-63 purchase + grep-clean (PAY-01/02/03; NOT autonomous, wave 2) — DONE; live purchase proven 2026-06-17 (order 8722394)
-**UI hint**: yes
-
-### Phase 21: License Lifecycle & Ship Gate
-**Goal**: The license behaves correctly across its whole lifetime — opportunistic refresh, self-serve transfer, revocation propagation, a status UI — the free-tier default flips live, and the full 8-case ship-gate matrix passes end-to-end on a real build
-**Depends on**: Phase 19 + Phase 20 (end-to-end purchase→activation integration requires both)
-**Requirements**: LIC-05, LIC-07, LIC-08, LIC-09
-**Success Criteria** (what must be TRUE):
-  1. The cached `machine.lic` (~30-day TTL) refreshes opportunistically in the background when online, with a generous offline grace in between — never a hard per-launch network check, and every tool stays fully functional offline
-  2. User can self-serve deactivate this Mac from within the app, freeing the seat, and then activate the same key on a new Mac (transfer proven end-to-end)
-  3. A license revoked/suspended in Keygen (refund or chargeback) drops entitlements to the free tier at the next TTL refresh — calm messaging, no crash
-  4. A keyboard-reachable, WCAG-AA license status UI shows the current state (free / licensed / offline-grace / refresh-needed), the masked key + licensee email from the signed license data, and working refresh + deactivate actions
-  5. The in-Tauri free-tier default flips live (an unlicensed install actually locks theming and ordering/pinning — all tools stay free, D-18) and all 8 ship-gate matrix cases pass on a fresh `tauri build`: valid first-Mac activation · second Mac rejected · offline launch · corrupted `machine.lic` fails closed · copied `machine.lic` fails on foreign fingerprint · TTL-expired grace→refresh · deactivate/transfer end-to-end · revocation propagates on refresh
-**Plans**: 5 plans (planned 2026-06-14)
-
-Plans:
-- [x] 21-01-PLAN.md — Expiry-aware resolve_status: OfflineGrace + RefreshNeeded states, TTL/grace/poll consts, needs_refresh helper (LIC-05; D-73/74/75; TDD, wave 1) — DONE 2026-06-14 (cargo license:: 66/66)
-- [x] 21-02-PLAN.md — Background refresh scheduler (launch + 24h poll, online + needs_refresh gated, silent) + 5-state TS payload mirror (LIC-05; D-76/77; wave 2) — DONE 2026-06-14 (cargo license:: 69/69, vitest 893/893; tokio time-feature dep)
-- [x] 21-03-PLAN.md — Transfer/revocation surface: webhook email-embed (D-89) + verify.rs email + maskedKey payload + revocation tests + infra/ seat-release helper (LIC-07/08; D-78..82/89/81; wave 3) — DONE 2026-06-14 (cargo license:: 81/81, vitest 895/895; D-79 + revocation pinned by cargo tests; release-seat.sh committed)
-- [x] 21-04-PLAN.md — D-85 live free-tier flip + #/settings/license status route + confirm-first deactivate + drop notice + footer/palette routing + real-WKWebView e2e (LIC-09/05/07/08; D-83..88; NOT autonomous, wave 4) — DONE; live walkthrough passed
-- [x] 21-05-PLAN.md — 8-case ship-gate matrix on a fresh prod build (D-90; gated on Phase 20 completion for the live cases 1/2/7/8; NOT autonomous, wave 5) — DONE; live cases 1/2/7/8 run + passed against prod CE
-**UI hint**: yes
-
-## Phase Details (v1.7)
-
-### Phase 22: Settings Modal Shell, Entry Points & License Pane
-**Goal**: Anyone — including unlicensed users — can open a real Settings surface from every conventional entry point, and it renders as an accessible in-window modal with a paned layout whose first pane is the existing License surface unchanged
-**Depends on**: Phase 21 (reuses the Phase-21 upsell-modal shell pattern + the `LicenseSettings` component; v1.6 in final sign-off)
-**Requirements**: SET-01, SET-02, SET-03, SET-04, SET-05, SET-06
-**Success Criteria** (what must be TRUE):
-  1. User can open Settings from the macOS app menu (`TinkerDev ▸ Settings…`, ⌘,) and from the tray `Settings…` item — both arrive in the webview through the `src/lib/platform/` event seam (no `@tauri-apps/*` import outside the seam), and from a sidebar "Settings" row (above "Unlock Pro") and the ⌘K command palette
-  2. Settings renders as a full in-window modal overlay (Claude-style), dismissible with Esc, reachable by everyone including unlicensed users (the License pane shows the no-license + Unlock-Pro state)
-  3. The modal is WCAG-AA: focus is trapped inside while open, returns to the invoking control on close, and it carries `aria-modal` + `aria-labelledby`
-  4. The modal uses a paned layout (left nav list, right content pane) that is fully keyboard-navigable — the user can move between panes by keyboard and the active pane is announced via `aria`
-  5. The License pane reuses the existing `src/components/LicenseSettings.tsx` surface unchanged (all 5 states; activate/upsell for unlicensed) with no behavior regression
-**Plans**: 3 plans (planned 2026-06-15) — 3/3 complete (phase complete 2026-06-15; verifier 15/15)
-
-Plans:
-- [x] 22-01-PLAN.md — Settings modal foundation: `settingsStore`/`useSettings` (clone upsellStore + sync invoker capture + activePane), `SettingsModal` (paned layout, cloned UpsellModal a11y, `aria-current` button-list pane nav + aria-live), extensible `settingsPanes` (License = `LicenseSettings` unchanged), App.tsx mount (before UpsellModal), `#/settings/license` deep-link migration + e2e (SET-04/05/06; autonomous, wave 1) — **DONE 2026-06-15** (real-WKWebView gate 20/20; vitest 960/960; decoder + LicenseSettings byte-untouched; SET-04/05/06 validated)
-- [x] 22-02-PLAN.md — Webview entry points + D-88 re-point: bottom-anchored sidebar "Settings" row (opens for everyone, no lock badge) + ⌘K "Settings" command, re-point the footer License-attention affordance + ⌘K "License" command to `openSettings('license')` (Unlock-Pro/upsell unchanged), open-from-sidebar/⌘K/footer e2e (SET-03; D-S6/D-S8/D-S9/D-S11; autonomous, wave 2) — **DONE 2026-06-15** (real-WKWebView gate 20/20; vitest 966/966; tsc + eslint clean; decoder + LicenseSettings byte-untouched; SET-03 validated)
-- [x] 22-03-PLAN.md — Native entry points: app menu `Settings…` (⌘,) via `set_menu()` with reconstructed App/Edit/Window defaults (Pitfall 1 — preserve Copy/Paste/Undo/Select-All/Quit) + tray `Settings…`, both emitting `menu://open-settings` through the platform seam (`onOpenSettings`), App.tsx subscription, manual menu/tray + Edit-menu-regression walkthrough (SET-01/02; D-S7; NOT autonomous, wave 2)
-
-**UI hint**: yes
-
-### Phase 22.1: Settings Follow-ups (INSERTED)
-**Goal**: The two non-blocking follow-ups from Phase 22's walkthrough are closed — the macOS app menu reads "TinkerDev" everywhere, and the Settings ▸ License pane shows the upsell/activation inline (no modal-on-modal) while the standalone upsell modal stays for the non-Settings entry points
-**Depends on**: Phase 22 (the set_menu app menu + the Settings modal shell + `LicenseSettings`/`UpsellPanel`)
-**Requirements**: SET-06 (revised — inline upsell in the License pane); no new requirement ID (app-menu label fix is a bug)
-**Source**: `.planning/phases/22-settings-modal-shell/22-FOLLOWUP.md` (Follow-up 1 BUG, Follow-up 2 DESIGN)
-**Success Criteria** (what must be TRUE):
-  1. The macOS app menu shows the product name **TinkerDev** — the bold app-menu title plus **About TinkerDev / Hide TinkerDev / Quit TinkerDev** — instead of the `devtools-app` Cargo bin name (set via the App `SubmenuBuilder` title + explicit predefined-item text); verified on a rebuilt `.app` (manual menu re-check, since native chrome is not WebDriver-drivable)
-  2. The Settings ▸ License pane renders the upsell/activation content **inline** for the not-Pro states (free / notActivated / problem / refreshNeeded) — "Thank you for using TinkerDev ❤️" + Buy CTA + license-key input + Activate — with NO stacked `UpsellModal` opening on top of the Settings modal
-  3. The upsell/activation surface is extracted from `UpsellPanel` into a **shared content component** (`ActivationSurface`) consumed inline in the License pane; no logic duplicated. **SCOPE CHANGE (user-approved 2026-06-16, reverses D-22.1-5/D-28/D-29):** the standalone `UpsellModal` was REMOVED rather than kept — every former opener (sidebar "Unlock Pro" / locked pin·reorder·reset / ⌘K free-tier "License") now routes to `openSettings("license", invoker)`, so there is exactly ONE upsell surface (inline). `upsellStore.ts` + `useUpsell.ts` deleted.
-  4. WCAG-AA preserved (focus order, labels, live regions; heading order dialog h2 → pane h3 → status h4); full unit suite + real-WKWebView e2e green; `decoder.ts` + its 19 tests and the activation logic byte-for-byte behavior-unchanged
-**Plans**: grew 2 → 4 plans + 1 post-review fix batch (planned 2026-06-15, completed 2026-06-16)
-
-Plans:
-- [x] 22.1-01-PLAN.md — App-menu product name (Follow-up 1, BUG) ✓ 2026-06-15: explicit PredefinedMenuItem About/Hide/Quit "TinkerDev" text in set_menu(); Edit/Window + ⌘, Settings intact; human menu walkthrough APPROVED (commit d9dba1f1; 22.1-01-SUMMARY.md)
-- [x] 22.1-02-PLAN.md — Inline upsell/activation in the License pane (Follow-up 2, revises SET-06) ✓ 2026-06-15: shared `ActivationSurface` extracted from UpsellPanel (no logic dup, activate-chain grep == 1); `InlineActivation` inline for free/notActivated (full pitch) + problem/refreshNeeded (form-only); licensed/offlineGrace unchanged; LIC-04/T-19-21 preserved (SET-06 Validated; 22.1-02-SUMMARY.md)
-- [x] 22.1-03 — License-pane redesign ✓ 2026-06-16: warn (amber) + ok (green) token triads (color-mix off accent); pitch redesign (glow+medallion+24px hero+feature list+$9 price+claims footer, REVERSES D-20); amber attention banner + green Licensed banner + neutral detail table + full-width destructive Deactivate confirm; maskedKey/email refresh stickiness; pane title h3 (22.1-03-SUMMARY.md)
-- [x] 22.1-04 — Standalone-modal removal + dev e2e seam ✓ 2026-06-16: UpsellModal + upsellStore/useUpsell DELETED, every opener → openSettings("license", invoker); dev-only `dev_set_license_state` (release-stripped) + license-states.e2e.ts; Keychain heads-up in the form (22.1-04-SUMMARY.md)
-- [x] 22.1-99 — Post-review fixes ✓ 2026-06-16: masked-key detailed refresh; heading order h2→h4 (variant-specific); locked-affordance focus-return invoker; dead-Done removal. Gate: vitest 966 + real-WKWebView 21/21 + fresh build (22.1-99-SUMMARY.md)
-**UI hint**: yes · UI audit `22.1-UI-REVIEW.md` 22/24 (the two deductions closed by 22.1-99)
-
-### Phase 22.2: Pro-gate ⌘K + focused upsell modal (INSERTED)
-**Goal**: A free user who triggers a Pro-only action — opening the ⌘K command palette, or pinning/reordering/Alt+P/resetting tools — sees a focused "Unlock Pro" modal (reusing the one shared activation surface) that dismisses back to where they were; a Pro user gets the palette + customization unchanged. Explicit license entry points stay free so a free user can still reach Settings ▸ License to buy.
-**Depends on**: Phase 22.1 (the shared `ActivationSurface`/`InlineActivation`; the openSettings routing it revises) + Phase 18 (the entitlement gate)
-**Requirements**: SET-04 (revised — ⌘K no longer opens for everyone); no new requirement ID (the rest is a UX/gating refinement of D-22.1-5/D-28/D-29)
-**Source**: user walkthrough 2026-06-16 (reconsidering the 22.1 "redirect every locked trigger to Settings" decision for contextual triggers; new "⌘K is Pro" product decision)
-**Success Criteria** (what must be TRUE):
-  1. A FREE user pressing ⌘K (or clicking the header ⌘K pill) sees the focused Unlock-Pro modal, NOT the palette; Esc returns focus to the invoker. A PRO user gets the palette unchanged (open/rank/run/Esc all as before).
-  2. The contextual locked customization triggers (pin click, drag-reorder, Alt+P, "Reset order") open that SAME focused modal — not the full Settings ▸ License redirect.
-  3. The focused modal reuses the shared `ActivationSurface` (activate-chain grep stays == 1), with focus trap + return-to-invoker + Esc; it is NOT stacked on top of the Settings modal. Both the ⌘K handler and the Sidebar triggers open it via ONE minimal shared `upsellStore`.
-  4. Gating is via a new `isPro(ents)` predicate (has any Pro entitlement) — frontend-only; every existing license keeps ⌘K working immediately with no Keygen re-issue. The DEV free/full override still drives both states for e2e.
-  5. Free users retain a buy path: the sidebar "Settings" row + "Unlock Pro" footer + app-menu ⌘,/tray Settings + #/settings/license deep link stay free → Settings ▸ License; the focused modal itself also offers Buy + activate.
-  6. The upsell pitch lists the command palette as a Pro feature (copy synced; tinkerdev.io update flagged). WCAG-AA preserved (focus, contrast, no opacity-only state); full unit suite + real-WKWebView e2e green; `decoder.ts` + its 19 tests untouched.
-**Plans**: 1 plan (feat + codex-fix), completed 2026-06-16 — isPro gate; restored UpsellModal+upsellStore over the shared ActivationSurface; openProUpsell state-aware routing (notActivated→modal, refreshNeeded/problem→Settings recovery, D-44); Sidebar contextual triggers→openProUpsell; DEV ⌘⇧K escape. Gates: vitest 986, real-WKWebView e2e 22/22 (incl. cmdk-pro.e2e), fresh build. See 22.2-SUMMARY.md / 22.2-VERIFICATION.md.
-**UI hint**: yes
-
-### Phase 23: Appearance Pane
-**Goal**: A user can change theme and accent from inside Settings and see it apply immediately and survive a restart
-**Depends on**: Phase 22 (the modal shell + paned nav host the pane)
-**Requirements**: SET-07
-**Success Criteria** (what must be TRUE):
-  1. The Appearance pane lets the user choose a theme — light or dark ("system" dropped at user request) — and the choice applies live (no restart) across the whole app
-  2. The user can choose an accent and it applies live, with accent reserved for selection per the existing visual system
-  3. Both selections persist through the existing prefs seam and are restored on the next launch
-  4. The pane is keyboard-navigable and WCAG-AA (visible focus, AA contrast in both themes, no opacity-only state)
-**Plans**: 4 plans
-  - [x] 23-01-PLAN.md — Foundation: widen ThemeName/coerceTheme + fix default accent, accent scale + light-token tables + executable AA contrast assertions, pure apply helpers
-  - [x] 23-02-PLAN.md — Light token CSS block ([data-theme="light"]) + light body gradient + theme-aware hover tints (Pitfall 5/6)
-  - [x] 23-04-PLAN.md — Appearance pane UI: theme radio cards + 7-swatch accent grid + contained preview strip + gate-on-Save, appended to SETTINGS_PANES
-  - [x] 23-03-PLAN.md — App-root gated apply + no-flash pre-paint script + real-WKWebView e2e + phase-boundary walkthrough (system live-flip removed with the system theme; added: cross-writer prefs-clobber fix, durable writes, flash-free Pro launch, theme-card redesign, wider upsell modal, Appearance-first nav)
-**UI hint**: yes
-
-### Phase 24: Hotkeys & General Panes (native-touching)
-**Goal**: A user can rebind the app's hotkeys and toggle core app-behavior preferences, including the two settings that reach into the OS (global summon + launch-at-login)
-**Depends on**: Phase 22 (modal shell + paned nav); independent of Phase 23
-**Requirements**: SET-08, SET-09
-**Success Criteria** (what must be TRUE):
-  1. The Hotkeys pane lets the user view and rebind the global summon hotkey — the Rust global-shortcut is re-registered to the new chord with conflict handling (a taken/invalid chord is rejected with calm messaging, the prior binding preserved); this promotes the parked NAT-01/G-05-1 summon hotkey
-  2. The Hotkeys pane lets the user view and rebind the ⌘K command-palette chord (in-webview key handler keyed off the configured chord); both hotkey bindings persist through the prefs seam and survive restart
-  3. The General pane exposes app-behavior toggles (final set decided in planning from: launch-at-login, start-in-tray, default tool on open, show-license-status-in-sidebar) — each toggle persists and takes effect
-  4. Launch-at-login works via an autostart plugin — a NEW webview/native dependency that is an **explicit, scoped exception** to the zero-new-dep wedge, decided and recorded in this phase's planning (the only dep added in v1.7)
-  5. Both panes are fully keyboard-reachable and WCAG-AA (rebind capture has an accessible affordance; no mouse-only path)
-**Plans**: 4 plans
-- [x] 24-01-PLAN.md — Foundation: 6 prefs fields + coercers, pure chord helpers (keyEventToAccelerator/matchesChord), default-tool seam, platform.autostart capability (the scoped v1.7 dep) — COMPLETE 2026-06-18 (suite 1108/1108, cargo build green, decoder 19/19 untouched)
-- [x] 24-02-PLAN.md — Native/in-webview wiring: prefs-driven registerSummon + rebindSummon, native auto-reveal neutralized (window-state VISIBLE dropped) + start-in-tray-gated startup reveal, configurable ⌘K palette matcher — COMPLETE 2026-06-18 (suite 1113/1113, cargo check green, decoder 19/19 untouched)
-- [x] 24-03-PLAN.md — Hotkeys pane: reusable HotkeyCaptureField + two binding rows + SETTINGS_PANES append + e2e + native walkthrough
-- [x] 24-04-PLAN.md — General pane: SettingToggle + 3 controls (launch-at-login, start-in-tray, default-tool; show-license-in-sidebar dropped per user at the walkthrough) + e2e + phase ship walkthrough + settings reorder — COMPLETE 2026-06-19 (suite 1147/1147, real-WKWebView e2e 24/24, native walkthrough user-approved; SET-08 + SET-09 VALIDATED)
-**UI hint**: yes
-
-### Phase 25: Updates Pane & Milestone Ship
-**Goal**: A user can see version + update status and check for updates from inside Settings, and the whole Settings milestone passes its sign-off on a real build
-**Depends on**: Phase 22 (modal shell); Phases 23 + 24 (milestone-close sign-off covers the full pane set)
-**Requirements**: SET-10
-**Success Criteria** (what must be TRUE):
-  1. The Updates pane shows the current app version and the last-checked time
-  2. The pane offers a Check-for-updates action that reuses the existing updater seam (mirroring the tray action) — the result (up-to-date / update available) surfaces in the pane
-  3. The pane is keyboard-reachable and WCAG-AA, consistent with the other panes
-  4. The full Settings surface (all five panes, every entry point) passes a `gsd-ui-review` WCAG-AA audit and a human sign-off on a fresh `tauri build`, with `decoder.ts` + its 19 tests byte-for-byte untouched
-**Plans**: 5 plans (planned 2026-06-21)
-
-Plans:
-- [x] 25-01-PLAN.md — Add `app.getVersion()` to the platform seam (index/tauri/browser/stub) for the version readout (wave 1, autonomous) ✓ 2026-06-21 (vitest 1168/1168, decoder untouched; `9cda4837`/`7d577bba`)
-- [x] 25-02-PLAN.md — Add `lastUpdateCheck` prefs field + coercer + single-writer setter (wave 1, autonomous) ✓ 2026-06-21 (vitest 1178/1178, decoder untouched; `082a733a`/`69ba769d`)
-- [x] 25-03-PLAN.md — Lift updater state into a shared `useUpdater` singleton + stamp `lastUpdateCheck` on every check (load-safe, in-flight de-duped); App.tsx consumes it (wave 2, autonomous) ✓ 2026-06-21 (vitest 1188/1188, decoder untouched; `947d0707`/`32fbc542`)
-- [x] 25-04-PLAN.md — `UpdatesSettings` pane (ungated: version + last-checked + Check + auto-check toggle, install defers to banner) + append-only `SETTINGS_PANES` entry + e2e (wave 3, autonomous) ✓ 2026-06-21 (vitest 1196/1196, decoder untouched, SettingsModal byte-unchanged; `42a40860`/`25550611`)
-- [x] 25-05-PLAN.md — Milestone-close sign-off: five-pane `gsd-ui-review` WCAG-AA audit + fresh `tauri build` human walkthrough (restart-persistence) + decoder-untouched proof (wave 4, NOT autonomous)
-**UI hint**: yes
+</details>
 
 ## Progress
 
