@@ -13,6 +13,10 @@ release body (falling back to the bare tag when a section is absent).
 
 - _Nothing yet._
 
+## [0.4.0] - 2026-06-21
+
+- _Nothing yet._
+
 ## [0.3.3] - 2026-06-20
 
 - Add general pane in settings
