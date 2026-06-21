@@ -281,6 +281,54 @@ describe("usePreferences", () => {
     expect(stored.defaultToolId).toBeNull();
   });
 
+  // setLastUpdateCheck (D-25-6) routes through updatePreferences (the ONE
+  // writer), so a fresh hook over the SAME memory store loads it back, proving
+  // the write persisted through the seam. T-25-05: setting lastUpdateCheck must
+  // NOT clobber a previously-set theme/pin (single-writer merge against live).
+  it("setLastUpdateCheck persists through the single writer and round-trips through a fresh load", async () => {
+    const first = renderHook(() => usePreferences());
+    await act(async () => {
+      first.result.current.setLastUpdateCheck(1718900000000);
+    });
+    expect(first.result.current.preferences.lastUpdateCheck).toBe(1718900000000);
+    const stored = (await platform.store.get(PREFERENCES_STORE_KEY)) as {
+      lastUpdateCheck: number | null;
+    };
+    expect(stored.lastUpdateCheck).toBe(1718900000000);
+    // A fresh hook over the SAME memory store loads the stamp back.
+    const second = renderHook(() => usePreferences());
+    await waitFor(() =>
+      expect(second.result.current.preferences.lastUpdateCheck).toBe(1718900000000),
+    );
+  });
+
+  it("setLastUpdateCheck does NOT clobber a previously-set theme/pin (single-writer, T-25-05)", async () => {
+    const { result } = renderHook(() => usePreferences());
+    // Resolve the mount load first so writes merge against the loaded blob.
+    await waitFor(() => expect(result.current.prefsLoaded).toBe(true));
+    await act(async () => {
+      result.current.setTheme("light");
+    });
+    await act(async () => {
+      result.current.setPinnedToolIds(["base64", "unix-time"]);
+    });
+    await act(async () => {
+      result.current.setLastUpdateCheck(1718900000000);
+    });
+    // The persisted blob carries the stamp AND keeps the prior theme + pins.
+    const stored = (await platform.store.get(PREFERENCES_STORE_KEY)) as {
+      theme: string;
+      pinnedToolIds: string[];
+      lastUpdateCheck: number | null;
+    };
+    expect(stored.lastUpdateCheck).toBe(1718900000000);
+    expect(stored.theme).toBe("light");
+    expect(stored.pinnedToolIds).toEqual(["base64", "unix-time"]);
+    // And the live hook state agrees (one source of truth).
+    expect(result.current.preferences.theme).toBe("light");
+    expect(result.current.preferences.pinnedToolIds).toEqual(["base64", "unix-time"]);
+  });
+
   it("falls back to DEFAULT_PREFERENCES for a corrupt/garbage stored blob", async () => {
     // A non-object value (e.g. a corrupt entry surfaced as a primitive).
     await store.set(PREFERENCES_STORE_KEY, "not-an-object");

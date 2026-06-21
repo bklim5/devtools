@@ -243,6 +243,51 @@ describe("autoUpdateCheck coercion (D-09)", () => {
   });
 });
 
+// lastUpdateCheck is the epoch-ms stamp of the last completed update check
+// (D-25-6), read from the same untrusted on-disk blob (threat T-25-04: the user
+// can hand-edit prefs.json). coerceLastUpdateCheck (module-private — tested
+// THROUGH mergePreferences) accepts ONLY a finite POSITIVE number; everything
+// else — non-number, NaN, Infinity, 0, negative, absent — coerces to null
+// ("never checked", renders "Never"), so a garbage value can never render as a
+// misleading future/garbage date.
+describe("lastUpdateCheck coercion (D-25-6, T-25-04)", () => {
+  it("preserves a valid positive epoch-ms number", () => {
+    expect(mergePreferences({ lastUpdateCheck: 1718900000000 }).lastUpdateCheck).toBe(
+      1718900000000,
+    );
+  });
+
+  it("coerces a string to null (untrusted hand-edited prefs.json)", () => {
+    expect(mergePreferences({ lastUpdateCheck: "x" }).lastUpdateCheck).toBeNull();
+  });
+
+  it("coerces NaN to null", () => {
+    expect(mergePreferences({ lastUpdateCheck: NaN }).lastUpdateCheck).toBeNull();
+  });
+
+  it("coerces Infinity to null", () => {
+    expect(mergePreferences({ lastUpdateCheck: Infinity }).lastUpdateCheck).toBeNull();
+  });
+
+  it("coerces a negative number to null", () => {
+    expect(mergePreferences({ lastUpdateCheck: -1 }).lastUpdateCheck).toBeNull();
+  });
+
+  it("coerces 0 to null (not a valid epoch stamp)", () => {
+    expect(mergePreferences({ lastUpdateCheck: 0 }).lastUpdateCheck).toBeNull();
+  });
+
+  it("defaults to null when absent (never checked)", () => {
+    expect(mergePreferences({}).lastUpdateCheck).toBeNull();
+  });
+
+  it("does not regress a sibling field in the same merged blob", () => {
+    const merged = mergePreferences({ lastUpdateCheck: 1718900000000, toolOrder: ["a"] });
+    expect(merged.lastUpdateCheck).toBe(1718900000000);
+    expect(merged.toolOrder).toEqual(["a"]);
+  });
+});
+
 // entitlementsOverride is the dev/test override (D-31), read from the same
 // untrusted on-disk blob (threat T-18-01: hand-edited prefs.json). "free" is
 // honored in any build (downgrade-only). "full" is DEV-ONLY: it survives the
