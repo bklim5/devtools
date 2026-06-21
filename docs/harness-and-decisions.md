@@ -61,6 +61,29 @@ Verification centers on the **real Tauri webview** (WKWebView via `tauri dev` / 
 build`), because the desktop app *is* the product. No Chrome-proxy stand-in for the primary
 path.
 
+### 3.0 Planning gate — runs per **phase**, before execution
+
+After `/gsd-plan-phase` produces the PLAN.md set and the internal `gsd-plan-checker`
+passes, but **before** `/gsd-execute-phase` starts, run an independent adversarial
+Codex review **over the plans themselves**:
+
+```
+/codex:adversarial-review --wait --base <commit-before-the-plan-commit> review these PLAN.md files AS execution plans
+```
+
+- **Why:** `gsd-plan-checker` is a GSD-internal reviewer and shares blind spots with the
+  GSD planner that wrote the plans. A second, independent model challenges the *approach*
+  (decision coverage vs CONTEXT.md, task sequencing / wave dependencies, hidden risks,
+  missing acceptance criteria, scope creep) before any code is written — the cheapest place
+  to catch a wrong plan.
+- **Scope:** the plan commit only. Plans are committed by the planner, so use `--base`
+  pointed at the commit *before* `docs(NN): create phase plan` (e.g. the `docs(NN): capture
+  phase context` commit) so Codex sees exactly the new PLAN.md files.
+- **Review-only.** Findings are triaged and folded back via a `gsd-planner` revision (or a
+  manual plan edit) and re-checked; execution does not start until they're addressed or
+  consciously waived. This mirrors the inner loop's `/codex:adversarial-review` but targets
+  plans, not code.
+
 ### 3.1 Inner loop — runs per GSD **task**
 
 Every task's Definition of Done = **all five gates green**, in this order, before the next
@@ -131,6 +154,7 @@ young (0.1.x).
 
 | Concern | Tool |
 |---|---|
+| Planning gate (per phase, pre-execute) | `/codex:adversarial-review --wait --base <pre-plan-commit>` over the PLAN.md set |
 | Bug-hunt gate | `/code-review xhigh` (recall-mode, 9 angles) |
 | Adversarial review gate | `/codex:adversarial-review --wait --scope working-tree` |
 | Unit / logic | `vitest`, `@testing-library/react`, jsdom; `tsc --noEmit` |
