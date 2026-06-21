@@ -451,7 +451,7 @@ Plans:
 
 ### Phase 999.10: Mac App Store distribution (BACKLOG — Apple Developer enrolment now done)
 
-**Status:** BACKLOG — **unblocked 2026-06-20: the Apple Developer Account is signed up** (this was the prerequisite that kept notarisation/App-Store deferred, see 999.2 + D-02). Ready to promote to a milestone (likely v1.8). Direct distribution (signed DMG + Tauri auto-updater) stays the primary channel; this ADDS a second App Store channel.
+**Status:** BACKLOG — **unblocked 2026-06-20: the Apple Developer Account is signed up** (this was the prerequisite that kept notarisation/App-Store deferred, see 999.2 + D-02). Direct distribution (signed DMG + Tauri auto-updater) stays the primary channel; this ADDS a second App Store channel. **Licensing decision RESOLVED 2026-06-20 (StoreKit IAP) — no longer gated; ready to promote (likely v1.8).**
 
 **Goal:** [Captured for future planning] — ship TinkerDev on the **Mac App Store** as a second distribution channel alongside the existing direct DMG + updater. The hard prerequisite (paid Apple Developer enrolment) is cleared; the rest is signing/sandbox/policy work.
 
@@ -460,9 +460,15 @@ Plans:
 2. **Mac App Store build + submission** (larger, the real item) — a separate App-Store-target build uploaded to App Store Connect.
 
 **Key open questions / risks for promotion (App Store target):**
-- **⚠️ Licensing vs In-App Purchase (the BIG product/policy decision).** The Pro unlock today is an external Lemon Squeezy (MoR) purchase → Keygen license key → activation, with a "Buy license" link to `tinkerdev.io`. App Store guidelines generally require **StoreKit In-App Purchase** for unlocking features (Apple takes 15–30%) and heavily restrict external-purchase links for digital goods. Options to weigh: (a) App Store build uses **StoreKit IAP** for Pro (new integration: map an IAP receipt → the same `pro.theming`/`pro.ordering` entitlements, bypassing Keygen for App Store users); (b) App Store build ships **free / no Pro** (loss-leader / funnel to the direct version); (c) attempt the external-link entitlement (narrow, risky, region-dependent). **This decision gates the whole item.**
+- **✅ Licensing vs IAP — RESOLVED 2026-06-20: Option (a) StoreKit In-App Purchase.** The App-Store variant unlocks Pro via **StoreKit IAP** (Apple's required path; guideline 3.1.1 forbids reusing the external Keygen key-paste flow in-store). Commission is **15% via the Small Business Program** (TinkerDev qualifies, <$1M/yr). Rejected: (b) free-in-store / direct-only — leaves in-store conversions on the table; (c) external-link entitlement — 0% in US post-Apr-2025 injunction but region-fragmented (CTF/commission elsewhere) and highest review-rejection risk. (Today's Pro unlock on the DIRECT channel stays: Lemon Squeezy MoR → Keygen key → activation.)
+  **Technical shape (recommended at promotion, not yet locked):**
+  - **StoreKit 2 on-device verification** (signed JWS, Apple public keys, no server) — mirrors the existing offline Ed25519 Rust-verify model.
+  - One **non-consumable** "Pro" product (perpetual — matches today's perpetual node-locked Keygen model).
+  - **Per-variant entitlement source:** App-Store build = **StoreKit-only** (Keygen key-paste UI + `license.tinkerdev.io` calls compiled OUT for 3.1.1 compliance); direct build = **Keygen-only**. The build-variant seam already needed to strip the updater **also switches the entitlement source**. Both resolve to the **same** `pro.theming`/`pro.ordering` map consumed by the one central Rust gate — no change to the webview gate.
+  - Native **StoreKit bridge** (Swift/ObjC via Tauri; no first-class plugin) lives behind the `src/lib/platform/` seam — **spike the bridge first**.
 - **App Sandbox is mandatory on the App Store** (`com.apple.security.app-sandbox`) and conflicts with current native features: **global summon** (global-shortcut may be restricted/need entitlements), **launch-at-login** (the current autostart plugin writes a `LaunchAgent` plist — NOT sandbox-compatible; must move to the sandbox-safe `SMAppService` login-item API), and possibly the **tray**. Each needs a sandbox-compatible path or a graceful feature-flag-off on the App Store build.
 - **Auto-updater MUST be removed from the App Store build** — Apple forbids self-updating apps (the store handles updates). The Tauri `updater` plugin + `latest.json` flow (DST-02) must be **conditionally compiled out** for the App-Store target → two build variants (direct = with updater; App Store = without). The Updates pane (SET-10 / Phase 25) should hide/disable its check on App Store builds.
+- **One build-variant seam carries everything (convergence note).** Direct vs App-Store is a *single* variant axis that switches three things together — (1) **updater**: in (direct) / compiled out (store); (2) **entitlement source**: Keygen (direct) / StoreKit-only (store); (3) **sandbox feature-flags**: full native (direct) / sandbox-safe-or-degraded summon·launch-at-login·tray (store). Design it as one seam, not three independent toggles.
 - **Build + upload mechanics:** App-Store-target `tauri build` (universal) → `.pkg` signed with the Apple Distribution cert + provisioning profile → upload via Transporter / `xcrun altool`/`notarytool` to App Store Connect; metadata, screenshots, privacy nutrition labels, age rating, review (1–3 days).
 - **Constraints that still hold:** offline/no-network at runtime (the licensing exception aside), HashRouter, the six-tools wedge, decoder + its 19 tests untouched, WCAG-AA, the full build+verify harness.
 
@@ -470,4 +476,4 @@ Plans:
 **Plans:** 0 plans
 
 Plans:
-- [ ] TBD (promote with /gsd-review-backlog or seed `/gsd-new-milestone` when ready; recommend resolving the IAP-vs-external-licensing decision FIRST)
+- [ ] Ready to promote (decision resolved) — run /gsd-review-backlog or /gsd-new-milestone to open v1.8 (APP-STORE-01..).
