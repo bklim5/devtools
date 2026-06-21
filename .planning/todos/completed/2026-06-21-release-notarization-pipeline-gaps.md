@@ -1,5 +1,6 @@
 ---
 created: 2026-06-21
+completed: 2026-06-21
 title: release:publish notarization-pipeline gaps (2 bugs found during the v0.4.0 first notarized release)
 area: release/build
 files:
@@ -7,6 +8,17 @@ files:
   - src/lib/release/ (hasSigningEnv / publish preflight)
   - docs/RELEASE.md
 ---
+
+## ✅ Completed 2026-06-21 — quick-task 260621-den (commit 93e210d4)
+
+Both bugs fixed: DMG now notarised+stapled (fail-closed `notarytool submit --wait` → `stapler
+staple` → `spctl` before publish); signing key materialized from `_PATH` into the content var so
+the path form works end-to-end. Notary preflight is fail-closed across all auth modes (partial
+API-key AND the complete Apple-ID set abort before the build; bare `APPLE_SIGNING_IDENTITY`
+sign-only preserved). Full harness ran: `/simplify` (altitude) → `/code-review` (sign-only
+regression) → `/codex:adversarial-review` (Apple-ID gap), all fixed. 54 new/updated unit tests +
+behavioral dry-run across auth modes. Integrated proof (a real notarised DMG straight from
+`release:publish`) lands at the next real release. See `260621-den-SUMMARY.md`.
 
 ## Context
 
