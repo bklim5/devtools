@@ -154,7 +154,7 @@ A five-pane in-window Settings modal (License · Appearance · Hotkeys · Genera
   4. A real purchase round-trip completes in the App Store Connect sandbox with a Sandbox tester account (human-verified — WebDriver cannot drive StoreKit).
 **Plans**: 7 plans (Plan 07 conditional — runs only on a swift-rs NO-GO)
 - [x] 26-01-PLAN.md — Rust IAP verify/grant decision core + appstore cargo feature + iap_* commands (Wave 1, auto)
-- [ ] 26-02-PLAN.md — plugin-API preflight (Rust-callable vs JS-companion) + platform.iap seam (interface + real tauri.ts arm + no-op browser/stub arms + tests) (Wave 1, auto)
+- [x] 26-02-PLAN.md — plugin-API preflight (Rust-callable vs JS-companion) + platform.iap seam (interface + real tauri.ts arm + no-op browser/stub arms + tests) (Wave 1, auto) — MODE A PROVEN (compile-checked); seam green 1211/1211
 - [ ] 26-03-PLAN.md — temporary D-11 spike button in Settings ▸ License (Restore re-reads + renders currentEntitlements) + no-op-arm e2e (Wave 2, auto)
 - [ ] 26-04-PLAN.md — ASC setup checklist (App ID, Paid-Apps Agreement, com.tinkerdev.app.pro, Sandbox tester) — user-driven (Wave 1, human)
 - [ ] 26-05-PLAN.md — minimal sandbox harness + tauri-plugin-iap spike (finish() cited + static no-network audit) + bridge-viability go/no-go (Wave 2, human-decision)
