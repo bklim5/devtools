@@ -282,24 +282,40 @@ outbound.)
 Record exactly what you observed. The agent folds these into
 `PHASE-26-BRIDGE-VIABILITY.md` criteria 3 + 4(check 2), then routes the go/no-go.
 
+> **RESULT — recorded 2026-06-23.** Run on a **DEVELOPMENT-signed** (Apple Development + Mac
+> Development profile incl. this Mac) App-Sandboxed `.app`, sandbox tester
+> `bkbklim+tinkerdev@gmail.com`. ALL FOUR criteria PASS → **GO — keep `tauri-plugin-iap@0.9`**.
+> (Build flow corrected at the gate: a Mac App Store *distribution* profile fails local launch
+> with AMFI -413; LOCAL sandbox testing needs DEVELOPMENT signing — see the signing matrix.)
+
 | # | Check | Observed | Pass/Fail |
 |---|-------|----------|-----------|
-| 0 | Build is **distribution-signed** (Apple Distribution + embedded MAS profile), NOT ad-hoc | | |
-| 1 | App launches + renders (no white-screen — `network.client` present) | | |
-| 3 | **Fetch products** → `com.tinkerdev.app.pro` with a price | | |
-| 4a | **Buy Pro** → native sheet presents (criterion 3) | | |
-| 4a | Sandbox tester sign-in (NOT real Apple ID — T-26-11) | | |
-| 4a | Granted `pro.*` code(s) observed on success | | |
-| 4b | **Cancel** → CALM `Purchase cancelled`, no error, grants nothing (harness-fix validation) | | |
-| 4c | Pending / Ask-to-Buy (best-effort) | | best-effort / n/a |
-| 5 | **Relaunch** → NO duplicate transaction re-fires (`finish()` proven — Codex #4) | | |
-| 6 | **Restore** → re-granted `pro.*` codes on a fresh read (Codex #5) | | |
-| 7a | Serverless check 1/2 — static source audit recorded PASS | | |
-| 7b | Serverless check 2/2 — process-scoped per-PID capture: ONLY Apple StoreKit, ZERO non-Apple host | | |
+| 0 | Build is **dev-signed** (Apple Development + embedded Mac Development profile), NOT ad-hoc — *distribution profile fails local launch with AMFI -413; corrected to development signing* | Apple Development + Mac Development profile (incl. this Mac); `entitlements.appstore.plist` gained `com.apple.application-identifier` | **PASS** |
+| 1 | App launches + renders (no white-screen — `network.client` present) | UI rendered, no white-screen | **PASS** |
+| 3 | **Fetch products** → `com.tinkerdev.app.pro` with a price | `com.tinkerdev.app.pro` "TinkerDev Pro" **$8.99** "For testing purposes only" | **PASS** |
+| 4a | **Buy Pro** → native sheet presents (criterion 3) | native sandbox sheet presented | **PASS** |
+| 4a | Sandbox tester sign-in (NOT real Apple ID — T-26-11) | `bkbklim+tinkerdev@gmail.com` (sandbox tester) | **PASS** |
+| 4a | Granted `pro.*` code(s) observed on success | `pro.theming, pro.ordering` (granted through the fail-closed core) | **PASS** |
+| 4b | **Cancel** → CALM `Purchase cancelled`, no error, grants nothing (harness-fix validation) | calm `Purchase cancelled` readout, no error, nothing granted (plugin throws "Purchase cancelled by user" → `calm_reject_outcome` → `UserCancelled`) | **PASS** |
+| 4c | Pending / Ask-to-Buy (best-effort) | not live-reproduced; source-verified ("Purchase is pending") + unit-tested | best-effort (source-verified) |
+| 5 | **Relaunch** → NO duplicate transaction re-fires (`finish()` proven — Codex #4) | relaunch after purchase fired NO duplicate transaction (cited `IapPlugin.swift:142` confirmed live) | **PASS** |
+| 6 | **Restore** → re-granted `pro.*` codes on a fresh read (Codex #5) | `pro.theming, pro.ordering` re-granted from the on-device verified-transaction cache (serverless; persists across sandbox sign-out) | **PASS** |
+| 7a | Serverless check 1/2 — static source audit recorded PASS | recorded PASS in `PHASE-26-BRIDGE-VIABILITY.md` (Plan 05) | **PASS** |
+| 7b | Serverless check 2/2 — process-scoped per-PID capture: ONLY Apple StoreKit, ZERO non-Apple host | `nettop -p <app PID>` during the spike calls = ZERO sockets in the app process (StoreKit brokered by Apple system daemons; our process opens no outbound) | **PASS** |
 
 **Free-text notes (sheet behavior, granted codes, any anomalies):**
 
-> _(record here)_
+> Native sandbox sheet showed `com.tinkerdev.app.pro` "TinkerDev Pro" $8.99 "For testing purposes
+> only". PURCHASE → granted `pro.theming, pro.ordering` (verified through the fail-closed core).
+> CANCEL produced a calm `Purchase cancelled` readout (NOT an error) — validates the harness
+> calm-cancel fix. PENDING/Ask-to-Buy was not live-reproduced (hard to force without Family-Sharing
+> config); the handler is source-verified ("Purchase is pending") + unit-tested. Relaunch after a
+> purchase fired no duplicate transaction. Restore re-granted both pro codes from the on-device
+> verified-transaction cache (no server; persists across sandbox sign-out — expected for a perpetual
+> non-consumable). The process-scoped `nettop -p <app PID>` capture showed ZERO sockets in the app
+> process during the spike calls — StoreKit's own traffic is brokered by Apple's system daemons to
+> Apple hosts; our process opens no outbound, so no non-Apple host was contacted. **Disposition:
+> `go-plugin` (all four criteria PASS).**
 
 ---
 
@@ -319,7 +335,12 @@ Once the table is filled, the disposition routes as follows:
   cannot be observed — **on BOTH the plugin AND a swift-rs check** → **milestone-level
   blocker, escalate** (terminal; do NOT silently complete).
 
-### Resume signal
+### Resume signal — SATISFIED 2026-06-23 ("round-trip approved")
+
+**The user ran this gate and approved.** The live purchase granted `pro.theming, pro.ordering`,
+the cancel was calm, the relaunch fired no duplicate, Restore re-granted on a fresh read, and
+BOTH serverless checks confirmed no non-Apple network → disposition **`go-plugin`** (Plan 07
+swift-rs fallback SKIPPED — not needed). The original resume contract is preserved below.
 
 Type **"round-trip approved"** once: the live purchase grants `pro.*`, the cancel is calm,
 the relaunch fires no duplicate, Restore re-grants on a fresh read, AND both serverless

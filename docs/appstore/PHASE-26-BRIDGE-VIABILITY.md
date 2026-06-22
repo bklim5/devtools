@@ -6,22 +6,40 @@
 
 This doc records the four-criterion go/no-go evidence. **Criteria 1 + 2 + the OQ-2
 verification-surface finding + the cited `finish()` source + the static (no-non-Apple-network)
-D-04 check are AGENT-VERIFIABLE and recorded NOW (Plan 05).** **Criteria 3 (live sheet
+D-04 check are AGENT-VERIFIABLE and were recorded at Plan 05.** **Criteria 3 (live sheet
 presents/handles success-cancel-pending in the sandboxed build) and the SECOND D-04 check
-(process-scoped live network capture with an Apple-only allowlist) are confirmed at the
-Plan 06 HUMAN gate**, then folded back into this doc before the go/no-go is finalized.
+(process-scoped live network capture with an Apple-only allowlist) were confirmed at the
+Plan 06 HUMAN gate (2026-06-23)** and are folded in below. **The go/no-go is FINAL.**
 
 ---
 
-## Provisional verdict (agent evidence): GO — keep `tauri-plugin-iap@0.9` — PENDING the Plan 06 human gate
+## FINAL verdict (2026-06-23): GO — keep `tauri-plugin-iap@0.9`
 
-Every agent-verifiable criterion HOLDS: the plugin compiles + links into a universal,
-App-Sandboxed, signed `.app` (criterion 1); the public Rust API maps cleanly onto the seam
-and the fail-closed grant core, with `Transaction.finish()` proven by a cited Swift source
-(criterion 2); and the static D-04 audit shows zero non-Apple network surface in the IAP path.
-Nothing in the agent-verifiable surface trips a NO-GO. **The final selection is the user's at
-the checkpoint** — it cannot be made until criterion 3 (a real purchase sheet) and the second
-D-04 check (a live capture) pass at the Plan 06 Sandbox-tester walkthrough.
+**All four criteria PASS.** Confirmed by a real Sandbox-tester round-trip on a **dev-signed**
+(Apple Development + Mac Development profile incl. this Mac) App-Sandboxed `.app`, sandbox tester
+`bkbklim+tinkerdev@gmail.com`, 2026-06-23:
+
+- **Criterion 1 (agent, Plan 05):** the plugin compiles + links into a universal, App-Sandboxed,
+  signed `.app`.
+- **Criterion 2 (agent, Plan 05):** the public Rust API maps cleanly onto the seam + the
+  fail-closed grant core; `Transaction.finish()` cited at `IapPlugin.swift:142`.
+- **Criterion 3 (LIVE, Plan 06):** the native sandbox sheet PRESENTS
+  (`com.tinkerdev.app.pro` "TinkerDev Pro" $8.99 "For testing purposes only"); PURCHASE → granted
+  `pro.theming, pro.ordering` through the fail-closed core; CANCEL → calm `Purchase cancelled`
+  (validates the harness calm-cancel fix); relaunch fired NO duplicate transaction (live
+  confirmation of the cited `finish()`); Restore re-granted `pro.theming, pro.ordering` from the
+  on-device verified-transaction cache.
+- **Criterion 4 (BOTH checks PASS):** check 1 = the Plan-05 static audit (zero non-Apple network
+  surface); check 2 (LIVE, Plan 06) = `nettop -p <app PID>` during the spike calls showed ZERO
+  sockets in the app process — StoreKit traffic is brokered by Apple's system daemons, our process
+  opens no outbound.
+
+`tauri-plugin-iap@0.9` is the FINAL bridge. **Phase 26 completes.** The conditional swift-rs
+fallback (Plan 07) is therefore NOT needed and is SKIPPED.
+
+The two documented plugin limitations stand (they did not trip a NO-GO): the fragile cancel/pending
+message string-match (`calm_reject_outcome`, unit-tested + live-validated via the calm CANCEL), and
+the not-yet-wired `onPurchaseUpdated` global event (a Phase-28 placeholder).
 
 ---
 
@@ -217,18 +235,50 @@ Apple-only allowlist — runs at the Plan 06 walkthrough; BOTH must pass for D-0
 |---|-----------|--------|----------|
 | 1 | Compiles + links universal sandboxed | **PASS (agent)** | lipo `x86_64 arm64`; sandbox+network.client entitlements embedded; no link clash; `cargo test --features appstore` 97/0 |
 | 2 | `getProductStatus`/`onPurchaseUpdated` map onto the seam; verification enforced; `finish()` cited | **PASS (agent), 2 caveats** | MODE A bodies + the seam table above; OQ-2 verify-in-Swift; `finish()` cited at IapPlugin.swift:142/:295. Caveats (see "Known plugin limitations"): cancel/pending mapped by fragile message string-match; `onPurchaseUpdated` is a Phase-28 placeholder (plugin has no global event) |
-| 3 | Sheet presents + handles success/userCancelled/pending in the sandboxed build | **PENDING — Plan 06 human gate** | needs a distribution-signed launch + Sandbox tester |
-| 4 | Serverless JWS verify, no network beyond Apple StoreKit (TWO checks) | **CHECK 1 PASS (agent); CHECK 2 PENDING** | static audit zero non-Apple hits (this plan); live process-scoped capture = Plan 06 |
+| 3 | Sheet presents + handles success/userCancelled/pending in the sandboxed build | **PASS (LIVE, Plan 06)** | 2026-06-23 dev-signed sandboxed `.app`, sandbox tester `bkbklim+tinkerdev@gmail.com`: native sheet presented `com.tinkerdev.app.pro` "TinkerDev Pro" $8.99; PURCHASE → granted `pro.theming, pro.ordering`; CANCEL → calm `Purchase cancelled` (no error); relaunch → NO duplicate transaction (`finish()` confirmed live); Restore → re-granted `pro.theming, pro.ordering`. PENDING (Ask-to-Buy) not live-reproduced — source-verified ("Purchase is pending") + unit-tested |
+| 4 | Serverless JWS verify, no network beyond Apple StoreKit (TWO checks) | **PASS (BOTH checks)** | CHECK 1 (agent, Plan 05): static audit zero non-Apple hits. CHECK 2 (LIVE, Plan 06): `nettop -p <app PID>` during the spike calls = ZERO sockets in the app process (StoreKit brokered by Apple system daemons; our process opens no outbound) |
 
 ---
 
-## Go/No-Go decision
+## Go/No-Go decision — `go-plugin` (FINAL, user-confirmed 2026-06-23)
 
-**RECORDED AT THE CHECKPOINT (user's selection).** The agent-verifiable evidence supports a
-provisional **GO — keep `tauri-plugin-iap@0.9`**; nothing trips a NO-GO. The final selection is
-deferred to the user because criteria 3 + 4(check 2) are confirmed only at the Plan 06 human gate.
-On a confirmed NO-GO (criteria 1/2/3 fail), routing is BLOCKING and IN-PHASE → Plan 07 (the
-swift-rs fallback rebuilding the same seam + the same `iap_*` contract + the same four criteria).
-On a criterion-4 failure on BOTH the plugin AND swift-rs → milestone-level blocker, escalate.
+**Disposition: `go-plugin`.** All four criteria PASS (1 + 2 agent-verifiable at Plan 05; 3 + 4-check-2
+confirmed LIVE at the Plan 06 human gate). The proven bridge is **`tauri-plugin-iap@0.9`** — it is the
+single bridge validated against all four criteria. **Phase 26 completes.**
 
-<!-- Plan 06 folds the live criteria 3 + 4(check 2) results in here, then the final go/no-go is stamped. -->
+**Routing resolved:** the NO-GO branches did NOT fire. Criteria 1/2/3 all hold → the in-phase swift-rs
+**Plan 07 is SKIPPED** (it was conditional on `nogo-swiftrs`; the fallback is not needed). Criterion 4
+held on the plugin → no milestone-blocker escalation.
+
+**Live evidence (2026-06-23, dev-signed `.app`, sandbox tester `bkbklim+tinkerdev@gmail.com`):**
+- Sheet PRESENTS: `com.tinkerdev.app.pro` "TinkerDev Pro" $8.99 "For testing purposes only".
+- PURCHASE → granted `pro.theming, pro.ordering` (through the fail-closed core).
+- CANCEL → calm `Purchase cancelled` (NOT an error — validates the harness calm-cancel fix; the plugin
+  throws "Purchase cancelled by user" → `calm_reject_outcome` → `UserCancelled`).
+- PENDING (Ask-to-Buy) not live-reproduced — source-verified ("Purchase is pending") + unit-tested.
+- `finish()` — live relaunch after purchase fired NO duplicate transaction (the cited
+  `IapPlugin.swift:142` confirmed in practice).
+- Restore → re-granted `pro.theming, pro.ordering` from the on-device verified-transaction cache
+  (serverless; persists across sandbox sign-out — expected for a perpetual non-consumable).
+- Serverless verify: `nettop -p <app PID>` during the spike calls = ZERO sockets in the app process
+  (StoreKit brokered by Apple's system daemons; our process opens no outbound) → criterion 4 check 2 PASS.
+
+The full live results table is recorded in `PHASE-26-SANDBOX-WALKTHROUGH.md`.
+
+---
+
+## Signing reality discovered at the gate (2026-06-23)
+
+The LOCAL sandbox StoreKit test required **DEVELOPMENT** signing, NOT distribution:
+
+- **Local launch needs Apple Development:** an Apple Development cert + a Mac Development provisioning
+  profile that includes THIS Mac. A Mac App Store **distribution** profile fails local launch with
+  **AMFI -413 "No matching profile found"** (the `app-sandbox` + `application-identifier` entitlements
+  are profile-restricted; a distribution profile only authorizes an App-Store-installed app).
+- **`entitlements.appstore.plist` gained `com.apple.application-identifier`** — required for StoreKit to
+  bind the product to the app.
+- **The Apple Distribution + Mac Installer Distribution certs + the Mac App Store profile already
+  created are for the Phase-30 `.pkg` submission**, NOT this local gate.
+
+The full three-flow signing matrix (Dev test / Direct DMG / App Store `.pkg`) is documented in
+`PHASE-26-SANDBOX-WALKTHROUGH.md` ("Signing matrix").
