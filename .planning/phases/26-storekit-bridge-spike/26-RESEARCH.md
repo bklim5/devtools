@@ -427,7 +427,7 @@ Phase 26 lands new code + a minimal entitlements file gated behind an unbuilt-by
 | A5 | `getProductStatus(id).isOwned` is a sufficient proxy for "Pro is currently entitled" for a non-consumable (no need for the full `Transaction.currentEntitlements` stream in Phase 26). | Seam mapping | If `isOwned` doesn't reflect refunds in Phase 26's read, that's fine — refund/revoke live-drop is explicitly Phase 28. LOW for this phase. |
 | A6 | `@choochmeque/tauri-plugin-iap-api` is the correct JS package name for 0.9. | Stack | If the package name differs, install fails fast and is trivially corrected at plan time (`npm view`). LOW. |
 
-## Open Questions
+## Open Questions (RESOLVED — OQ-1/OQ-3 folded into CONTEXT D-05/D-07 reshape; OQ-2 resolved-in-spike, Plan 26-05)
 
 1. **OQ-1 (CRITICAL — resolve before writing tasks): Can the committed `.storekit` inner loop (D-05/D-07) actually drive the live sheet in `tauri dev`?**
    - **What we know:** StoreKit Config File injection is delivered by Xcode's internal `IDELaunchSession` XPC into `storekitd`; a non-Xcode-launched binary (which `tauri dev` is) does not receive the config; manual container-copy doesn't work; Apple docs + `ASC-SETUP.md §6` call macOS config-file testing iOS-first/incompatible. `[VERIFIED]`

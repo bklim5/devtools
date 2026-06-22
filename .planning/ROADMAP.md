@@ -160,7 +160,7 @@ A five-pane in-window Settings modal (License · Appearance · Hotkeys · Genera
 - [ ] 26-05-PLAN.md — minimal sandbox harness + tauri-plugin-iap spike + bridge-viability go/no-go (Wave 2, human-decision)
 - [ ] 26-06-PLAN.md — human Sandbox-tester round-trip gate + serverless-verify log-stream check (Wave 3, human-verify)
 **Research**: COMPLETE — see 26-RESEARCH.md (OQ-1: .storekit inner loop dropped, replaced by Rust verify-core unit tests + human Sandbox-tester gate). swift-rs fallback gated by the single go/no-go in Plan 05.
-**Gate**: Human — real sandbox purchase round-trip (`.storekit` file + Sandbox tester).
+**Gate**: Human — real sandbox purchase round-trip (Sandbox tester; `.storekit` not load-bearing per Phase 26 RESEARCH OQ-1 — agent inner loop is the Rust verify/grant unit core).
 
 ### Phase 27: The Build-Variant Seam (3 layers)
 **Goal**: The repo builds two variants from one codebase — direct (today's DMG/updater) and appstore (sandboxed StoreKit) — from single canonical build commands, and the appstore variant produces a signed sandboxed `.app` that launches without a white-screen, with the auto-updater compiled OUT and a committed script that asserts bundle compliance.
