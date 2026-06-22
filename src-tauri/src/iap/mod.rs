@@ -14,14 +14,18 @@
 //! compiles it (T-26-03; mirrors the webdriver gating). Plan 05 wires the real
 //! `tauri-plugin-iap` purchase/verify path onto these functions.
 #![cfg(feature = "appstore")]
-// The verify/grant decision core (intersect_pro/granted_entitlements/
-// grant_from_outcome/purchase_state_to_result + the Verification/PurchaseOutcome
-// inputs) is fully unit-tested here but not yet CALLED by the Phase-26 spike
-// command bodies (deterministic stubs). Plan 05 swaps those stubs to route real
-// verified purchases through this core, at which point the dead-code goes away.
-// Allow it now so the gated `--features appstore` build stays warning-clean (a
-// noisy build masks real warnings) — this is a spike landing the tested core
-// ahead of its wiring, by design.
+// Plan 05 wired the MODE A bodies (commands.rs): a RESOLVED plugin purchase maps
+// to `grant_from_outcome(Purchased(Verified))` and `iap_current_entitlements`
+// uses `intersect_pro` as the over-grant guard — those are now LIVE-called.
+// The remaining core members stay deliberately uncalled on the live path because
+// the plugin's Swift verifies the JWS + throws on non-success (OQ-2): an
+// `.unverified`/cancelled/pending purchase never crosses the FFI as DATA, so the
+// `Verification::Unverified`, `PurchaseOutcome::{Cancelled,Pending}` and
+// `purchase_state_to_result` branches are exercised by the unit tests (the
+// fail-closed spec) and reserved for the Phase-28 status/result mapping, not the
+// Phase-26 happy path. Keep the allow so the gated `--features appstore` build
+// stays warning-clean (a noisy build masks real warnings) — the fail-closed
+// contract is proven by tests, not by being on the live call graph.
 #![allow(dead_code)]
 
 pub mod commands;
