@@ -49,9 +49,20 @@ if ! security find-identity -p codesigning -v | grep -qF "$SIGN_ID"; then
 fi
 
 # --- 1. Build the signed universal appstore bundle -----------------------------
+# CRITICAL: scrub the direct-channel (Developer-ID + notarization) environment so it
+# can't hijack this MAS build. If APPLE_ID/APPLE_PASSWORD/APPLE_API_KEY are set, Tauri
+# NOTARIZES — but a MAS build has NO hardened runtime, so notarization fails AND the
+# innards get Developer-ID-signed (an identity mismatch the top-level re-sign can't fix).
+# We unset those and pin APPLE_SIGNING_IDENTITY so the WHOLE bundle signs Apple
+# Distribution in one pass, with no notarization.
+unset APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID \
+      APPLE_API_KEY APPLE_API_ISSUER APPLE_API_KEY_PATH \
+      APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_KEYCHAIN 2>/dev/null || true
+export APPLE_SIGNING_IDENTITY="$SIGN_ID"
+
+echo "[appstore] building universal appstore bundle, signed '$SIGN_ID' (no notarization)…"
 # (The final tauri-build exit can be non-zero ONLY for the absent updater key — we
-#  judge success by the bundle, not the exit code; harness rule.)
-echo "[appstore] building universal appstore bundle, signed '$SIGN_ID'…"
+#  judge success by the bundle + its signature below, not the exit code; harness rule.)
 MACOSX_DEPLOYMENT_TARGET=13.0 pnpm tauri build --features appstore \
   --target "$TARGET" --bundles app \
   --config '{"bundle":{"macOS":{
@@ -70,10 +81,11 @@ echo "[appstore] embedding provisioning profile → Contents/embedded.provisionp
 cp "$PROFILE" "$APP_OUT/Contents/embedded.provisionprofile"
 
 # --- 3. Re-sign so the seal covers the embedded profile + appstore entitlements -
-# Top-level --force re-seal (nested binaries were already signed by the build with
-# the same identity). NO --options runtime: MAS uses App Sandbox, not hardened runtime.
-echo "[appstore] re-signing bundle with the embedded profile + appstore entitlements…"
-codesign --force --timestamp --sign "$SIGN_ID" \
+# --deep: re-sign EVERY nested binary with the same Apple Distribution identity, so
+# the whole bundle is internally consistent even if the build env briefly signed an
+# innard with a different cert. NO --options runtime: MAS uses App Sandbox, not HR.
+echo "[appstore] re-signing bundle (deep) with the embedded profile + appstore entitlements…"
+codesign --force --deep --timestamp --sign "$SIGN_ID" \
   --entitlements "$ENTITLEMENTS" "$APP_OUT" || {
     echo "ERROR: re-sign failed."; exit 1; }
 
@@ -92,6 +104,13 @@ if [[ -f "$APP_OUT/Contents/embedded.provisionprofile" ]]; then
   echo "  embedded.provisionprofile present ✓"
 else
   echo "  NO embedded profile — the sheet will not present ✗"
+fi
+echo "[deep verify]"
+if codesign --verify --deep --strict --verbose=2 "$APP_OUT" >/tmp/_cs_verify.txt 2>&1; then
+  echo "  whole bundle signature valid + consistent ✓"
+else
+  echo "  signature NOT consistent (exit $?) — details:"
+  sed 's/^/    /' /tmp/_cs_verify.txt | head -8
 fi
 echo "======================================="
 echo ""
