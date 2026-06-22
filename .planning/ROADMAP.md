@@ -152,8 +152,14 @@ A five-pane in-window Settings modal (License · Appearance · Hotkeys · Genera
   2. A completed purchase is verified on-device via StoreKit 2 JWS (`VerificationResult.verified` only); an `.unverified` result is treated as failed and grants nothing — confirmed serverless (no network call beyond Apple's StoreKit).
   3. The `platform.iap` seam exists with a real `tauri.ts` arm (calling `iap_*` Rust commands) and a deterministic no-op `browser.ts`/`stub.ts` arm, so unit tests + `vite dev` run with no native call.
   4. A real purchase round-trip completes in the App Store Connect sandbox with a Sandbox tester account (human-verified — WebDriver cannot drive StoreKit).
-**Plans**: TBD
-**Research**: `/gsd-research-phase` LIKELY — bridge internals MEDIUM-confidence; swift-rs fallback ready (same seam).
+**Plans**: 6 plans
+- [ ] 26-01-PLAN.md — Rust IAP verify/grant decision core + appstore cargo feature + iap_* commands (Wave 1, auto)
+- [ ] 26-02-PLAN.md — platform.iap seam (interface + real tauri.ts arm + no-op browser/stub arms + tests) (Wave 1, auto)
+- [ ] 26-03-PLAN.md — temporary D-11 spike button in Settings ▸ License + no-op-arm e2e (Wave 2, auto)
+- [ ] 26-04-PLAN.md — ASC setup checklist (App ID, Paid-Apps Agreement, com.tinkerdev.app.pro, Sandbox tester) — user-driven (Wave 1, human)
+- [ ] 26-05-PLAN.md — minimal sandbox harness + tauri-plugin-iap spike + bridge-viability go/no-go (Wave 2, human-decision)
+- [ ] 26-06-PLAN.md — human Sandbox-tester round-trip gate + serverless-verify log-stream check (Wave 3, human-verify)
+**Research**: COMPLETE — see 26-RESEARCH.md (OQ-1: .storekit inner loop dropped, replaced by Rust verify-core unit tests + human Sandbox-tester gate). swift-rs fallback gated by the single go/no-go in Plan 05.
 **Gate**: Human — real sandbox purchase round-trip (`.storekit` file + Sandbox tester).
 
 ### Phase 27: The Build-Variant Seam (3 layers)
@@ -252,7 +258,7 @@ v1.8 runs 26 → 27 → 28 → 30 with Phase 29 parallel-capable beside 28 once 
 | 23. Appearance Pane | v1.7 | 4/4 | Complete    | 2026-06-17 |
 | 24. Hotkeys & General Panes | v1.7 | 4/4 | Complete | SET-08 + SET-09 validated 2026-06-19 |
 | 25. Updates Pane & Milestone Ship | v1.7 | 5/5 | Complete    | 2026-06-21 |
-| 26. StoreKit Bridge Spike (CRITICAL PATH) | v1.8 | 0/0 | Not started | - |
+| 26. StoreKit Bridge Spike (CRITICAL PATH) | v1.8 | 0/6 | Planned | - |
 | 27. The Build-Variant Seam (3 layers) | v1.8 | 0/0 | Not started | - |
 | 28. Entitlement-Source Swap + Store License Pane | v1.8 | 0/0 | Not started | - |
 | 29. Sandbox-Safe Native Features | v1.8 | 0/0 | Not started | - |
