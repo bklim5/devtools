@@ -314,6 +314,19 @@ pub fn run() {
     #[cfg(all(debug_assertions, feature = "webdriver"))]
     let builder = builder.plugin(tauri_plugin_webdriver::init());
 
+    // Mac App Store StoreKit bridge (Phase 26, MAS-IAP-01/04), gated on the
+    // `appstore` Cargo feature ONLY — the direct build never registers it (mirrors
+    // the optional-dep exclusion at Cargo.toml :97/:112; `cargo tree | grep iap` = 0
+    // without the feature). The plugin embeds the StoreKit Swift package via
+    // swift-bridge FFI; its public Rust API (`IapExt::iap()` -> `Iap<R>`,
+    // 26-02 PREFLIGHT MODE A) is what the iap_* commands below drive. Unlike
+    // webdriver this is NOT debug-gated: the store build is a release build that
+    // MUST carry StoreKit. Registration here installs the plugin's managed `Iap`
+    // state + its `purchaseUpdated` listener (the Swift `handleTransactionUpdate`
+    // path that calls `transaction.finish()` on background renewals).
+    #[cfg(feature = "appstore")]
+    let builder = builder.plugin(tauri_plugin_iap::init());
+
     // The locked licensing command surface (Phase 19 + 21). App-defined commands
     // registered via generate_handler! need no capability entries.
     // `license_status_detail` is the route-only masked-key path (D-89);

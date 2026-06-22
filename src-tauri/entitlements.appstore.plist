@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!--
+    Phase 26 minimal App Sandbox harness (D-12). EXACTLY two keys — nothing else.
+    NO Keychain-group entitlement, NO user-selected-file entitlement, NO other
+    speculative entitlements (26-RESEARCH anti-pattern). The formal store
+    entitlement set is Phase 27.
+
+    Distinct from the direct-channel entitlements.plist (the hardened-runtime
+    JIT / unsigned-memory / library-validation exceptions) — those are
+    Developer-ID hardened-runtime exceptions and have NO place in a sandboxed MAS
+    build.
+  -->
+
+  <!-- com.apple.security.app-sandbox: mandatory for the Mac App Store. -->
+  <key>com.apple.security.app-sandbox</key>
+  <true/>
+
+  <!--
+    com.apple.security.network.client: MANDATORY, not a feature. The WKWebview's
+    Tauri IPC rides this; without it the sandboxed webview white-screens
+    (26-RESEARCH Pitfall 2). It is also the ONLY outbound the StoreKit path needs
+    (Apple's StoreKit servers) — the static + live D-04 audits prove zero
+    non-Apple use of it.
+  -->
+  <key>com.apple.security.network.client</key>
+  <true/>
+</dict>
+</plist>
