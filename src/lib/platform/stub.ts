@@ -47,3 +47,26 @@ export function createLicenseStub(): Platform["license"] {
     deactivate: reject,
   };
 }
+
+/** Deterministic IAP arm for every non-Tauri environment (MAS-IAP-01/04, mirrors
+ *  createLicenseStub): StoreKit is a Tauri-only capability, so jsdom/vite-preview
+ *  NEVER touch it — `products`/`currentEntitlements` resolve `[]`, the
+ *  `purchase`/`restore` mutations reject with the same `{ code }` shape the real
+ *  Rust commands reject with, and `onPurchaseUpdated` returns a no-op unsubscribe
+ *  (the `storekit://updated` event never fires outside Tauri). No network, no
+ *  native call, no conditionals — so the non-Tauri arm can never fabricate a Pro
+ *  grant (T-26-06, the elevation guard mirrors the license stub's reject
+ *  discipline). */
+export function createIapStub(): Platform["iap"] {
+  const reject = () =>
+    // Same rejection shape as a serialized Rust IapError — callers handle one
+    // contract in both environments (intentionally not an Error instance).
+    Promise.reject({ code: "serviceUnreachable" as const });
+  return {
+    products: () => Promise.resolve([]),
+    purchase: reject,
+    restore: reject,
+    currentEntitlements: () => Promise.resolve([]),
+    onPurchaseUpdated: () => Promise.resolve(() => {}),
+  };
+}

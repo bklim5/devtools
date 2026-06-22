@@ -25,7 +25,12 @@ import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { enable, disable, isEnabled } from "@tauri-apps/plugin-autostart";
 import { getVersion } from "@tauri-apps/api/app";
-import type { LicenseStatusPayload, Platform } from "./index";
+import type {
+  IapProduct,
+  IapPurchaseResult,
+  LicenseStatusPayload,
+  Platform,
+} from "./index";
 import type { Store } from "./stub";
 import {
   initialDownloadProgress,
@@ -168,5 +173,26 @@ export const tauriPlatform: Platform = {
   // import (top of THIS file) lives ONLY here.
   app: {
     getVersion: () => getVersion(),
+  },
+  // MAS-IAP-01/04: the StoreKit IAP surface, reached ONLY through this seam.
+  // Integration mode = MODE A (Rust-callable API), PROVEN by the Task-0 preflight
+  // (docs/appstore/PHASE-26-PLUGIN-API-PREFLIGHT.md): `tauri-plugin-iap@0.9`
+  // exposes a public Rust API (`IapExt::iap()`), so the arm is pure `invoke`
+  // against the Plan-01 `iap_*` commands (Plan 05 backs those commands with the
+  // plugin's on-device-verified Rust path). The tauri-plugin-iap JS companion is
+  // NEVER imported — no native/plugin import enters this arm; it
+  // reuses the ALREADY-imported `invoke`/`listen` (no new import). Rejections carry
+  // the serialized `{ code }` object untransformed (mirrors license). The
+  // `storekit://updated` listen mirrors the no-payload `menu://check-updates`
+  // channel — the handler re-reads entitlements via the verified Rust path rather
+  // than trusting event data (T-26-07). This `listen` import lives ONLY here (D-12).
+  iap: {
+    products: () => invoke<IapProduct[]>("iap_products"),
+    purchase: (productId) =>
+      invoke<IapPurchaseResult>("iap_purchase", { productId }),
+    restore: () => invoke<void>("iap_restore"),
+    currentEntitlements: () => invoke<string[]>("iap_current_entitlements"),
+    onPurchaseUpdated: (handler) =>
+      listen("storekit://updated", () => handler()),
   },
 };

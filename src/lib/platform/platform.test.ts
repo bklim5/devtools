@@ -63,6 +63,13 @@ describe("platform seam", () => {
         isEnabled: vi.fn().mockResolvedValue(false),
       },
       app: { getVersion: vi.fn().mockResolvedValue("0.0.0-test") },
+      iap: {
+        products: vi.fn().mockResolvedValue([]),
+        purchase: vi.fn(),
+        restore: vi.fn(),
+        currentEntitlements: vi.fn().mockResolvedValue([]),
+        onPurchaseUpdated: vi.fn().mockResolvedValue(() => {}),
+      },
     };
     setPlatformForTest(stub);
 
@@ -180,6 +187,13 @@ describe("platform seam — native capabilities (NAT-01)", () => {
         isEnabled: vi.fn().mockResolvedValue(false),
       },
       app: { getVersion: vi.fn().mockResolvedValue("0.0.0-test") },
+      iap: {
+        products: vi.fn().mockResolvedValue([]),
+        purchase: vi.fn(),
+        restore: vi.fn(),
+        currentEntitlements: vi.fn().mockResolvedValue([]),
+        onPurchaseUpdated: vi.fn().mockResolvedValue(() => {}),
+      },
     };
     setPlatformForTest(stub);
 
@@ -256,6 +270,13 @@ describe("platform seam — auto-updater (DST-02)", () => {
         isEnabled: vi.fn().mockResolvedValue(false),
       },
       app: { getVersion: vi.fn().mockResolvedValue("0.0.0-test") },
+      iap: {
+        products: vi.fn().mockResolvedValue([]),
+        purchase: vi.fn(),
+        restore: vi.fn(),
+        currentEntitlements: vi.fn().mockResolvedValue([]),
+        onPurchaseUpdated: vi.fn().mockResolvedValue(() => {}),
+      },
     };
     setPlatformForTest(stub);
 
@@ -314,6 +335,13 @@ describe("platform seam — events bind to the resolved impl (HIGH-22-01)", () =
         isEnabled: vi.fn().mockResolvedValue(false),
       },
       app: { getVersion: vi.fn().mockResolvedValue("0.0.0-test") },
+      iap: {
+        products: vi.fn().mockResolvedValue([]),
+        purchase: vi.fn(),
+        restore: vi.fn(),
+        currentEntitlements: vi.fn().mockResolvedValue([]),
+        onPurchaseUpdated: vi.fn().mockResolvedValue(() => {}),
+      },
     };
     // setPlatformForTest seeds the memoised init promise with the stub, so
     // `await initPlatform()` resolves to it — mirroring how App.tsx awaits init

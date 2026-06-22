@@ -5,7 +5,12 @@
 // lives ONLY in tauri.ts, reached via a dynamic import from index.ts.
 
 import type { Platform } from "./index";
-import { createLicenseStub, createStoreStub, type Store } from "./stub";
+import {
+  createIapStub,
+  createLicenseStub,
+  createStoreStub,
+  type Store,
+} from "./stub";
 
 /** Namespace persisted keys so the app's prefs never collide with anything else
  *  sharing the origin's localStorage (e.g. under `vite preview`). */
@@ -128,4 +133,11 @@ export const browserPlatform: Platform = {
       return import.meta.env.VITE_APP_VERSION ?? "0.0.0-dev";
     },
   },
+  // IAP is Tauri-only (MAS-IAP-01/04): outside Tauri the deterministic stub
+  // resolves [] for products/currentEntitlements, rejects serviceUnreachable for
+  // purchase/restore, and never fires onPurchaseUpdated — so jsdom/vite-preview
+  // NEVER touch StoreKit or fabricate a Pro grant (T-26-06). This file must NOT
+  // import the native StoreKit plugin companion — that path stays in tauri.ts (and in
+  // MODE A is never imported at all; the seam reaches StoreKit Rust-side).
+  iap: createIapStub(),
 };

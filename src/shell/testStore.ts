@@ -2,7 +2,11 @@
 // backed stub the seam already uses (createStoreStub). Tests inject it via
 // setPlatformForTest so prefs/recents round-trip through the REAL seam without
 // importing @tauri-apps. Reuses the stub — does NOT hand-roll a new one.
-import { createLicenseStub, createStoreStub } from "@/lib/platform/stub";
+import {
+  createIapStub,
+  createLicenseStub,
+  createStoreStub,
+} from "@/lib/platform/stub";
 import type { Platform, Store } from "@/lib/platform";
 
 /** Shared no-op native caps for test Platform stubs (NAT-01). A single source of
@@ -76,6 +80,13 @@ export const noopApp: Platform["app"] = {
   },
 };
 
+/** Shared deterministic IAP arm for test Platform stubs (MAS-IAP-01/04): the same
+ *  []/serviceUnreachable/no-op stub the browser fallback uses (createIapStub), so
+ *  jsdom tests never touch StoreKit or the network — one source of truth so every
+ *  inline literal / makeMemoryPlatform spread satisfies the widened interface
+ *  without re-drifting the iap shape. */
+export const noopIap: Platform["iap"] = createIapStub();
+
 export function makeMemoryPlatform(
   store: Store = createStoreStub(),
   /** Optional license arm override (Phase 21 D-85 flip tests): drive a specific
@@ -94,5 +105,6 @@ export function makeMemoryPlatform(
     opener: noopOpener,
     autostart: noopAutostart,
     app: noopApp,
+    iap: noopIap,
   };
 }

@@ -75,6 +75,28 @@ export type LicenseErrorCode =
   | "noStoredKey"
   | "licenseProblem";
 
+/** A purchasable Mac App Store product (MAS-IAP-01). Mirrors the serde camelCase
+ *  `IapProduct` the Rust `iap_products` command returns (src-tauri/src/iap/mod.rs):
+ *  `displayPrice`/`displayName` are StoreKit's localized strings (Plan 05 reads
+ *  the real values; the spike returns a fixture). Do NOT invent fields. */
+export type IapProduct = {
+  id: string;
+  displayPrice: string;
+  displayName: string;
+};
+
+/** The result of a StoreKit `Product.purchase()` (MAS-IAP-01) — the EXACT mirror
+ *  of the serde internally-tagged camelCase JSON the Rust `iap_purchase` command
+ *  returns (src-tauri/src/iap/mod.rs `IapPurchaseResult`). PurchaseState 0/1/2 →
+ *  success/userCancelled/pending. `pending` ("waiting for approval" — Ask to Buy
+ *  / SCA) is a CALM non-error state, not a failure. `success` carries the granted
+ *  pro entitlement codes, derived from the VERIFIED transaction only (fail-closed:
+ *  `[]` on `.unverified`). Mirrors the `LicenseStatusPayload` union discipline. */
+export type IapPurchaseResult =
+  | { state: "success"; entitlements: string[] }
+  | { state: "userCancelled" }
+  | { state: "pending" };
+
 export interface Platform {
   clipboard: {
     writeText(text: string): Promise<void>;
@@ -163,6 +185,31 @@ export interface Platform {
   app: {
     getVersion(): Promise<string>;
   };
+  /** Mac App Store In-App Purchase (MAS-IAP-01/04). The webview reaches StoreKit
+   *  ONLY through this capability — the real arm (tauri.ts) routes to the Rust
+   *  `iap_*` commands (which back onto the on-device-verified plugin path); the
+   *  native/plugin import NEVER leaks into index/browser/stub/vitest/vite-preview.
+   *  `products`/`currentEntitlements` are pure reads (deterministic `[]` in the
+   *  no-op arm); `purchase`/`restore` are StoreKit mutations (reject `{ code }`,
+   *  same shape as license). `onPurchaseUpdated` subscribes to the no-payload
+   *  `storekit://updated` channel (mirrors `events.onMenuCheckUpdates`); the
+   *  handler re-reads entitlements via the verified Rust path (no payload to
+   *  trust). Browser/test arms are deterministic — NEVER a network/native call. */
+  iap: {
+    /** Localized purchasable products (the single non-consumable Pro product). */
+    products(): Promise<IapProduct[]>;
+    /** Start the native StoreKit purchase sheet for `productId`. Rejections carry
+     *  the serialized `{ code }` object untransformed (mirrors license). */
+    purchase(productId: string): Promise<IapPurchaseResult>;
+    /** Re-sync + restore previous purchases (AppStore.sync + re-read). */
+    restore(): Promise<void>;
+    /** The currently-owned granted pro entitlement codes (verified, non-refunded);
+     *  `[]` when nothing is owned. Pure read — never network. */
+    currentEntitlements(): Promise<string[]>;
+    /** Subscribe to transaction updates (`storekit://updated`, no payload).
+     *  Returns an unsubscribe fn. No-op (never fires) in the browser fallback. */
+    onPurchaseUpdated(handler: () => void): Promise<() => void>;
+  };
 }
 
 /**
@@ -221,6 +268,9 @@ export const platform: Platform = {
   },
   get app() {
     return active.app;
+  },
+  get iap() {
+    return active.iap;
   },
 };
 
