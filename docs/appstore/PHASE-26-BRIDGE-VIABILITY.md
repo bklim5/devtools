@@ -84,13 +84,34 @@ The MODE A `iap_*` bodies (`src-tauri/src/iap/commands.rs`) call the plugin's pu
 | Seam command | Plugin Rust call | Grant routing |
 |--------------|------------------|---------------|
 | `iap_products` | `app.iap().get_products([PRO_PRODUCT_ID], "inapp")` | maps `formattedPrice`/`title` → `IapProduct` |
-| `iap_purchase` | `app.iap().purchase(PurchaseRequest{…,"inapp"})` | RESOLVE → `grant_from_outcome(Purchased(Verified))`; REJECT → `IapError::PurchaseFailed` (no grant) |
+| `iap_purchase` | `app.iap().purchase(PurchaseRequest{…,"inapp"})` | RESOLVE (product==Pro) → `grant_from_outcome(Purchased(Verified))`; REJECT → calm `UserCancelled`/`Pending` by message, else `IapError::PurchaseFailed` (no grant) |
 | `iap_restore` | `app.iap().restore_purchases("inapp")` | `Ok(())`; the seam re-reads entitlements (Codex #5) |
 | `iap_current_entitlements` | `app.iap().get_product_status(PRO_PRODUCT_ID, "inapp")` | `isOwned` → `intersect_pro(PRO_ENTITLEMENTS)`; else `[]` |
 
-`onPurchaseUpdated` maps onto `listen("storekit://updated")` (the `tauri.ts` arm, 26-02); the
-plugin's `purchaseUpdated` Swift trigger fires the channel and the seam re-reads the verified
-Rust path. `@choochmeque` is never imported (`grep -c '@choochmeque' src/lib/platform/tauri.ts` = 0).
+`getProductStatus` maps cleanly onto the seam. `@choochmeque` is never imported
+(`grep -c '@choochmeque' src/lib/platform/tauri.ts` = 0).
+
+### Known plugin limitations (criterion-2/3 caveats — surfaced by the harness code-review, material to the go/no-go)
+
+Two real `tauri-plugin-iap@0.9.1` API constraints were found while wiring the seam. Neither trips
+a NO-GO on its own, but both are honest marks against the plugin and are mitigated/deferred:
+
+1. **No structured reject discriminant for cancel/pending.** The plugin's macOS `purchase()`
+   THROWS one undifferentiated error for user-cancel (`IapPlugin.swift:152`), pending/Ask-to-Buy
+   (`:155`) AND verification-failure (`:148`) — the only signal is the (English) thrown message.
+   To honour MAS-IAP-01 ("pending is a CALM non-error state"), `iap_purchase` classifies the
+   message (`calm_reject_outcome`, unit-tested) → `UserCancelled`/`Pending` calm states, failing
+   closed to `PurchaseFailed` on verification-failure / anything unrecognized. **This message
+   string-match is FRAGILE** (depends on the plugin's prose); a swift-rs fallback (Plan 07) would
+   own the StoreKit `PurchaseResult` enum directly and avoid it. Weigh this in the go/no-go.
+2. **`onPurchaseUpdated` has no global event to subscribe to.** The plugin delivers background
+   transaction updates (renewal, refund, family-share, Ask-to-Buy approval) through its OWN
+   `register_listener` / `ipc::Channel` mechanism (`src/listeners.rs`), NOT a global Tauri event.
+   The seam's `listen("storekit://updated")` therefore never fires — it is a **NOT-YET-WIRED
+   placeholder** (the doc/comments in `tauri.ts`/`index.ts` now say so). The Phase-26 spike does
+   not need it (it re-reads entitlements explicitly after purchase/restore); wiring the plugin's
+   real update channel is **Phase 28** (refund/revoke live-drop). A swift-rs fallback would expose
+   `Transaction.updates` directly.
 
 ---
 
@@ -182,7 +203,7 @@ Apple-only allowlist — runs at the Plan 06 walkthrough; BOTH must pass for D-0
 | # | Criterion | Status | Evidence |
 |---|-----------|--------|----------|
 | 1 | Compiles + links universal sandboxed | **PASS (agent)** | lipo `x86_64 arm64`; sandbox+network.client entitlements embedded; no link clash; `cargo test --features appstore` 97/0 |
-| 2 | `getProductStatus`/`onPurchaseUpdated` map onto the seam; verification enforced; `finish()` cited | **PASS (agent)** | MODE A bodies + the seam table above; OQ-2 verify-in-Swift; `finish()` cited at IapPlugin.swift:142/:295 |
+| 2 | `getProductStatus`/`onPurchaseUpdated` map onto the seam; verification enforced; `finish()` cited | **PASS (agent), 2 caveats** | MODE A bodies + the seam table above; OQ-2 verify-in-Swift; `finish()` cited at IapPlugin.swift:142/:295. Caveats (see "Known plugin limitations"): cancel/pending mapped by fragile message string-match; `onPurchaseUpdated` is a Phase-28 placeholder (plugin has no global event) |
 | 3 | Sheet presents + handles success/userCancelled/pending in the sandboxed build | **PENDING — Plan 06 human gate** | needs a distribution-signed launch + Sandbox tester |
 | 4 | Serverless JWS verify, no network beyond Apple StoreKit (TWO checks) | **CHECK 1 PASS (agent); CHECK 2 PENDING** | static audit zero non-Apple hits (this plan); live process-scoped capture = Plan 06 |
 

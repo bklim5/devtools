@@ -161,6 +161,11 @@ function IapSpikeBlock() {
           return "Purchase cancelled";
         case "pending":
           return "Pending — waiting for approval";
+        default:
+          // TS exhaustiveness is compile-only; the value crosses the invoke()
+          // FFI boundary, so guard against an unmodeled state at runtime rather
+          // than resolving to undefined.
+          return "Purchase result: unknown state";
       }
     });
 

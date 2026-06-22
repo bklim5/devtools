@@ -21,7 +21,10 @@
 //! construction, verified → we map it to `Purchased(Verified)`; a `purchase()`
 //! that REJECTS (verification failed / cancelled / pending) grants nothing. The
 //! Plan-01 core (`grant_from_outcome` + `intersect_pro`) is the defense-in-depth
-//! over-grant + fail-closed guard on top of the native verify.
+//! over-grant + fail-closed guard on top of the native verify. The plugin gives
+//! no structured reject discriminant, so `iap_purchase` maps the two CALM
+//! rejections (user-cancel, pending) onto their non-error union states by the
+//! thrown message; a verification failure or any other reject fails closed.
 //!
 //! Errors serialize as `{"code": "..."}` (mirrors the license rejection contract,
 //! T-19-19): the webview's copy layer keys on the code string, never on prose.
@@ -48,9 +51,11 @@ pub enum IapError {
     /// StoreKit / the App Store could not be reached (or the plugin call failed
     /// for a non-purchase reason: product not found, no bundle, FFI error).
     ServiceUnreachable,
-    /// `Product.purchase()` failed for a non-cancel reason — including a FAILED
-    /// on-device JWS verification (the plugin throws "Transaction verification
-    /// failed"). Fail-closed: this NEVER grants Pro.
+    /// `Product.purchase()` failed for a non-cancel, non-pending reason —
+    /// including a FAILED on-device JWS verification (the plugin throws
+    /// "Transaction verification failed"). User-cancel and pending are CALM
+    /// `IapPurchaseResult` states, not this error. Fail-closed: this NEVER grants
+    /// Pro.
     PurchaseFailed,
 }
 
@@ -84,7 +89,10 @@ pub async fn iap_products<R: Runtime>(app: AppHandle<R>) -> Result<Vec<IapProduc
         .iap()
         .get_products(vec![PRO_PRODUCT_ID.to_string()], PRODUCT_TYPE.to_string())
         .await
-        .map_err(|_| IapError::ServiceUnreachable)?;
+        .map_err(|e| {
+            eprintln!("iap: get_products failed: {e}");
+            IapError::ServiceUnreachable
+        })?;
 
     Ok(resp
         .products
@@ -100,11 +108,19 @@ pub async fn iap_products<R: Runtime>(app: AppHandle<R>) -> Result<Vec<IapProduc
 
 /// Start a purchase. MODE A: `app.iap().purchase(...)`. The plugin verifies the
 /// JWS in Swift and calls `Transaction.finish()` (IapPlugin.swift:142) BEFORE
-/// returning — so a RESOLVED `Purchase` is, by construction, a verified +
-/// finished transaction. We map that to `Purchased(Verified)` and route through
-/// the Plan-01 `grant_from_outcome` (fail-closed + `intersect_pro` over-grant
-/// guard). A REJECT means verification-failed / cancelled / pending → grant
-/// nothing.
+/// returning — and it THROWS on every non-verified outcome (verification failed
+/// :148, user-cancelled :152, pending :155). So a RESOLVED `Purchase` is, by
+/// construction, a verified + finished transaction → we map it to
+/// `Purchased(Verified)` through the Plan-01 `grant_from_outcome` (fail-closed +
+/// `intersect_pro` over-grant guard).
+///
+/// The plugin gives NO structured discriminant for the rejection cases — cancel,
+/// pending and verification-failure all arrive as one thrown error whose only
+/// signal is its (English) message (see PHASE-26-BRIDGE-VIABILITY.md criterion 2).
+/// We map the two CALM outcomes (user cancel, Ask-to-Buy pending) onto their
+/// non-error union states so a routine sheet-cancel is NOT surfaced as a failure
+/// (MAS-IAP-01); everything else — including a failed verification — fails closed
+/// to `PurchaseFailed` and grants nothing.
 #[tauri::command]
 pub async fn iap_purchase<R: Runtime>(
     app: AppHandle<R>,
@@ -117,16 +133,47 @@ pub async fn iap_purchase<R: Runtime>(
     };
 
     match app.iap().purchase(req).await {
-        // RESOLVED → verified + finished by the plugin's Swift. Route a
-        // Purchased(Verified) through the fail-closed grant core (which intersects
-        // against PRO_ENTITLEMENTS — a forged/extra code can never over-grant).
-        Ok(_purchase) => Ok(grant_from_outcome(PurchaseOutcome::Purchased(
-            Verification::Verified,
-        ))),
-        // REJECTED → verification failed / cancelled / pending. Fail closed:
-        // surface a calm typed error, NEVER a grant. (The webview maps userCancel
-        // vs pending vs error from the seam; the over-grant guard sits Rust-side.)
-        Err(_) => Err(IapError::PurchaseFailed),
+        // RESOLVED → verified + finished by the plugin's Swift. Defense-in-depth:
+        // grant ONLY when the resolved transaction is actually the Pro product (a
+        // resolve for any other id grants nothing — fail closed). Route the
+        // Purchased(Verified) through the grant core (intersects against
+        // PRO_ENTITLEMENTS — a forged/extra code can never over-grant).
+        Ok(purchase) if purchase.product_id == PRO_PRODUCT_ID => Ok(grant_from_outcome(
+            PurchaseOutcome::Purchased(Verification::Verified),
+        )),
+        Ok(purchase) => {
+            eprintln!(
+                "iap: purchase resolved for unexpected product {:?} — granting nothing",
+                purchase.product_id
+            );
+            Err(IapError::PurchaseFailed)
+        }
+        // REJECTED. The plugin's error message is the only discriminant. Map the
+        // calm outcomes to their union states; fail closed on everything else.
+        Err(e) => {
+            eprintln!("iap: purchase rejected: {e}");
+            match calm_reject_outcome(&e.to_string()) {
+                Some(outcome) => Ok(grant_from_outcome(outcome)),
+                None => Err(IapError::PurchaseFailed),
+            }
+        }
+    }
+}
+
+/// Classify a plugin `purchase()` REJECT by its (English) message. The plugin
+/// throws one undifferentiated error for cancel / pending / verification-failure
+/// (no structured code — PHASE-26-BRIDGE-VIABILITY.md criterion 2), so the thrown
+/// message is the only signal. Returns the CALM outcome for a user-cancel or a
+/// pending (Ask-to-Buy) purchase, or `None` when the reject must fail closed
+/// (verification failure, network error, anything unrecognized → grant nothing).
+fn calm_reject_outcome(message: &str) -> Option<PurchaseOutcome> {
+    let m = message.to_lowercase();
+    if m.contains("cancel") {
+        Some(PurchaseOutcome::Cancelled)
+    } else if m.contains("pending") {
+        Some(PurchaseOutcome::Pending)
+    } else {
+        None
     }
 }
 
@@ -141,7 +188,10 @@ pub async fn iap_restore<R: Runtime>(app: AppHandle<R>) -> Result<(), IapError> 
         .restore_purchases(PRODUCT_TYPE.to_string())
         .await
         .map(|_| ())
-        .map_err(|_| IapError::ServiceUnreachable)
+        .map_err(|e| {
+            eprintln!("iap: restore_purchases failed: {e}");
+            IapError::ServiceUnreachable
+        })
 }
 
 /// The currently-owned entitlement codes. MODE A: `app.iap().get_product_status`.
@@ -157,7 +207,10 @@ pub async fn iap_current_entitlements<R: Runtime>(
         .iap()
         .get_product_status(PRO_PRODUCT_ID.to_string(), PRODUCT_TYPE.to_string())
         .await
-        .map_err(|_| IapError::ServiceUnreachable)?;
+        .map_err(|e| {
+            eprintln!("iap: get_product_status failed: {e}");
+            IapError::ServiceUnreachable
+        })?;
 
     if status.is_owned {
         // Owned → grant the full pro set, filtered through the over-grant guard.
@@ -200,6 +253,29 @@ mod tests {
             }
             other => panic!("expected Success, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn calm_rejects_map_to_their_union_state() {
+        // The EXACT plugin messages (macos/Sources/IapPlugin.swift:152, :155) map
+        // to the calm outcomes — a sheet-cancel is NOT a failure (MAS-IAP-01).
+        assert_eq!(
+            calm_reject_outcome("Purchase cancelled by user"),
+            Some(PurchaseOutcome::Cancelled)
+        );
+        assert_eq!(
+            calm_reject_outcome("Purchase is pending"),
+            Some(PurchaseOutcome::Pending)
+        );
+    }
+
+    #[test]
+    fn non_calm_rejects_fail_closed() {
+        // Verification failure + genuine errors must NOT be swallowed as calm —
+        // they fail closed to PurchaseFailed (None here), never granting Pro.
+        assert_eq!(calm_reject_outcome("Transaction verification failed"), None);
+        assert_eq!(calm_reject_outcome("Purchase failed: network down"), None);
+        assert_eq!(calm_reject_outcome("Product not found"), None);
     }
 
     #[test]

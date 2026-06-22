@@ -191,10 +191,11 @@ export interface Platform {
    *  native/plugin import NEVER leaks into index/browser/stub/vitest/vite-preview.
    *  `products`/`currentEntitlements` are pure reads (deterministic `[]` in the
    *  no-op arm); `purchase`/`restore` are StoreKit mutations (reject `{ code }`,
-   *  same shape as license). `onPurchaseUpdated` subscribes to the no-payload
-   *  `storekit://updated` channel (mirrors `events.onMenuCheckUpdates`); the
-   *  handler re-reads entitlements via the verified Rust path (no payload to
-   *  trust). Browser/test arms are deterministic — NEVER a network/native call. */
+   *  same shape as license). `onPurchaseUpdated` is a Phase-26 placeholder —
+   *  tauri-plugin-iap delivers background updates over its own listener channel,
+   *  not a global Tauri event, so it never fires yet (real wiring = Phase 28
+   *  refund/revoke; the spike re-reads entitlements explicitly instead).
+   *  Browser/test arms are deterministic — NEVER a network/native call. */
   iap: {
     /** Localized purchasable products (the single non-consumable Pro product). */
     products(): Promise<IapProduct[]>;
@@ -206,8 +207,9 @@ export interface Platform {
     /** The currently-owned granted pro entitlement codes (verified, non-refunded);
      *  `[]` when nothing is owned. Pure read — never network. */
     currentEntitlements(): Promise<string[]>;
-    /** Subscribe to transaction updates (`storekit://updated`, no payload).
-     *  Returns an unsubscribe fn. No-op (never fires) in the browser fallback. */
+    /** Subscribe to transaction updates. Returns an unsubscribe fn. Phase-26
+     *  placeholder: never fires yet on any arm (the plugin uses its own listener
+     *  channel, not a global event) — real wiring lands in Phase 28. */
     onPurchaseUpdated(handler: () => void): Promise<() => void>;
   };
 }

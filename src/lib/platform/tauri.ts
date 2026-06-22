@@ -182,10 +182,15 @@ export const tauriPlatform: Platform = {
   // plugin's on-device-verified Rust path). The tauri-plugin-iap JS companion is
   // NEVER imported — no native/plugin import enters this arm; it
   // reuses the ALREADY-imported `invoke`/`listen` (no new import). Rejections carry
-  // the serialized `{ code }` object untransformed (mirrors license). The
-  // `storekit://updated` listen mirrors the no-payload `menu://check-updates`
-  // channel — the handler re-reads entitlements via the verified Rust path rather
-  // than trusting event data (T-26-07). This `listen` import lives ONLY here (D-12).
+  // the serialized `{ code }` object untransformed (mirrors license).
+  // NOTE (Phase 26 spike): `onPurchaseUpdated` is a NOT-YET-WIRED placeholder.
+  // tauri-plugin-iap does NOT emit a global Tauri event for background
+  // transaction updates — it delivers them through its own register_listener /
+  // ipc::Channel mechanism (src/listeners.rs), so this `storekit://updated`
+  // subscription never fires. The spike instead re-reads entitlements EXPLICITLY
+  // after purchase/restore (LicenseSettings IapSpikeBlock). Wiring the plugin's
+  // real transaction-update channel — for refund/revoke live-drop — is Phase 28
+  // (see PHASE-26-BRIDGE-VIABILITY.md). The `listen` import lives ONLY here (D-12).
   iap: {
     products: () => invoke<IapProduct[]>("iap_products"),
     purchase: (productId) =>
