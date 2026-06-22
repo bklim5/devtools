@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Mac App Store Distribution
 status: roadmapped
-last_updated: "2026-06-22T00:00:00.000Z"
-last_activity: 2026-06-22 -- Milestone v1.8 roadmapped (Phases 26-30, 23/23 requirements mapped)
+last_updated: "2026-06-22T09:13:00.000Z"
+last_activity: 2026-06-22 -- Phase 26 context gathered (StoreKit Bridge Spike — bridge strategy, ASC sequencing, test harness, artifact scope)
 progress:
   total_phases: 5
   completed_phases: 0
@@ -18,9 +18,9 @@ progress:
 ## Current Position
 
 Milestone: **v1.8 "Mac App Store Distribution" — STARTED 2026-06-21 (roadmapped 2026-06-22).** Promotes backlog 999.10. Scope = the App Store target ONLY (StoreKit IAP + App Sandbox + the build-variant seam + `.pkg`/App Store Connect submission); direct-channel Developer-ID notarisation is already shipped (v0.4.1) and out of scope; launch-at-login via SMAppService is DEFERRED to v2 (the store build hides launch-at-login). Continues phase numbering from Phase 25 → first phase is **Phase 26**.
-Phase: Not started (roadmapped — 5 phases, 26-30).
-Plan: —
-Status: **Roadmapped.** All 23 v1 requirements mapped across Phases 26-30 (100% coverage). Next: `/gsd-discuss-phase 26` (or `/gsd-plan-phase 26`).
+Phase: **Phase 26 — context gathered** (5 phases, 26-30; 0 complete).
+Plan: — (not yet planned)
+Status: **Phase 26 context captured** (`.planning/phases/26-storekit-bridge-spike/26-CONTEXT.md`). 12 decisions: plugin-first (`tauri-plugin-iap@0.9`) w/ swift-rs fallback + exit criteria; minimum ASC setup now (user drives, agent guides via `docs/appstore/ASC-SETUP.md`); both `.storekit` inner loop + real Sandbox-tester human gate; production-shaped `platform.iap` seam lands on master behind `appstore` feature + temporary Settings ▸ License spike button. Next: `/gsd-plan-phase 26` (research LIKELY — MEDIUM).
 
 **v1.8 phase structure (ROADMAP.md, dependency-forced — the StoreKit bridge spike is the critical path):**
 - **Phase 26 — StoreKit Bridge Spike (CRITICAL PATH)** (MAS-IAP-01, -04): prove `tauri-plugin-iap@0.9` (or swift-rs fallback) in a universal sandboxed build; `platform.iap` seam (real `tauri.ts` arm + no-op `browser.ts`/`stub.ts`) + `iap_*` Rust commands; native purchase sheet + on-device JWS verify (`.unverified` → fail closed). **Highest-risk, longest pole — `/gsd-research-phase` LIKELY (MEDIUM); swift-rs fallback ready.** Human gate: real sandbox purchase round-trip (`.storekit` + Sandbox tester).
