@@ -126,6 +126,16 @@ pub async fn iap_purchase<R: Runtime>(
     app: AppHandle<R>,
     product_id: String,
 ) -> Result<IapPurchaseResult, IapError> {
+    // Defense-in-depth (T-26-18): the seam only ever sells the ONE Pro product.
+    // Reject any other id from an IPC caller BEFORE constructing the request or
+    // invoking the native sheet — a forged/compromised `invoke` must not be able
+    // to drive a StoreKit purchase sheet for an arbitrary or future product. Fail
+    // closed, never grant.
+    if product_id != PRO_PRODUCT_ID {
+        eprintln!("iap: refusing purchase for unexpected product {product_id:?}");
+        return Err(IapError::PurchaseFailed);
+    }
+
     let req = PurchaseRequest {
         product_id,
         product_type: PRODUCT_TYPE.to_string(),
@@ -133,21 +143,13 @@ pub async fn iap_purchase<R: Runtime>(
     };
 
     match app.iap().purchase(req).await {
-        // RESOLVED → verified + finished by the plugin's Swift. Defense-in-depth:
-        // grant ONLY when the resolved transaction is actually the Pro product (a
-        // resolve for any other id grants nothing — fail closed). Route the
-        // Purchased(Verified) through the grant core (intersects against
-        // PRO_ENTITLEMENTS — a forged/extra code can never over-grant).
-        Ok(purchase) if purchase.product_id == PRO_PRODUCT_ID => Ok(grant_from_outcome(
-            PurchaseOutcome::Purchased(Verification::Verified),
-        )),
-        Ok(purchase) => {
-            eprintln!(
-                "iap: purchase resolved for unexpected product {:?} — granting nothing",
-                purchase.product_id
-            );
-            Err(IapError::PurchaseFailed)
-        }
+        // RESOLVED → verified + finished by the plugin's Swift (product is pinned
+        // to Pro above). Route the Purchased(Verified) through the grant core
+        // (intersects against PRO_ENTITLEMENTS — a forged/extra code can never
+        // over-grant).
+        Ok(_purchase) => Ok(grant_from_outcome(PurchaseOutcome::Purchased(
+            Verification::Verified,
+        ))),
         // REJECTED. The plugin's error message is the only discriminant. Map the
         // calm outcomes to their union states; fail closed on everything else.
         Err(e) => {

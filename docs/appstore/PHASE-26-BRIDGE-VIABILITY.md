@@ -30,14 +30,27 @@ D-04 check (a live capture) pass at the Plan 06 Sandbox-tester walkthrough.
 ```
 MACOSX_DEPLOYMENT_TARGET=13.0 pnpm tauri build --features appstore \
   --target universal-apple-darwin --bundles app \
-  --config '{"app":{"security":{"capabilities":[{"identifier":"appstore-iap",
-    "windows":["main"],"permissions":["iap:default"]}]}},
-    "bundle":{"macOS":{"entitlements":"entitlements.appstore.plist",
+  --config '{"bundle":{"macOS":{"entitlements":"entitlements.appstore.plist",
     "minimumSystemVersion":"13.0"}}}'
 ```
 
 Produced:
 `src-tauri/target/universal-apple-darwin/release/bundle/macos/TinkerDev.app` (built 2026-06-22 13:54).
+
+> **SECURITY CORRECTION (harness Codex adversarial review, T-26-18b).** The
+> original spike build granted the webview `iap:default`. That is WRONG and is
+> dropped above. `iap:default` enables the plugin's RAW IPC commands
+> (`plugin:iap|purchase`, `restore_purchases`, `acknowledge_purchase`,
+> `consume_purchase`, …) for `invoke` from the renderer — which would let a
+> compromised webview bypass the entire `iap_*` wrapper boundary (the
+> product-id pin + the fail-closed grant core + the `{ code }` error shaping).
+> MODE A reaches the plugin **Rust-side** via `IapExt::iap()`; the plugin is
+> registered in `lib.rs` (Rust), and our `iap_*` are app commands — NONE of that
+> path goes through the plugin's IPC capability, so the webview needs **no** iap
+> capability at all. **Phase 27's `tauri.appstore.conf.json` overlay MUST NOT
+> grant `iap:default` (or any `plugin:iap|*` permission); the next signed
+> appstore rebuild must confirm the Rust-side path still works without it** (it
+> should — capabilities gate only webview→plugin IPC, not the Rust extension API).
 
 The final non-zero exit was ONLY the absent updater-signing private key
 (`TAURI_SIGNING_PRIVATE_KEY` — the `.app.tar.gz` updater artifact), per the harness rule:
