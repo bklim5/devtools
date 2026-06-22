@@ -131,7 +131,7 @@ A five-pane in-window Settings modal (License · Appearance · Hotkeys · Genera
 <details>
 <summary>🔄 v1.8 Mac App Store Distribution (Phases 26–30) — IN PROGRESS</summary>
 
-- [ ] Phase 26: StoreKit Bridge Spike (CRITICAL PATH) — prove `tauri-plugin-iap@0.9` (or swift-rs fallback) in a universal sandboxed build; `platform.iap` seam + `iap_*` Rust commands; native purchase sheet + on-device JWS verify; MAS-IAP-01, MAS-IAP-04
+- [x] Phase 26: StoreKit Bridge Spike (CRITICAL PATH) — prove `tauri-plugin-iap@0.9` (or swift-rs fallback) in a universal sandboxed build; `platform.iap` seam + `iap_*` Rust commands; native purchase sheet + on-device JWS verify; MAS-IAP-01, MAS-IAP-04 — **COMPLETE 2026-06-23 (GO: tauri-plugin-iap; live Sandbox round-trip passed)**
 - [ ] Phase 27: The Build-Variant Seam (3 layers) — `appstore` cargo feature + `tauri.appstore.conf.json` overlay + `VITE_CHANNEL`; sandboxed `.app` launches (network.client, no white-screen); updater compiled OUT; committed verify script; MAS-BUILD-01/02/03/05/06
 - [ ] Phase 28: Entitlement-Source Swap + Store License Pane — `baseFromStoreKit` branch through the existing gate; `StoreLicenseSettings` (Buy `displayPrice` + Restore, App-Store-managed wording); App-Store-managed Updates pane; refund/revoke live-drop; Keygen surface compiled out + grep-clean; MAS-IAP-02/03/05/06/07, MAS-BUILD-04/07
 - [ ] Phase 29: Sandbox-Safe Native Features — global summon + tray kept under sandbox; Keychain gated OUT; launch-at-login hidden in the store build; MAS-NATIVE-01/02/03/04
@@ -155,11 +155,11 @@ A five-pane in-window Settings modal (License · Appearance · Hotkeys · Genera
 **Plans**: 7 plans (Plan 07 conditional — runs only on a swift-rs NO-GO)
 - [x] 26-01-PLAN.md — Rust IAP verify/grant decision core + appstore cargo feature + iap_* commands (Wave 1, auto)
 - [x] 26-02-PLAN.md — plugin-API preflight (Rust-callable vs JS-companion) + platform.iap seam (interface + real tauri.ts arm + no-op browser/stub arms + tests) (Wave 1, auto) — MODE A PROVEN (compile-checked); seam green 1211/1211
-- [ ] 26-03-PLAN.md — temporary D-11 spike button in Settings ▸ License (Restore re-reads + renders currentEntitlements) + no-op-arm e2e (Wave 2, auto)
-- [ ] 26-04-PLAN.md — ASC setup checklist (App ID, Paid-Apps Agreement, com.tinkerdev.app.pro, Sandbox tester) — user-driven (Wave 1, human)
-- [ ] 26-05-PLAN.md — minimal sandbox harness + tauri-plugin-iap spike (finish() cited + static no-network audit) + bridge-viability go/no-go (Wave 2, human-decision)
-- [ ] 26-06-PLAN.md — human Sandbox-tester round-trip gate (relaunch/replay + Restore re-grant) + two-check serverless verify (static audit + process-scoped capture); routes the disposition (Wave 3, human-verify)
-- [ ] 26-07-PLAN.md — CONDITIONAL in-phase swift-rs fallback (only on nogo-swiftrs): same platform.iap seam + iap_* contract + same four criteria via swift-rs (Wave 4, human-verify)
+- [x] 26-03-PLAN.md — temporary D-11 spike button in Settings ▸ License (Restore re-reads + renders currentEntitlements) + no-op-arm e2e (Wave 2, auto)
+- [x] 26-04-PLAN.md — ASC setup checklist (App ID, Paid-Apps Agreement, com.tinkerdev.app.pro, Sandbox tester) — user-driven (Wave 1, human)
+- [x] 26-05-PLAN.md — minimal sandbox harness + tauri-plugin-iap spike (finish() cited + static no-network audit) + bridge-viability go/no-go (Wave 2, human-decision)
+- [x] 26-06-PLAN.md — human Sandbox-tester round-trip gate (relaunch/replay + Restore re-grant) + two-check serverless verify (static audit + process-scoped capture); routes the disposition (Wave 3, human-verify)
+- [ ] 26-07-PLAN.md — **SKIPPED** (go-plugin; conditional swift-rs fallback not needed) — would have rebuilt the same platform.iap seam + iap_* contract + four criteria via swift-rs (Wave 4, human-verify)
 **Research**: COMPLETE — see 26-RESEARCH.md (OQ-1: .storekit inner loop dropped, replaced by Rust verify-core unit tests + human Sandbox-tester gate). swift-rs fallback gated by the single go/no-go in Plan 05.
 **Gate**: Human — real sandbox purchase round-trip (Sandbox tester; `.storekit` not load-bearing per Phase 26 RESEARCH OQ-1 — agent inner loop is the Rust verify/grant unit core).
 
@@ -259,7 +259,7 @@ v1.8 runs 26 → 27 → 28 → 30 with Phase 29 parallel-capable beside 28 once 
 | 23. Appearance Pane | v1.7 | 4/4 | Complete    | 2026-06-17 |
 | 24. Hotkeys & General Panes | v1.7 | 4/4 | Complete | SET-08 + SET-09 validated 2026-06-19 |
 | 25. Updates Pane & Milestone Ship | v1.7 | 5/5 | Complete    | 2026-06-21 |
-| 26. StoreKit Bridge Spike (CRITICAL PATH) | v1.8 | 1/7 | In Progress|  |
+| 26. StoreKit Bridge Spike (CRITICAL PATH) | v1.8 | 6/7 | Complete    | 2026-06-23 |
 | 27. The Build-Variant Seam (3 layers) | v1.8 | 0/0 | Not started | - |
 | 28. Entitlement-Source Swap + Store License Pane | v1.8 | 0/0 | Not started | - |
 | 29. Sandbox-Safe Native Features | v1.8 | 0/0 | Not started | - |
