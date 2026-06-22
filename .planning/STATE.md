@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Mac App Store Distribution
 status: executing
-last_updated: "2026-06-22T11:52:15.550Z"
-last_activity: 2026-06-22 -- Phase 26 planning complete
+last_updated: "2026-06-22T12:21:54.165Z"
+last_activity: 2026-06-22
 progress:
   total_phases: 17
   completed_phases: 9
   total_plans: 41
-  completed_plans: 38
-  percent: 93
+  completed_plans: 39
+  percent: 95
 ---
 
 # Project State
@@ -18,8 +18,8 @@ progress:
 ## Current Position
 
 Milestone: **v1.8 "Mac App Store Distribution" — STARTED 2026-06-21 (roadmapped 2026-06-22).** Promotes backlog 999.10. Scope = the App Store target ONLY (StoreKit IAP + App Sandbox + the build-variant seam + `.pkg`/App Store Connect submission); direct-channel Developer-ID notarisation is already shipped (v0.4.1) and out of scope; launch-at-login via SMAppService is DEFERRED to v2 (the store build hides launch-at-login). Continues phase numbering from Phase 25 → first phase is **Phase 26**.
-Phase: **Phase 26 — context gathered** (5 phases, 26-30; 0 complete).
-Plan: — (not yet planned)
+Phase: 26 (storekit-bridge-spike) — EXECUTING
+Plan: 2 of 7
 Status: Ready to execute
 
 **v1.8 phase structure (ROADMAP.md, dependency-forced — the StoreKit bridge spike is the critical path):**
@@ -39,7 +39,7 @@ Status: Ready to execute
 **Phase 25 COMPLETE (2026-06-21, Updates pane + v1.7 milestone close — SET-10 Validated, human-approved):** the Settings ▸ Updates pane (ungated, D-25-1) shows the running version via the new `platform.app.getVersion()` seam (25-01), "Last checked" from the new `lastUpdateCheck` epoch-ms pref (25-02), a Check-for-updates button + an **Install button** — both second entry points to the ONE shared `useUpdater` singleton (25-03; de-duped check AND install behind in-flight promises, load-safe `lastUpdateCheck` stamp) that App.tsx now consumes (no divergent direct path). Pane + registry append (25-04, `SettingsModal` byte-unchanged). **D-25-5 REVISED at the human checkpoint:** the pane now offers Install (not status-only) — a second entry point to the shared `install()`, banner stays as the ambient affordance. Harness fixes folded in at the gate: clear stale updater status per check (no contradictory toast); **gate the stamp on a successful prefs load** (codex HIGH — a failed read returning defaults must not persist defaults over the real blob); install in-flight de-dupe (two on-screen install affordances); + two test-stability fixes (async aria-checked flip in the Updates e2e; widened the lazy-route findByLabelText timeout under full-suite load). Gates: **vitest 1200/1200** (stable across 3 runs), tsc + eslint clean, real-WKWebView e2e **24/24 spec files**, `gsd-ui-review` WCAG-AA **PASS 23/24** (no blocking, `25-UI-REVIEW.md`), decoder + 19 tests byte-for-byte untouched across the phase committed history (`9ee48366..HEAD`), fresh non-stale **0.4.0** `tauri build` (TinkerDev.app + DMG). **Human walkthrough APPROVED 2026-06-21** incl. the real update-available + Install round-trip against the live endpoint (a throwaway 0.3.9 build → fetched/verified/relaunched the genuine published 0.4.0). Summaries: `25-0{1..5}-SUMMARY.md`; verification: `25-VERIFICATION.md`.
 
 Progress: [■■□□] · Phase 22 + 22.1 complete · **Phase 22.2 COMPLETE (2026-06-16)** — user-approved mid-Phase-23 scope change: the **⌘K command palette is now Pro-gated** (a free user's ⌘K + the header pill open a focused Unlock-Pro modal; a Pro user gets the palette unchanged) and the **contextual locked customization triggers** (pin/drag/Alt+P/Reset) open that SAME focused modal instead of the 22.1 redirect-to-Settings. Gate via `isPro` (any Pro entitlement — frontend-only, no Keygen re-issue). Restored `UpsellModal` + `upsellStore`/`useUpsell` wrapping the SAME shared `ActivationSurface` (one activation surface, two presentations — partially un-reverts D-22.1-5). `openProUpsell` routes lapsed/attention paying customers (refreshNeeded/problem) to the Settings recovery form, NEVER the pitch (D-44). DEV-only ⌘⇧K force-open escape (tree-shaken from release, confirmed absent from `dist/`). Explicit license entry points (sidebar Settings row + Unlock-Pro footer + app-menu/tray + deep link) stay free → Settings ▸ License so a free user can still buy. **SET-04 revised** (⌘K no longer a free-tier path). Gates: vitest **986/986**, tsc+eslint clean, real-WKWebView e2e **22/22 spec files** (incl. new `cmdk-pro.e2e`), fresh `tauri build` (TinkerDev.app + DMG). decoder + 19 tests untouched. Deferred (non-blocking): `useFocusTrap` extraction (UpsellModal + SettingsModal share the Tab-trap), tinkerdev.io Pro-card copy sync.
-Last activity: 2026-06-22 -- Phase 26 planning complete
+Last activity: 2026-06-22
 
 **Phase 25 plan 04 decisions (2026-06-21, Updates settings pane — SET-10 DELIVERED, D-25-1/4/5/7/8):** the user-facing deliverable (Wave 3, depends on 25-01/02/03). Built the **ungated** Settings ▸ Updates pane wiring all three foundations into one pane + appended it append-only to `SETTINGS_PANES` (zero `SettingsModal` change). **(1) `UpdatesSettings.tsx`** (new) — wrapper/header clone `GeneralSettings` (h3 under the dialog h2). Version read once on mount via `platform.app.getVersion()` (Plan 01 seam, `useState<string|null>` + `alive` latch → renders `v—` until resolve, no flicker/no setState-after-unmount). Last-checked = `lastUpdateCheck === null ? "Never" : (relativeTime(ms) || formatTimestamp(ms).local)` in a `<span title={absolute}>` (D-25-7). "Check for updates" `<button>` → `useUpdater().runCheck(true)`, disabled while `checking` (neutral surface + not-allowed cursor, NOT opacity-only); a `role="status" aria-live="polite"` region maps `checking`/`updateInfo`/`status` → inline result (checking → "Checking for updates…"; else updateInfo → "Version X available"; else the shared status verbatim — D-25-4, WCAG-AA). `SettingToggle` "Automatically check for updates on launch" bound to `autoUpdateCheck === true` / `setAutoUpdateCheck` (tri-state null → OFF, D-25-8). NO install affordance (banner owns it, D-25-5); NO entitlement gate (ungated, D-25-1). **(2) `settingsPanes.tsx`** — imported `RefreshCw` + `UpdatesSettings`; appended `{id:"updates",label:"Updates",icon:RefreshCw}` after Appearance / before License (General stays index 0 — the landing pane); `SettingsModal.tsx` byte-unchanged. **(3) `UpdatesSettings.test.tsx`** (new, 8 cases) — drives the REAL `useUpdater` + `usePreferences` singletons (stubbing ONLY the platform seam via `setPlatformForTest`/`makeMemoryPlatform`): version render, Never-vs-relative, Check → up-to-date inline result, NO install button, toggle reflect (null/true) + single-writer flip, registry shape. **(4) `test/e2e/settings.e2e.ts`** — added a `Settings ▸ Updates pane` block: keyboard-reachable pane nav (aria-current), semver version line, "Last checked: Never" fresh state, Check → inline "up to date", auto-check toggle focusable + keyboard-operable (finally-block reset, no prefs pollution). **Decisions:** (a) Tasks 1+2 landed in ONE commit (the test imports the registry `updates` entry → a split fails lefthook, memory `tdd-red-commits-blocked-by-lefthook`); (b) reworded 3 doc-comment literals (gatePreferences/useEntitlements/@tauri-apps) to keep the acceptance greps == 0 (Plan 01/03 precedent — no behavior change). Gates: **vitest 1196/1196** (+8), tsc + eslint clean (the same 2 pre-existing SidebarResetMenu warnings + the UpdatesSettings react-refresh advisory, out of scope); `git diff --stat SettingsModal.tsx`=empty; greps on the pane = 0 gatePreferences/useEntitlements/@tauri-apps/installUpdate/onInstall; decoder + 19 tests byte-for-byte untouched; zero new deps. **SET-10 is now functionally DELIVERED** — pending the real-WKWebView e2e-spike run + the fresh `tauri build` milestone-close walkthrough (Plan 05). The `lastUpdateCheck` persistence-across-restart + toggle-survives-restart are the Plan 05 human walkthrough (WebDriver can't restart the packaged app between assertions — memory `tauri-store-async-init-race`). `/simplify` + `/codex:review` not auto-invoked — recommend `/codex:review --scope working-tree` + e2e-spike at the phase checkpoint. Commits: `42a40860` (pane + registry + test, Tasks 1+2), `25550611` (Updates e2e, Task 3). Summary: `25-04-SUMMARY.md`.
 
@@ -97,7 +97,7 @@ Last activity: 2026-06-22 -- Phase 26 planning complete
 See: .planning/PROJECT.md (updated 2026-06-09, v1.6 started) · roadmap: .planning/ROADMAP.md · requirements: .planning/REQUIREMENTS.md · research: docs/licensing-research.md
 
 **Core value:** Paste an unknown blob → usable, explorable interpretation in <2s, entirely offline, no mouse.
-**Current focus:** v1.8 roadmapped — next is Phase 26 (StoreKit bridge spike, CRITICAL PATH) via `/gsd-discuss-phase 26` or `/gsd-plan-phase 26`
+**Current focus:** Phase 26 — storekit-bridge-spike
 
 ## v1.5 — Pinned Tools (SHIPPED & ARCHIVED, 2026-06-07)
 

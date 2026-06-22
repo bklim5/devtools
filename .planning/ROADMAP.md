@@ -153,7 +153,7 @@ A five-pane in-window Settings modal (License · Appearance · Hotkeys · Genera
   3. The `platform.iap` seam exists with a real `tauri.ts` arm (calling `iap_*` Rust commands) and a deterministic no-op `browser.ts`/`stub.ts` arm, so unit tests + `vite dev` run with no native call.
   4. A real purchase round-trip completes in the App Store Connect sandbox with a Sandbox tester account (human-verified — WebDriver cannot drive StoreKit).
 **Plans**: 7 plans (Plan 07 conditional — runs only on a swift-rs NO-GO)
-- [ ] 26-01-PLAN.md — Rust IAP verify/grant decision core + appstore cargo feature + iap_* commands (Wave 1, auto)
+- [x] 26-01-PLAN.md — Rust IAP verify/grant decision core + appstore cargo feature + iap_* commands (Wave 1, auto)
 - [ ] 26-02-PLAN.md — plugin-API preflight (Rust-callable vs JS-companion) + platform.iap seam (interface + real tauri.ts arm + no-op browser/stub arms + tests) (Wave 1, auto)
 - [ ] 26-03-PLAN.md — temporary D-11 spike button in Settings ▸ License (Restore re-reads + renders currentEntitlements) + no-op-arm e2e (Wave 2, auto)
 - [ ] 26-04-PLAN.md — ASC setup checklist (App ID, Paid-Apps Agreement, com.tinkerdev.app.pro, Sandbox tester) — user-driven (Wave 1, human)
@@ -259,7 +259,7 @@ v1.8 runs 26 → 27 → 28 → 30 with Phase 29 parallel-capable beside 28 once 
 | 23. Appearance Pane | v1.7 | 4/4 | Complete    | 2026-06-17 |
 | 24. Hotkeys & General Panes | v1.7 | 4/4 | Complete | SET-08 + SET-09 validated 2026-06-19 |
 | 25. Updates Pane & Milestone Ship | v1.7 | 5/5 | Complete    | 2026-06-21 |
-| 26. StoreKit Bridge Spike (CRITICAL PATH) | v1.8 | 0/6 | Planned | - |
+| 26. StoreKit Bridge Spike (CRITICAL PATH) | v1.8 | 1/7 | In Progress|  |
 | 27. The Build-Variant Seam (3 layers) | v1.8 | 0/0 | Not started | - |
 | 28. Entitlement-Source Swap + Store License Pane | v1.8 | 0/0 | Not started | - |
 | 29. Sandbox-Safe Native Features | v1.8 | 0/0 | Not started | - |
@@ -288,7 +288,7 @@ Unsequenced ideas captured for future planning. Promote with `/gsd-review-backlo
 Each candidate must still pass the product wedge: offline/no-network, paste-instant (<2s), keyboard-driven, registry-driven, WCAG-AA, and the build+verify harness.
 
 **Requirements:** TBD (remaining wishlist; Cron/URL/Regex requirements now in `.planning/REQUIREMENTS.md` for v1.3)
-**Plans:** 5/5 plans complete
+**Plans:** 1/7 plans executed
 
 Plans:
 - [ ] TBD (promote remaining wishlist with /gsd-review-backlog when ready)
