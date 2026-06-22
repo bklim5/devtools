@@ -77,19 +77,24 @@ Mac App Store build).
 
 ### 0b. Rebuild with the distribution identity + embedded profile
 
-Use the **per-invocation appstore build flags** recorded in `PHASE-26-BRIDGE-VIABILITY.md`
-(base `tauri.conf.json` stays at 10.15 / no appstore overlay — D-12), but swap the signing
-identity from ad-hoc to **Apple Distribution** and embed the Mac App Store provisioning
-profile. Place the downloaded profile at e.g. `src-tauri/embedded.provisionprofile`, then:
+First create the **Mac App Store provisioning profile** (the certs alone are not enough):
+Apple Developer portal → **Certificates, Identifiers & Profiles → Profiles → +** →
+**Mac App Store** (Distribution) → App ID **`com.tinkerdev.app`** → select your **Apple
+Distribution** cert → name it → Generate → **Download**. Save it at
+`src-tauri/embedded.provisionprofile` (git-ignored).
+
+> **Why a script, not just `--config`:** Tauri 2.x has **no `provisioningProfile` config
+> key** (`MacConfig` = signingIdentity/entitlements/hardenedRuntime/… only), so the build
+> cannot embed the profile itself. And the appstore entitlements now include
+> `com.apple.application-identifier` (required for StoreKit to load products), which is
+> provisioning-profile-restricted — without an embedded profile the signed sandboxed app
+> won't launch / StoreKit won't bind. `scripts/build-appstore-spike.sh` does the three steps
+> Tauri can't: build (Apple-Distribution-signed) → embed the profile → re-sign → verify.
 
 ```sh
-MACOSX_DEPLOYMENT_TARGET=13.0 pnpm tauri build --features appstore \
-  --target universal-apple-darwin --bundles app \
-  --config '{"bundle":{"macOS":{
-      "entitlements":"entitlements.appstore.plist",
-      "minimumSystemVersion":"13.0",
-      "signingIdentity":"Apple Distribution: Boon Khai Lim (FK4HQK83WX)",
-      "provisioningProfile":"embedded.provisionprofile"}}}'
+# defaults: PROFILE=src-tauri/embedded.provisionprofile,
+#           SIGN_ID="Apple Distribution: Boon Khai Lim (FK4HQK83WX)"
+bash scripts/build-appstore-spike.sh
 ```
 
 > **CRITICAL — DO NOT grant the webview `iap:default` (harness security correction,

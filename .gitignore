@@ -64,3 +64,6 @@ server/webhook/*.tsbuildinfo
 infra/keygen/.env
 infra/keygen/*.crt
 !infra/keygen/.env.example
+
+# Mac App Store provisioning profile (per-developer; do not commit)
+src-tauri/*.provisionprofile

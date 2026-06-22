@@ -3,10 +3,11 @@
 <plist version="1.0">
 <dict>
   <!--
-    Phase 26 minimal App Sandbox harness (D-12). EXACTLY two keys — nothing else.
-    NO Keychain-group entitlement, NO user-selected-file entitlement, NO other
-    speculative entitlements (26-RESEARCH anti-pattern). The formal store
-    entitlement set is Phase 27.
+    Phase 26 minimal App Sandbox harness (D-12). App-sandbox + network.client +
+    the StoreKit-binding identifiers — nothing speculative. NO Keychain-group
+    entitlement, NO user-selected-file entitlement, NO other speculative
+    entitlements (26-RESEARCH anti-pattern). The formal store entitlement set is
+    Phase 27.
 
     Distinct from the direct-channel entitlements.plist (the hardened-runtime
     JIT / unsigned-memory / library-validation exceptions) — those are
@@ -27,5 +28,19 @@
   -->
   <key>com.apple.security.network.client</key>
   <true/>
+
+  <!--
+    com.apple.application-identifier + team-identifier: REQUIRED for StoreKit to
+    bind this build to the App Store Connect record (without application-identifier
+    the sandbox loads NO products / a purchase cannot complete). Value =
+    <TeamID>.<bundle-id>. These also make the entitlements provisioning-profile-
+    restricted, so the signed sandboxed .app MUST carry an embedded Mac App Store
+    provisioning profile for `com.tinkerdev.app` (Tauri 2.x has no provisioningProfile
+    config key — scripts/build-appstore-spike.sh embeds it + re-signs).
+  -->
+  <key>com.apple.application-identifier</key>
+  <string>FK4HQK83WX.com.tinkerdev.app</string>
+  <key>com.apple.developer.team-identifier</key>
+  <string>FK4HQK83WX</string>
 </dict>
 </plist>
