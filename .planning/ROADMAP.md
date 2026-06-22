@@ -152,13 +152,14 @@ A five-pane in-window Settings modal (License · Appearance · Hotkeys · Genera
   2. A completed purchase is verified on-device via StoreKit 2 JWS (`VerificationResult.verified` only); an `.unverified` result is treated as failed and grants nothing — confirmed serverless (no network call beyond Apple's StoreKit).
   3. The `platform.iap` seam exists with a real `tauri.ts` arm (calling `iap_*` Rust commands) and a deterministic no-op `browser.ts`/`stub.ts` arm, so unit tests + `vite dev` run with no native call.
   4. A real purchase round-trip completes in the App Store Connect sandbox with a Sandbox tester account (human-verified — WebDriver cannot drive StoreKit).
-**Plans**: 6 plans
+**Plans**: 7 plans (Plan 07 conditional — runs only on a swift-rs NO-GO)
 - [ ] 26-01-PLAN.md — Rust IAP verify/grant decision core + appstore cargo feature + iap_* commands (Wave 1, auto)
-- [ ] 26-02-PLAN.md — platform.iap seam (interface + real tauri.ts arm + no-op browser/stub arms + tests) (Wave 1, auto)
-- [ ] 26-03-PLAN.md — temporary D-11 spike button in Settings ▸ License + no-op-arm e2e (Wave 2, auto)
+- [ ] 26-02-PLAN.md — plugin-API preflight (Rust-callable vs JS-companion) + platform.iap seam (interface + real tauri.ts arm + no-op browser/stub arms + tests) (Wave 1, auto)
+- [ ] 26-03-PLAN.md — temporary D-11 spike button in Settings ▸ License (Restore re-reads + renders currentEntitlements) + no-op-arm e2e (Wave 2, auto)
 - [ ] 26-04-PLAN.md — ASC setup checklist (App ID, Paid-Apps Agreement, com.tinkerdev.app.pro, Sandbox tester) — user-driven (Wave 1, human)
-- [ ] 26-05-PLAN.md — minimal sandbox harness + tauri-plugin-iap spike + bridge-viability go/no-go (Wave 2, human-decision)
-- [ ] 26-06-PLAN.md — human Sandbox-tester round-trip gate + serverless-verify log-stream check (Wave 3, human-verify)
+- [ ] 26-05-PLAN.md — minimal sandbox harness + tauri-plugin-iap spike (finish() cited + static no-network audit) + bridge-viability go/no-go (Wave 2, human-decision)
+- [ ] 26-06-PLAN.md — human Sandbox-tester round-trip gate (relaunch/replay + Restore re-grant) + two-check serverless verify (static audit + process-scoped capture); routes the disposition (Wave 3, human-verify)
+- [ ] 26-07-PLAN.md — CONDITIONAL in-phase swift-rs fallback (only on nogo-swiftrs): same platform.iap seam + iap_* contract + same four criteria via swift-rs (Wave 4, human-verify)
 **Research**: COMPLETE — see 26-RESEARCH.md (OQ-1: .storekit inner loop dropped, replaced by Rust verify-core unit tests + human Sandbox-tester gate). swift-rs fallback gated by the single go/no-go in Plan 05.
 **Gate**: Human — real sandbox purchase round-trip (Sandbox tester; `.storekit` not load-bearing per Phase 26 RESEARCH OQ-1 — agent inner loop is the Rust verify/grant unit core).
 
