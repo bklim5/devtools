@@ -84,11 +84,11 @@ present on it. Rebuild development-signed with an embedded Mac Development profi
 > `com.apple.application-identifier` (required for StoreKit to load products), which is
 > provisioning-profile-restricted — without an embedded profile the signed sandboxed app
 > won't launch / StoreKit won't bind. `scripts/build-appstore-spike.sh` does the three steps
-> Tauri can't: build (Apple-Distribution-signed) → embed the profile → re-sign → verify.
+> Tauri can't: build (development-signed) → embed the profile → re-sign → verify.
 
 ```sh
-# defaults: PROFILE=src-tauri/embedded.provisionprofile,
-#           SIGN_ID="Apple Distribution: Boon Khai Lim (FK4HQK83WX)"
+# defaults: PROFILE=src-tauri/dev.provisionprofile,
+#           SIGN_ID=auto-detected "Apple Development: …" identity
 bash scripts/build-appstore-spike.sh
 ```
 
@@ -110,11 +110,11 @@ The final non-zero exit is ONLY the absent updater-signing key
 (`TAURI_SIGNING_PRIVATE_KEY` → the `.app.tar.gz` updater artifact) — per the harness rule,
 **confirm via the bundle binary, not the exit code.** The `.app` itself is built + signed.
 
-### 0c. Confirm the rebuild is DISTRIBUTION-signed (not ad-hoc) before launching
+### 0c. Confirm the rebuild is DEVELOPMENT-signed (not ad-hoc) before launching
 
 ```sh
 APP=src-tauri/target/universal-apple-darwin/release/bundle/macos/TinkerDev.app
-codesign -dvvv "$APP" 2>&1 | grep -i "Authority\|flags"   # expect "Apple Distribution: …", NOT flags=adhoc
+codesign -dvvv "$APP" 2>&1 | grep -i "Authority\|flags"   # expect "Apple Development: …", NOT flags=adhoc
 codesign -d --entitlements - "$APP" 2>&1 | grep -i "app-sandbox\|network.client"  # both true
 # embedded profile present:
 ls "$APP/Contents/embedded.provisionprofile" 2>/dev/null && echo "profile embedded" || echo "NO PROFILE — sheet will not present"
