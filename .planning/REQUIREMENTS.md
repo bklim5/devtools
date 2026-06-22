@@ -28,10 +28,11 @@
 
 - [ ] **MAS-BUILD-01**: The repo builds two variants from one codebase, each from a single canonical build command (direct = today's DMG/updater; appstore = sandboxed StoreKit), so a half-variant can't ship.
 - [ ] **MAS-BUILD-02**: The App Store build runs under App Sandbox (`com.apple.security.app-sandbox` + `com.apple.security.network.client`) and launches without a white-screen on the signed `.app`.
-- [ ] **MAS-BUILD-03**: The auto-updater is compiled OUT of the store build (Rust plugin, endpoints, and the Updates-pane Check/Install affordances ABSENT — not merely hidden), verifiable on the built bundle.
+- [ ] **MAS-BUILD-03**: The auto-updater (Rust plugin + endpoints) is compiled OUT of the store build — absent, not merely hidden — and verifiable on the built bundle (Apple forbids self-updating apps; the store handles updates).
 - [ ] **MAS-BUILD-04**: The Keygen surface (key field, `license.tinkerdev.io` calls, external buy link, literal `$9`) is compiled OUT of the store build and grep-verifiable clean on the bundle.
 - [ ] **MAS-BUILD-05**: The store variant builds at `minimumSystemVersion` 13.0 while the direct channel stays 10.15 (the 13.0 bump never leaks onto the base config).
 - [ ] **MAS-BUILD-06**: A committed verify script asserts store-bundle compliance at the gate (required entitlements present; forbidden plugins via `cargo tree`/`otool` and forbidden strings via `grep` absent).
+- [ ] **MAS-BUILD-07**: In the store build the Settings ▸ Updates pane is RETAINED but App-Store-managed: it shows "Your app update is managed by the App Store" and the Check-for-updates + Install affordances are removed (not just disabled); the running-version readout may remain. (The underlying updater is compiled out per MAS-BUILD-03 — this is the user-facing counterpart.)
 
 ### Sandbox-Safe Native Features (MAS-NATIVE)
 
@@ -70,20 +71,46 @@
 
 ## Traceability
 
-Filled by the roadmapper. Expected phase structure (dependency-forced, continues from Phase 25): 26 StoreKit bridge spike → 27 variant seam → 28 entitlement-source swap + store License pane → 29 sandbox-safe native features → 30 `.pkg` build + submission.
+Phase structure (dependency-forced, continues from Phase 25): **26** StoreKit bridge spike → **27** build-variant seam → **28** entitlement-source swap + store License pane → **29** sandbox-safe native features → **30** `.pkg` build + submission. Every v1 requirement maps to exactly one phase.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| MAS-IAP-01..07 | TBD (26/28) | Pending |
-| MAS-BUILD-01..06 | TBD (27) | Pending |
-| MAS-NATIVE-01..04 | TBD (29) | Pending |
-| MAS-SHIP-01..05 | TBD (30) | Pending |
+| MAS-IAP-01 | Phase 26 | Pending |
+| MAS-IAP-04 | Phase 26 | Pending |
+| MAS-IAP-02 | Phase 28 | Pending |
+| MAS-IAP-03 | Phase 28 | Pending |
+| MAS-IAP-05 | Phase 28 | Pending |
+| MAS-IAP-06 | Phase 28 | Pending |
+| MAS-IAP-07 | Phase 28 | Pending |
+| MAS-BUILD-01 | Phase 27 | Pending |
+| MAS-BUILD-02 | Phase 27 | Pending |
+| MAS-BUILD-03 | Phase 27 | Pending |
+| MAS-BUILD-05 | Phase 27 | Pending |
+| MAS-BUILD-06 | Phase 27 | Pending |
+| MAS-BUILD-04 | Phase 28 | Pending |
+| MAS-BUILD-07 | Phase 28 | Pending |
+| MAS-NATIVE-01 | Phase 29 | Pending |
+| MAS-NATIVE-02 | Phase 29 | Pending |
+| MAS-NATIVE-03 | Phase 29 | Pending |
+| MAS-NATIVE-04 | Phase 29 | Pending |
+| MAS-SHIP-01 | Phase 30 | Pending |
+| MAS-SHIP-02 | Phase 30 | Pending |
+| MAS-SHIP-03 | Phase 30 | Pending |
+| MAS-SHIP-04 | Phase 30 | Pending |
+| MAS-SHIP-05 | Phase 30 | Pending |
+
+**Per-phase scope:**
+- **Phase 26** (2): MAS-IAP-01, MAS-IAP-04 — the bridge spike proves the native purchase sheet + on-device JWS verify.
+- **Phase 27** (5): MAS-BUILD-01, -02, -03, -05, -06 — the 3-layer variant seam, sandbox launch, updater compile-out, min-version split, verify script.
+- **Phase 28** (7): MAS-IAP-02, -03, -05, -06, -07, MAS-BUILD-04, MAS-BUILD-07 — entitlement-source swap, store License pane (Buy/Restore, App-Store-managed wording), App-Store-managed Updates pane, refund-drop, Keygen compile-out + grep-clean.
+- **Phase 29** (4): MAS-NATIVE-01, -02, -03, -04 — summon + tray under sandbox, Keychain gated out, launch-at-login hidden.
+- **Phase 30** (5): MAS-SHIP-01, -02, -03, -04, -05 — `.pkg` build + ASC upload, ASC setup guidance, submission metadata, direct-channel un-regressed.
 
 **Coverage:**
-- v1 requirements: 22 total (MAS-IAP ×7, MAS-BUILD ×6, MAS-NATIVE ×4, MAS-SHIP ×5)
-- Mapped to phases: filled by roadmapper
-- Unmapped: filled by roadmapper
+- v1 requirements: 23 total (MAS-IAP ×7, MAS-BUILD ×7, MAS-NATIVE ×4, MAS-SHIP ×5)
+- Mapped to phases: 23 / 23 ✓ (every requirement → exactly one phase, no orphans, no duplicates)
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-06-22*
-*Last updated: 2026-06-22 after initial definition (milestone v1.8)*
+*Last updated: 2026-06-22 — roadmapped: all 22 v1 requirements mapped across Phases 26–30 (100% coverage). See `.planning/ROADMAP.md`.*

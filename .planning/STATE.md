@@ -2,11 +2,11 @@
 gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Mac App Store Distribution
-status: defining-requirements
-last_updated: "2026-06-21T23:30:00.000Z"
-last_activity: 2026-06-21 -- Milestone v1.8 started (defining requirements)
+status: roadmapped
+last_updated: "2026-06-22T00:00:00.000Z"
+last_activity: 2026-06-22 -- Milestone v1.8 roadmapped (Phases 26-30, 23/23 requirements mapped)
 progress:
-  total_phases: 0
+  total_phases: 5
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -17,10 +17,21 @@ progress:
 
 ## Current Position
 
-Milestone: **v1.8 "Mac App Store Distribution" — STARTED 2026-06-21 (defining requirements).** Promotes backlog 999.10. Scope = the App Store target ONLY (StoreKit IAP + App Sandbox + SMAppService login-item + the build-variant seam + App Store Connect submission); direct-channel Developer-ID notarisation is already shipped (v0.4.1) and out of scope. Continues phase numbering from Phase 25 → first phase is **Phase 26**.
-Phase: Not started (defining requirements).
+Milestone: **v1.8 "Mac App Store Distribution" — STARTED 2026-06-21 (roadmapped 2026-06-22).** Promotes backlog 999.10. Scope = the App Store target ONLY (StoreKit IAP + App Sandbox + the build-variant seam + `.pkg`/App Store Connect submission); direct-channel Developer-ID notarisation is already shipped (v0.4.1) and out of scope; launch-at-login via SMAppService is DEFERRED to v2 (the store build hides launch-at-login). Continues phase numbering from Phase 25 → first phase is **Phase 26**.
+Phase: Not started (roadmapped — 5 phases, 26-30).
 Plan: —
-Status: Defining requirements. Next after roadmap: `/gsd-discuss-phase 26` (or `/gsd-plan-phase 26`).
+Status: **Roadmapped.** All 23 v1 requirements mapped across Phases 26-30 (100% coverage). Next: `/gsd-discuss-phase 26` (or `/gsd-plan-phase 26`).
+
+**v1.8 phase structure (ROADMAP.md, dependency-forced — the StoreKit bridge spike is the critical path):**
+- **Phase 26 — StoreKit Bridge Spike (CRITICAL PATH)** (MAS-IAP-01, -04): prove `tauri-plugin-iap@0.9` (or swift-rs fallback) in a universal sandboxed build; `platform.iap` seam (real `tauri.ts` arm + no-op `browser.ts`/`stub.ts`) + `iap_*` Rust commands; native purchase sheet + on-device JWS verify (`.unverified` → fail closed). **Highest-risk, longest pole — `/gsd-research-phase` LIKELY (MEDIUM); swift-rs fallback ready.** Human gate: real sandbox purchase round-trip (`.storekit` + Sandbox tester).
+- **Phase 27 — The Build-Variant Seam (3 layers)** (MAS-BUILD-01, -02, -03, -05, -06): `appstore` cargo feature + `tauri.appstore.conf.json --config` overlay + `VITE_CHANNEL`, bound in ONE `package.json` script (no half-variant); sandboxed `.app` launches (network.client → no white-screen); updater compiled OUT (Rust + pane filter + App.tsx guard); min-version 13.0 store-only / 10.15 direct; committed `scripts/verify-appstore-bundle.sh`. Depends on 26. **HIGH confidence — skip research-phase** (existing webdriver-feature + `--config` idiom).
+- **Phase 28 — Entitlement-Source Swap + Store License Pane** (MAS-IAP-02, -03, -05, -06, -07, MAS-BUILD-04): `baseFromStoreKit` branch in `resolveEntitlements` (the ONE source-swap point; gate/registry/`useEntitlements` byte-unchanged); `StoreLicenseSettings` (status + Buy `displayPrice` + Restore, NO key/link/$9); `onPurchaseUpdated → refreshEntitlements` + reused drop-notice for refund/revoke; every upsell trigger + the focused Unlock-Pro modal route to StoreKit Buy/Restore; Keygen surface compiled out + grep-clean. Depends on 26 + 27. **HIGH confidence — skip research-phase.** Human gate: purchase → Pro live; refund → Pro drops live. **UI phase.**
+- **Phase 29 — Sandbox-Safe Native Features** (MAS-NATIVE-01, -02, -03, -04): global summon (`RegisterEventHotKey`, sandbox-safe) + tray kept under sandbox; `keyring`/Keychain gated OUT (no `MissingEntitlement`, no unjustified entitlement); launch-at-login hidden/absent in the store build (SMAppService deferred → v2 MAS-NATIVE-05). Depends on 27; **parallel-capable with 28** once 27 lands. Human gate: summon over a real OS chord; SIGNED-build entitlement audit. **UI phase** (General-pane change).
+- **Phase 30 — `.pkg` Build + App Store Connect Submission** (MAS-SHIP-01, -02, -03, -04, -05): `productbuild → altool` pipeline (Apple Distribution + Mac Installer Distribution + embedded profile, separate from the direct Developer-ID/notarytool path); IAP attached to binary; ASC guidance (Paid-Apps Agreement / Pro product "Ready to Submit" / Sandbox testers) + metadata (privacy label Data-Not-Collected + `PrivacyInfo.xcprivacy`, 4+ rating, real-state screenshots, Notes-for-Review); direct channel un-regressed (DMG still notarises; decoder + 19 tests untouched). Depends on 26-29 all green. **Irreversible/integration-bound — runs LAST** (build after every source change lands; verify bundle mtime > last source commit). `/gsd-research-phase` LIKELY (MEDIUM — `.pkg`/provisioning sequence). Human gate: full ship-gate walkthrough (mirrors v1.6 live-purchase).
+
+**v1.8 sequencing decisions (locked):** the bridge spike is strictly FIRST (nothing store-side compiles/renders without `platform.iap`); the variant seam (27) is foundation for both 28 + 29; 29 parallel-capable beside 28; the `.pkg` submission (30) runs LAST. **The four ship-gate killers** (network.client white-screen → 27, Keygen 3.1.1 surface → 28, updater/autostart hidden-but-linked → 27/29, IAP-not-testable → 30) each get a verifiable check on the SIGNED bundle. **WebDriver CANNOT drive StoreKit purchases / sandbox / refunds / login-items** → mandatory human ship-gate walkthroughs at 26, 28, 29, 30 (mirrors the v1.6 live-purchase gate). **Both variants resolve to the SAME `pro.*` map via the one central gate; the webview gate, registry, `decoder.ts` + its 19 tests stay byte-unchanged.**
+
+**v1.8 binding wedge additions (locked, PROJECT.md/REQUIREMENTS.md):** in-store Pro = StoreKit IAP (ONE non-consumable, perpetual; on-device JWS verify, serverless; 15% Small Business Program). App Sandbox mandatory (`app-sandbox` + `network.client`). Updater compiled OUT of the store build. Launch-at-login NOT shipped in the store build this milestone (SMAppService deferred to v2). Rust crates for the bridge (`tauri-plugin-iap` or `swift-rs`, `smappservice-rs` if used) are expected/allowed; **webview runtime deps stay zero**. ASC setup is guided step-by-step in-milestone (the user does the clicks).
 
 **Prior milestones (shipped & archived 2026-06-21):** v1.6 "Licensing" (Phases 18–21, shipped 2026-06-17 — live purchases + ship-gate) + v1.7 "Settings & Preferences" (Phases 22–25, shipped as app v0.4.1). Both archived to `.planning/milestones/v1.{6,7}-{ROADMAP,REQUIREMENTS}.md`; tags `v1.6`/`v1.7` local-only. Accumulated context below.
 
@@ -85,7 +96,7 @@ Last activity: 2026-06-21
 See: .planning/PROJECT.md (updated 2026-06-09, v1.6 started) · roadmap: .planning/ROADMAP.md · requirements: .planning/REQUIREMENTS.md · research: docs/licensing-research.md
 
 **Core value:** Paste an unknown blob → usable, explorable interpretation in <2s, entirely offline, no mouse.
-**Current focus:** Phase 25 — updates-pane-milestone-ship
+**Current focus:** v1.8 roadmapped — next is Phase 26 (StoreKit bridge spike, CRITICAL PATH) via `/gsd-discuss-phase 26` or `/gsd-plan-phase 26`
 
 ## v1.5 — Pinned Tools (SHIPPED & ARCHIVED, 2026-06-07)
 
