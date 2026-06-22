@@ -326,9 +326,21 @@ pub fn run() {
     // command, so the synthetic-override path is wholly absent from a shipped
     // binary (mirrors the webdriver plugin's debug-only registration above).
     // generate_handler! is a single fixed list (it can't be conditionally
-    // extended mid-chain), so the two arms duplicate the locked surface and the
-    // debug arm appends the seam — there is no other way to cfg a command in.
-    #[cfg(debug_assertions)]
+    // extended mid-chain), so the arms duplicate the locked surface and each
+    // appends the conditional commands — there is no other way to cfg a command
+    // in.
+    //
+    // `invoke_handler` may be called ONLY ONCE per builder, so the `appstore`
+    // IAP commands (Phase 26) cannot be a separate call — they fold into the
+    // arm set, turning the previous debug/non-debug pair into a 2×2 DEBUG ×
+    // APPSTORE matrix. EXACTLY ONE arm compiles per config: the four cfg
+    // predicates are mutually exclusive and exhaustive over (debug_assertions,
+    // feature="appstore"). The debug half appends `dev_set_license_state`
+    // (release-stripped, 22.1-04); the appstore half appends the four `iap_*`
+    // commands (feature-stripped from the direct build, T-26-03). The plugin
+    // itself (`tauri_plugin_iap::init()`) is NOT registered here — that is Plan
+    // 05's minimal-harness task.
+    #[cfg(all(debug_assertions, not(feature = "appstore")))]
     let builder = builder.invoke_handler(tauri::generate_handler![
         license::commands::license_status,
         license::commands::license_status_detail,
@@ -338,7 +350,7 @@ pub fn run() {
         license::commands::deactivate_machine,
         license::commands::dev_set_license_state
     ]);
-    #[cfg(not(debug_assertions))]
+    #[cfg(all(not(debug_assertions), not(feature = "appstore")))]
     let builder = builder.invoke_handler(tauri::generate_handler![
         license::commands::license_status,
         license::commands::license_status_detail,
@@ -346,6 +358,33 @@ pub fn run() {
         license::commands::refresh_license,
         license::commands::refresh_license_if_needed,
         license::commands::deactivate_machine
+    ]);
+    #[cfg(all(debug_assertions, feature = "appstore"))]
+    let builder = builder.invoke_handler(tauri::generate_handler![
+        license::commands::license_status,
+        license::commands::license_status_detail,
+        license::commands::activate_license,
+        license::commands::refresh_license,
+        license::commands::refresh_license_if_needed,
+        license::commands::deactivate_machine,
+        license::commands::dev_set_license_state,
+        iap::commands::iap_products,
+        iap::commands::iap_purchase,
+        iap::commands::iap_restore,
+        iap::commands::iap_current_entitlements
+    ]);
+    #[cfg(all(not(debug_assertions), feature = "appstore"))]
+    let builder = builder.invoke_handler(tauri::generate_handler![
+        license::commands::license_status,
+        license::commands::license_status_detail,
+        license::commands::activate_license,
+        license::commands::refresh_license,
+        license::commands::refresh_license_if_needed,
+        license::commands::deactivate_machine,
+        iap::commands::iap_products,
+        iap::commands::iap_purchase,
+        iap::commands::iap_restore,
+        iap::commands::iap_current_entitlements
     ]);
 
     builder

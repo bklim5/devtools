@@ -14,6 +14,17 @@
 //! compiles it (T-26-03; mirrors the webdriver gating). Plan 05 wires the real
 //! `tauri-plugin-iap` purchase/verify path onto these functions.
 #![cfg(feature = "appstore")]
+// The verify/grant decision core (intersect_pro/granted_entitlements/
+// grant_from_outcome/purchase_state_to_result + the Verification/PurchaseOutcome
+// inputs) is fully unit-tested here but not yet CALLED by the Phase-26 spike
+// command bodies (deterministic stubs). Plan 05 swaps those stubs to route real
+// verified purchases through this core, at which point the dead-code goes away.
+// Allow it now so the gated `--features appstore` build stays warning-clean (a
+// noisy build masks real warnings) — this is a spike landing the tested core
+// ahead of its wiring, by design.
+#![allow(dead_code)]
+
+pub mod commands;
 
 /// The over-grant allow-list (T-26-02). Kept in lock-step with the TS contract
 /// `ALL_ENTITLEMENTS` in src/lib/entitlements/entitlements.ts
