@@ -42,46 +42,41 @@ These were satisfied by Plan 04 (`PHASE-26-ASC-CHECKLIST.md`) — re-confirm:
 
 ---
 
-## STEP 0 — Build a DISTRIBUTION-SIGNED sandboxed `.app` (you do this; it cannot be ad-hoc)
+## STEP 0 — Build a DEVELOPMENT-SIGNED sandboxed `.app` that launches locally (you do this)
 
-The Plan-05 spike `.app` at
-`src-tauri/target/universal-apple-darwin/release/bundle/macos/TinkerDev.app` (built
-2026-06-22 13:54) is **AD-HOC signed** (`signingIdentity: "-"`). The live StoreKit sheet
-**will not present** on an ad-hoc binary — StoreKit requires the app be signed with an
-**Apple Distribution** certificate AND carry an embedded **Mac App Store provisioning
-profile** whose App ID (`com.tinkerdev.app`) grants the in-app-purchase / sandbox
-capability. So you must REBUILD with a distribution identity.
+> **Use DEVELOPMENT signing for this local gate, NOT distribution** (learned 2026-06-22).
+> A **Mac App Store *distribution*** profile only authorizes an app installed **from the
+> App Store** — running a distribution-signed sandboxed build locally dies at launch with
+> `AMFI -413 "No matching profile found" / restricted entitlements … validation failed`
+> (the `app-sandbox` + `application-identifier` entitlements are profile-restricted). For a
+> LOCAL sandbox StoreKit test you need an **Apple Development** cert + a **Mac Development**
+> provisioning profile that includes THIS Mac. (Apple Distribution + the Mac App Store
+> profile are for the Phase-30 `.pkg` submission, not local launch — see the signing matrix
+> at the bottom of this doc.)
 
-### 0a. Create the distribution cert + profile (ASC-SETUP §7), if not already present
+The Plan-05 spike `.app` is **AD-HOC signed** (`signingIdentity: "-"`); StoreKit won't
+present on it. Rebuild development-signed with an embedded Mac Development profile.
 
-Per **`ASC-SETUP.md` §7** (only the Account Holder/Admin can create these; one of each
-distribution cert type per team):
+### 0a. Create the Apple Development cert + register this Mac + Mac Development profile
 
-1. **Certificates → +** → **Apple Distribution** → generate a CSR from Keychain Access →
-   download + install. (Signs the `.app` for App Store distribution.)
-2. **Certificates → +** → **Mac Installer Distribution** → repeat the CSR → download +
-   install. (Signs the `.pkg` — not needed to *launch* the app, but create it now; Phase 30
-   needs it.)
-3. **Profiles → +** → macOS → **Mac App Store** distribution profile → App ID
-   **`com.tinkerdev.app`** → your **Apple Distribution** cert → name + download it.
+1. **Apple Development cert** — Xcode ▸ Settings ▸ Accounts ▸ *Manage Certificates* ▸ **＋**
+   ▸ **Apple Development** (you currently have only Apple Distribution + Developer ID).
+   Confirm: `security find-identity -p codesigning -v | grep "Apple Development"`.
+2. **Register this Mac** — get its UDID and add it in the portal:
+   ```sh
+   system_profiler SPHardwareDataType | grep "Provisioning UDID"
+   ```
+   Portal ▸ **Devices ▸ ＋ ▸ macOS** ▸ paste the UDID.
+3. **Mac Development profile** — Portal ▸ **Profiles ▸ ＋ ▸ macOS App Development** ▸ App ID
+   **`com.tinkerdev.app`** ▸ your **Apple Development** cert ▸ select **this Mac** ▸
+   Generate ▸ **Download** → save at `src-tauri/dev.provisionprofile` (git-ignored).
 
-Confirm the cert is installed:
+> *Shortcut if you have Xcode:* a throwaway macOS app target with bundle id
+> `com.tinkerdev.app`, **Automatic** signing, + the **In-App Purchase** & **App Sandbox**
+> capabilities makes Xcode create the cert, register the Mac, and generate the dev profile
+> for you; then copy the profile out of `~/Library/Developer/Xcode/UserData/Provisioning Profiles/`.
 
-```sh
-security find-identity -p codesigning -v | grep "Apple Distribution"
-```
-
-You should see `Apple Distribution: Boon Khai Lim (FK4HQK83WX)` (NOT just the existing
-`Developer ID Application` — that one is for the direct/notarised channel and CANNOT sign a
-Mac App Store build).
-
-### 0b. Rebuild with the distribution identity + embedded profile
-
-First create the **Mac App Store provisioning profile** (the certs alone are not enough):
-Apple Developer portal → **Certificates, Identifiers & Profiles → Profiles → +** →
-**Mac App Store** (Distribution) → App ID **`com.tinkerdev.app`** → select your **Apple
-Distribution** cert → name it → Generate → **Download**. Save it at
-`src-tauri/embedded.provisionprofile` (git-ignored).
+### 0b. Rebuild with the development identity + embedded profile
 
 > **Why a script, not just `--config`:** Tauri 2.x has **no `provisioningProfile` config
 > key** (`MacConfig` = signingIdentity/entitlements/hardenedRuntime/… only), so the build
@@ -334,6 +329,31 @@ checks confirm no non-Apple network. Otherwise, describe what failed:
 - "duplicate transaction on relaunch" → `finish()` failure → record + route.
 - "saw outbound to a non-Apple host" / "could not observe traffic" → criterion 4 escalation.
 - "ASC not ready" (e.g. product still propagating) → the gate holds; retry later.
+
+---
+
+## Signing matrix — the THREE independent build flows (don't conflate them)
+
+There are three separate signing setups. They share NOTHING but the team (`FK4HQK83WX`) and
+do not interfere — each has its own cert, profile, entitlements, and command.
+
+| Flow | When | Signing cert | Provisioning profile | Entitlements | Hardened runtime | Notarize | How it's built |
+|------|------|--------------|----------------------|--------------|------------------|----------|----------------|
+| **Dev test** (this gate) | local sandbox StoreKit test | **Apple Development** | **Mac Development** (`src-tauri/dev.provisionprofile`, incl. this Mac) | `entitlements.appstore.plist` | off | no | `scripts/build-appstore-spike.sh` (scrubs notary env in-process) |
+| **Direct DMG** (shipping today, v0.4.1) | the existing direct channel | **Developer ID Application** | none | `entitlements.plist` | on | yes (API-key notary) | `scripts/build-and-publish.mjs` (reads `APPLE_*` from your env) |
+| **App Store `.pkg`** (Phase 30) | MAS submission | **Apple Distribution** (.app) + **Mac Installer Distribution** (.pkg) | **Mac App Store** | `entitlements.appstore.plist` | off | no (App Review instead) | Phase-30 `productbuild → altool` pipeline |
+
+**Why scrubbing the notary env in the spike script does NOT break the direct DMG:** the
+`unset APPLE_*` lives **inside** `build-appstore-spike.sh`'s own process — it never touches
+your shell or `build-and-publish.mjs`. The direct release reads `process.env` at release
+time (you export `APPLE_SIGNING_IDENTITY` + the API-key notary set then), so it keeps
+signing Developer ID + notarising exactly as before. The certs you create are permanent
+(keychain + portal); you create each once, not per build.
+
+**Forward note (Phase 27):** the build-variant seam formalizes the appstore flow into a
+committed `tauri.appstore.conf.json` overlay (instead of the spike's per-invocation
+`--config`), and Phase 30 adds the `.pkg` pipeline — so all three flows become explicit,
+committed scripts rather than ad-hoc env.
 
 ---
 
