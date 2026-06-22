@@ -1,4 +1,10 @@
 mod license;
+// Mac App Store IAP bridge (Phase 26). Whole module is `#[cfg(feature =
+// "appstore")]`, so the direct `pnpm tauri build` compiles no iap code at all
+// (T-26-03). Plan 05 registers `tauri_plugin_iap::init()`; Phase 26 only proves
+// the gated compile/link + the pure verify/grant decision core.
+#[cfg(feature = "appstore")]
+mod iap;
 
 use tauri::{
     menu::{Menu, MenuBuilder, MenuItem, PredefinedMenuItem, SubmenuBuilder},
