@@ -175,7 +175,7 @@ A five-pane in-window Settings modal (License · Appearance · Hotkeys · Genera
   5. A committed `scripts/verify-appstore-bundle.sh` asserts required entitlements present + forbidden plugins/strings absent at the gate.
 **Plans**: 4 plans
 - [x] 27-01-PLAN.md — umbrella `direct` Cargo feature: updater + autostart compiled OUT of the appstore build (Wave 1, auto) ✓ 2026-06-23
-- [ ] 27-02-PLAN.md — `tauri.appstore.conf.json` overlay (13.0 only here) + `IS_APPSTORE` channel constant + two canonical package.json variant scripts (Wave 2, auto)
+- [x] 27-02-PLAN.md — `tauri.appstore.conf.json` overlay (13.0 only here) + `IS_APPSTORE` channel constant + two canonical package.json variant scripts (Wave 2, auto) ✓ 2026-06-23
 - [ ] 27-03-PLAN.md — committed `scripts/verify-appstore-bundle.sh` (entitlements present + plugins absent; GREEN at boundary) (Wave 2, auto)
 - [ ] 27-04-PLAN.md — promote spike → canonical `build-appstore-bundle.sh` + human launch/render gate on the signed sandboxed `.app` (Wave 3, human-verify)
 **Research**: Skip — HIGH confidence (existing `webdriver`-feature + `--config` in-repo idiom).
@@ -264,7 +264,7 @@ v1.8 runs 26 → 27 → 28 → 30 with Phase 29 parallel-capable beside 28 once 
 | 24. Hotkeys & General Panes | v1.7 | 4/4 | Complete | SET-08 + SET-09 validated 2026-06-19 |
 | 25. Updates Pane & Milestone Ship | v1.7 | 5/5 | Complete    | 2026-06-21 |
 | 26. StoreKit Bridge Spike (CRITICAL PATH) | v1.8 | 6/7 | Complete    | 2026-06-23 |
-| 27. The Build-Variant Seam (3 layers) | v1.8 | 1/4 | In progress | - |
+| 27. The Build-Variant Seam (3 layers) | v1.8 | 2/4 | In progress | - |
 | 28. Entitlement-Source Swap + Store License Pane | v1.8 | 0/0 | Not started | - |
 | 29. Sandbox-Safe Native Features | v1.8 | 0/0 | Not started | - |
 | 30. .pkg Build + App Store Connect Submission | v1.8 | 0/0 | Not started | - |
