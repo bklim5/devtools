@@ -146,8 +146,16 @@ if [[ ! "$APP_BIN" -nt "$BUILD_MARKER" ]]; then
 fi
 
 # --- 2. Embed the provisioning profile -----------------------------------------
+# Remove any stale profile from an earlier run first, then copy. A FATAL cp: if the
+# copy silently failed (and a stale profile lingered) the deep re-sign would seal a
+# wrong/missing profile and the app would fail to launch under the sandbox — exactly
+# the failure this embed exists to prevent.
 echo "[appstore] embedding provisioning profile → Contents/embedded.provisionprofile"
-cp "$PROFILE" "$APP_OUT/Contents/embedded.provisionprofile"
+rm -f "$APP_OUT/Contents/embedded.provisionprofile"
+if ! cp "$PROFILE" "$APP_OUT/Contents/embedded.provisionprofile"; then
+  echo "ERROR: failed to copy provisioning profile '$PROFILE' into the bundle." >&2
+  exit 1
+fi
 
 # --- 3. Re-sign so the seal covers the embedded profile + appstore entitlements -
 # --deep: re-sign EVERY nested binary with the same Apple Distribution identity, so
@@ -168,17 +176,26 @@ codesign -d --entitlements - --xml "$APP_OUT" 2>/dev/null \
   | grep -oE "application-identifier|app-sandbox|network.client|team-identifier" | sort -u \
   | sed 's/^/  /'
 echo "[profile]"
-if [[ -f "$APP_OUT/Contents/embedded.provisionprofile" ]]; then
-  echo "  embedded.provisionprofile present ✓"
-else
-  echo "  NO embedded profile — the sheet will not present ✗"
+if [[ ! -f "$APP_OUT/Contents/embedded.provisionprofile" ]]; then
+  echo "  NO embedded profile — the sheet will not present ✗" >&2
+  echo "ERROR: embedded.provisionprofile missing after embed+re-sign — aborting." >&2
+  exit 1
 fi
+echo "  embedded.provisionprofile present ✓"
 echo "[deep verify]"
-if codesign --verify --deep --strict --verbose=2 "$APP_OUT" >/tmp/_cs_verify.txt 2>&1; then
+# FATAL: an inconsistent nested signature (e.g. an innard signed with a different cert)
+# would launch-fail under Gatekeeper / the sandbox. verify-appstore-bundle.sh checks
+# entitlements + min-OS + plugin-absence but NOT signature integrity, so this is the
+# only gate for it — it must stop the command, not just print.
+CS_VERIFY_LOG="$(mktemp -t appstore-cs-verify)"
+trap 'rm -f "$BUILD_MARKER" "$CS_VERIFY_LOG"' EXIT
+if codesign --verify --deep --strict --verbose=2 "$APP_OUT" >"$CS_VERIFY_LOG" 2>&1; then
   echo "  whole bundle signature valid + consistent ✓"
 else
-  echo "  signature NOT consistent (exit $?) — details:"
-  sed 's/^/    /' /tmp/_cs_verify.txt | head -8
+  echo "  signature NOT consistent — details:" >&2
+  sed 's/^/    /' "$CS_VERIFY_LOG" | head -8 >&2
+  echo "ERROR: deep codesign verification FAILED — the bundle is not internally consistent." >&2
+  exit 1
 fi
 echo "======================================="
 echo ""

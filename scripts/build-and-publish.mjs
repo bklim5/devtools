@@ -344,6 +344,12 @@ function publish(view, version, { x86Present }) {
   //    release would link the updater + autostart plugins but the webview would lack
   //    permission to call them — a silent direct-channel regression. This is the same
   //    overlay the `tauri:build:direct` package.json script passes.
+  // Pin the frontend channel to `direct` so an ambient VITE_CHANNEL=appstore in the
+  // operator's shell cannot compile the App-Store frontend (IS_APPSTORE=true) into the
+  // direct release — a half-variant (appstore upsell/pane wording shipped on the DMG).
+  // The native side is already pinned via --config tauri.direct.conf.json + default
+  // features; this binds the frontend half in the SAME command (MAS-BUILD-01 / D-08).
+  process.env.VITE_CHANNEL = "direct";
   log("\nBuilding the universal binary (this is slow):");
   runGate("tauri build (universal)", "pnpm", [
     "tauri",
