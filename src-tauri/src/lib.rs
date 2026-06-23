@@ -61,27 +61,12 @@ pub fn run() {
         // below — so persistence works in the shipped app. Gated at runtime by the
         // `store:default` capability in capabilities/default.json (threat T-02-01).
         .plugin(tauri_plugin_store::Builder::new().build())
-        // Relaunch backend for the updater apply flow (DST-02). The JS side calls it
-        // via @tauri-apps/plugin-process behind src/lib/platform/tauri.ts to restart
-        // into the freshly-installed bundle. Gated by `process:allow-restart`.
-        .plugin(tauri_plugin_process::init())
         // External-URL opener for the "Buy license" CTA (Phase 20, PAY-01 / D-67).
         // The JS side calls openUrl via @tauri-apps/plugin-opener behind
         // src/lib/platform/tauri.ts; gated at runtime by the https-only
         // `opener:allow-open-url` capability (capabilities/default.json) so the app
         // can never be coerced to open non-https schemes (file:/tel:/mailto:).
         .plugin(tauri_plugin_opener::init())
-        // Launch-at-login (SET-09 / D-24-7). The ONE scoped new-dep exception of
-        // v1.7: an official Tauri plugins-workspace crate, no UI, no network — it
-        // writes a per-user LaunchAgent plist. `None::<Vec<&str>>` passes NO launch
-        // args (no shell-injection surface, T-24-03). The JS side calls
-        // enable/disable/isEnabled via @tauri-apps/plugin-autostart behind
-        // src/lib/platform/tauri.ts; scoped to the three autostart:allow-* perms in
-        // capabilities/default.json — no wider grant.
-        .plugin(tauri_plugin_autostart::init(
-            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
-            None::<Vec<&str>>,
-        ))
         // Tray icon + menu (NAT-02, D-02 regular dock app + tray). Tauri 2 trays are
         // Rust-only (no tauri.conf.json tray config). The menu has Show + Quit; both
         // the menu "show" and a left-click summon the main window using the D-03
@@ -91,7 +76,10 @@ pub fn run() {
             // the official Tauri 2 updater pattern. The mandatory minisign verify
             // against the committed pubkey is the DST-02 verify-before-apply. Desktop
             // only. JS drives check()/downloadAndInstall() through src/lib/platform/.
-            #[cfg(desktop)]
+            // Gated on `direct` too (Phase 27, MAS-BUILD-03 / D-03): Apple forbids
+            // self-updating apps, so the sandboxed App Store build
+            // (--no-default-features --features appstore) compiles the updater OUT.
+            #[cfg(all(desktop, feature = "direct"))]
             app.handle()
                 .plugin(tauri_plugin_updater::Builder::new().build())?;
 
@@ -297,6 +285,33 @@ pub fn run() {
 
             Ok(())
         });
+
+    // Relaunch backend for the updater apply flow (DST-02) — direct channel only.
+    // Re-added here as a gated rebind (it cannot be dropped from the fluent chain
+    // with a bare attribute mid-chain). Gated behind `direct` so the sandboxed App
+    // Store build (which has no updater and never calls restart) excludes it
+    // (Phase 27, MAS-BUILD-03 / D-03). The JS side calls it via
+    // @tauri-apps/plugin-process behind src/lib/platform/tauri.ts; gated at runtime
+    // by `process:allow-restart` (re-delivered to the direct build via
+    // tauri.direct.conf.json's direct-native capability).
+    #[cfg(feature = "direct")]
+    let builder = builder.plugin(tauri_plugin_process::init());
+
+    // Launch-at-login (SET-09 / D-24-7) — direct channel only. The ONE scoped
+    // new-dep exception of v1.7: an official Tauri plugins-workspace crate, no UI,
+    // no network — it writes a per-user LaunchAgent plist. `None::<Vec<&str>>`
+    // passes NO launch args (no shell-injection surface, T-24-03). Re-added here as
+    // a gated rebind. The sandbox-incompatible LaunchAgent writer is compiled OUT of
+    // the App Store build (Phase 27, MAS-BUILD-03 / D-03/D-04); Phase 29 handles only
+    // the UI-side toggle hiding (MAS-NATIVE-04). The JS side calls
+    // enable/disable/isEnabled via @tauri-apps/plugin-autostart behind
+    // src/lib/platform/tauri.ts; scoped to the three autostart:allow-* perms
+    // re-delivered to the direct build via tauri.direct.conf.json.
+    #[cfg(feature = "direct")]
+    let builder = builder.plugin(tauri_plugin_autostart::init(
+        tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+        None::<Vec<&str>>,
+    ));
 
     // WebDriver automation spike (D-01 / HRN-02), DOUBLE-GATED. The plugin embeds a
     // W3C WebDriver server on 127.0.0.1:4445 (localhost only — threat T-01-11) so the
