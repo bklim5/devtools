@@ -22,11 +22,14 @@ import {
   Settings,
   SlidersHorizontal,
 } from "lucide-react";
+import { IS_APPSTORE } from "@/lib/platform/channel";
 import { LicenseSettings } from "./LicenseSettings";
+import { StoreLicenseSettings } from "./StoreLicenseSettings";
 import { AppearanceSettings } from "./AppearanceSettings";
 import { HotkeysSettings } from "./HotkeysSettings";
 import { GeneralSettings } from "./GeneralSettings";
 import { UpdatesSettings } from "./UpdatesSettings";
+import { StoreUpdatesSettings } from "./StoreUpdatesSettings";
 
 export interface SettingsPane {
   id: string;
@@ -60,12 +63,15 @@ export const SETTINGS_PANES: SettingsPane[] = [
     id: "updates",
     label: "Updates",
     icon: RefreshCw,
-    render: () => <UpdatesSettings />,
+    // D-01: the static IS_APPSTORE switch lives HERE (the registry control point),
+    // never as `if (IS_APPSTORE)` inside the Keygen/updater components. Vite inlines
+    // IS_APPSTORE so the dead arm + its import subtree tree-shake out of each bundle.
+    render: () => (IS_APPSTORE ? <StoreUpdatesSettings /> : <UpdatesSettings />),
   },
   {
     id: "license",
     label: "License",
     icon: Settings,
-    render: () => <LicenseSettings />,
+    render: () => (IS_APPSTORE ? <StoreLicenseSettings /> : <LicenseSettings />),
   },
 ];

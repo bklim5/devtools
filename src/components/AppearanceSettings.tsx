@@ -15,7 +15,7 @@ import { Lock } from "lucide-react";
 import type { ThemeName } from "@/shell/preferences";
 import { usePreferences } from "@/shell/usePreferences";
 import { useEntitlements } from "@/shell/useEntitlements";
-import { openProUpsell } from "@/shell/proUpsell";
+import { routeProUpsell } from "@/shell/proUpsellRouter";
 import { ENT_THEMING, gatePreferences } from "@/lib/entitlements/entitlements";
 import { ThemeCardGroup } from "./ThemeCardGroup";
 import { AccentSwatchGrid } from "./AccentSwatchGrid";
@@ -39,7 +39,7 @@ export function AppearanceSettings() {
   function onSave() {
     if (!entitled) {
       // D-23-2: free Save routes to the focused Unlock-Pro path; persists NOTHING.
-      openProUpsell(saveRef.current);
+      routeProUpsell(saveRef.current);
       return;
     }
     // Pro: persist via the seam; the App root applies live (Plan 03).

@@ -31,7 +31,7 @@ import type { ToolDefinition } from "@/lib/tools/types";
 import { rankTools, subsequenceScore } from "@/shell/fuzzy";
 import { loadPreferences } from "@/shell/prefsStore";
 import { openSettings } from "@/shell/settingsStore";
-import { openProUpsell } from "@/shell/proUpsell";
+import { routeProUpsell } from "@/shell/proUpsellRouter";
 import { useEntitlements } from "@/shell/useEntitlements";
 import {
   updatePreferences,
@@ -224,7 +224,7 @@ export function CommandPalette() {
           // Settings ▸ License recovery form (never the pitch — D-44). Capture the
           // focused element synchronously as the return target.
           const active = document.activeElement;
-          openProUpsell(active instanceof HTMLElement ? active : null);
+          routeProUpsell(active instanceof HTMLElement ? active : null);
           return;
         }
         setOpen((o) => {

@@ -46,7 +46,7 @@ import { useLicenseUi } from "@/shell/useLicenseUi";
 import { usePreferences } from "@/shell/usePreferences";
 import { moveToolInOrder, partitionTools, resolveRovingTarget } from "@/shell/toolOrder";
 import { openSettings } from "@/shell/settingsStore";
-import { openProUpsell } from "@/shell/proUpsell";
+import { routeProUpsell } from "@/shell/proUpsellRouter";
 import { SidebarResetMenu, useSidebarResetMenu } from "./SidebarResetMenu";
 import { useSidebarDragDrop, type ToolGroup } from "./useSidebarDragDrop";
 
@@ -102,7 +102,7 @@ export function Sidebar() {
   // capture); the reset MENU path passes an explicit return target because its menu
   // item unmounts on open (finding 3).
   const openOrderingUpsell = useCallback(
-    (invokerEl?: HTMLElement | null) => openProUpsell(invokerEl),
+    (invokerEl?: HTMLElement | null) => routeProUpsell(invokerEl),
     [],
   );
   // The EXPLICIT footer "Unlock Pro" / "License needs attention" affordance keeps

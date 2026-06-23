@@ -6,6 +6,7 @@ import { CommandPalette } from "./components/CommandPalette";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { SettingsModal } from "./components/SettingsModal";
 import { UpsellModal } from "./components/UpsellPanel";
+import { StoreUpsell } from "./components/StoreUpsell";
 import { useTrackActiveTool } from "./shell/useTrackActiveTool";
 import { useAppearance } from "./shell/useAppearance";
 import { usePreferences } from "./shell/usePreferences";
@@ -20,6 +21,7 @@ import { openSettings } from "./shell/settingsStore";
 import { closeUpsell } from "./shell/upsellStore";
 import { needsOptInPrompt, shouldAutoCheck } from "./shell/update";
 import { initPlatform, platform, type UpdateInfo } from "@/lib/platform";
+import { IS_APPSTORE } from "@/lib/platform/channel";
 
 // The registry-driven application shell (SHL-01/02). All layout chrome lives
 // HERE — tools stay layout-agnostic and render inside <main>'s <Outlet/> with no
@@ -215,7 +217,17 @@ export function App() {
       {/* Phase 22.2: the focused "Unlock Pro" modal — mounted BELOW SettingsModal
           but they never co-open (the contextual triggers + free ⌘K fire from the
           main UI, with Settings closed). Reuses the shared ActivationSurface. */}
-      {upsellOpen ? <UpsellModal icon={Lock} onClose={closeUpsell} /> : null}
+      {/* D-01/D-02: the static IS_APPSTORE switch selects the upsell surface at the
+          single mount point — the store build shows the StoreKit Buy + Restore
+          modal, the direct build the Keygen activation form. Vite inlines
+          IS_APPSTORE so the dead arm + its subtree tree-shake out of each bundle. */}
+      {upsellOpen ? (
+        IS_APPSTORE ? (
+          <StoreUpsell icon={Lock} onClose={closeUpsell} />
+        ) : (
+          <UpsellModal icon={Lock} onClose={closeUpsell} />
+        )
+      ) : null}
 
       {/* Updater UX overlay (DST-02). Bottom-right, layout-agnostic, above content. */}
       <div className="pointer-events-none fixed bottom-4 right-4 z-50 flex w-full max-w-md flex-col items-end gap-2">

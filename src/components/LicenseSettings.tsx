@@ -93,131 +93,6 @@ function errorCode(err: unknown): LicenseErrorCode | null {
   return (code ?? null) as LicenseErrorCode | null;
 }
 
-/** The fixed non-consumable Pro product id (matches the 26-01 Rust constant). */
-const IAP_PRODUCT_ID = "com.tinkerdev.app.pro";
-
-/** Pull a `{ code }` off a seam rejection (mirrors `errorCode`, but the iap arm
- *  rejects a plain `{ code }` object — no LicenseErrorCode narrowing). */
-function rejectCode(err: unknown): string {
-  const code = (err as { code?: string } | null)?.code;
-  return typeof code === "string" && code.length > 0 ? code : "unknown";
-}
-
-// TEMPORARY — Phase 26 StoreKit spike (D-11). Removed when Phase 28
-// StoreLicenseSettings lands.
-//
-// A VISIBLE, keyboard-reachable dev button block that drives the platform.iap
-// seam (products/purchase/restore + the post-restore currentEntitlements()
-// re-read) so the Phase-26 human gate (Plan 06) can reach the REAL native
-// purchase sheet on the sandboxed/signed build AND OBSERVE the entitlement set
-// StoreKit actually re-grants after a Restore (Codex #5: a restore() that
-// resolves Ok is NOT proof StoreKit re-granted — the pane must SHOW the codes
-// from a fresh currentEntitlements() read). On the direct/no-op arm every call
-// rejects `{ code }` (or returns []) and the block degrades CALMLY — no crash,
-// no red banner — which is what the e2e smoke asserts. It reaches StoreKit ONLY
-// via platform.iap (T-26-08: never the native Tauri API, never a locally-fabricated
-// grant). NOT dev-only/tree-shaken: the human gate needs it on the signed build;
-// it is REMOVED in Phase 28, not gated off now.
-function IapSpikeBlock() {
-  // ONE calm aria-live readout carries every products/purchase/restore result.
-  const [readout, setReadout] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  const run = async (label: string, fn: () => Promise<string>) => {
-    if (busy) return;
-    setBusy(true);
-    setReadout(`${label}…`);
-    try {
-      // Each handler resolves to its own calm result string; a `{ code }`
-      // rejection on the no-op/unregistered arm is caught below as calm text.
-      setReadout(await fn());
-    } catch (err) {
-      // T-26-09: a no-op-arm reject NEVER throws uncaught or white-screens —
-      // it renders calm guidance, not a red error banner.
-      setReadout(`IAP unavailable (code: ${rejectCode(err)})`);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const onFetchProducts = () =>
-    void run("Fetching products", async () => {
-      const products = await platform.iap.products();
-      if (products.length === 0) return "No products (direct build / no-op arm)";
-      return products
-        .map((p) => `${p.id} — ${p.displayName} (${p.displayPrice})`)
-        .join(", ");
-    });
-
-  const onBuy = () =>
-    void run("Buying Pro", async () => {
-      const result = await platform.iap.purchase(IAP_PRODUCT_ID);
-      switch (result.state) {
-        case "success":
-          return result.entitlements.length > 0
-            ? `Purchased — entitlements: ${result.entitlements.join(", ")}`
-            : "Purchased — no entitlements";
-        case "userCancelled":
-          return "Purchase cancelled";
-        case "pending":
-          return "Pending — waiting for approval";
-        default:
-          // TS exhaustiveness is compile-only; the value crosses the invoke()
-          // FFI boundary, so guard against an unmodeled state at runtime rather
-          // than resolving to undefined.
-          return "Purchase result: unknown state";
-      }
-    });
-
-  // Codex #5: Restore calls restore() THEN re-reads currentEntitlements() and
-  // RENDERS the observed pro.* codes — so the human gate can SEE whether
-  // StoreKit actually re-granted on a fresh read, not merely that restore()
-  // resolved. A `{ code }` reject of EITHER call renders the same calm text.
-  const onRestore = () =>
-    void run("Restoring", async () => {
-      await platform.iap.restore();
-      const entitlements = await platform.iap.currentEntitlements();
-      return entitlements.length > 0
-        ? `Restored — entitlements: ${entitlements.join(", ")}`
-        : "Restored — no entitlements";
-    });
-
-  return (
-    <div
-      data-testid="iap-spike"
-      className="flex max-w-[420px] flex-col gap-3 rounded-[7px] border border-bd bg-panel p-6"
-    >
-      <div className="flex flex-col gap-1">
-        <p className="text-[14px] font-semibold leading-[1.3] text-tx">
-          StoreKit IAP spike (temporary)
-        </p>
-        <p className="text-[12px] leading-[1.5] text-tx-3">
-          Phase 26 dev scaffolding — drives the native purchase sheet. Removed
-          in Phase 28.
-        </p>
-      </div>
-      <div className="flex flex-wrap gap-2">
-        <button type="button" onClick={onFetchProducts} disabled={busy} className={`${SECONDARY_BTN_CLASS} disabled:cursor-default`}>
-          Fetch products
-        </button>
-        <button type="button" onClick={onBuy} disabled={busy} className={`${SECONDARY_BTN_CLASS} disabled:cursor-default`}>
-          Buy Pro (spike)
-        </button>
-        <button type="button" onClick={onRestore} disabled={busy} className={`${SECONDARY_BTN_CLASS} disabled:cursor-default`}>
-          Restore (spike)
-        </button>
-      </div>
-      <p
-        role="status"
-        aria-live="polite"
-        className="min-h-[18px] break-words text-[12px] leading-[1.5] text-tx-2"
-      >
-        {readout ?? ""}
-      </p>
-    </div>
-  );
-}
-
 export function LicenseSettings() {
   const ui = useLicenseUi();
   const { preferences, prefsLoaded, ackLicenseDropNotice } = usePreferences();
@@ -400,7 +275,6 @@ export function LicenseSettings() {
         <h3 className="sr-only">License</h3>
         {dropNotice}
         <InlineActivation variant="upsell" icon={Lock} />
-        <IapSpikeBlock />
       </div>
     );
   }
@@ -652,8 +526,6 @@ export function LicenseSettings() {
           </div>
         )
       ) : null}
-
-      <IapSpikeBlock />
     </div>
   );
 }
