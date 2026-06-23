@@ -11,16 +11,41 @@
 #       the built Info.plist (Finding 3; not just the overlay grep, which a bad
 #       merge could pass while shipping the wrong floor).
 # Phase 28 (MAS-BUILD-04, D-03/D-04) EXTENDS this script once the Keygen surface is
-# compiled out by the static IS_APPSTORE switch:
+# compiled out by the static IS_APPSTORE switch.
+#
+# OPTION A — where the D-03/D-04 CONTENT proof lives (Plan 28-05 Rule-4 decision,
+# 2026-06-23). The planner's <interfaces> premise that the appstore `.app` bundles
+# `dist/` under `$APP/Contents/Resources/` was FALSE for this Tauri 2 build: Tauri
+# brotli-EMBEDS the frontend into the Rust binary (Contents/MacOS/<bin>), so
+# Contents/Resources/ holds ONLY icon.icns — NO frontend JS, NO sentinel. Grepping
+# Resources for the copy markers passes VACUOUSLY (no frontend there) and the
+# sentinel read FAILS (no sentinel there); the real asset bytes are brotli-compressed
+# inside the binary, invisible to `strings`/`grep`. So the D-03 copy grep + the D-04
+# sentinel read are asserted on the appstore-build `dist/` — the AUTHORITATIVE
+# pre-compression bytes Tauri embeds VERBATIM into the binary in the SAME
+# `tauri build` invocation (beforeBuildCommand `pnpm build` emits dist/ → Tauri
+# compresses it in). A FATAL freshness/linkage check (assert_dist_freshness) binds the
+# inspected `dist/` to the signed binary so a STALE clean dist/ cannot mask a
+# dirty/stale signed .app. The binary-level checks (universal archs, app-sandbox +
+# network.client, plugins absent, 13.0 floor, embedded provisionprofile, valid deep
+# signature) stay on the signed .app.
 #   (d) NO Keygen COPY markers — all four D-03 markers (the CE host, the buy link,
 #       the $9 price, the Keygen-SPECIFIC key-field copy) are grep-FATAL on the
-#       SIGNED bundle (assert_no_keygen_strings); the bare verb 'Activate' is NOT a
-#       marker (AppearancePreviewStrip ships an inert 'Activate' preview button).
+#       appstore-build dist/ (assert_no_keygen_strings); the bare verb 'Activate' is
+#       NOT a marker (AppearancePreviewStrip ships an inert 'Activate' preview button).
 #   (e) NO licenseUi module fold-in — assert_no_license_ui_module reads the
-#       licenseui-inventory.json sentinel emitted by the appstore-only generateBundle
-#       guard (scripts/licenseUiFoldInGuard.mjs, gated on VITE_CHANNEL=appstore in
-#       vite.config.ts) and asserts licenseUiInChunks:false (D-04, the false-GREEN
-#       the copy-string grep can't catch — licenseUi carries none of those literals).
+#       licenseui-inventory.json sentinel emitted INTO dist/ by the appstore-only
+#       generateBundle guard (scripts/licenseUiFoldInGuard.mjs, gated on
+#       VITE_CHANNEL=appstore in vite.config.ts) and asserts licenseUiInChunks:false
+#       (D-04, the false-GREEN the copy-string grep can't catch — licenseUi carries
+#       none of those literals).
+#   (f) FRESHNESS/LINKAGE — assert_dist_freshness proves (1) the signed binary is
+#       NEWER than the last source commit (no stale .app handed off — harness rule);
+#       (2) dist/ exists, is non-empty, and carries the sentinel (a missing/empty/
+#       sentinel-less dist FAILS, never SKIPs); (3) dist/ is itself fresh (its
+#       newest asset is NEWER than the last source commit) AND consistent with the
+#       binary (dist/ not newer than the signed binary — it is built FIRST, then
+#       embedded). A stale clean dist/ next to a fresh binary therefore FAILS.
 # --selftest proves each marker is load-bearing + free of false-RED; --selftest-realbuild
 # proves the D-04 guard on a REAL fold-in build (importing the EXACT shared guard).
 #
@@ -30,6 +55,9 @@
 #
 # Usage:  bash scripts/verify-appstore-bundle.sh [path-to-signed.app] [--require-bundle]
 #   default app path: src-tauri/target/universal-apple-darwin/release/bundle/macos/TinkerDev.app
+#   default dist dir: dist/  (override with --dist <dir>; the appstore frontend output,
+#                     frontendDist "../dist", produced by the build's beforeBuildCommand
+#                     in the SAME invocation that signs the .app)
 #   --require-bundle: FAIL (don't SKIP) if no signed .app is present — used by the
 #                     canonical build command's tail, which always has a fresh bundle.
 # Pattern: scripts/check-dev-strip.sh (artifact guards + grep exit-code discipline).
@@ -102,10 +130,14 @@ assert_min_system_version() {
 }
 
 assert_no_keygen_strings() {
-  local app="${1:?usage: assert_no_keygen_strings <path-to-signed.app>}"
-  local resources="$app/Contents/Resources"
-  if [[ ! -d "$resources" ]]; then
-    echo "FAIL: bundle Resources dir not found at '$resources'" >&2
+  # OPTION A: grep the appstore-build dist/ (the pre-compression bytes Tauri embeds
+  # VERBATIM into the binary), NOT $APP/Contents/Resources/ (which holds only icon.icns
+  # for this Tauri 2 brotli-embed build — grepping it would pass VACUOUSLY). The
+  # freshness/linkage of this dist/ to the signed binary is enforced separately by
+  # assert_dist_freshness (a stale clean dist/ cannot mask a dirty binary).
+  local dist="${1:?usage: assert_no_keygen_strings <appstore-build-dist-dir>}"
+  if [[ ! -d "$dist" ]]; then
+    echo "FAIL: appstore-build dist/ not found at '$dist' — the frontend assets to grep are absent (run the appstore build, which emits dist/ via beforeBuildCommand)" >&2
     return 1
   fi
   # ALL FOUR D-03 forbidden COPY markers (MAS-BUILD-04) — any hit means the Keygen
@@ -132,20 +164,24 @@ assert_no_keygen_strings() {
   )
   local hit=0
   for pat in "${patterns[@]}"; do
-    if grep -rIlE "$pat" "$resources" >/dev/null 2>&1; then
-      echo "FAIL: forbidden Keygen COPY marker '$pat' present in the store bundle (Keygen surface did not tree-shake out)" >&2
-      grep -rIlE "$pat" "$resources" | sed 's/^/    /' >&2
+    if grep -rIlE "$pat" "$dist" >/dev/null 2>&1; then
+      echo "FAIL: forbidden Keygen COPY marker '$pat' present in the appstore-build dist/ (Keygen surface did not tree-shake out)" >&2
+      grep -rIlE "$pat" "$dist" | sed 's/^/    /' >&2
       hit=1
     fi
   done
   [[ "$hit" -eq 0 ]] || return 1
-  echo "OK: no Keygen COPY markers (host / buy URL / \$9 price / activation+key-field copy) in the store bundle"
+  echo "OK: no Keygen COPY markers (host / buy URL / \$9 price / activation+key-field copy) in the appstore-build dist/"
 }
 
 assert_no_license_ui_module() {
-  local app="${1:?usage: assert_no_license_ui_module <path-to-signed.app>}"
-  local resources="$app/Contents/Resources"
-  [[ -d "$resources" ]] || { echo "FAIL: Resources dir not found at '$resources'" >&2; return 1; }
+  # OPTION A: read the sentinel from the appstore-build dist/ (where the appstore-only
+  # generateBundle guard emits it — frontendDist "../dist"), NOT $APP/Contents/Resources/
+  # (Tauri 2 brotli-embeds dist/ into the binary; the sentinel is NOT under Resources for
+  # this build, so a Resources read would FAIL even on a correct bundle). The dist/'s
+  # freshness/linkage to the signed binary is enforced by assert_dist_freshness.
+  local dist="${1:?usage: assert_no_license_ui_module <appstore-build-dist-dir>}"
+  [[ -d "$dist" ]] || { echo "FAIL: appstore-build dist/ not found at '$dist'" >&2; return 1; }
   # D-04 (deterministic, chunk-module inventory): the appstore generateBundle plugin
   # (vite.config.ts, gated on VITE_CHANNEL=appstore via the SHARED
   # scripts/licenseUiFoldInGuard.mjs) inspects each chunk's REAL folded-in module IDs
@@ -158,23 +194,23 @@ assert_no_license_ui_module() {
   # object), nor raw 'licenseUi' identifiers (minification renames).
   #
   # The sentinel MUST be read at the EXACT root path the appstore plugin emits it to
-  # ($APP/Contents/Resources/licenseui-inventory.json). A recursive `find ... -quit`
-  # would accept the FIRST match ANYWHERE under Resources — so a stale/unrelated CLEAN
-  # sentinel copied into some other resource subtree could satisfy this check even when
-  # the appstore plugin never ran (no root sentinel) — a FALSE-GREEN that defeats the
-  # load-bearing missing-sentinel guard (Codex round-4 Finding 1). We therefore (1) read
-  # the EXACT root path, and (2) additionally fail if ANY duplicate licenseui-inventory.json
-  # exists elsewhere under Resources (more than one copy signals a stale/tampered sentinel).
-  local sentinel="$resources/licenseui-inventory.json"
+  # (<dist>/licenseui-inventory.json). A recursive `find ... -quit` would accept the FIRST
+  # match ANYWHERE under dist/ — so a stale/unrelated CLEAN sentinel copied into some other
+  # subtree could satisfy this check even when the appstore plugin never ran (no root
+  # sentinel) — a FALSE-GREEN that defeats the load-bearing missing-sentinel guard (Codex
+  # round-4 Finding 1). We therefore (1) read the EXACT root path, and (2) additionally fail
+  # if ANY duplicate licenseui-inventory.json exists elsewhere under dist/ (more than one
+  # copy signals a stale/tampered sentinel).
+  local sentinel="$dist/licenseui-inventory.json"
   local dup
-  dup="$(find "$resources" -name 'licenseui-inventory.json' 2>/dev/null | wc -l | tr -d '[:space:]')"
+  dup="$(find "$dist" -name 'licenseui-inventory.json' 2>/dev/null | wc -l | tr -d '[:space:]')"
   if [[ ! -f "$sentinel" ]]; then
     echo "FAIL: D-04 sentinel not found at the EXACT root path '$sentinel' — the appstore generateBundle chunk-module guard (VITE_CHANNEL=appstore) did NOT run; without it the D-04 fold-in check cannot be proven. Fix the channel-gated plugin before release." >&2
     return 1
   fi
   if [[ "${dup:-0}" -gt 1 ]]; then
-    echo "FAIL: D-04 found $dup copies of licenseui-inventory.json under '$resources' — exactly one (the root sentinel emitted by the appstore plugin) is expected; a duplicate signals a stale/tampered sentinel and is rejected (Codex round-4 Finding 1)." >&2
-    find "$resources" -name 'licenseui-inventory.json' 2>/dev/null | sed 's/^/    /' >&2
+    echo "FAIL: D-04 found $dup copies of licenseui-inventory.json under '$dist' — exactly one (the root sentinel emitted by the appstore plugin) is expected; a duplicate signals a stale/tampered sentinel and is rejected (Codex round-4 Finding 1)." >&2
+    find "$dist" -name 'licenseui-inventory.json' 2>/dev/null | sed 's/^/    /' >&2
     return 1
   fi
   # The plugin throws (fails the build) on a fold-in, so a shipped sentinel is normally
@@ -193,18 +229,159 @@ assert_no_license_ui_module() {
   echo "OK: src/lib/license/licenseUi ABSENT from every store chunk (D-04, from the generateBundle chunk-module inventory sentinel)"
 }
 
+# mtime helper — epoch seconds for a file (BSD stat on macOS, GNU stat fallback for CI).
+_mtime() { stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null; }
+
+assert_dist_freshness() {
+  # OPTION A FRESHNESS/LINKAGE (FATAL) — the load-bearing guard that makes the dist/-layer
+  # D-03 grep + D-04 sentinel TRUSTWORTHY. Because the content checks read the appstore-build
+  # dist/ (not the binary), a STALE clean dist/ left next to a dirty/stale signed .app could
+  # otherwise mask a non-compliant binary (false-GREEN). This binds the two together:
+  #   (1) the signed binary is NEWER than the last source commit — no stale .app handed off
+  #       (harness rule, memory verify-gate-builds-real-app / T-28-21);
+  #   (2) dist/ exists, is non-empty, and carries the EXACT-root sentinel (a missing/empty/
+  #       sentinel-less dist/ FAILS — never SKIPs, never vacuous);
+  #   (3) dist/ is itself FRESH (its newest asset is NEWER than the last source commit) AND
+  #       consistent with the binary (dist/ is NOT newer than the signed binary — Tauri's
+  #       beforeBuildCommand emits dist/ FIRST, then embeds+compiles the binary, so a correct
+  #       same-invocation build has binary_mtime >= dist_mtime). A dist/ NEWER than the binary
+  #       means dist/ was rebuilt AFTER the .app was signed — the signed binary embeds OLDER
+  #       bytes than the ones we are grepping (the grep would no longer describe the shipped
+  #       artifact) → FAIL.
+  local app="${1:?usage: assert_dist_freshness <path-to-signed.app> <appstore-build-dist-dir>}"
+  local dist="${2:?usage: assert_dist_freshness <path-to-signed.app> <appstore-build-dist-dir>}"
+
+  # Resolve the inner binary by CFBundleExecutable (the crate name, not productName).
+  local bin
+  bin="$app/Contents/MacOS/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Contents/Info.plist" 2>/dev/null)"
+  if [[ ! -f "$bin" ]]; then
+    echo "FAIL: could not resolve the signed binary via CFBundleExecutable at '$app/Contents/Info.plist'" >&2
+    return 1
+  fi
+
+  # Last source commit time (the harness anchor). Use the committer date of HEAD; the build
+  # MUST run after the last source change has landed (rebuild-LAST rule).
+  local last_commit_epoch
+  last_commit_epoch="$(git log -1 --format=%ct 2>/dev/null)"
+  if [[ -z "$last_commit_epoch" ]]; then
+    echo "FAIL: could not read the last source commit time (git log -1 --format=%ct) — cannot prove freshness" >&2
+    return 1
+  fi
+
+  local bin_epoch; bin_epoch="$(_mtime "$bin")"
+  if [[ -z "$bin_epoch" ]]; then
+    echo "FAIL: could not stat the signed binary mtime at '$bin'" >&2
+    return 1
+  fi
+
+  # (1) binary newer than the last source commit.
+  if [[ "$bin_epoch" -le "$last_commit_epoch" ]]; then
+    echo "FAIL: the signed binary ('$bin', mtime $bin_epoch) is NOT newer than the last source commit (mtime $last_commit_epoch) — a STALE .app was handed off; rebuild LAST after every source change lands (harness rule)." >&2
+    return 1
+  fi
+
+  # (2) dist/ present, non-empty, sentinel-bearing.
+  if [[ ! -d "$dist" ]]; then
+    echo "FAIL: appstore-build dist/ not found at '$dist' — the inspected frontend bytes are absent (a missing dist/ is a hard FAIL, never a SKIP)." >&2
+    return 1
+  fi
+  if [[ -z "$(find "$dist" -type f -print -quit 2>/dev/null)" ]]; then
+    echo "FAIL: appstore-build dist/ at '$dist' is EMPTY — no frontend bytes to inspect (hard FAIL)." >&2
+    return 1
+  fi
+  if [[ ! -f "$dist/licenseui-inventory.json" ]]; then
+    echo "FAIL: appstore-build dist/ at '$dist' has NO licenseui-inventory.json sentinel at its root — the appstore generateBundle guard did not run for this dist/ (so this dist/ is not an appstore-channel build); cannot anchor the D-04 proof. Hard FAIL." >&2
+    return 1
+  fi
+
+  # newest asset mtime in dist/ (the freshest write the build produced).
+  local newest_dist_epoch=0 f e
+  while IFS= read -r f; do
+    e="$(_mtime "$f")"
+    [[ -n "$e" && "$e" -gt "$newest_dist_epoch" ]] && newest_dist_epoch="$e"
+  done < <(find "$dist" -type f 2>/dev/null)
+  if [[ "$newest_dist_epoch" -eq 0 ]]; then
+    echo "FAIL: could not determine the newest asset mtime under '$dist'" >&2
+    return 1
+  fi
+
+  # (3a) dist/ fresh relative to source.
+  if [[ "$newest_dist_epoch" -le "$last_commit_epoch" ]]; then
+    echo "FAIL: the inspected dist/ ('$dist', newest asset mtime $newest_dist_epoch) is OLDER than the last source commit (mtime $last_commit_epoch) — a STALE clean dist/ that does NOT reflect the current source is masking the signed binary. Re-run the appstore build (pnpm tauri:build:appstore) so dist/ + the .app come from the SAME fresh invocation." >&2
+    return 1
+  fi
+
+  # (3b) dist/ consistent with the binary (built FIRST, then embedded → not newer than binary).
+  if [[ "$newest_dist_epoch" -gt "$bin_epoch" ]]; then
+    echo "FAIL: the inspected dist/ ('$dist', newest asset mtime $newest_dist_epoch) is NEWER than the signed binary ('$bin', mtime $bin_epoch) — dist/ was rebuilt AFTER the .app was signed, so the binary embeds OLDER bytes than the ones being grepped. The D-03/D-04 dist/ checks would no longer describe the shipped artifact. Rebuild so dist/ + the .app are from the SAME invocation." >&2
+    return 1
+  fi
+
+  echo "OK: freshness/linkage — signed binary newer than last source commit (binary $bin_epoch > commit $last_commit_epoch); dist/ fresh (newest $newest_dist_epoch > commit) and consistent with the binary (dist/ $newest_dist_epoch <= binary $bin_epoch); sentinel present at dist/ root"
+}
+
+assert_binary_integrity() {
+  # OPTION A keeps the binary-level checks on the SIGNED .app: universal archs (lipo),
+  # an embedded provisioning profile, and a VALID deep signature. (Entitlements + the 13.0
+  # floor + plugin-absence are asserted by their own functions.) These cannot be proven from
+  # dist/ — they live on the signed Mach-O bundle.
+  local app="${1:?usage: assert_binary_integrity <path-to-signed.app>}"
+  local bin
+  bin="$app/Contents/MacOS/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Contents/Info.plist" 2>/dev/null)"
+  if [[ ! -f "$bin" ]]; then
+    echo "FAIL: could not resolve the signed binary via CFBundleExecutable at '$app/Contents/Info.plist'" >&2
+    return 1
+  fi
+  local rc=0
+
+  # (1) universal — x86_64 + arm64 both present (a single-arch build is rejected by ASC).
+  local archs
+  archs="$(lipo -archs "$bin" 2>/dev/null)"
+  if ! grep -qw x86_64 <<<"$archs" || ! grep -qw arm64 <<<"$archs"; then
+    echo "FAIL: the signed binary is NOT universal (lipo -archs = '${archs:-<none>}'; expected both x86_64 and arm64)" >&2
+    rc=1
+  else
+    echo "OK: signed binary is universal (lipo -archs: $archs)"
+  fi
+
+  # (2) embedded provisioning profile — without it the sandboxed app cannot launch / the
+  #     StoreKit sheet will not present (the profile authorises the restricted entitlements).
+  if [[ ! -f "$app/Contents/embedded.provisionprofile" ]]; then
+    echo "FAIL: no embedded provisioning profile at '$app/Contents/embedded.provisionprofile' — the sandboxed app cannot launch / present the StoreKit sheet" >&2
+    rc=1
+  else
+    echo "OK: embedded.provisionprofile present"
+  fi
+
+  # (3) valid deep signature — an inconsistent nested signature would launch-fail under the
+  #     sandbox/Gatekeeper. codesign --verify --deep --strict.
+  if codesign --verify --deep --strict --verbose=2 "$app" >/dev/null 2>&1; then
+    echo "OK: deep signature valid + consistent (codesign --verify --deep --strict)"
+  else
+    echo "FAIL: deep codesign verification FAILED — the bundle signature is not internally consistent" >&2
+    codesign --verify --deep --strict --verbose=2 "$app" 2>&1 | sed 's/^/    /' | head -8 >&2
+    rc=1
+  fi
+
+  return "$rc"
+}
+
 selftest_forbidden_gate() {
-  local tmp; tmp="$(mktemp -d)"; mkdir -p "$tmp/Contents/Resources"
-  local res="$tmp/Contents/Resources"
+  # OPTION A: the content checks now read the appstore-build dist/ (not Contents/Resources),
+  # so the fixtures are a dist/-shaped dir. assert_dist_freshness (the linkage guard) is
+  # exercised separately in selftest_dist_freshness below (it needs a synthetic .app + clock
+  # ordering). This block proves the copy-gate + D-04 sentinel are load-bearing AND free of
+  # false-RED on the dist/ layer.
+  local dist; dist="$(mktemp -d)"
   local rc=0
 
   # (1) Each COPY marker independently trips assert_no_keygen_strings. Use the SAME
   # literals the real patterns target (the planted '$9' price line carries the
   # distinctive adjacent copy; the key-field marker is the real masked-key placeholder).
   for marker in 'license.tinkerdev.io' 'tinkerdev.io/buy' 'price $9 once · lifetime license' 'I have a license key' 'XXXX-XXXX-XXXX-XXXX'; do
-    printf 'clean\n' > "$res/app.js"
-    printf '%s\n' "$marker" > "$res/planted.js"
-    if assert_no_keygen_strings "$tmp" >/dev/null 2>&1; then
+    printf 'clean\n' > "$dist/app.js"
+    printf '%s\n' "$marker" > "$dist/planted.js"
+    if assert_no_keygen_strings "$dist" >/dev/null 2>&1; then
       echo "SELFTEST FAIL: planted COPY marker '$marker' did NOT trip assert_no_keygen_strings" >&2; rc=1
     else
       echo "SELFTEST OK: '$marker' trips the copy gate"
@@ -213,20 +390,20 @@ selftest_forbidden_gate() {
 
   # (2) BENIGN-PASS (Finding A): a bare 'Activate' string (mimicking AppearancePreviewStrip's
   # inert preview button) must NOT trip the copy gate — proves no false-RED on legit store UI.
-  printf 'clean\n' > "$res/app.js"
-  printf '<button aria-hidden="true">Activate</button>\n' > "$res/planted.js"
-  if assert_no_keygen_strings "$tmp" >/dev/null 2>&1; then
+  printf 'clean\n' > "$dist/app.js"
+  printf '<button aria-hidden="true">Activate</button>\n' > "$dist/planted.js"
+  if assert_no_keygen_strings "$dist" >/dev/null 2>&1; then
     echo "SELFTEST OK: benign 'Activate' button does NOT trip the copy gate (no false-RED)"
   else
     echo "SELFTEST FAIL: benign 'Activate' string FALSE-RED the copy gate (Finding A regression)" >&2; rc=1
   fi
-  rm -f "$res/planted.js"; printf 'clean\n' > "$res/app.js"
+  rm -f "$dist/planted.js"; printf 'clean\n' > "$dist/app.js"
 
   # (3a) BENIGN-PASS (Finding B): a clean sentinel {licenseUiInChunks:false} (a store build
   # where licenseUi is only behind the dead !IS_APPSTORE dynamic import) must PASS — proves the
   # D-04 check keys on the chunk-module fold-in inventory, not on any IPC literal (no false-RED).
-  printf '{ "licenseUiInChunks": false, "hits": [] }\n' > "$res/licenseui-inventory.json"
-  if assert_no_license_ui_module "$tmp" >/dev/null 2>&1; then
+  printf '{ "licenseUiInChunks": false, "hits": [] }\n' > "$dist/licenseui-inventory.json"
+  if assert_no_license_ui_module "$dist" >/dev/null 2>&1; then
     echo "SELFTEST OK: clean sentinel (licenseUiInChunks:false) PASSES the D-04 check (no false-RED)"
   else
     echo "SELFTEST FAIL: clean sentinel FALSE-RED the D-04 check (Finding B regression)" >&2; rc=1
@@ -234,8 +411,8 @@ selftest_forbidden_gate() {
 
   # (3b) LOAD-BEARING (round-3 Finding): a fold-in sentinel {licenseUiInChunks:true}
   # (licenseUi folded into a chunk) MUST trip D-04 — the false-GREEN the Vite manifest missed.
-  printf '{ "licenseUiInChunks": true, "hits": ["assets/main-abc.js: /abs/src/lib/license/licenseUi.ts"] }\n' > "$res/licenseui-inventory.json"
-  if assert_no_license_ui_module "$tmp" >/dev/null 2>&1; then
+  printf '{ "licenseUiInChunks": true, "hits": ["assets/main-abc.js: /abs/src/lib/license/licenseUi.ts"] }\n' > "$dist/licenseui-inventory.json"
+  if assert_no_license_ui_module "$dist" >/dev/null 2>&1; then
     echo "SELFTEST FAIL: a fold-in sentinel (licenseUiInChunks:true) did NOT trip the D-04 check (check is vacuous — the false-GREEN survives)" >&2; rc=1
   else
     echo "SELFTEST OK: a fold-in sentinel (licenseUiInChunks:true) trips the D-04 check (load-bearing)"
@@ -243,14 +420,131 @@ selftest_forbidden_gate() {
 
   # (3c) LOAD-BEARING: a MISSING sentinel MUST FAIL (the appstore generateBundle plugin
   # did not run → the D-04 proof is absent → block the release).
-  rm -f "$res/licenseui-inventory.json"
-  if assert_no_license_ui_module "$tmp" >/dev/null 2>&1; then
+  rm -f "$dist/licenseui-inventory.json"
+  if assert_no_license_ui_module "$dist" >/dev/null 2>&1; then
     echo "SELFTEST FAIL: a MISSING sentinel did NOT trip the D-04 check (the plugin could silently not-run)" >&2; rc=1
   else
     echo "SELFTEST OK: a missing sentinel trips the D-04 check (the appstore plugin must run)"
   fi
 
-  rm -rf "$tmp"; return "$rc"
+  rm -rf "$dist"
+
+  # (4) FRESHNESS/LINKAGE non-vacuousness — assert_dist_freshness is the load-bearing guard
+  # that makes the dist/-layer checks trustworthy. Prove it: a fresh/consistent dist+binary
+  # PASSES; a stale dist/ (older than last source commit) FAILS; a dist/ newer than the binary
+  # FAILS; a stale binary (older than last source commit) FAILS; missing/empty/sentinel-less
+  # dist/ FAILS. We synthesise a fake .app skeleton + dist/ and drive mtimes with `touch -t`.
+  selftest_dist_freshness || rc=1
+
+  return "$rc"
+}
+
+# Build a throwaway .app skeleton (Info.plist + a MacOS/<bin>) under $1 so
+# assert_dist_freshness / assert_binary_integrity have a CFBundleExecutable to resolve.
+_make_fake_app() {
+  local app="$1"; local binname="${2:-devtools-app}"
+  mkdir -p "$app/Contents/MacOS"
+  cat > "$app/Contents/Info.plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>CFBundleExecutable</key><string>$binname</string>
+</dict></plist>
+PLIST
+  printf '#!/bin/sh\n' > "$app/Contents/MacOS/$binname"
+}
+
+selftest_dist_freshness() {
+  local rc=0
+  local last_commit_epoch; last_commit_epoch="$(git log -1 --format=%ct 2>/dev/null)"
+  if [[ -z "$last_commit_epoch" ]]; then
+    echo "SELFTEST FAIL (freshness): could not read the last source commit time — cannot exercise the linkage guard" >&2
+    return 1
+  fi
+  # Pick timestamps relative to the last commit: BEFORE it (stale) and AFTER it (fresh).
+  # touch -t needs [[CC]YY]MMDDhhmm[.SS]; derive them from the commit epoch ± 1h.
+  local before_ts after_ts newer_ts
+  before_ts="$(date -r "$((last_commit_epoch - 3600))" +%Y%m%d%H%M.%S 2>/dev/null || date -d "@$((last_commit_epoch - 3600))" +%Y%m%d%H%M.%S)"
+  after_ts="$(date -r "$((last_commit_epoch + 3600))" +%Y%m%d%H%M.%S 2>/dev/null || date -d "@$((last_commit_epoch + 3600))" +%Y%m%d%H%M.%S)"
+  newer_ts="$(date -r "$((last_commit_epoch + 7200))" +%Y%m%d%H%M.%S 2>/dev/null || date -d "@$((last_commit_epoch + 7200))" +%Y%m%d%H%M.%S)"
+
+  local base; base="$(mktemp -d)"
+
+  # --- (a) FRESH + CONSISTENT → PASS: binary after commit; dist after commit but <= binary.
+  local app="$base/fresh.app"; local dist="$base/fresh-dist"
+  _make_fake_app "$app"; mkdir -p "$dist"
+  printf 'clean\n' > "$dist/app.js"
+  printf '{ "licenseUiInChunks": false, "hits": [] }\n' > "$dist/licenseui-inventory.json"
+  touch -t "$after_ts" "$dist"/* 2>/dev/null
+  touch -t "$newer_ts" "$app/Contents/MacOS/devtools-app" 2>/dev/null   # binary newest
+  if assert_dist_freshness "$app" "$dist" >/dev/null 2>&1; then
+    echo "SELFTEST OK (freshness): fresh + consistent dist/binary PASSES the linkage guard"
+  else
+    echo "SELFTEST FAIL (freshness): a fresh + consistent dist/binary FALSE-RED the linkage guard" >&2; rc=1
+  fi
+
+  # --- (b) STALE dist/ (older than last commit) → FAIL even though binary is fresh.
+  local sd="$base/stale-dist.app"; local sdist="$base/stale-dist"
+  _make_fake_app "$sd"; mkdir -p "$sdist"
+  printf 'clean\n' > "$sdist/app.js"
+  printf '{ "licenseUiInChunks": false, "hits": [] }\n' > "$sdist/licenseui-inventory.json"
+  touch -t "$before_ts" "$sdist"/* 2>/dev/null                          # dist stale
+  touch -t "$newer_ts" "$sd/Contents/MacOS/devtools-app" 2>/dev/null    # binary fresh
+  if assert_dist_freshness "$sd" "$sdist" >/dev/null 2>&1; then
+    echo "SELFTEST FAIL (freshness): a STALE dist/ (older than last commit) did NOT trip the linkage guard — a stale clean dist/ could mask a dirty binary" >&2; rc=1
+  else
+    echo "SELFTEST OK (freshness): a stale dist/ (older than last source commit) trips the linkage guard"
+  fi
+
+  # --- (c) dist/ NEWER than the binary → FAIL (dist rebuilt after the .app was signed).
+  local nd="$base/newer-dist.app"; local ndist="$base/newer-dist"
+  _make_fake_app "$nd"; mkdir -p "$ndist"
+  printf 'clean\n' > "$ndist/app.js"
+  printf '{ "licenseUiInChunks": false, "hits": [] }\n' > "$ndist/licenseui-inventory.json"
+  touch -t "$after_ts" "$nd/Contents/MacOS/devtools-app" 2>/dev/null    # binary older
+  touch -t "$newer_ts" "$ndist"/* 2>/dev/null                          # dist newer
+  if assert_dist_freshness "$nd" "$ndist" >/dev/null 2>&1; then
+    echo "SELFTEST FAIL (freshness): a dist/ NEWER than the binary did NOT trip the linkage guard — the binary embeds older bytes than the ones grepped" >&2; rc=1
+  else
+    echo "SELFTEST OK (freshness): a dist/ newer than the signed binary trips the linkage guard"
+  fi
+
+  # --- (d) STALE binary (older than last source commit) → FAIL (stale .app handed off).
+  local sb="$base/stale-bin.app"; local sbdist="$base/stale-bin-dist"
+  _make_fake_app "$sb"; mkdir -p "$sbdist"
+  printf 'clean\n' > "$sbdist/app.js"
+  printf '{ "licenseUiInChunks": false, "hits": [] }\n' > "$sbdist/licenseui-inventory.json"
+  touch -t "$after_ts" "$sbdist"/* 2>/dev/null
+  touch -t "$before_ts" "$sb/Contents/MacOS/devtools-app" 2>/dev/null   # binary stale
+  if assert_dist_freshness "$sb" "$sbdist" >/dev/null 2>&1; then
+    echo "SELFTEST FAIL (freshness): a STALE binary (older than last commit) did NOT trip the linkage guard — a stale .app could be handed off" >&2; rc=1
+  else
+    echo "SELFTEST OK (freshness): a stale binary (older than last source commit) trips the linkage guard"
+  fi
+
+  # --- (e) MISSING / EMPTY / sentinel-less dist/ → FAIL (never SKIP, never vacuous).
+  local md="$base/missing-dist.app"
+  _make_fake_app "$md"; touch -t "$newer_ts" "$md/Contents/MacOS/devtools-app" 2>/dev/null
+  if assert_dist_freshness "$md" "$base/does-not-exist" >/dev/null 2>&1; then
+    echo "SELFTEST FAIL (freshness): a MISSING dist/ did NOT trip the linkage guard" >&2; rc=1
+  else
+    echo "SELFTEST OK (freshness): a missing dist/ trips the linkage guard"
+  fi
+  local edist="$base/empty-dist"; mkdir -p "$edist"
+  if assert_dist_freshness "$md" "$edist" >/dev/null 2>&1; then
+    echo "SELFTEST FAIL (freshness): an EMPTY dist/ did NOT trip the linkage guard" >&2; rc=1
+  else
+    echo "SELFTEST OK (freshness): an empty dist/ trips the linkage guard"
+  fi
+  local nsdist="$base/no-sentinel-dist"; mkdir -p "$nsdist"
+  printf 'clean\n' > "$nsdist/app.js"; touch -t "$after_ts" "$nsdist"/* 2>/dev/null
+  if assert_dist_freshness "$md" "$nsdist" >/dev/null 2>&1; then
+    echo "SELFTEST FAIL (freshness): a sentinel-LESS dist/ did NOT trip the linkage guard" >&2; rc=1
+  else
+    echo "SELFTEST OK (freshness): a sentinel-less dist/ trips the linkage guard"
+  fi
+
+  rm -rf "$base"; return "$rc"
 }
 
 selftest_foldin_realbuild() {
@@ -309,18 +603,26 @@ selftest_foldin_realbuild() {
 }
 
 APP="src-tauri/target/universal-apple-darwin/release/bundle/macos/TinkerDev.app"
+# OPTION A: the appstore frontend output (frontendDist "../dist"), produced by the build's
+# beforeBuildCommand in the SAME invocation that signs the .app — the authoritative
+# pre-compression bytes Tauri embeds. This is where the D-03 copy grep + D-04 sentinel read.
+DIST="dist"
 REQUIRE_BUNDLE=0
-for arg in "$@"; do
-  case "$arg" in
+while [[ $# -gt 0 ]]; do
+  case "$1" in
     # The gate's own correctness is provable WITHOUT a signed bundle: --selftest runs
-    # the pure-shell planted-string + benign-PASS fixtures; --selftest-realbuild runs
-    # the MANDATORY automated real-Vite fold-in build (exercising the EXACT production
-    # guard). Each exits with its own rc so CI / the Task-2 verify can gate on them.
+    # the pure-shell planted-string + benign-PASS + freshness/linkage fixtures;
+    # --selftest-realbuild runs the MANDATORY automated real-Vite fold-in build
+    # (exercising the EXACT production guard). Each exits with its own rc so CI /
+    # the Task-2 verify can gate on them.
     --selftest) selftest_forbidden_gate; exit $? ;;
     --selftest-realbuild) selftest_foldin_realbuild; exit $? ;;
     --require-bundle) REQUIRE_BUNDLE=1 ;;
-    *) APP="$arg" ;;
+    --dist) shift; DIST="${1:?--dist needs a directory argument}" ;;
+    --dist=*) DIST="${1#--dist=}" ;;
+    *) APP="$1" ;;
   esac
+  shift
 done
 
 rc=0
@@ -336,17 +638,25 @@ assert_plugins_absent || rc=1
 #     walkthrough gate). --require-bundle (used by the 27-04 canonical command's
 #     tail, which always has a fresh bundle) turns the absence itself into a FAIL.
 if [[ -d "$APP" ]]; then
+  # Binary-level checks — on the SIGNED .app (entitlements, 13.0 floor, universal archs,
+  # embedded profile, valid deep signature). All FATAL (Finding 2).
   assert_entitlements_present "$APP" || rc=1
   assert_min_system_version "$APP" || rc=1
-  # MAS-BUILD-04 + D-04 — both FATAL when a bundle is present (Finding 2 pattern):
+  assert_binary_integrity "$APP" || rc=1
+  # FRESHNESS/LINKAGE (OPTION A) — bind the inspected dist/ to the signed binary BEFORE the
+  # content checks read dist/, so a stale clean dist/ cannot mask a dirty/stale .app. FATAL.
+  assert_dist_freshness "$APP" "$DIST" || rc=1
+  # MAS-BUILD-04 + D-04 — read the appstore-build dist/ (the pre-compression bytes Tauri
+  # embeds verbatim into the binary), NOT $APP/Contents/Resources/ (which holds only icon.icns
+  # for this Tauri 2 brotli-embed build). Both FATAL when a bundle is present (Finding 2):
   #   the four-COPY-marker Keygen grep, and the chunk-module-inventory sentinel check.
-  assert_no_keygen_strings "$APP" || rc=1
-  assert_no_license_ui_module "$APP" || rc=1
+  assert_no_keygen_strings "$DIST" || rc=1
+  assert_no_license_ui_module "$DIST" || rc=1
 elif [[ "$REQUIRE_BUNDLE" -eq 1 ]]; then
   echo "FAIL: --require-bundle set but no signed .app at '$APP' — the canonical build did not produce a bundle" >&2
   rc=1
 else
-  echo "SKIP: signed .app not present at '$APP' — entitlements + 13.0-floor checks are the local human gate after 'pnpm tauri:build:appstore' (dev cert + dev.provisionprofile required, machine-specific)"
+  echo "SKIP: signed .app not present at '$APP' — entitlements + 13.0-floor + dist/-layer D-03/D-04 checks are the local human gate after 'pnpm tauri:build:appstore' (dev cert + dev.provisionprofile required, machine-specific)"
 fi
 
 if [[ "$rc" -ne 0 ]]; then
