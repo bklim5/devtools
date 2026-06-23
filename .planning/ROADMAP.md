@@ -189,11 +189,16 @@ A five-pane in-window Settings modal (License · Appearance · Hotkeys · Genera
   1. After a successful purchase, Pro unlocks live (theming, tool ordering/pinning, ⌘K palette) through the same `resolveEntitlements` central gate via a new `baseFromStoreKit` branch — no relaunch.
   2. A user can Restore Purchases from Settings ▸ License behind an explicit button (Apple-mandatory; never silent at launch) to re-unlock Pro on a fresh install or new machine.
   3. A refund/revocation drops Pro live — a `Transaction.updates` listener at boot reuses the existing "Pro features turned off" drop-notice.
-  4. The store-build License pane shows status + Buy (App Store `displayPrice`) + Restore and shows NO key field, NO external buy link, and NO literal price; the contextual Unlock-Pro modal + every upsell trigger (sidebar "Unlock Pro", locked pin/reorder/⌘K) present the StoreKit Buy/Restore flow, never the Keygen activation form.
+  4. The store-build License pane shows status + Buy (label "Buy Pro — Lifetime"; price shown on the App Store sheet, NOT in-app — D-12 relaxes the original `displayPrice` wording) + Restore and shows NO key field, NO external buy link, and NO literal price; the contextual Unlock-Pro modal + every upsell trigger (sidebar "Unlock Pro", locked pin/reorder/Command Palette) present the StoreKit Buy/Restore flow, never the Keygen activation form.
   5. The store-build UI omits every Keygen-only concept (no "activate with key", no machine deactivate/seat-transfer, no fingerprint/seat-limit copy, no "lost your key / check your purchase email") and uses App-Store-managed wording where a status explanation is needed.
   6. The Keygen surface (key field, `license.tinkerdev.io` calls, external buy link, literal `$9`) is compiled OUT of the store build and grep-verifiable clean on the bundle.
   7. In the store build the Settings ▸ Updates pane is RETAINED but shows "Your app update is managed by the App Store" with the Check-for-updates + Install affordances REMOVED (not just disabled); the running-version readout may remain.
-**Plans**: TBD
+**Plans**: 5 plans
+- [ ] 28-01-PLAN.md — `baseFromStoreKit` arm in `resolveEntitlements` (IS_APPSTORE-gated; intersection + fall-closed) — MAS-IAP-02 (Wave 1, auto)
+- [ ] 28-02-PLAN.md — real plugin transaction-update bridge (iap:allow-register-listener capability + Channel) + store boot listener + Pro→free drop-diff/drop-notice — MAS-IAP-02/05 (Wave 1, auto)
+- [ ] 28-03-PLAN.md — `StoreLicenseSettings` (Buy/Restore/status, two layouts) + `StoreUpdatesSettings` (version + managed line) — MAS-IAP-03/06/07, MAS-BUILD-07 (Wave 2, auto)
+- [ ] 28-04-PLAN.md — `StoreUpsell` modal (pitch + Buy + Restore) + `storeProUpsell` router — MAS-IAP-07 (Wave 2, auto)
+- [ ] 28-05-PLAN.md — static IS_APPSTORE switches + IapSpikeBlock removal + verify-script forbidden-string grep + human sandbox gate — MAS-BUILD-04, MAS-IAP-02/05 (Wave 3, human-verify)
 **Research**: Skip — HIGH confidence (one-branch change to the already-tested resolver; seam + gate + drop-notice reused).
 **Gate**: Human — purchase → Pro unlocks live; refund → Pro drops live (sandbox tester).
 **UI hint**: yes
@@ -265,7 +270,7 @@ v1.8 runs 26 → 27 → 28 → 30 with Phase 29 parallel-capable beside 28 once 
 | 25. Updates Pane & Milestone Ship | v1.7 | 5/5 | Complete    | 2026-06-21 |
 | 26. StoreKit Bridge Spike (CRITICAL PATH) | v1.8 | 6/7 | Complete    | 2026-06-23 |
 | 27. The Build-Variant Seam (3 layers) | v1.8 | 4/4 | Complete    | 2026-06-23 |
-| 28. Entitlement-Source Swap + Store License Pane | v1.8 | 0/0 | Not started | - |
+| 28. Entitlement-Source Swap + Store License Pane | v1.8 | 0/5 | Planned | - |
 | 29. Sandbox-Safe Native Features | v1.8 | 0/0 | Not started | - |
 | 30. .pkg Build + App Store Connect Submission | v1.8 | 0/0 | Not started | - |
 
