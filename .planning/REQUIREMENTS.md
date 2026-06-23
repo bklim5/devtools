@@ -28,10 +28,10 @@
 
 - [x] **MAS-BUILD-01**: The repo builds two variants from one codebase, each from a single canonical build command (direct = today's DMG/updater; appstore = sandboxed StoreKit), so a half-variant can't ship.
 - [x] **MAS-BUILD-02**: The App Store build runs under App Sandbox (`com.apple.security.app-sandbox` + `com.apple.security.network.client`) and launches without a white-screen on the signed `.app`.
-- [ ] **MAS-BUILD-03**: The auto-updater (Rust plugin + endpoints) is compiled OUT of the store build — absent, not merely hidden — and verifiable on the built bundle (Apple forbids self-updating apps; the store handles updates).
+- [x] **MAS-BUILD-03**: The auto-updater (Rust plugin + endpoints) is compiled OUT of the store build — absent, not merely hidden — and verifiable on the built bundle (Apple forbids self-updating apps; the store handles updates).
 - [ ] **MAS-BUILD-04**: The Keygen surface (key field, `license.tinkerdev.io` calls, external buy link, literal `$9`) is compiled OUT of the store build and grep-verifiable clean on the bundle.
-- [ ] **MAS-BUILD-05**: The store variant builds at `minimumSystemVersion` 13.0 while the direct channel stays 10.15 (the 13.0 bump never leaks onto the base config).
-- [ ] **MAS-BUILD-06**: A committed verify script asserts store-bundle compliance at the gate (required entitlements present; forbidden plugins via `cargo tree`/`otool` and forbidden strings via `grep` absent).
+- [x] **MAS-BUILD-05**: The store variant builds at `minimumSystemVersion` 13.0 while the direct channel stays 10.15 (the 13.0 bump never leaks onto the base config).
+- [x] **MAS-BUILD-06**: A committed verify script asserts store-bundle compliance at the gate (required entitlements present; forbidden plugins via `cargo tree`/`otool` and forbidden strings via `grep` absent).
 - [ ] **MAS-BUILD-07**: In the store build the Settings ▸ Updates pane is RETAINED but App-Store-managed: it shows "Your app update is managed by the App Store" and the Check-for-updates + Install affordances are removed (not just disabled); the running-version readout may remain. (The underlying updater is compiled out per MAS-BUILD-03 — this is the user-facing counterpart.)
 
 ### Sandbox-Safe Native Features (MAS-NATIVE)
@@ -84,9 +84,9 @@ Phase structure (dependency-forced, continues from Phase 25): **26** StoreKit br
 | MAS-IAP-07 | Phase 28 | Pending |
 | MAS-BUILD-01 | Phase 27 | Complete (2026-06-23) |
 | MAS-BUILD-02 | Phase 27 | Complete (2026-06-23, human-verified) |
-| MAS-BUILD-03 | Phase 27 | Pending |
-| MAS-BUILD-05 | Phase 27 | Pending |
-| MAS-BUILD-06 | Phase 27 | Pending |
+| MAS-BUILD-03 | Phase 27 | Complete (2026-06-23) |
+| MAS-BUILD-05 | Phase 27 | Complete (2026-06-23) |
+| MAS-BUILD-06 | Phase 27 | Complete (2026-06-23) |
 | MAS-BUILD-04 | Phase 28 | Pending |
 | MAS-BUILD-07 | Phase 28 | Pending |
 | MAS-NATIVE-01 | Phase 29 | Pending |
