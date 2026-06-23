@@ -31,6 +31,7 @@ const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 import { FREE_SET, FULL_SET } from "./entitlements";
 import {
+  getEntitlementsSnapshot,
   refreshEntitlements,
   resetEntitlementsForTest,
   setEntitlementsForTest,
@@ -89,5 +90,30 @@ describe("refreshEntitlements drop-diff (D-07 / T-28-08)", () => {
     await flush();
 
     expect(updatePreferencesMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("refreshEntitlements ordering (Codex — stale completion guard)", () => {
+  it("Test 5: a stale out-of-order resolve never overwrites a newer commit (no locked-after-purchase)", async () => {
+    // current = FREE. Call A starts FIRST but resolves SLOWLY (an older read);
+    // call B starts SECOND and resolves to FULL (the purchase unlock). B commits
+    // first; when A's stale read finally lands it must be DROPPED, not overwrite Pro.
+    let resolveA: (set: typeof FREE_SET) => void = () => {};
+    const slowA = new Promise<typeof FREE_SET>((r) => {
+      resolveA = r;
+    });
+    resolveMock.mockReturnValueOnce(slowA); // call A (seq 1)
+    resolveMock.mockResolvedValueOnce(FULL_SET); // call B (seq 2) — the unlock
+
+    const a = refreshEntitlements();
+    const b = refreshEntitlements();
+    await b;
+    expect(getEntitlementsSnapshot()).toBe(FULL_SET); // newer commit landed
+
+    resolveA(FREE_SET); // the stale older read lands last
+    await a;
+    await flush();
+
+    expect(getEntitlementsSnapshot()).toBe(FULL_SET); // stale FREE dropped — Pro kept
   });
 });

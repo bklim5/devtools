@@ -33,6 +33,13 @@ let current: EntitlementSet = defaultSet();
 // theme before the async license resolve lands. setEntitlementsForTest means
 // "entitlements are now known", so it sets this true.
 let resolved = false;
+// Monotonic refresh sequence (Codex finding). refreshEntitlements now has
+// OVERLAPPING callers — the boot refresh, the StoreKit transaction listener
+// (storeBoot), and the Buy/Restore handlers — so a slow earlier resolveEntitlements()
+// can finish AFTER a newer one. Each call claims the next seq; only the latest-started
+// call is allowed to commit `current`, so a stale read can never overwrite a newer
+// purchase/refund result (no Pro-after-refund / locked-after-purchase).
+let refreshSeq = 0;
 const listeners = new Set<() => void>();
 
 function setsEqual(a: EntitlementSet, b: EntitlementSet): boolean {
@@ -70,13 +77,22 @@ export async function refreshEntitlements(): Promise<void> {
   // — the `resolved` flip (D-23-5) must propagate even when the SET is unchanged
   // (an unlicensed install: FREE_SET → FREE_SET, but `resolved` goes false→true).
   let changed = false;
+  // Claim this refresh's slot. A later refresh started after this one supersedes
+  // it; this call must not commit its (now stale) read.
+  const seq = ++refreshSeq;
   // Capture the pre-resolution Pro state BEFORE `current` is overwritten so a
   // live Pro→not-Pro transition (a refund/revoke landing while the app runs, or a
   // direct-build license lapse) can be detected below (D-07). `current` is the
-  // last resolved set, so this is the true "was Pro a moment ago" signal.
+  // last resolved set, so this is the true "was Pro a moment ago" signal. The seq
+  // guard ensures no newer refresh commits between this capture and the commit
+  // below, so wasPro stays the true predecessor of the committed set.
   const wasPro = isPro(current);
   try {
     const next = await resolveEntitlements();
+    // Drop a stale completion: a newer refresh was started while this one was in
+    // flight, so its result is authoritative — committing this older read would
+    // resurrect superseded entitlement state.
+    if (seq !== refreshSeq) return;
     if (!setsEqual(next, current)) {
       current = next;
       changed = true;
@@ -122,6 +138,13 @@ export async function refreshEntitlements(): Promise<void> {
  *  never writes anything but null). Callers run it BEFORE refreshEntitlements
  *  so the next resolve sees the cleared prefs. */
 export async function clearEntitlementsOverride(): Promise<void> {
+  // Hydrate the shared prefs singleton BEFORE writing through it. A successful
+  // activation fired during the startup load window would otherwise merge into a
+  // not-yet-loaded sharedPrefs (DEFAULT_PREFERENCES) and persist defaults over the
+  // user's real theme/pins/toolOrder — `await loadPreferences()` hydrates the
+  // prefsStore cache, NOT the usePreferences singleton this writes through (Codex
+  // finding; memory prefs-blob-single-writer + tauri-store-async-init-race).
+  await whenPreferencesLoaded();
   const prefs = await loadPreferences();
   if (prefs.entitlementsOverride === null) return; // nothing persisted — no write
   // Route through the SHARED usePreferences singleton (prefs-blob-single-writer)
