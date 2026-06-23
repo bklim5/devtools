@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-# SUPERSEDED by scripts/build-appstore-bundle.sh (Phase 27 D-01 promotion). Kept for Phase-26 doc references.
-# Phase-26 spike: build a DEVELOPMENT-SIGNED, App-Sandboxed `.app` that LAUNCHES LOCALLY
-# and can present the live StoreKit sheet against a Sandbox tester (Plan-26-06, STEP 0).
+# Canonical App Store build command — invoked by `pnpm tauri:build:appstore`.
+# Promoted from build-appstore-spike.sh (Phase 27 D-01).
+#
+# Builds a DEVELOPMENT-SIGNED, App-Sandboxed `.app` that LAUNCHES LOCALLY and can
+# present the live StoreKit sheet against a Sandbox tester.
 #
 # DEV signing, NOT distribution (learned the hard way, 2026-06-22): a Mac App Store
 # *distribution* profile can ONLY authorize an app installed FROM the App Store. Running
@@ -16,17 +18,19 @@
 # config key (MacConfig = signingIdentity/entitlements/hardenedRuntime/… only), and the
 # appstore entitlements are profile-restricted, so the app won't launch without an embedded
 # profile. This script:
-#   1. builds the universal appstore bundle, signed with the dev identity (per-invocation
-#      --config; base tauri.conf.json stays Developer-ID/10.15 — Pitfall 11)
+#   1. builds the universal appstore bundle, signed with the dev identity (the COMMITTED
+#      overlay src-tauri/tauri.appstore.conf.json + --no-default-features --features appstore;
+#      base tauri.conf.json stays Developer-ID/10.15 — Pitfall 11)
 #   2. embeds your Mac Development provisioning profile at Contents/embedded.provisionprofile
 #   3. deep-re-signs so the seal covers the embedded profile + the appstore entitlements
-#   4. verifies signature/entitlements/profile/arch + whole-bundle consistency
+#   4. FATAL-verifies the signed bundle via scripts/verify-appstore-bundle.sh --require-bundle
+#      (plugins absent + entitlements present + 13.0 floor) — any finding STOPS the command
 #
 # The overlay grants ONLY entitlements + signing — NEVER `iap:default`/`plugin:iap|*`
 # (MODE A reaches the plugin Rust-side; a webview iap capability would bypass the
 # iap_* wrapper boundary — see PHASE-26-BRIDGE-VIABILITY.md T-26-18b).
 #
-# Usage:  bash scripts/build-appstore-spike.sh
+# Usage:  bash scripts/build-appstore-bundle.sh   (or `pnpm tauri:build:appstore`)
 # Env:    PROFILE   (default src-tauri/dev.provisionprofile) — your downloaded
 #                    *Mac Development* provisioning profile for com.tinkerdev.app
 #         SIGN_ID   (default: auto-detected "Apple Development: …" identity from keychain)
@@ -76,21 +80,30 @@ fi
 unset APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID \
       APPLE_API_KEY APPLE_API_ISSUER APPLE_API_KEY_PATH \
       APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_KEYCHAIN 2>/dev/null || true
+# The dev signingIdentity is machine-specific, so it is NOT in the committed overlay
+# (Plan 27-02 deliberately left it out). Inject it here via the env-export path so Tauri
+# signs the WHOLE bundle with the dev identity.
 export APPLE_SIGNING_IDENTITY="$SIGN_ID"
 
 echo "[appstore] building universal appstore bundle, signed '$SIGN_ID' (no notarization)…"
-# (The final tauri-build exit can be non-zero ONLY for the absent updater key — we
-#  judge success by the bundle + its signature below, not the exit code; harness rule.)
-MACOSX_DEPLOYMENT_TARGET=13.0 pnpm tauri build --features appstore \
+# --no-default-features --features appstore drops the `direct` umbrella feature → the
+# updater + autostart + process plugins are COMPILED OUT (Plan 27-01), and Tauri's
+# capability codegen runs with those plugins' permissions absent. A bundle being produced
+# here is the end-to-end proof of Finding 1 (no `Permission updater:default not found`).
+# --config src-tauri/tauri.appstore.conf.json is the COMMITTED overlay (Plan 27-02):
+# entitlements + 13.0 + hardenedRuntime:false + no-dmg + updater:null.
+# (The final tauri-build exit can be non-zero ONLY for the absent updater key — now moot
+#  since updater is compiled out — so we `|| true` it and judge success by the bundle +
+#  its signature below; harness rule. A missing bundle is still caught by the guard below.)
+MACOSX_DEPLOYMENT_TARGET=13.0 pnpm tauri build \
+  --no-default-features --features appstore \
   --target "$TARGET" --bundles app \
-  --config '{"bundle":{"macOS":{
-      "entitlements":"entitlements.appstore.plist",
-      "minimumSystemVersion":"13.0",
-      "hardenedRuntime":false,
-      "signingIdentity":"'"$SIGN_ID"'"}}}' || true
+  --config src-tauri/tauri.appstore.conf.json || true
 
 if [[ ! -d "$APP_OUT" ]]; then
   echo "ERROR: bundle not produced at $APP_OUT — check the build log above."
+  echo "       (A capability-codegen error like 'Permission updater:default not found'"
+  echo "        means Plan 27-01's default.json strip did not land — Finding 1.)"
   exit 1
 fi
 
@@ -135,3 +148,18 @@ echo ""
 echo "App: $APP_OUT"
 echo "Next: launch it, sign into the SANDBOX tester (not your real Apple ID), and run the"
 echo "Plan-26-06 round-trip (docs/appstore/PHASE-26-SANDBOX-WALKTHROUGH.md)."
+
+# --- 5. FATAL compliance self-verify on the freshly-signed bundle (Finding 2) --
+# The committed bundle-compliance gate, run against the bundle we just signed. When a
+# bundle IS present (it always is here — the bundle-existence guard already ran), any
+# finding (forbidden plugin present / missing entitlement / wrong 13.0 floor) is FATAL:
+# the canonical command CANNOT exit 0 after a compliance failure, so a non-compliant
+# bundle can never be handed off. --require-bundle also turns a vanished $APP_OUT into a FAIL.
+echo ""
+echo "[verify] running scripts/verify-appstore-bundle.sh --require-bundle on the signed bundle…"
+if ! bash scripts/verify-appstore-bundle.sh "$APP_OUT" --require-bundle; then
+  echo "ERROR: verify-appstore-bundle FAILED on the signed bundle — the build is NOT compliant" >&2
+  echo "       (forbidden plugin present / missing entitlement / wrong 13.0 floor — see above)." >&2
+  exit 1
+fi
+echo "[verify] bundle compliant ✓"
