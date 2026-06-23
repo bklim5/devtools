@@ -46,3 +46,79 @@ assert_plugins_absent() {
   fi
   echo "OK: updater + autostart ABSENT from the appstore dependency graph"
 }
+
+assert_entitlements_present() {
+  local app="${1:?usage: assert_entitlements_present <path-to-signed.app>}"
+  if [[ ! -d "$app" ]]; then
+    echo "FAIL: signed .app not found at '$app' — run 'pnpm tauri:build:appstore' first" >&2
+    return 1
+  fi
+  local ents
+  ents="$(codesign -d --entitlements - --xml "$app" 2>/dev/null)"
+  if [[ -z "$ents" ]]; then
+    echo "FAIL: could not read entitlements from '$app' (is it signed?)" >&2
+    return 1
+  fi
+  local missing=0
+  for key in com.apple.security.app-sandbox com.apple.security.network.client; do
+    if ! printf '%s' "$ents" | grep -qF "$key"; then
+      echo "FAIL: required entitlement '$key' ABSENT from the signed bundle" >&2
+      missing=1
+    fi
+  done
+  [[ "$missing" -eq 0 ]] || return 1
+  echo "OK: app-sandbox + network.client PRESENT on the signed bundle"
+}
+
+assert_min_system_version() {
+  local app="${1:?usage: assert_min_system_version <path-to-signed.app>}"
+  local plist="$app/Contents/Info.plist"
+  if [[ ! -f "$plist" ]]; then
+    echo "FAIL: Info.plist not found at '$plist'" >&2
+    return 1
+  fi
+  local ver
+  ver="$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$plist" 2>/dev/null)"
+  if [[ "$ver" != "13.0" ]]; then
+    echo "FAIL: appstore artifact LSMinimumSystemVersion is '$ver', expected '13.0' (the 13.0 floor did not reach the built Info.plist — bad merge / leaked MACOSX_DEPLOYMENT_TARGET?)" >&2
+    return 1
+  fi
+  echo "OK: appstore artifact LSMinimumSystemVersion == 13.0 (Finding 3 — proven on the bundle, not just the overlay)"
+}
+
+APP="src-tauri/target/universal-apple-darwin/release/bundle/macos/TinkerDev.app"
+REQUIRE_BUNDLE=0
+for arg in "$@"; do
+  case "$arg" in
+    --require-bundle) REQUIRE_BUNDLE=1 ;;
+    *) APP="$arg" ;;
+  esac
+done
+
+rc=0
+# (a) plugin-absence — runs WITHOUT a built bundle (pure cargo tree), so it is
+#     always checkable, even on a fresh checkout / CI without a dev cert.
+assert_plugins_absent || rc=1
+
+# (b) bundle-level checks (entitlements + 13.0 floor) — need the SIGNED bundle.
+#     When the .app IS present, EVERY failure here is FATAL (Finding 2 — no
+#     warning-only pass). When it is ABSENT and --require-bundle was NOT passed,
+#     SKIP loudly (the local no-cert case; the dev cert / dev.provisionprofile
+#     are machine-specific + gitignored — this mirrors the Phase-26 sandbox
+#     walkthrough gate). --require-bundle (used by the 27-04 canonical command's
+#     tail, which always has a fresh bundle) turns the absence itself into a FAIL.
+if [[ -d "$APP" ]]; then
+  assert_entitlements_present "$APP" || rc=1
+  assert_min_system_version "$APP" || rc=1
+elif [[ "$REQUIRE_BUNDLE" -eq 1 ]]; then
+  echo "FAIL: --require-bundle set but no signed .app at '$APP' — the canonical build did not produce a bundle" >&2
+  rc=1
+else
+  echo "SKIP: signed .app not present at '$APP' — entitlements + 13.0-floor checks are the local human gate after 'pnpm tauri:build:appstore' (dev cert + dev.provisionprofile required, machine-specific)"
+fi
+
+if [[ "$rc" -ne 0 ]]; then
+  echo "verify-appstore-bundle: FAIL" >&2
+  exit 1
+fi
+echo "verify-appstore-bundle: OK"
