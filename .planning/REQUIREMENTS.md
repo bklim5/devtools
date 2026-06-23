@@ -26,8 +26,8 @@
 
 ### Build Variant & Sandbox (MAS-BUILD)
 
-- [ ] **MAS-BUILD-01**: The repo builds two variants from one codebase, each from a single canonical build command (direct = today's DMG/updater; appstore = sandboxed StoreKit), so a half-variant can't ship.
-- [ ] **MAS-BUILD-02**: The App Store build runs under App Sandbox (`com.apple.security.app-sandbox` + `com.apple.security.network.client`) and launches without a white-screen on the signed `.app`.
+- [x] **MAS-BUILD-01**: The repo builds two variants from one codebase, each from a single canonical build command (direct = today's DMG/updater; appstore = sandboxed StoreKit), so a half-variant can't ship.
+- [x] **MAS-BUILD-02**: The App Store build runs under App Sandbox (`com.apple.security.app-sandbox` + `com.apple.security.network.client`) and launches without a white-screen on the signed `.app`.
 - [ ] **MAS-BUILD-03**: The auto-updater (Rust plugin + endpoints) is compiled OUT of the store build — absent, not merely hidden — and verifiable on the built bundle (Apple forbids self-updating apps; the store handles updates).
 - [ ] **MAS-BUILD-04**: The Keygen surface (key field, `license.tinkerdev.io` calls, external buy link, literal `$9`) is compiled OUT of the store build and grep-verifiable clean on the bundle.
 - [ ] **MAS-BUILD-05**: The store variant builds at `minimumSystemVersion` 13.0 while the direct channel stays 10.15 (the 13.0 bump never leaks onto the base config).
@@ -82,8 +82,8 @@ Phase structure (dependency-forced, continues from Phase 25): **26** StoreKit br
 | MAS-IAP-05 | Phase 28 | Pending |
 | MAS-IAP-06 | Phase 28 | Pending |
 | MAS-IAP-07 | Phase 28 | Pending |
-| MAS-BUILD-01 | Phase 27 | Pending |
-| MAS-BUILD-02 | Phase 27 | Pending |
+| MAS-BUILD-01 | Phase 27 | Complete (2026-06-23) |
+| MAS-BUILD-02 | Phase 27 | Complete (2026-06-23, human-verified) |
 | MAS-BUILD-03 | Phase 27 | Pending |
 | MAS-BUILD-05 | Phase 27 | Pending |
 | MAS-BUILD-06 | Phase 27 | Pending |

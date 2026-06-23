@@ -132,7 +132,7 @@ A five-pane in-window Settings modal (License · Appearance · Hotkeys · Genera
 <summary>🔄 v1.8 Mac App Store Distribution (Phases 26–30) — IN PROGRESS</summary>
 
 - [x] Phase 26: StoreKit Bridge Spike (CRITICAL PATH) — prove `tauri-plugin-iap@0.9` (or swift-rs fallback) in a universal sandboxed build; `platform.iap` seam + `iap_*` Rust commands; native purchase sheet + on-device JWS verify; MAS-IAP-01, MAS-IAP-04 — **COMPLETE 2026-06-23 (GO: tauri-plugin-iap; live Sandbox round-trip passed)**
-- [ ] Phase 27: The Build-Variant Seam (3 layers) — `appstore` cargo feature + `tauri.appstore.conf.json` overlay + `VITE_CHANNEL`; sandboxed `.app` launches (network.client, no white-screen); updater compiled OUT; committed verify script; MAS-BUILD-01/02/03/05/06
+- [x] Phase 27: The Build-Variant Seam (3 layers) — `appstore` cargo feature + `tauri.appstore.conf.json` overlay + `VITE_CHANNEL`; sandboxed `.app` launches (network.client, no white-screen); updater compiled OUT; committed verify script; MAS-BUILD-01/02/03/05/06 (4/4 plans complete; signed sandboxed `.app` human-verified launch+render 2026-06-23; harness quality gates pending at the phase boundary)
 - [ ] Phase 28: Entitlement-Source Swap + Store License Pane — `baseFromStoreKit` branch through the existing gate; `StoreLicenseSettings` (Buy `displayPrice` + Restore, App-Store-managed wording); App-Store-managed Updates pane; refund/revoke live-drop; Keygen surface compiled out + grep-clean; MAS-IAP-02/03/05/06/07, MAS-BUILD-04/07
 - [ ] Phase 29: Sandbox-Safe Native Features — global summon + tray kept under sandbox; Keychain gated OUT; launch-at-login hidden in the store build; MAS-NATIVE-01/02/03/04
 - [ ] Phase 30: `.pkg` Build + App Store Connect Submission — `productbuild` → `altool` pipeline (Apple Distribution + Mac Installer Distribution + profile); ASC guidance + metadata; direct channel un-regressed; MAS-SHIP-01/02/03/04/05
@@ -264,7 +264,7 @@ v1.8 runs 26 → 27 → 28 → 30 with Phase 29 parallel-capable beside 28 once 
 | 24. Hotkeys & General Panes | v1.7 | 4/4 | Complete | SET-08 + SET-09 validated 2026-06-19 |
 | 25. Updates Pane & Milestone Ship | v1.7 | 5/5 | Complete    | 2026-06-21 |
 | 26. StoreKit Bridge Spike (CRITICAL PATH) | v1.8 | 6/7 | Complete    | 2026-06-23 |
-| 27. The Build-Variant Seam (3 layers) | v1.8 | 2/4 | In progress | - |
+| 27. The Build-Variant Seam (3 layers) | v1.8 | 4/4 | Plans complete (harness gate pending) | 2026-06-23 |
 | 28. Entitlement-Source Swap + Store License Pane | v1.8 | 0/0 | Not started | - |
 | 29. Sandbox-Safe Native Features | v1.8 | 0/0 | Not started | - |
 | 30. .pkg Build + App Store Connect Submission | v1.8 | 0/0 | Not started | - |
