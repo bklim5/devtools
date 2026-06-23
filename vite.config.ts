@@ -3,13 +3,29 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { fileURLToPath, URL } from "node:url";
+// @ts-expect-error .mjs guard module has no type declarations (nodejs ESM)
+import { licenseUiFoldInGuard } from "./scripts/licenseUiFoldInGuard.mjs";
 
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
 
+// D-04: the appstore-ONLY fold-in guard. The DIRECT build adds no plugin (its
+// plugins list is byte-unchanged), so this is gated on the same VITE_CHANNEL the
+// store build's frontend uses (scripts/build-appstore-bundle.sh exports
+// VITE_CHANNEL=appstore). The guard throws if the licenseUi module is folded into
+// any shipped chunk and emits the licenseui-inventory.json sentinel the verifier
+// reads. The fold-in module-ID regex lives ONLY in the shared guard module — it is
+// never re-declared here.
+// @ts-expect-error process is a nodejs global
+const isAppstoreBuild = process.env.VITE_CHANNEL === "appstore";
+
 // https://vite.dev/config/
 export default defineConfig(async () => ({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    ...(isAppstoreBuild ? [licenseUiFoldInGuard()] : []),
+  ],
 
   resolve: {
     // The ported lib uses `@/lib/...` and `@/tools/...`. This alias must also be
