@@ -17,7 +17,7 @@
 ### StoreKit In-App Purchase (MAS-IAP)
 
 - [x] **MAS-IAP-01**: In the store build, a user can buy Pro via the native StoreKit purchase sheet (one non-consumable, perpetual), with `.success` / `.userCancelled` / `.pending` ("waiting for approval", not an error) all handled calmly.
-- [ ] **MAS-IAP-02**: After a successful purchase, Pro unlocks live (theming, tool ordering/pinning, ⌘K palette) through the same central gate — no relaunch.
+- [x] **MAS-IAP-02**: After a successful purchase, Pro unlocks live (theming, tool ordering/pinning, ⌘K palette) through the same central gate — no relaunch.
 - [ ] **MAS-IAP-03**: A user can **Restore Purchases** from Settings ▸ License (Apple-mandatory) to re-unlock Pro on a fresh install or new machine, behind an explicit button (never silent at launch).
 - [x] **MAS-IAP-04**: Pro is verified on-device (StoreKit 2 JWS `VerificationResult`); `.unverified` or failed verification falls closed to the free tier.
 - [ ] **MAS-IAP-05**: A refund/revocation drops Pro live (a `Transaction.updates` listener at boot reuses the existing "Pro features turned off" drop-notice).
@@ -77,7 +77,7 @@ Phase structure (dependency-forced, continues from Phase 25): **26** StoreKit br
 |-------------|-------|--------|
 | MAS-IAP-01 | Phase 26 | Complete |
 | MAS-IAP-04 | Phase 26 | Complete |
-| MAS-IAP-02 | Phase 28 | Pending |
+| MAS-IAP-02 | Phase 28 | Complete |
 | MAS-IAP-03 | Phase 28 | Pending |
 | MAS-IAP-05 | Phase 28 | Pending |
 | MAS-IAP-06 | Phase 28 | Pending |

@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Mac App Store Distribution
-status: ready
-last_updated: "2026-06-23T08:54:38.463Z"
-last_activity: 2026-06-23
+status: executing
+last_updated: "2026-06-23T12:43:42.199Z"
+last_activity: 2026-06-23 -- Plan 28-01 complete (baseFromStoreKit source-swap arm)
 progress:
-  total_phases: 18
+  total_phases: 19
   completed_phases: 10
-  total_plans: 45
-  completed_plans: 48
-  percent: 100
+  total_plans: 50
+  completed_plans: 49
+  percent: 98
 ---
 
 # Project State
@@ -18,9 +18,9 @@ progress:
 ## Current Position
 
 Milestone: **v1.8 "Mac App Store Distribution" — STARTED 2026-06-21 (roadmapped 2026-06-22).** Promotes backlog 999.10. Scope = the App Store target ONLY (StoreKit IAP + App Sandbox + the build-variant seam + `.pkg`/App Store Connect submission); direct-channel Developer-ID notarisation is already shipped (v0.4.1) and out of scope; launch-at-login via SMAppService is DEFERRED to v2 (the store build hides launch-at-login). Continues phase numbering from Phase 25 → first phase is **Phase 26**.
-Phase: 28 (next — not started)
-Plan: Not started
-Status: **Phase 27 COMPLETE (2026-06-23)** — all 4 plans + the binding-harness gates done. Verifier passed 5/5 (MAS-BUILD-01/02/03/05/06); the signed sandboxed `.app` is human-verified (launches + renders, no white-screen). `/gsd-code-review` (0 crit/3 warn/4 info) + `/codex:adversarial-review` ran at the boundary and caught a **CRITICAL** the goal-verifier missed: the direct overlay's non-empty `app.security.capabilities` made Tauri's `get_capabilities()` drop the globbed `default.json` baseline grants from the DIRECT build (would launch but deny core IPC) — fixed by a leading `"default"` reference and verified on a real direct build's embedded ACL. Also closed a half-variant escape (pinned `VITE_CHANNEL=direct` in the direct script + publish flow) and made the appstore deep-codesign verify + profile-embed FATAL. Final hardened `pnpm tauri:build:appstore` re-ran GREEN end-to-end. UI audit (`gsd-ui-review`) is N/A this phase (no visual surface — build/config/script plumbing only). Next: Phase 28 (Entitlement-Source Swap + Store License Pane). Fix commits: `4c8c9708`, `7f1b8f71`.
+Phase: 28 (entitlement-source-swap) — EXECUTING
+Plan: 2 of 5
+Status: **Plan 28-01 COMPLETE (2026-06-23)** — the `baseFromStoreKit` StoreKit source-swap arm landed (the ONE gate-flip point, D-04/D-05). Next: Plan 28-02 (real plugin transaction-update bridge + store boot listener + Pro→free drop-notice).
 
 **v1.8 phase structure (ROADMAP.md, dependency-forced — the StoreKit bridge spike is the critical path):**
 
@@ -31,6 +31,8 @@ Status: **Phase 27 COMPLETE (2026-06-23)** — all 4 plans + the binding-harness
 - **Phase 30 — `.pkg` Build + App Store Connect Submission** (MAS-SHIP-01, -02, -03, -04, -05): `productbuild → altool` pipeline (Apple Distribution + Mac Installer Distribution + embedded profile, separate from the direct Developer-ID/notarytool path); IAP attached to binary; ASC guidance (Paid-Apps Agreement / Pro product "Ready to Submit" / Sandbox testers) + metadata (privacy label Data-Not-Collected + `PrivacyInfo.xcprivacy`, 4+ rating, real-state screenshots, Notes-for-Review); direct channel un-regressed (DMG still notarises; decoder + 19 tests untouched). Depends on 26-29 all green. **Irreversible/integration-bound — runs LAST** (build after every source change lands; verify bundle mtime > last source commit). `/gsd-research-phase` LIKELY (MEDIUM — `.pkg`/provisioning sequence). Human gate: full ship-gate walkthrough (mirrors v1.6 live-purchase).
 
 **v1.8 sequencing decisions (locked):** the bridge spike is strictly FIRST (nothing store-side compiles/renders without `platform.iap`); the variant seam (27) is foundation for both 28 + 29; 29 parallel-capable beside 28; the `.pkg` submission (30) runs LAST. **The four ship-gate killers** (network.client white-screen → 27, Keygen 3.1.1 surface → 28, updater/autostart hidden-but-linked → 27/29, IAP-not-testable → 30) each get a verifiable check on the SIGNED bundle. **WebDriver CANNOT drive StoreKit purchases / sandbox / refunds / login-items** → mandatory human ship-gate walkthroughs at 26, 28, 29, 30 (mirrors the v1.6 live-purchase gate). **Both variants resolve to the SAME `pro.*` map via the one central gate; the webview gate, registry, `decoder.ts` + its 19 tests stay byte-unchanged.**
+
+**Phase 28 plan 01 decisions (2026-06-23, entitlement-source swap — MAS-IAP-02, Wave 1, no deps):** the `baseFromStoreKit` arm + the `IS_APPSTORE`-gated resolution branch landed in `src/lib/entitlements/resolve.ts` (the ONE gate-flip point, D-04/D-05) — TDD, one commit `d1fd34c9`. **(1) `baseFromStoreKit(codes)`** mirrors `baseFromLicense` 1:1: `new Set(codes.filter(e => ALL_ENTITLEMENTS.includes(e)))` — INTERSECTS the StoreKit codes with `ALL_ENTITLEMENTS` so an unexpected/over-broad code can never exceed `pro.theming`+`pro.ordering` (T-28-01 over-grant, defence-in-depth atop the Rust `intersect_pro` 26-01 guard); empty → FREE_SET (falls closed, T-28-02). **(2) the resolution arm** — imported `IS_APPSTORE` from `@/lib/platform/channel` and replaced the single-expression `base` with `let base; if (isTauriEnv()) { base = IS_APPSTORE ? baseFromStoreKit(await platform.iap.currentEntitlements()) : baseFromLicense(await platform.license.status()); } else base = FREE_SET;`. Because `IS_APPSTORE` is a Vite build-time constant, the store build NEVER calls `platform.license.status()` (T-28-03 tamper guard) and the dead license arm + its import subtree TREE-SHAKE out of the store bundle (3.1.1 compliance); the direct build keeps `baseFromLicense` byte-behaviourally unchanged. The `entitlementsOverride` "free" downgrade + DEV-only "full" apply to BOTH arms unchanged (T-28-04 downgrade-only invariant). **(3) 7 mirror tests** (intersection happy → FULL_SET, partial, over-grant drop, empty→FREE, status-spy `toHaveBeenCalledTimes(0)`, store-empty, "free" still downgrades) — the channel module is mocked via a `vi.hoisted` mutable getter (`channelMock.value`) flipped true in the appstore block, reset to false in afterEach so the 18 existing direct-arm tests are unaffected; a `seedAppstorePrefs` helper spreads a custom `iap` arm onto `makeMemoryPlatform` (which has no iap param) + a spied license `status`. Gates: full lefthook GREEN — **vitest 1221/1221** (+7, was 1214), tsc clean, eslint 2 pre-existing SidebarResetMenu warnings (out of scope); acceptance greps pass (`baseFromStoreKit`=2, `platform.iap.currentEntitlements`=1, `ALL_ENTITLEMENTS`=5, channel import=1); `git diff --stat src/lib/protobuf/` empty (decoder + 19 tests byte-for-byte untouched). `/simplify` + `/code-review xhigh` + `/codex:adversarial-review` + real-WKWebView e2e NOT auto-run by the executor — run at the Phase-28 boundary per the binding harness. **Carried to Plan 28-02:** `refreshEntitlements()` (store.ts) re-runs THIS arm; wire the real plugin transaction-update bridge (`iap:allow-register-listener` capability + Channel) + a store boot listener so a purchase/refund re-resolves with no relaunch (the live-flip half of MAS-IAP-02), plus the Pro→free drop-diff/drop-notice. Commit: `d1fd34c9`. Summary: `28-01-SUMMARY.md`.
 
 **v1.8 binding wedge additions (locked, PROJECT.md/REQUIREMENTS.md):** in-store Pro = StoreKit IAP (ONE non-consumable, perpetual; on-device JWS verify, serverless; 15% Small Business Program). App Sandbox mandatory (`app-sandbox` + `network.client`). Updater compiled OUT of the store build. Launch-at-login NOT shipped in the store build this milestone (SMAppService deferred to v2). Rust crates for the bridge (`tauri-plugin-iap` or `swift-rs`, `smappservice-rs` if used) are expected/allowed; **webview runtime deps stay zero**. ASC setup is guided step-by-step in-milestone (the user does the clicks).
 
@@ -109,7 +111,7 @@ Last activity: 2026-06-23
 See: .planning/PROJECT.md (updated 2026-06-09, v1.6 started) · roadmap: .planning/ROADMAP.md · requirements: .planning/REQUIREMENTS.md · research: docs/licensing-research.md
 
 **Core value:** Paste an unknown blob → usable, explorable interpretation in <2s, entirely offline, no mouse.
-**Current focus:** Phase 27 — build-variant-seam
+**Current focus:** Phase 28 — entitlement-source-swap
 
 ## v1.5 — Pinned Tools (SHIPPED & ARCHIVED, 2026-06-07)
 
