@@ -14,11 +14,20 @@ vi.mock("./resolve", () => ({
 
 // updatePreferences is the shared module singleton write path (the SAME fn
 // markLicenseDropNotice's hook callback routes through). Spy it to assert the
-// drop write — and ONLY the drop write — happens.
+// drop write — and ONLY the drop write — happens. whenPreferencesLoaded gates the
+// write behind prefs hydration (resolves immediately here); the drop write is thus
+// deferred a microtask, so Test 1 flushes before asserting.
 const updatePreferencesMock = vi.hoisted(() => vi.fn());
+const whenPreferencesLoadedMock = vi.hoisted(() =>
+  vi.fn(() => Promise.resolve()),
+);
 vi.mock("@/shell/usePreferences", () => ({
   updatePreferences: updatePreferencesMock,
+  whenPreferencesLoaded: whenPreferencesLoadedMock,
 }));
+
+/** Drain microtasks so the deferred (whenPreferencesLoaded-gated) drop write lands. */
+const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 import { FREE_SET, FULL_SET } from "./entitlements";
 import {
@@ -43,7 +52,9 @@ describe("refreshEntitlements drop-diff (D-07 / T-28-08)", () => {
     resolveMock.mockResolvedValue(FREE_SET); // next = free (refund landed)
 
     await refreshEntitlements();
+    await flush(); // the drop write is deferred behind whenPreferencesLoaded()
 
+    expect(whenPreferencesLoadedMock).toHaveBeenCalledTimes(1);
     expect(updatePreferencesMock).toHaveBeenCalledTimes(1);
     expect(updatePreferencesMock).toHaveBeenCalledWith({
       licenseDropNoticeAck: false,
@@ -55,6 +66,7 @@ describe("refreshEntitlements drop-diff (D-07 / T-28-08)", () => {
     resolveMock.mockResolvedValue(FULL_SET); // identical set — no change
 
     await refreshEntitlements();
+    await flush();
 
     expect(updatePreferencesMock).not.toHaveBeenCalled();
   });
@@ -64,6 +76,7 @@ describe("refreshEntitlements drop-diff (D-07 / T-28-08)", () => {
     resolveMock.mockResolvedValue(FULL_SET); // next = Pro — an unlock, not a drop
 
     await refreshEntitlements();
+    await flush();
 
     expect(updatePreferencesMock).not.toHaveBeenCalled();
   });
@@ -73,6 +86,7 @@ describe("refreshEntitlements drop-diff (D-07 / T-28-08)", () => {
     resolveMock.mockResolvedValue(FREE_SET);
 
     await refreshEntitlements();
+    await flush();
 
     expect(updatePreferencesMock).not.toHaveBeenCalled();
   });

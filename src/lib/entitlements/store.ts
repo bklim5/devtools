@@ -7,7 +7,10 @@
 // licensed set; it notifies subscribers only when the set actually changes.
 
 import { loadPreferences } from "@/shell/prefsStore";
-import { updatePreferences } from "@/shell/usePreferences";
+import {
+  updatePreferences,
+  whenPreferencesLoaded,
+} from "@/shell/usePreferences";
 import { FREE_SET, isPro, type EntitlementSet } from "./entitlements";
 import { resolveEntitlements } from "./resolve";
 
@@ -86,8 +89,19 @@ export async function refreshEntitlements(): Promise<void> {
       // Ungated by channel: a live Pro→free drop fires the notice on BOTH builds
       // (the store refund path AND a direct license lapse, which today has no
       // caller — a harmless improvement; the notice copy stays channel-generic).
+      //
+      // GUARD the async-launch window: a refund/revoke delivered moments after
+      // boot (via the storeBoot listener) can fire this BEFORE the prefs singleton
+      // has hydrated — and updatePreferences() merges into sharedPrefs + latches
+      // dirty=true, so an unguarded write would persist DEFAULT_PREFERENCES over
+      // the user's real theme/pins AND block the real load (ensurePreferencesLoaded's
+      // `if (!dirty)`). whenPreferencesLoaded() defers the flag write until the real
+      // blob is in memory (the same protection useUpdater's lastUpdateCheck stamp
+      // uses — memory tauri-store-async-init-race + prefs-blob-single-writer).
       if (wasPro && !isPro(next)) {
-        updatePreferences({ licenseDropNoticeAck: false });
+        void whenPreferencesLoaded().then(() => {
+          updatePreferences({ licenseDropNoticeAck: false });
+        });
       }
     }
   } finally {

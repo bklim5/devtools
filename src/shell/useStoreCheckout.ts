@@ -22,7 +22,7 @@
 // as plain text. Every reject lands on the calm "App Store isn't available" line,
 // never a red/amber banner or an uncaught throw (T-28-17).
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { platform } from "@/lib/platform";
 import { refreshEntitlements } from "@/lib/entitlements/store";
@@ -53,6 +53,12 @@ export interface StoreCheckout {
 export function useStoreCheckout(onUnlocked?: () => void): StoreCheckout {
   const [readout, setReadout] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Synchronous in-flight latch. `busy` (React state) drives the disabled UI, but
+  // it only updates on the next render — two clicks dispatched in the SAME frame
+  // both read busy===false and would fire two purchase()/restore() calls (a double
+  // App Store sheet). The ref flips synchronously, so the second click is rejected
+  // before React commits.
+  const inFlight = useRef(false);
 
   // The gate has flipped to Pro (the live re-render unlocks). Clear the in-flight
   // line; a modal host additionally dismisses via onUnlocked.
@@ -63,7 +69,8 @@ export function useStoreCheckout(onUnlocked?: () => void): StoreCheckout {
 
   const onBuy = () =>
     void (async () => {
-      if (busy) return;
+      if (inFlight.current) return;
+      inFlight.current = true;
       setBusy(true);
       setReadout("Opening the App Store…");
       try {
@@ -92,13 +99,15 @@ export function useStoreCheckout(onUnlocked?: () => void): StoreCheckout {
         // called here (nothing changed). Calm guidance, never a thrown error.
         setReadout(UNAVAILABLE);
       } finally {
+        inFlight.current = false;
         setBusy(false);
       }
     })();
 
   const onRestore = () =>
     void (async () => {
-      if (busy) return;
+      if (inFlight.current) return;
+      inFlight.current = true;
       setBusy(true);
       setReadout("Restoring your purchases…");
       try {
@@ -117,6 +126,7 @@ export function useStoreCheckout(onUnlocked?: () => void): StoreCheckout {
       } catch {
         setReadout(UNAVAILABLE);
       } finally {
+        inFlight.current = false;
         setBusy(false);
       }
     })();
