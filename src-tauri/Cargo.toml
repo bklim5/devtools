@@ -39,7 +39,11 @@ tauri-plugin-store = "2.4.3"
 # @tauri-apps/plugin-process behind src/lib/platform/tauri.ts to restart into the
 # freshly-installed bundle. Desktop-wide (NOT target-gated) — relaunch is needed
 # on every desktop target. Gated at runtime by `process:allow-restart`.
-tauri-plugin-process = "2.3.1"
+# OPTIONAL behind the default-enabled `direct` feature (Phase 27, MAS-BUILD-03):
+# it backs ONLY the updater apply flow, so the sandboxed App Store build (which
+# has no updater and never calls restart) compiles it OUT via
+# `--no-default-features --features appstore`.
+tauri-plugin-process = { version = "2.3.1", optional = true }
 # Licensing core (Phase 19, LIC-01/03/04/06). Versions are research-locked — do
 # NOT bump majors:
 # - ed25519-dalek 2.2: VerifyingKey/verify_strict API (the Keygen example repo's
@@ -103,6 +107,17 @@ ed25519-dalek = { version = "2.2", features = ["rand_core"] }
 rand = "0.8"
 
 [features]
+default = ["direct"]
+# Direct (DMG) channel umbrella feature — DEFAULT-ENABLED. Carries the
+# direct-only native deps that MUST be absent from the sandboxed App Store
+# build: the auto-updater, launch-at-login autostart, and the relaunch
+# backend the updater apply flow needs. Cargo features are ADDITIVE (you
+# cannot subtract a dep by adding one), so the compile-OUT for the store
+# build is `--no-default-features --features appstore`, which drops `direct`
+# and therefore these three deps (MAS-BUILD-03 / D-03/D-04). The direct
+# `pnpm tauri build` keeps default features on, so updater + autostart stay
+# in the DMG exactly as today (D-05).
+direct = ["dep:tauri-plugin-updater", "dep:tauri-plugin-autostart", "dep:tauri-plugin-process"]
 # Enabled only for the e2e UI gate (`--features webdriver`); off in release.
 webdriver = ["dep:tauri-plugin-webdriver"]
 # Mac App Store build channel (Phase 26+). Gates the optional StoreKit IAP plugin
@@ -126,11 +141,17 @@ tauri-plugin-window-state = "2.4.1"
 # MANDATORY-verifies its minisign signature against the committed pubkey before
 # swapping the bundle. The JS side drives it via @tauri-apps/plugin-updater behind
 # src/lib/platform/tauri.ts. Gated at runtime by `updater:default`.
-tauri-plugin-updater = "2.10.1"
+# OPTIONAL behind the default-enabled `direct` feature (Phase 27, MAS-BUILD-03):
+# the App Store build forbids self-updating, so `--no-default-features
+# --features appstore` compiles the updater (crate + endpoint config) OUT.
+tauri-plugin-updater = { version = "2.10.1", optional = true }
 # Launch-at-login (SET-09). The ONE scoped new-dep exception of v1.7 (D-24-7):
 # an official Tauri plugins-workspace crate, no UI, no network — writes a per-user
 # LaunchAgent plist. Registered via tauri_plugin_autostart::init in lib.rs; reached
 # from JS ONLY through platform.autostart (the @tauri-apps/plugin-autostart import
 # lives solely in src/lib/platform/tauri.ts). Scoped to the three autostart:allow-*
 # perms in capabilities/default.json — no wider grant (T-24-03).
-tauri-plugin-autostart = "2.5.1"
+# OPTIONAL behind the default-enabled `direct` feature (Phase 27, MAS-BUILD-03):
+# the sandbox-incompatible LaunchAgent autostart plugin is compiled OUT of the
+# App Store build via `--no-default-features --features appstore`.
+tauri-plugin-autostart = { version = "2.5.1", optional = true }
