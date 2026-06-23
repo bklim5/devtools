@@ -20,7 +20,7 @@
 - [x] **MAS-IAP-02**: After a successful purchase, Pro unlocks live (theming, tool ordering/pinning, ⌘K palette) through the same central gate — no relaunch.
 - [ ] **MAS-IAP-03**: A user can **Restore Purchases** from Settings ▸ License (Apple-mandatory) to re-unlock Pro on a fresh install or new machine, behind an explicit button (never silent at launch).
 - [x] **MAS-IAP-04**: Pro is verified on-device (StoreKit 2 JWS `VerificationResult`); `.unverified` or failed verification falls closed to the free tier.
-- [ ] **MAS-IAP-05**: A refund/revocation drops Pro live (a `Transaction.updates` listener at boot reuses the existing "Pro features turned off" drop-notice).
+- [x] **MAS-IAP-05**: A refund/revocation drops Pro live (a `Transaction.updates` listener at boot reuses the existing "Pro features turned off" drop-notice).
 - [ ] **MAS-IAP-06**: The store-build License pane shows status + Buy (App Store `displayPrice`) + Restore — and shows NO key field, NO external buy link, and NO literal price (guideline 3.1.1).
 - [ ] **MAS-IAP-07**: Because Apple manages the license, the store-build UI omits every Keygen-only concept — no "activate with key", no machine **deactivate / seat-transfer**, no machine-fingerprint/seat-limit copy, no "lost your key / check your purchase email" — and uses App-Store-managed wording where a status explanation is needed (e.g. "managed through the App Store / your Apple ID"). The contextual Unlock-Pro modal (the focused upsell over `ActivationSurface`) and every Pro-upsell trigger (sidebar "Unlock Pro", locked pin/reorder/⌘K) present the StoreKit Buy/Restore flow in the store build, never the Keygen activation form.
 
@@ -79,7 +79,7 @@ Phase structure (dependency-forced, continues from Phase 25): **26** StoreKit br
 | MAS-IAP-04 | Phase 26 | Complete |
 | MAS-IAP-02 | Phase 28 | Complete |
 | MAS-IAP-03 | Phase 28 | Pending |
-| MAS-IAP-05 | Phase 28 | Pending |
+| MAS-IAP-05 | Phase 28 | Complete |
 | MAS-IAP-06 | Phase 28 | Pending |
 | MAS-IAP-07 | Phase 28 | Pending |
 | MAS-BUILD-01 | Phase 27 | Complete (2026-06-23) |
