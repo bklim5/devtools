@@ -85,6 +85,15 @@ unset APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID \
 # signs the WHOLE bundle with the dev identity.
 export APPLE_SIGNING_IDENTITY="$SIGN_ID"
 
+# Pre-build freshness marker: a stale `.app` from an EARLIER run can sit at $APP_OUT. If
+# the build below errors out (e.g. a CLI flag-parse error) and we `|| true` past it, the
+# bundle-existence guard alone would happily re-sign that stale bundle — a false GREEN.
+# We stamp a marker NOW and assert the produced binary is NEWER than it (the build must
+# have actually re-emitted the binary), so a skipped/failed build can never masquerade
+# as a fresh one.
+BUILD_MARKER="$(mktemp -t appstore-build-marker)"
+trap 'rm -f "$BUILD_MARKER"' EXIT
+
 echo "[appstore] building universal appstore bundle, signed '$SIGN_ID' (no notarization)…"
 # --no-default-features --features appstore drops the `direct` umbrella feature → the
 # updater + autostart + process plugins are COMPILED OUT (Plan 27-01), and Tauri's
@@ -92,18 +101,37 @@ echo "[appstore] building universal appstore bundle, signed '$SIGN_ID' (no notar
 # here is the end-to-end proof of Finding 1 (no `Permission updater:default not found`).
 # --config src-tauri/tauri.appstore.conf.json is the COMMITTED overlay (Plan 27-02):
 # entitlements + 13.0 + hardenedRuntime:false + no-dmg + updater:null.
+#
+# FLAG-PASSING (critical): the Tauri CLI owns `-f/--features`, `--target`, `--bundles`,
+# `--config`, but it has NO `--no-default-features` flag — that one is a CARGO flag and
+# MUST be passed through the `--` runner-args separator (the CLI forwards everything after
+# `--` to cargo). Without the `--`, the CLI errors `unexpected argument '--no-default-features'`
+# and the build never runs (which would silently re-sign a stale bundle). So:
+#   tauri build -f appstore --target … --bundles app --config … -- --no-default-features
 # (The final tauri-build exit can be non-zero ONLY for the absent updater key — now moot
 #  since updater is compiled out — so we `|| true` it and judge success by the bundle +
-#  its signature below; harness rule. A missing bundle is still caught by the guard below.)
+#  its signature below; harness rule. A missing/stale bundle is caught by the guard below.)
 MACOSX_DEPLOYMENT_TARGET=13.0 pnpm tauri build \
-  --no-default-features --features appstore \
+  --features appstore \
   --target "$TARGET" --bundles app \
-  --config src-tauri/tauri.appstore.conf.json || true
+  --config src-tauri/tauri.appstore.conf.json \
+  -- --no-default-features || true
 
 if [[ ! -d "$APP_OUT" ]]; then
   echo "ERROR: bundle not produced at $APP_OUT — check the build log above."
   echo "       (A capability-codegen error like 'Permission updater:default not found'"
   echo "        means Plan 27-01's default.json strip did not land — Finding 1.)"
+  exit 1
+fi
+
+# Freshness guard: the produced binary MUST be newer than the pre-build marker. If it is
+# not, the build did not actually run (CLI parse error / no-op) and $APP_OUT is a STALE
+# leftover — fail rather than embed-a-profile + re-sign + "verify" a bundle the real
+# appstore build never produced (the false-GREEN that would defeat Finding 1).
+if [[ ! "$APP_OUT/Contents/MacOS/devtools-app" -nt "$BUILD_MARKER" ]]; then
+  echo "ERROR: the bundle at $APP_OUT is STALE (older than this run) — the real appstore" >&2
+  echo "       build did not produce a fresh binary. Check the build log above for a CLI" >&2
+  echo "       flag-parse error or a capability-codegen failure (Finding 1)." >&2
   exit 1
 fi
 
