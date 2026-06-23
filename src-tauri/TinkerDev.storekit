@@ -1,0 +1,45 @@
+{
+  "appPolicies" : {
+    "eula" : "",
+    "policies" : [
+      {
+        "locale" : "en_US",
+        "policyText" : "",
+        "policyURL" : ""
+      }
+    ]
+  },
+  "identifier" : "A1B2C3D4-0000-0000-0000-0000000000A1",
+  "nonRenewingSubscriptions" : [],
+  "products" : [
+    {
+      "displayPrice" : "9.00",
+      "familyShareable" : false,
+      "internalID" : "A1B2C3D4-0000-0000-0000-0000000000B2",
+      "localizations" : [
+        {
+          "description" : "Unlock all Pro features — a one-time, lifetime purchase.",
+          "displayName" : "TinkerDev Pro",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.tinkerdev.app.pro",
+      "referenceName" : "TinkerDev Pro",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_applicationInternalID" : "TinkerDev",
+    "_developerTeamID" : "FK4HQK83WX",
+    "_failTransactionsEnabled" : false,
+    "_lastSynchronizedDate" : 0,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : []
+  },
+  "subscriptionGroups" : [],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}
