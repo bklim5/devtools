@@ -176,7 +176,7 @@ A five-pane in-window Settings modal (License · Appearance · Hotkeys · Genera
 **Plans**: 4 plans
 - [x] 27-01-PLAN.md — umbrella `direct` Cargo feature: updater + autostart compiled OUT of the appstore build (Wave 1, auto) ✓ 2026-06-23
 - [x] 27-02-PLAN.md — `tauri.appstore.conf.json` overlay (13.0 only here) + `IS_APPSTORE` channel constant + two canonical package.json variant scripts (Wave 2, auto) ✓ 2026-06-23
-- [ ] 27-03-PLAN.md — committed `scripts/verify-appstore-bundle.sh` (entitlements present + plugins absent; GREEN at boundary) (Wave 2, auto)
+- [x] 27-03-PLAN.md — committed `scripts/verify-appstore-bundle.sh` (entitlements present + plugins absent + 13.0-artifact via PlistBuddy; FATAL-when-present, GREEN at boundary) (Wave 2, auto) ✓ 2026-06-23
 - [ ] 27-04-PLAN.md — promote spike → canonical `build-appstore-bundle.sh` + human launch/render gate on the signed sandboxed `.app` (Wave 3, human-verify)
 **Research**: Skip — HIGH confidence (existing `webdriver`-feature + `--config` in-repo idiom).
 **Gate**: Verify the sandboxed `.app` renders (network.client white-screen check) on the signed build.
