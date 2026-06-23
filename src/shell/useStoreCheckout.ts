@@ -22,7 +22,7 @@
 // as plain text. Every reject lands on the calm "App Store isn't available" line,
 // never a red/amber banner or an uncaught throw (T-28-17).
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { platform } from "@/lib/platform";
 import { refreshEntitlements } from "@/lib/entitlements/store";
@@ -34,6 +34,33 @@ const PRODUCT_ID = "com.tinkerdev.app.pro";
  *  (never a red banner / uncaught throw). */
 const UNAVAILABLE =
   "The App Store isn't available right now — try again shortly.";
+
+/** Fetch the localized StoreKit price for the Pro product (e.g. "$9.99").
+ *
+ *  Returns null until products() resolves — and stays null on the no-op/direct
+ *  arm (products() → []) or any reject, so a host shows its price-unavailable
+ *  fallback. The real value is the OS-localized displayPrice (never a hardcoded
+ *  number — keeps the D-03 grep clean; the price only exists at runtime). */
+export function useProDisplayPrice(): string | null {
+  const [displayPrice, setDisplayPrice] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void platform.iap
+      .products()
+      .then((products) => {
+        if (!alive) return;
+        const pro = products.find((p) => p.id === PRODUCT_ID);
+        if (pro) setDisplayPrice(pro.displayPrice);
+      })
+      .catch(() => {
+        // No StoreKit / reject → leave null; the host renders its fallback copy.
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return displayPrice;
+}
 
 export interface StoreCheckout {
   /** Calm aria-live readout — `null` renders empty. */

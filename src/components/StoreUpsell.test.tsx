@@ -178,3 +178,34 @@ describe("StoreUpsell — grep-clean (no Keygen concepts)", () => {
     expect(queryByText("Activate")).toBeNull();
   });
 });
+
+describe("StoreUpsell — price + feature icons", () => {
+  it("Test 9 — shows the live StoreKit displayPrice in the price block once products() resolves", async () => {
+    const products = vi.fn(() =>
+      Promise.resolve([
+        { id: PRODUCT_ID, displayPrice: "$9.99", displayName: "Pro" },
+      ]),
+    );
+    installPlatform({ products });
+    const { findByText } = await renderModal();
+
+    expect(await findByText("Lifetime Pro · $9.99")).toBeTruthy();
+  });
+
+  it("Test 10 — falls back to the App-Store-price copy when products() is empty", async () => {
+    // default installPlatform → products() resolves []
+    const { findByText } = await renderModal();
+
+    expect(
+      await findByText("One-time purchase · price shown on the App Store"),
+    ).toBeTruthy();
+  });
+
+  it("Test 11 — each feature row renders a real lucide icon, not a bare dot", async () => {
+    const { container } = await renderModal();
+
+    // 4 feature <li> rows, each carrying a lucide <svg> (Command/Palette/…).
+    const featureIcons = container.querySelectorAll("li svg");
+    expect(featureIcons.length).toBe(4);
+  });
+});

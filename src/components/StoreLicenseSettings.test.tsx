@@ -77,9 +77,9 @@ async function installPlatformWithPrefs(
 }
 
 describe("StoreLicenseSettings — two layouts", () => {
-  it("Test 1 — Pro-active layout: green banner + managed copy + Restore, NO Buy", async () => {
+  it("Test 1 — Pro-active layout: green banner + managed copy, NO Buy, NO Restore", async () => {
     entitlementSet = FULL_SET;
-    const { getAllByText, getByText, queryByText, getByRole, container } =
+    const { getAllByText, getByText, queryByText, container } =
       await renderPane();
 
     // "Pro" appears twice: the banner heading <h4> + the green pill <span>.
@@ -87,23 +87,25 @@ describe("StoreLicenseSettings — two layouts", () => {
     expect(
       getByText("Pro is active — managed through the App Store."),
     ).toBeTruthy();
-    expect(getByRole("button", { name: "Restore Purchases" })).toBeTruthy();
+    // An already-Pro user has nothing to buy or restore (Restore lives on the
+    // Free pitch for not-yet-Pro users — Apple's requirement is still met).
     expect(queryByText("Buy Pro — Lifetime")).toBeNull();
+    expect(queryByText("Restore Purchases")).toBeNull();
     // Green ok token banner (never amber/red).
     expect(container.querySelector(".border-ok-line")).toBeTruthy();
     expect(container.querySelector(".bg-ok-soft")).toBeTruthy();
   });
 
-  it("Test 2 — Free layout: 'Free' + Buy + Restore", async () => {
+  it("Test 2 — Free layout: the shared store pitch (thank-you + Buy + Restore)", async () => {
     entitlementSet = FREE_SET;
     const { getByText, getByRole } = await renderPane();
 
-    expect(getByText("Free")).toBeTruthy();
+    expect(getByText("Thank you for using TinkerDev ❤️")).toBeTruthy();
     expect(getByRole("button", { name: "Buy Pro — Lifetime" })).toBeTruthy();
     expect(getByRole("button", { name: "Restore Purchases" })).toBeTruthy();
   });
 
-  it("Test 3 — Restore is present in BOTH layouts", async () => {
+  it("Test 3 — Restore is on the Free pitch, absent on the Pro pane", async () => {
     entitlementSet = FREE_SET;
     const free = await renderPane();
     expect(
@@ -113,9 +115,7 @@ describe("StoreLicenseSettings — two layouts", () => {
 
     entitlementSet = FULL_SET;
     const pro = await renderPane();
-    expect(
-      pro.getByRole("button", { name: "Restore Purchases" }),
-    ).toBeTruthy();
+    expect(pro.queryByText("Restore Purchases")).toBeNull();
   });
 });
 

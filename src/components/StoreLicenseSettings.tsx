@@ -5,36 +5,25 @@
 // Keygen/license-key subtree OUT of the store bundle and pass the D-03 grep gate.
 //
 // Two mutually-exclusive layouts gated on isPro(useEntitlements()):
-//   • Pro-active — the green Pro banner (reused verbatim from LicenseSettings) +
-//     an always-visible Restore button. NO details table, NO masked-key field, NO
-//     Licensee email, NO device-deactivate (those are Keygen concepts — D-11).
-//   • Free — a calm status card + the lifetime Buy primary CTA (NO in-app price —
-//     the App Store sheet carries it, D-12) + an always-visible Restore.
-//
-// Restore is reachable in BOTH layouts (Apple-mandatory always-available restore).
-//
-// Buy/Restore run through the shared useStoreCheckout hook — the platform.iap seam
-// ONLY (never the native Tauri API directly, never a locally-fabricated grant),
-// refreshing the gate directly on success while granting nothing client-side so it
-// stays baseFromStoreKit-only (fall-closed invariant intact). The boot listener is
-// KEPT for refunds / Ask-to-Buy approvals / revokes (D-09). See useStoreCheckout
-// for the full belt-and-suspenders rationale.
-//
-// Calm tone (D-15): ONE aria-live="polite" readout region carries in-flight +
-// result strings as plain text — no spinners, no toasts. A no-op/error arm renders
-// the calm "App Store isn't available" line, never a red/amber banner or an
-// uncaught throw. There are ZERO amber `warn` / red `bad` states (D-11) — StoreKit
-// has no attention/refresh-needed/problem states.
+//   • Pro-active — the green Pro banner (reused verbatim from LicenseSettings).
+//     NO Restore (an already-Pro user has nothing to restore; Apple's restore
+//     requirement is satisfied on the Free pitch for a not-yet-Pro user). NO
+//     details table, NO masked-key field, NO email, NO deactivate (Keygen — D-11).
+//   • Free — the FULL shared store pitch (StoreUpsellBody: thank-you + the Pro
+//     unlocks + live StoreKit price + Buy + Restore) rendered IN PLACE of a status
+//     card, mirroring LicenseSettings' free-state inline upsell (D-22.1-6). The Buy
+//     CTA is in-app StoreKit (never a Lemon Squeezy link); the entitlement flip
+//     re-renders this pane to Pro-active on success.
 //
 // Class constants are COPIED VERBATIM from LicenseSettings (CARD/HEADING/BODY/
-// SECONDARY) + UpsellPanel (PRIMARY) as LOCAL constants — NOT imported from those
-// modules, which would re-pull the Keygen import subtree and break the tree-shake.
+// SECONDARY) as LOCAL constants — NOT imported, which would re-pull the Keygen
+// import subtree and break the tree-shake.
 
 import { Lock } from "lucide-react";
-import { useStoreCheckout } from "@/shell/useStoreCheckout";
 import { usePreferences } from "@/shell/usePreferences";
 import { useEntitlements } from "@/shell/useEntitlements";
 import { isPro } from "@/lib/entitlements/entitlements";
+import { StoreUpsellBody } from "./StoreUpsellBody";
 
 // Copied verbatim from LicenseSettings (do not drift — 21-UI-SPEC reuse mandate).
 const CARD_CLASS =
@@ -43,18 +32,10 @@ const HEADING_CLASS = "text-[16px] font-semibold leading-[1.2] text-tx";
 const BODY_CLASS = "flex flex-col gap-2 text-[12px] leading-[1.5] text-tx-2";
 const SECONDARY_BTN_CLASS =
   "cursor-pointer rounded-[7px] border border-bd bg-input-bg px-3 py-1 text-[12px] text-tx-2 outline-none transition-colors hover:border-bd-2 hover:text-tx focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-default";
-// Copied verbatim from UpsellPanel (the accent CTA) — NOT imported (tree-shake).
-const PRIMARY_BTN_CLASS =
-  "cursor-pointer rounded-[7px] border border-accent-line bg-accent-soft px-3 py-1 text-[12px] text-accent outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-default disabled:border-bd disabled:bg-input-bg disabled:text-tx-2";
 
 export function StoreLicenseSettings() {
   const pro = isPro(useEntitlements());
   const { preferences, prefsLoaded, ackLicenseDropNotice } = usePreferences();
-
-  // Buy/Restore handlers + the calm aria-live readout + the `busy` debounce, all
-  // owned by the shared checkout hook. No onUnlocked: the live entitlement flip
-  // re-renders this pane to Pro-active (a dismiss would be a dead control).
-  const { readout, busy, onBuy, onRestore } = useStoreCheckout();
 
   // D-07 one-time drop notice (MAS-IAP-05): after a live Pro→free drop (a refund
   // or revoke detected by refreshEntitlements) the gate flips this pane to the Free
@@ -87,28 +68,6 @@ export function StoreLicenseSettings() {
     </div>
   ) : null;
 
-  // ONE calm readout region (shared by both layouts) — plain text, no spinner.
-  const readoutRegion = (
-    <p
-      role="status"
-      aria-live="polite"
-      className="min-h-[18px] break-words text-[12px] leading-[1.5] text-tx-2"
-    >
-      {readout ?? ""}
-    </p>
-  );
-
-  const restoreButton = (
-    <button
-      type="button"
-      onClick={onRestore}
-      disabled={busy}
-      className={SECONDARY_BTN_CLASS}
-    >
-      Restore Purchases
-    </button>
-  );
-
   return (
     <div className="flex flex-col gap-6 overflow-auto p-8">
       <div className="flex flex-col gap-1">
@@ -123,8 +82,8 @@ export function StoreLicenseSettings() {
       {dropNotice}
 
       {pro ? (
-        // Pro-active — the green banner (reused verbatim) + always-visible Restore.
-        // NO details table, NO masked-key field, NO device-deactivate (D-11).
+        // Pro-active — the green banner (reused verbatim). NO Restore button (an
+        // already-Pro user has nothing to restore); NO details/key/deactivate (D-11).
         <div className="flex max-w-[420px] flex-col gap-4">
           <div className="flex w-full items-start gap-3 rounded-[7px] border border-ok-line bg-ok-soft p-5">
             {/* Green dot — the calm success glyph (text-ok on bg-ok-soft is AA). */}
@@ -145,38 +104,13 @@ export function StoreLicenseSettings() {
               </p>
             </div>
           </div>
-
-          <p className="text-[12px] leading-[1.5] text-tx-3">
-            Already bought Pro on another device? Restore to unlock it here.
-          </p>
-          <div className="flex flex-wrap gap-2">{restoreButton}</div>
-          {readoutRegion}
         </div>
       ) : (
-        // Free — a calm status card + Buy (NO in-app price, D-12) + Restore.
-        <div className={CARD_CLASS}>
-          <h4 className={HEADING_CLASS}>Free</h4>
-          <div className={BODY_CLASS}>
-            <p>
-              Most of TinkerDev is free. Unlock custom themes, tool reordering,
-              and the Command Palette with a one-time Pro purchase.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={onBuy}
-              disabled={busy}
-              className={PRIMARY_BTN_CLASS}
-            >
-              Buy Pro — Lifetime
-            </button>
-            {restoreButton}
-          </div>
-          <p className="text-[12px] leading-[1.5] text-tx-3">
-            One-time purchase. The App Store shows the price when you tap Buy.
-          </p>
-          {readoutRegion}
+        // Free — the FULL shared store pitch IN PLACE of a status card (D-22.1-6).
+        // Its own heading is the surface; Buy + Restore + the live price live inside
+        // it. Constrained so it reads as a card, not a full-bleed pane.
+        <div className="max-w-[480px]">
+          <StoreUpsellBody icon={Lock} />
         </div>
       )}
     </div>

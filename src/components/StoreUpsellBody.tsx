@@ -26,8 +26,9 @@
 // build has NO Keygen recovery states.
 
 import { type ComponentType } from "react";
+import { Command, Heart, ListOrdered, Palette } from "lucide-react";
 
-import { useStoreCheckout } from "@/shell/useStoreCheckout";
+import { useProDisplayPrice, useStoreCheckout } from "@/shell/useStoreCheckout";
 
 // Pitch chrome — COPIED VERBATIM from UpsellPanel (do not drift). The accent glow
 // card + borderless medallion + larger hero title. The glow is a CSS background
@@ -48,20 +49,28 @@ const PRIMARY_BTN_CLASS =
 const SECONDARY_BTN_CLASS =
   "cursor-pointer rounded-[7px] border border-bd bg-input-bg px-3 py-1 text-[12px] text-tx-2 outline-none transition-colors hover:border-bd-2 hover:text-tx focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-default";
 
-/** Pitch feature list — store copy (28-UI-SPEC §Surface 2). The Command-Palette
- *  sub uses the "Command Palette" wording, never the command-key glyph (which is
- *  Keygen-pitch copy compiled out of the store build). */
-const PITCH_FEATURES: ReadonlyArray<{ label: string; sub: string }> = [
+/** Pitch feature list — each a fitting lucide icon + bold label + one-line muted
+ *  sub (mirrors UpsellPanel verbatim). The Command-Palette sub uses the "Command
+ *  Palette" wording, never the command-key glyph (Keygen-pitch copy compiled out
+ *  of the store build). */
+const PITCH_FEATURES: ReadonlyArray<{
+  icon: ComponentType<{ className?: string }>;
+  label: string;
+  sub: string;
+}> = [
   {
+    icon: Command,
     label: "Command palette",
     sub: "Jump to any tool from the Command Palette — no mouse.",
   },
-  { label: "Custom themes", sub: "Recolor the whole app to taste." },
+  { icon: Palette, label: "Custom themes", sub: "Recolor the whole app to taste." },
   {
+    icon: ListOrdered,
     label: "Reorder & pin tools",
     sub: "Arrange the sidebar around your workflow.",
   },
   {
+    icon: Heart,
     label: "Fund what's next",
     sub: "Directly support maintenance and new tools.",
   },
@@ -90,6 +99,10 @@ export function StoreUpsellBody({
   // checkout hook. onPurchased fires after a successful Buy / re-granting Restore
   // so a modal host can dismiss (the inline ToolRoute host passes none).
   const { readout, busy, onBuy, onRestore } = useStoreCheckout(onPurchased);
+  // The live, OS-localized StoreKit price (e.g. "$9.99") — null until products()
+  // resolves and on the no-op/direct arm, where we fall back to the "price shown
+  // on the App Store" copy. Never a hardcoded number (keeps the D-03 grep clean).
+  const displayPrice = useProDisplayPrice();
 
   return (
     <div className={PITCH_CARD_CLASS} style={PITCH_GLOW_STYLE}>
@@ -112,12 +125,12 @@ export function StoreUpsellBody({
       {/* Feature list — 4 rows, each a borderless accent-soft icon square + a
           bold label + a one-line greyer sub. */}
       <ul className="flex flex-col gap-3">
-        {PITCH_FEATURES.map(({ label, sub }) => (
+        {PITCH_FEATURES.map(({ icon: FeatureIcon, label, sub }) => (
           <li key={label} className="flex items-start gap-3">
             <span className="flex h-7 w-7 flex-none items-center justify-center rounded-[6px] bg-accent-soft">
-              <span
+              <FeatureIcon
                 aria-hidden="true"
-                className="h-1.5 w-1.5 rounded-full bg-accent"
+                className="h-3.5 w-3.5 text-accent"
               />
             </span>
             <div className="flex flex-col gap-0.5">
@@ -133,12 +146,17 @@ export function StoreUpsellBody({
       {/* Neutral divider. */}
       <hr className="border-t border-bd" />
 
-      {/* Price block — REPLACES the Keygen in-app price block. NO in-app price
-          number: the App Store sheet carries it (D-12). */}
+      {/* Price block — shows the live StoreKit displayPrice once loaded (the real
+          OS-localized price, never a hardcoded number). Falls back to the
+          "price shown on the App Store" copy until it resolves / off StoreKit. */}
       <div className="flex flex-col gap-0.5">
-        <span className="text-[16px] font-semibold text-tx">Lifetime Pro</span>
+        <span className="text-[16px] font-semibold text-tx">
+          {displayPrice ? `Lifetime Pro · ${displayPrice}` : "Lifetime Pro"}
+        </span>
         <span className="text-[12px] text-tx-3">
-          One-time purchase · price shown on the App Store
+          {displayPrice
+            ? "One-time purchase"
+            : "One-time purchase · price shown on the App Store"}
         </span>
       </div>
 
