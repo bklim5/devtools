@@ -51,13 +51,18 @@ afterEach(() => {
 });
 
 describe("ToolRoute locked branch (ENT-01/D-30, T-18-06)", () => {
-  it("renders the UpsellPanel under FREE_SET and never invokes the loader", () => {
+  it("renders the UpsellPanel under FREE_SET and never invokes the loader", async () => {
     setEntitlementsForTest(FREE_SET);
     const loader = makeLoader();
     render(<ToolRoute tool={makeTool("locked-free", loader, ["test.locked"])} />);
 
+    // The upsell surface is now a build-selected lazy() import (D-04 tree-shake —
+    // the dead Keygen/store arm must be a dynamic import to drop from the other
+    // bundle), so await its Suspense resolution with findBy* instead of sync getBy*.
     expect(
-      screen.getByRole("heading", { name: /Thank you for using TinkerDev/ }),
+      await screen.findByRole("heading", {
+        name: /Thank you for using TinkerDev/,
+      }),
     ).toBeDefined();
     // D-19 override (walkthrough 2026-06-10): no "Unlocks:" meta line — lock
     // context comes from the route the user opened.
@@ -65,13 +70,15 @@ describe("ToolRoute locked branch (ENT-01/D-30, T-18-06)", () => {
     expect(loader).toHaveBeenCalledTimes(0);
   });
 
-  it("stays locked under FULL_SET when the requirement is an unknown entitlement", () => {
+  it("stays locked under FULL_SET when the requirement is an unknown entitlement", async () => {
     setEntitlementsForTest(FULL_SET);
     const loader = makeLoader();
     render(<ToolRoute tool={makeTool("locked-full", loader, ["test.locked"])} />);
 
     expect(
-      screen.getByRole("heading", { name: /Thank you for using TinkerDev/ }),
+      await screen.findByRole("heading", {
+        name: /Thank you for using TinkerDev/,
+      }),
     ).toBeDefined();
     expect(loader).not.toHaveBeenCalled();
   });
@@ -94,8 +101,11 @@ describe("ToolRoute reactive gate (element-level, not route-level lazy)", () => 
     const loader = makeLoader();
     render(<ToolRoute tool={makeTool("flips", loader, ["test.locked"])} />);
 
+    // Await the lazy upsell surface's Suspense resolution (build-selected import).
     expect(
-      screen.getByRole("heading", { name: /Thank you for using TinkerDev/ }),
+      await screen.findByRole("heading", {
+        name: /Thank you for using TinkerDev/,
+      }),
     ).toBeDefined();
     expect(loader).toHaveBeenCalledTimes(0);
 
