@@ -81,7 +81,7 @@ Phase structure (dependency-forced, continues from Phase 25): **26** StoreKit br
 | MAS-IAP-03 | Phase 28 | Complete (2026-06-23, plan 03) |
 | MAS-IAP-05 | Phase 28 | Complete |
 | MAS-IAP-06 | Phase 28 | Complete (2026-06-23, plan 03) |
-| MAS-IAP-07 | Phase 28 | Partial (plan 03: store License pane omits Keygen concepts; plan 04 wires the upsell/triggers) |
+| MAS-IAP-07 | Phase 28 | Partial (plan 03: store License pane omits Keygen concepts; plan 04: StoreUpsell Buy/Restore modal + storeOpenProUpsell unconditional router built; plan 05 wires the mount/triggers behind the static switch + human gate) |
 | MAS-BUILD-01 | Phase 27 | Complete (2026-06-23) |
 | MAS-BUILD-02 | Phase 27 | Complete (2026-06-23, human-verified) |
 | MAS-BUILD-03 | Phase 27 | Complete (2026-06-23) |

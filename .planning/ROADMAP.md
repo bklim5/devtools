@@ -197,7 +197,7 @@ A five-pane in-window Settings modal (License · Appearance · Hotkeys · Genera
 - [x] 28-01-PLAN.md — `baseFromStoreKit` arm in `resolveEntitlements` (IS_APPSTORE-gated; intersection + fall-closed) — MAS-IAP-02 (Wave 1, auto)
 - [x] 28-02-PLAN.md — real plugin transaction-update bridge (iap:allow-register-listener capability + Channel) + store boot listener + Pro→free drop-diff/drop-notice — MAS-IAP-02/05 (Wave 1, auto)
 - [x] 28-03-PLAN.md — `StoreLicenseSettings` (Buy/Restore/status, two layouts) + `StoreUpdatesSettings` (version + managed line) — MAS-IAP-03/06/07, MAS-BUILD-07 (Wave 2, auto)
-- [ ] 28-04-PLAN.md — `StoreUpsell` modal (pitch + Buy + Restore) + `storeProUpsell` router — MAS-IAP-07 (Wave 2, auto)
+- [x] 28-04-PLAN.md — `StoreUpsell` modal (pitch + Buy + Restore) + `storeProUpsell` router — MAS-IAP-07 (Wave 2, auto)
 - [ ] 28-05-PLAN.md — static IS_APPSTORE switches + IapSpikeBlock removal + verify-script forbidden-string grep + human sandbox gate — MAS-BUILD-04, MAS-IAP-02/05 (Wave 3, human-verify)
 **Research**: Skip — HIGH confidence (one-branch change to the already-tested resolver; seam + gate + drop-notice reused).
 **Gate**: Human — purchase → Pro unlocks live; refund → Pro drops live (sandbox tester).
@@ -270,7 +270,7 @@ v1.8 runs 26 → 27 → 28 → 30 with Phase 29 parallel-capable beside 28 once 
 | 25. Updates Pane & Milestone Ship | v1.7 | 5/5 | Complete    | 2026-06-21 |
 | 26. StoreKit Bridge Spike (CRITICAL PATH) | v1.8 | 6/7 | Complete    | 2026-06-23 |
 | 27. The Build-Variant Seam (3 layers) | v1.8 | 4/4 | Complete    | 2026-06-23 |
-| 28. Entitlement-Source Swap + Store License Pane | v1.8 | 3/5 | In Progress|  |
+| 28. Entitlement-Source Swap + Store License Pane | v1.8 | 4/5 | In Progress|  |
 | 29. Sandbox-Safe Native Features | v1.8 | 0/0 | Not started | - |
 | 30. .pkg Build + App Store Connect Submission | v1.8 | 0/0 | Not started | - |
 
