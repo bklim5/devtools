@@ -1,0 +1,251 @@
+// @vitest-environment jsdom
+// StoreLicenseSettings (MAS-IAP-03/06/07, Phase 28-03) — the App-Store-managed
+// License pane. Two mutually-exclusive layouts gated on isPro(useEntitlements()):
+// Pro-active (green banner + always-visible Restore) XOR Free (status + Buy +
+// Restore). Buy/Restore drive the platform.iap seam with a calm aria-live readout;
+// Buy SUCCESS and Restore BOTH call refreshEntitlements() directly (belt-and-
+// suspenders — not sole reliance on the boot listener) while granting NOTHING
+// client-side (the gate stays baseFromStoreKit-only). Zero Keygen concepts, zero
+// amber/red attention states (D-11). Network/StoreKit is fully stubbed — jsdom
+// never touches a real command.
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import {
+  resetPlatformForTest,
+  setPlatformForTest,
+  type IapPurchaseResult,
+  type Platform,
+} from "@/lib/platform";
+import { makeMemoryPlatform } from "@/shell/testStore";
+import { FREE_SET, FULL_SET } from "@/lib/entitlements/entitlements";
+
+// Spy on the gate-refresh seam: the component must call it (belt-and-suspenders)
+// on BOTH Buy success and Restore, and must NEVER write the entitlement set
+// directly (no client-side grant — the gate stays baseFromStoreKit-only).
+const refreshEntitlementsSpy = vi.fn(() => Promise.resolve());
+vi.mock("@/lib/entitlements/store", () => ({
+  refreshEntitlements: () => refreshEntitlementsSpy(),
+}));
+
+// Drive the isPro gate per-test via a mutable hook mock (the SAME channel every
+// consumer reads). FREE_SET → Free layout; FULL_SET → Pro-active layout.
+let entitlementSet = FREE_SET;
+vi.mock("@/shell/useEntitlements", () => ({
+  useEntitlements: () => entitlementSet,
+}));
+
+const PRODUCT_ID = "com.tinkerdev.app.pro";
+
+/** Install a platform whose iap arm uses the given purchase/restore/
+ *  currentEntitlements overrides (everything else the deterministic no-op stub). */
+function installPlatform(iap: Partial<Platform["iap"]> = {}): void {
+  const base = makeMemoryPlatform();
+  setPlatformForTest({ ...base, iap: { ...base.iap, ...iap } });
+}
+
+async function renderPane() {
+  const { StoreLicenseSettings } = await import("./StoreLicenseSettings");
+  return render(<StoreLicenseSettings />);
+}
+
+beforeEach(() => {
+  entitlementSet = FREE_SET;
+  refreshEntitlementsSpy.mockClear();
+  installPlatform();
+});
+
+afterEach(() => {
+  cleanup();
+  resetPlatformForTest();
+});
+
+describe("StoreLicenseSettings — two layouts", () => {
+  it("Test 1 — Pro-active layout: green banner + managed copy + Restore, NO Buy", async () => {
+    entitlementSet = FULL_SET;
+    const { getAllByText, getByText, queryByText, getByRole, container } =
+      await renderPane();
+
+    // "Pro" appears twice: the banner heading <h4> + the green pill <span>.
+    expect(getAllByText("Pro").length).toBeGreaterThanOrEqual(2);
+    expect(
+      getByText("Pro is active — managed through the App Store."),
+    ).toBeTruthy();
+    expect(getByRole("button", { name: "Restore Purchases" })).toBeTruthy();
+    expect(queryByText("Buy Pro — Lifetime")).toBeNull();
+    // Green ok token banner (never amber/red).
+    expect(container.querySelector(".border-ok-line")).toBeTruthy();
+    expect(container.querySelector(".bg-ok-soft")).toBeTruthy();
+  });
+
+  it("Test 2 — Free layout: 'Free' + Buy + Restore", async () => {
+    entitlementSet = FREE_SET;
+    const { getByText, getByRole } = await renderPane();
+
+    expect(getByText("Free")).toBeTruthy();
+    expect(getByRole("button", { name: "Buy Pro — Lifetime" })).toBeTruthy();
+    expect(getByRole("button", { name: "Restore Purchases" })).toBeTruthy();
+  });
+
+  it("Test 3 — Restore is present in BOTH layouts", async () => {
+    entitlementSet = FREE_SET;
+    const free = await renderPane();
+    expect(
+      free.getByRole("button", { name: "Restore Purchases" }),
+    ).toBeTruthy();
+    cleanup();
+
+    entitlementSet = FULL_SET;
+    const pro = await renderPane();
+    expect(
+      pro.getByRole("button", { name: "Restore Purchases" }),
+    ).toBeTruthy();
+  });
+});
+
+describe("StoreLicenseSettings — Buy handler", () => {
+  it("Test 4 — Buy calls purchase(productId); userCancelled → calm 'Purchase cancelled.'", async () => {
+    const purchase = vi.fn(
+      (): Promise<IapPurchaseResult> =>
+        Promise.resolve({ state: "userCancelled" }),
+    );
+    installPlatform({ purchase });
+    const { getByRole, findByText } = await renderPane();
+
+    fireEvent.click(getByRole("button", { name: "Buy Pro — Lifetime" }));
+
+    expect(await findByText("Purchase cancelled.")).toBeTruthy();
+    expect(purchase).toHaveBeenCalledWith(PRODUCT_ID);
+    // No grant on a cancel.
+    expect(refreshEntitlementsSpy).not.toHaveBeenCalled();
+  });
+
+  it("Test 5 — Buy pending → calm pending-approval line", async () => {
+    const purchase = vi.fn(
+      (): Promise<IapPurchaseResult> => Promise.resolve({ state: "pending" }),
+    );
+    installPlatform({ purchase });
+    const { getByRole, findByText } = await renderPane();
+
+    fireEvent.click(getByRole("button", { name: "Buy Pro — Lifetime" }));
+
+    expect(
+      await findByText(
+        "Purchase pending approval. Pro unlocks automatically once it's approved.",
+      ),
+    ).toBeTruthy();
+    // Pending is not a grant — the boot listener handles the later approval.
+    expect(refreshEntitlementsSpy).not.toHaveBeenCalled();
+  });
+
+  it("Test 6 — Buy success refreshes the gate (belt-and-suspenders), grants nothing client-side, NO readout string", async () => {
+    const purchase = vi.fn(
+      (): Promise<IapPurchaseResult> =>
+        Promise.resolve({ state: "success", entitlements: ["pro.theming"] }),
+    );
+    installPlatform({ purchase });
+    const { getByRole, queryByText } = await renderPane();
+
+    fireEvent.click(getByRole("button", { name: "Buy Pro — Lifetime" }));
+
+    // The foreground success path calls refreshEntitlements DIRECTLY — it does NOT
+    // rely solely on the Plan-02 boot listener.
+    await waitFor(() =>
+      expect(refreshEntitlementsSpy).toHaveBeenCalledTimes(1),
+    );
+    // No client-side grant: success renders NO readout string (the live flip
+    // re-renders to Pro-active); the component never fabricated a grant.
+    expect(queryByText("Opening the App Store…")).toBeNull();
+    expect(queryByText("Purchase cancelled.")).toBeNull();
+  });
+
+  it("Test 8 — Buy reject → calm unavailable line, never a thrown error / red banner; no refresh on reject", async () => {
+    const purchase = vi.fn(
+      (): Promise<IapPurchaseResult> =>
+        Promise.reject({ code: "serviceUnreachable" }),
+    );
+    installPlatform({ purchase });
+    const { getByRole, findByText, container } = await renderPane();
+
+    fireEvent.click(getByRole("button", { name: "Buy Pro — Lifetime" }));
+
+    expect(
+      await findByText(
+        "The App Store isn't available right now — try again shortly.",
+      ),
+    ).toBeTruthy();
+    // A reject is NOT a success — refreshEntitlements is not required.
+    expect(refreshEntitlementsSpy).not.toHaveBeenCalled();
+    // Never an amber/red attention state.
+    expect(container.querySelector(".text-bad")).toBeNull();
+    expect(container.querySelector(".text-warn")).toBeNull();
+  });
+});
+
+describe("StoreLicenseSettings — Restore handler", () => {
+  it("Test 7 — Restore calls restore() THEN refreshEntitlements(); empty → 'No purchases found'", async () => {
+    const restore = vi.fn((): Promise<void> => Promise.resolve());
+    const currentEntitlements = vi.fn(
+      (): Promise<string[]> => Promise.resolve([]),
+    );
+    installPlatform({ restore, currentEntitlements });
+    const { getByRole, findByText } = await renderPane();
+
+    fireEvent.click(getByRole("button", { name: "Restore Purchases" }));
+
+    expect(
+      await findByText("No purchases found for this Apple ID."),
+    ).toBeTruthy();
+    expect(restore).toHaveBeenCalledTimes(1);
+    expect(refreshEntitlementsSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("Restore that finds Pro → refreshes the gate, NO 'nothing found' string", async () => {
+    const restore = vi.fn((): Promise<void> => Promise.resolve());
+    const currentEntitlements = vi.fn(
+      (): Promise<string[]> => Promise.resolve(["pro.theming"]),
+    );
+    installPlatform({ restore, currentEntitlements });
+    const { getByRole, queryByText } = await renderPane();
+
+    fireEvent.click(getByRole("button", { name: "Restore Purchases" }));
+
+    await waitFor(() =>
+      expect(refreshEntitlementsSpy).toHaveBeenCalledTimes(1),
+    );
+    expect(queryByText("No purchases found for this Apple ID.")).toBeNull();
+  });
+
+  it("Restore reject → calm unavailable line", async () => {
+    const restore = vi.fn(
+      (): Promise<void> => Promise.reject({ code: "serviceUnreachable" }),
+    );
+    installPlatform({ restore });
+    const { getByRole, findByText } = await renderPane();
+
+    fireEvent.click(getByRole("button", { name: "Restore Purchases" }));
+
+    expect(
+      await findByText(
+        "The App Store isn't available right now — try again shortly.",
+      ),
+    ).toBeTruthy();
+  });
+});
+
+describe("StoreLicenseSettings — grep-clean copy (no Keygen concepts)", () => {
+  it("Test 9 — renders NO key field, no license.tinkerdev.io, no Deactivate/$9/⌘K/seat/fingerprint", async () => {
+    entitlementSet = FREE_SET;
+    const { container, queryByText } = await renderPane();
+    const html = container.innerHTML;
+
+    // No key input field of any kind.
+    expect(container.querySelector("input")).toBeNull();
+    expect(html).not.toContain("license.tinkerdev.io");
+    expect(html).not.toContain("$9");
+    expect(html).not.toContain("⌘K");
+    expect(queryByText("Deactivate")).toBeNull();
+    expect(html.toLowerCase()).not.toContain("seat");
+    expect(html.toLowerCase()).not.toContain("fingerprint");
+    expect(html.toLowerCase()).not.toContain("check your purchase email");
+  });
+});
