@@ -42,7 +42,7 @@ import { NavLink } from "react-router-dom";
 import { ENT_ORDERING, ENT_THEMING, isToolLocked } from "@/lib/entitlements/entitlements";
 import { ENABLED_TOOLS, getToolById } from "@/lib/tools/registry";
 import { useEntitlements } from "@/shell/useEntitlements";
-import { useLicenseUi } from "@/shell/useLicenseUi";
+import { useLicenseAttention } from "@/shell/useLicenseAttention";
 import { usePreferences } from "@/shell/usePreferences";
 import { moveToolInOrder, partitionTools, resolveRovingTarget } from "@/shell/toolOrder";
 import { openSettings } from "@/shell/settingsStore";
@@ -69,9 +69,10 @@ export function Sidebar() {
   // grace (refreshNeeded) surfaces as the quiet footer attention hint (no launch
   // interruption). OfflineGrace stays SILENT here (D-77 — no footer nag). Details
   // live in the status route (D-88) / the panel's D-44 problem state.
-  const licenseState = useLicenseUi().state;
-  const licenseAttention =
-    licenseState === "problem" || licenseState === "refreshNeeded";
+  // D-04: the Keygen "needs attention" hint is gated through useLicenseAttention so
+  // the store build never statically imports the license-UI subtree (the store arm
+  // is a no-op hook returning false). Direct build reads the Keygen recovery states.
+  const licenseAttention = useLicenseAttention();
   const { pinned, unpinned } = partitionTools(
     orderingUnlocked ? preferences.pinnedToolIds : [],
     orderingUnlocked ? preferences.toolOrder : [],

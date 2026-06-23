@@ -14,7 +14,7 @@
 // The `Settings` gear is the entry-point/title glyph per the UI-SPEC; each pane
 // picks its own per-pane glyph in its entry below.
 
-import type { ComponentType, ReactNode } from "react";
+import { lazy, Suspense, type ComponentType, type ReactNode } from "react";
 import {
   Contrast,
   Keyboard,
@@ -23,13 +23,37 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import { IS_APPSTORE } from "@/lib/platform/channel";
-import { LicenseSettings } from "./LicenseSettings";
-import { StoreLicenseSettings } from "./StoreLicenseSettings";
 import { AppearanceSettings } from "./AppearanceSettings";
 import { HotkeysSettings } from "./HotkeysSettings";
 import { GeneralSettings } from "./GeneralSettings";
-import { UpdatesSettings } from "./UpdatesSettings";
-import { StoreUpdatesSettings } from "./StoreUpdatesSettings";
+
+// D-01/D-04: the static IS_APPSTORE switch picks the License + Updates pane at the
+// single registry control point. Each arm is a `lazy(() => import(...))` DYNAMIC
+// import so the dead arm's module subtree is statically unreachable in the other
+// build and Rollup tree-shakes it out — a plain `IS_APPSTORE ? <A/> : <B/>` over
+// STATIC imports does NOT drop the dead arm (the panes live inside an exported,
+// runtime-iterated SETTINGS_PANES array Rollup cannot DCE, so both static imports
+// survive — the exact licenseUi fold-in the appstore generateBundle guard caught).
+// The store arms (StoreLicenseSettings/StoreUpdatesSettings) carry NO Keygen/updater
+// subtree; the direct arms keep the Keygen LicenseSettings + the updater machinery.
+const LicensePane = IS_APPSTORE
+  ? lazy(() =>
+      import("./StoreLicenseSettings").then((m) => ({
+        default: m.StoreLicenseSettings,
+      })),
+    )
+  : lazy(() =>
+      import("./LicenseSettings").then((m) => ({ default: m.LicenseSettings })),
+    );
+const UpdatesPane = IS_APPSTORE
+  ? lazy(() =>
+      import("./StoreUpdatesSettings").then((m) => ({
+        default: m.StoreUpdatesSettings,
+      })),
+    )
+  : lazy(() =>
+      import("./UpdatesSettings").then((m) => ({ default: m.UpdatesSettings })),
+    );
 
 export interface SettingsPane {
   id: string;
@@ -63,15 +87,20 @@ export const SETTINGS_PANES: SettingsPane[] = [
     id: "updates",
     label: "Updates",
     icon: RefreshCw,
-    // D-01: the static IS_APPSTORE switch lives HERE (the registry control point),
-    // never as `if (IS_APPSTORE)` inside the Keygen/updater components. Vite inlines
-    // IS_APPSTORE so the dead arm + its import subtree tree-shake out of each bundle.
-    render: () => (IS_APPSTORE ? <StoreUpdatesSettings /> : <UpdatesSettings />),
+    render: () => (
+      <Suspense fallback={null}>
+        <UpdatesPane />
+      </Suspense>
+    ),
   },
   {
     id: "license",
     label: "License",
     icon: Settings,
-    render: () => (IS_APPSTORE ? <StoreLicenseSettings /> : <LicenseSettings />),
+    render: () => (
+      <Suspense fallback={null}>
+        <LicensePane />
+      </Suspense>
+    ),
   },
 ];

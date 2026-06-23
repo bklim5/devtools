@@ -1,12 +1,10 @@
-import { useEffect, useRef } from "react";
+import { lazy, Suspense, useEffect, useRef } from "react";
 import { Lock } from "lucide-react";
 import { Outlet } from "react-router-dom";
 import { Sidebar } from "./components/Sidebar";
 import { CommandPalette } from "./components/CommandPalette";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { SettingsModal } from "./components/SettingsModal";
-import { UpsellModal } from "./components/UpsellPanel";
-import { StoreUpsell } from "./components/StoreUpsell";
 import { useTrackActiveTool } from "./shell/useTrackActiveTool";
 import { useAppearance } from "./shell/useAppearance";
 import { usePreferences } from "./shell/usePreferences";
@@ -22,6 +20,21 @@ import { closeUpsell } from "./shell/upsellStore";
 import { needsOptInPrompt, shouldAutoCheck } from "./shell/update";
 import { initPlatform, platform, type UpdateInfo } from "@/lib/platform";
 import { IS_APPSTORE } from "@/lib/platform/channel";
+
+// D-01/D-02/D-04: the static IS_APPSTORE switch picks the upsell surface at the
+// single mount point. Each arm is a `lazy(() => import(...))` DYNAMIC import so the
+// dead arm's subtree is statically unreachable in the other build and Rollup
+// tree-shakes it out — a plain `IS_APPSTORE ? <A/> : <B/>` over STATIC imports
+// keeps BOTH (the JSX is retained at runtime, so neither static import can be
+// DCE'd), which would fold the Keygen UpsellPanel/licenseUi subtree into the store
+// bundle. The store arm (StoreUpsell) carries NO Keygen activation form / key field.
+const UpsellSurface = IS_APPSTORE
+  ? lazy(() =>
+      import("./components/StoreUpsell").then((m) => ({ default: m.StoreUpsell })),
+    )
+  : lazy(() =>
+      import("./components/UpsellPanel").then((m) => ({ default: m.UpsellModal })),
+    );
 
 // The registry-driven application shell (SHL-01/02). All layout chrome lives
 // HERE — tools stay layout-agnostic and render inside <main>'s <Outlet/> with no
@@ -217,16 +230,13 @@ export function App() {
       {/* Phase 22.2: the focused "Unlock Pro" modal — mounted BELOW SettingsModal
           but they never co-open (the contextual triggers + free ⌘K fire from the
           main UI, with Settings closed). Reuses the shared ActivationSurface. */}
-      {/* D-01/D-02: the static IS_APPSTORE switch selects the upsell surface at the
-          single mount point — the store build shows the StoreKit Buy + Restore
-          modal, the direct build the Keygen activation form. Vite inlines
-          IS_APPSTORE so the dead arm + its subtree tree-shake out of each bundle. */}
+      {/* D-01/D-02/D-04: the static IS_APPSTORE switch selects the upsell surface
+          (StoreUpsell store / UpsellModal direct) via a build-time-resolved lazy
+          import, so the dead arm's subtree tree-shakes out of each bundle. */}
       {upsellOpen ? (
-        IS_APPSTORE ? (
-          <StoreUpsell icon={Lock} onClose={closeUpsell} />
-        ) : (
-          <UpsellModal icon={Lock} onClose={closeUpsell} />
-        )
+        <Suspense fallback={null}>
+          <UpsellSurface icon={Lock} onClose={closeUpsell} />
+        </Suspense>
       ) : null}
 
       {/* Updater UX overlay (DST-02). Bottom-right, layout-agnostic, above content. */}

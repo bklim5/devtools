@@ -164,12 +164,15 @@ describe("SettingsModal (paned layout — License pane)", () => {
     expect(live?.textContent).toContain("License settings");
   });
 
-  it("renders the License pane content (LicenseSettings) — the sr-only 'License' landmark is present", () => {
+  it("renders the License pane content (LicenseSettings) — the sr-only 'License' landmark is present", async () => {
     seedFreeState();
     openSettings("license"); // open ON the License pane (no longer the default)
-    const { getByRole } = render(<SettingsModal />);
+    const { findByRole } = render(<SettingsModal />);
     // LicenseSettings carries an <h3 className="sr-only">License</h3> landmark —
     // h3 nests one level under the dialog's "Settings" <h2> (no heading inversion).
-    expect(getByRole("heading", { level: 3, name: "License" })).toBeDefined();
+    // The pane is now a build-time-selected lazy() import (D-04 tree-shake — the
+    // dead Keygen/store arm must be a dynamic import to drop from the other bundle),
+    // so await its Suspense resolution with findBy* instead of a sync getBy*.
+    expect(await findByRole("heading", { level: 3, name: "License" })).toBeDefined();
   });
 });
