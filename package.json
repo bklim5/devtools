@@ -9,6 +9,8 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
+    "tauri:build:direct": "tauri build --config src-tauri/tauri.direct.conf.json",
+    "tauri:build:appstore": "VITE_CHANNEL=appstore bash scripts/build-appstore-bundle.sh",
     "test": "vitest run",
     "lint": "eslint .",
     "release:bump": "tsx scripts/bump-and-tag.mjs",

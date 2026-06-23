@@ -337,12 +337,21 @@ function publish(view, version, { x86Present }) {
 
   // 3. Universal build — the .sig is produced only because the signing env is
   //    present (inherited via runGate's { env: process.env }, never on argv).
+  //    `--config src-tauri/tauri.direct.conf.json` (Phase 27-02, Finding 1) re-grants
+  //    the direct-only updater:default / process:allow-restart / autostart:* capability
+  //    permissions that Plan 27-01 stripped out of the globbed static default.json (to
+  //    keep the appstore capability codegen green). WITHOUT this the SHIPPED direct
+  //    release would link the updater + autostart plugins but the webview would lack
+  //    permission to call them — a silent direct-channel regression. This is the same
+  //    overlay the `tauri:build:direct` package.json script passes.
   log("\nBuilding the universal binary (this is slow):");
   runGate("tauri build (universal)", "pnpm", [
     "tauri",
     "build",
     "--target",
     "universal-apple-darwin",
+    "--config",
+    "src-tauri/tauri.direct.conf.json",
   ]);
 
   // 4. lipo both-arch assert (REL-05, T-11-12) — path derived, never hardcoded.
