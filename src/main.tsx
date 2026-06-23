@@ -3,8 +3,9 @@ import { createRoot } from "react-dom/client";
 import { RouterProvider } from "react-router-dom";
 import { router } from "./router";
 import { initPlatform } from "@/lib/platform";
+import { IS_APPSTORE } from "@/lib/platform/channel";
 import { refreshEntitlements } from "@/lib/entitlements/store";
-import { refreshLicenseUi } from "@/lib/license/licenseUi";
+import { mountStoreBoot } from "@/shell/storeBoot";
 import {
   ensurePreferencesLoaded,
   getPreferencesLoaded,
@@ -42,15 +43,49 @@ void refreshEntitlements().catch((err) => {
   console.error("[entitlements] refresh failed:", err);
 });
 
-// LIC-06/D-43: one startup license-status refresh so the footer hint can show
-// a "needs attention" state without any panel visit. This is a LOCAL file read
-// + Ed25519 verify only — no network at launch, ever (D-45; the v1.6 amendment
-// forbids launch-time network — the phase's only network call is the
-// user-initiated activate inside the panel). Non-blocking: first paint never
-// waits on it.
-void refreshLicenseUi().catch((err) => {
-  console.error("[license] status refresh failed:", err);
-});
+// The licensing boot work, split STATICALLY by build channel (D-04). Extracted
+// into an exported fn so the boot-gate is unit-testable (main.test.tsx) without
+// re-running the createRoot render below. Called once at module load.
+//
+// CRITICAL (D-04): the store build must NEVER statically import
+// `@/lib/license/licenseUi` (it calls platform.license.status() — the Keygen
+// direct-channel path forbidden in the App Store build, guideline 3.1.1). The
+// top-level import is REMOVED; refreshLicenseUi is reached ONLY via a dynamic
+// branch-local import of the licenseUi module inside the `!IS_APPSTORE` arm below.
+// Because
+// IS_APPSTORE is a Vite build-time constant, the store build inlines it `true`,
+// drops the `else` arm as dead code, and the dynamic import (its only reference)
+// makes the whole licenseUi subtree statically unreachable — it tree-shakes out
+// of the store bundle (T-28-22; the D-03 copy-string grep can't catch a stale
+// import of this module, so the gate must be structural). The direct build
+// inlines `false`, drops the `if` arm (mountStoreBoot + its iap subtree), and
+// runs refreshLicenseUi exactly as before — byte-behaviourally unchanged.
+export function runBoot(): void {
+  if (IS_APPSTORE) {
+    // Store build: the ONLY licensing boot work is the StoreKit path.
+    // refreshEntitlements() above already does the passive currentEntitlements
+    // read (D-08); mountStoreBoot subscribes the live refund/approval listener so
+    // a purchase unlocks and a refund/revoke drops Pro live, no relaunch (D-06).
+    // platform.license.status() is NEVER imported or called here (D-04).
+    void mountStoreBoot().catch((err) => {
+      console.error("[iap] store boot listener failed:", err);
+    });
+  } else {
+    // Direct build only (LIC-06/D-43): one startup license-status refresh so the
+    // footer hint can show a "needs attention" state without any panel visit — a
+    // LOCAL file read + Ed25519 verify only, no launch-time network (D-45).
+    // Lazily imported so @/lib/license/licenseUi is statically UNREACHABLE from
+    // the store bundle (the import lives only in this dead-in-store branch).
+    // Non-blocking: first paint never waits on it.
+    void import("@/lib/license/licenseUi")
+      .then(({ refreshLicenseUi }) => refreshLicenseUi())
+      .catch((err) => {
+        console.error("[license] status refresh failed:", err);
+      });
+  }
+}
+
+runBoot();
 
 // NAT-01/G-05-1 PROMOTED (Phase 24): register the persisted summon chord at
 // startup AND reveal the window unless start-in-tray is on — both behind the

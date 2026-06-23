@@ -6,8 +6,9 @@
 // main.tsx) folds in the persisted D-31 override and, post-Phase-21, the real
 // licensed set; it notifies subscribers only when the set actually changes.
 
-import { loadPreferences, savePreferences } from "@/shell/prefsStore";
-import { FREE_SET, type EntitlementSet } from "./entitlements";
+import { loadPreferences } from "@/shell/prefsStore";
+import { updatePreferences } from "@/shell/usePreferences";
+import { FREE_SET, isPro, type EntitlementSet } from "./entitlements";
 import { resolveEntitlements } from "./resolve";
 
 /** The synchronous default BEFORE async resolution. Phase 21 flip (D-85): the
@@ -66,11 +67,28 @@ export async function refreshEntitlements(): Promise<void> {
   // — the `resolved` flip (D-23-5) must propagate even when the SET is unchanged
   // (an unlicensed install: FREE_SET → FREE_SET, but `resolved` goes false→true).
   let changed = false;
+  // Capture the pre-resolution Pro state BEFORE `current` is overwritten so a
+  // live Pro→not-Pro transition (a refund/revoke landing while the app runs, or a
+  // direct-build license lapse) can be detected below (D-07). `current` is the
+  // last resolved set, so this is the true "was Pro a moment ago" signal.
+  const wasPro = isPro(current);
   try {
     const next = await resolveEntitlements();
     if (!setsEqual(next, current)) {
       current = next;
       changed = true;
+      // D-07 drop-notice: ONLY on an actual live drop out of Pro (was Pro, now
+      // not). An unlock (free→Pro) or a free→free no-op never fires it. The flag
+      // routes through the SHARED usePreferences singleton (updatePreferences) so
+      // it folds into the same in-flight prefs blob the hooks read — never a
+      // second loadPreferences/savePreferences snapshot that would clobber a
+      // concurrent theme/pins write (memory prefs-blob-single-writer, T-28-08).
+      // Ungated by channel: a live Pro→free drop fires the notice on BOTH builds
+      // (the store refund path AND a direct license lapse, which today has no
+      // caller — a harmless improvement; the notice copy stays channel-generic).
+      if (wasPro && !isPro(next)) {
+        updatePreferences({ licenseDropNoticeAck: false });
+      }
     }
   } finally {
     // D-23-5: the FIRST resolution is now complete (even if resolveEntitlements
@@ -92,7 +110,13 @@ export async function refreshEntitlements(): Promise<void> {
 export async function clearEntitlementsOverride(): Promise<void> {
   const prefs = await loadPreferences();
   if (prefs.entitlementsOverride === null) return; // nothing persisted — no write
-  await savePreferences({ ...prefs, entitlementsOverride: null });
+  // Route through the SHARED usePreferences singleton (prefs-blob-single-writer)
+  // rather than a bypass loadPreferences→savePreferences snapshot. refreshEntitlements
+  // now also writes the blob (the D-07 drop flag); if this writer used a stale
+  // snapshot, the two could clobber each other's fields (and a successful activate
+  // runs clear → refresh back-to-back). Keeping every override write on the singleton
+  // means the drop flag merges into a blob that already carries the cleared override.
+  updatePreferences({ entitlementsOverride: null });
 }
 
 /** True under vitest or a dev build — never in a production bundle. Same guard

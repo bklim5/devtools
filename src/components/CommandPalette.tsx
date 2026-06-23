@@ -29,11 +29,14 @@ import {
 import { ENABLED_TOOLS, getToolById } from "@/lib/tools/registry";
 import type { ToolDefinition } from "@/lib/tools/types";
 import { rankTools, subsequenceScore } from "@/shell/fuzzy";
-import { loadPreferences, savePreferences } from "@/shell/prefsStore";
+import { loadPreferences } from "@/shell/prefsStore";
 import { openSettings } from "@/shell/settingsStore";
 import { openProUpsell } from "@/shell/proUpsell";
 import { useEntitlements } from "@/shell/useEntitlements";
-import { usePreferences } from "@/shell/usePreferences";
+import {
+  updatePreferences,
+  usePreferences,
+} from "@/shell/usePreferences";
 import { matchesChord } from "@/shell/hotkeyAccelerator";
 
 /** A selectable palette row: a registry tool OR a non-navigating command
@@ -80,8 +83,13 @@ const DEV_COMMANDS: CommandRow[] = import.meta.env.DEV
           // otherwise → grant the DEV-only FULL override.
           const proLive = getEntitlementsSnapshot().has(ENT_ORDERING);
           const next: "free" | "full" = proLive ? "free" : "full";
-          const prefs = await loadPreferences();
-          await savePreferences({ ...prefs, entitlementsOverride: next });
+          // Route the override write through the SHARED usePreferences singleton
+          // (prefs-blob-single-writer) instead of a bypass loadPreferences→
+          // savePreferences snapshot: refreshEntitlements() below now also writes
+          // the blob (the D-07 Pro→free drop flag), and a stale-snapshot bypass
+          // writer here would be clobbered by that singleton write (it would drop
+          // the override this toggle just persisted). One writer = one blob.
+          updatePreferences({ entitlementsOverride: next });
           // Notify ALL gate consumers (Pitfall 3 — prefs hook instances don't
           // sync; the entitlements store is the one live channel).
           await refreshEntitlements();
