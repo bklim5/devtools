@@ -30,11 +30,21 @@ return that account to "never purchased":
   Sandbox ▸ Testers ▸ +**. Make a new tester, sign into it on the Mac
   (System Settings ▸ … ▸ Sandbox Account, or you'll be prompted at next Buy),
   relaunch TinkerDev → **Free** pane with the new pitch.
-- **Option 2 — clear history:** App Store Connect ▸ Sandbox ▸ Testers ▸ *your
-  tester* ▸ **Clear Purchase History** → relaunch → Free.
+- **Option 2 — clear history + re‑sync:** App Store Connect ▸ Sandbox ▸ Testers ▸
+  *your tester* ▸ **Clear Purchase History**. ⚠️ Clearing alone is **not enough** —
+  it's a server‑side change, but the app reads StoreKit's *on‑device cached*
+  `currentEntitlements`, so a plain relaunch still shows Pro. **Force a re‑sync:**
+  System Settings ▸ **App Store** ▸ **Sandbox Account** ▸ **Sign Out** (or sign into
+  a different tester), then relaunch → `currentEntitlements` empties → **Free**.
 
-This shows the Free pane but does **not** fire the live drop **notice** (the notice
+Both show the Free pane but do **not** fire the live drop **notice** (the notice
 needs a revoke event mid‑session — see Path A).
+
+> Why: the appstore build derives Pro entirely from StoreKit's cached
+> `Transaction.currentEntitlements` (`get_product_status.is_owned`) — it persists
+> no "is Pro" flag. Clearing history server‑side doesn't invalidate the device
+> cache; only a re‑sync (account sign‑out/in) or a `Transaction.updates` revocation
+> (a real refund / Path A) drops it.
 
 ---
 
