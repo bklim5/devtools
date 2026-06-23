@@ -30,7 +30,9 @@
 // SECONDARY) + UpsellPanel (PRIMARY) as LOCAL constants — NOT imported from those
 // modules, which would re-pull the Keygen import subtree and break the tree-shake.
 
+import { Lock } from "lucide-react";
 import { useStoreCheckout } from "@/shell/useStoreCheckout";
+import { usePreferences } from "@/shell/usePreferences";
 import { useEntitlements } from "@/shell/useEntitlements";
 import { isPro } from "@/lib/entitlements/entitlements";
 
@@ -47,11 +49,43 @@ const PRIMARY_BTN_CLASS =
 
 export function StoreLicenseSettings() {
   const pro = isPro(useEntitlements());
+  const { preferences, prefsLoaded, ackLicenseDropNotice } = usePreferences();
 
   // Buy/Restore handlers + the calm aria-live readout + the `busy` debounce, all
   // owned by the shared checkout hook. No onUnlocked: the live entitlement flip
   // re-renders this pane to Pro-active (a dismiss would be a dead control).
   const { readout, busy, onBuy, onRestore } = useStoreCheckout();
+
+  // D-07 one-time drop notice (MAS-IAP-05): after a live Pro→free drop (a refund
+  // or revoke detected by refreshEntitlements) the gate flips this pane to the Free
+  // layout AND fires the notice. Calm, dismissable, inline — never a toast/red
+  // banner. Wait for prefsLoaded so the default `true` never flashes it off (mirrors
+  // LicenseSettings; uses the SAME licenseDropNoticeAck flag, store-flavoured copy).
+  const showDropNotice =
+    prefsLoaded && preferences.licenseDropNoticeAck === false;
+  const dropNotice = showDropNotice ? (
+    <div className={CARD_CLASS}>
+      <div className="flex items-center gap-2">
+        <Lock className="h-5 w-5 flex-none text-tx-2" aria-hidden="true" />
+        <h4 className={HEADING_CLASS}>Your Pro features turned off</h4>
+      </div>
+      <div className={BODY_CLASS}>
+        <p>
+          Your themes and tool order are saved — buy Pro again any time to bring
+          them back.
+        </p>
+      </div>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => ackLicenseDropNotice()}
+          className={SECONDARY_BTN_CLASS}
+        >
+          Got it
+        </button>
+      </div>
+    </div>
+  ) : null;
 
   // ONE calm readout region (shared by both layouts) — plain text, no spinner.
   const readoutRegion = (
@@ -85,6 +119,8 @@ export function StoreLicenseSettings() {
           Manage your Pro purchase.
         </p>
       </div>
+
+      {dropNotice}
 
       {pro ? (
         // Pro-active — the green banner (reused verbatim) + always-visible Restore.

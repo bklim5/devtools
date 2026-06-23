@@ -16,7 +16,10 @@ import {
   type IapPurchaseResult,
   type Platform,
 } from "@/lib/platform";
+import { createStoreStub } from "@/lib/platform/stub";
 import { makeMemoryPlatform } from "@/shell/testStore";
+import { resetPreferencesForTest } from "@/shell/usePreferences";
+import { PREFERENCES_STORE_KEY } from "@/shell/preferences";
 import { FREE_SET, FULL_SET } from "@/lib/entitlements/entitlements";
 
 // Spy on the gate-refresh seam: the component must call it (belt-and-suspenders)
@@ -57,7 +60,21 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   resetPlatformForTest();
+  // The drop-notice tests drive the real usePreferences singleton; reset it so the
+  // loaded/dirty latches never leak across cases (every test loads fresh prefs).
+  resetPreferencesForTest();
 });
+
+/** Install a platform whose prefs store is seeded with the given blob (so
+ *  usePreferences hydrates to it) — for the D-07 drop-notice tests. */
+async function installPlatformWithPrefs(
+  prefsBlob: Record<string, unknown>,
+): Promise<void> {
+  resetPreferencesForTest(); // force a fresh load from the seeded store
+  const store = createStoreStub();
+  await store.set(PREFERENCES_STORE_KEY, prefsBlob);
+  setPlatformForTest(makeMemoryPlatform(store));
+}
 
 describe("StoreLicenseSettings — two layouts", () => {
   it("Test 1 — Pro-active layout: green banner + managed copy + Restore, NO Buy", async () => {
@@ -247,5 +264,38 @@ describe("StoreLicenseSettings — grep-clean copy (no Keygen concepts)", () => 
     expect(html.toLowerCase()).not.toContain("seat");
     expect(html.toLowerCase()).not.toContain("fingerprint");
     expect(html.toLowerCase()).not.toContain("check your purchase email");
+  });
+});
+
+describe("StoreLicenseSettings — D-07 drop notice (MAS-IAP-05)", () => {
+  it("Test 9 — a pending drop (licenseDropNoticeAck=false) shows the calm notice; dismiss acks it", async () => {
+    // A live refund/revoke flipped the gate to free AND set the flag false.
+    entitlementSet = FREE_SET;
+    await installPlatformWithPrefs({ licenseDropNoticeAck: false });
+    const { findByText, getByRole, queryByText, container } = await renderPane();
+
+    // The notice surfaces once prefs load (Free layout — gate already dropped).
+    expect(await findByText("Your Pro features turned off")).toBeTruthy();
+    // Calm, never red/amber.
+    expect(container.querySelector(".text-bad")).toBeNull();
+    expect(container.querySelector(".text-warn")).toBeNull();
+
+    // Dismiss → ack persists → the notice is gone (the flag flips true).
+    fireEvent.click(getByRole("button", { name: "Got it" }));
+    await waitFor(() =>
+      expect(queryByText("Your Pro features turned off")).toBeNull(),
+    );
+  });
+
+  it("Test 10 — no drop notice when acknowledged (default true)", async () => {
+    entitlementSet = FREE_SET;
+    await installPlatformWithPrefs({ licenseDropNoticeAck: true });
+    const { queryByText } = await renderPane();
+
+    // Give the async prefs load a tick to settle, then assert it never appears.
+    await waitFor(() =>
+      expect(queryByText("Buy Pro — Lifetime")).toBeTruthy(),
+    );
+    expect(queryByText("Your Pro features turned off")).toBeNull();
   });
 });
