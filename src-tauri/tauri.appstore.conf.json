@@ -1,5 +1,21 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
+  "app": {
+    "security": {
+      "capabilities": [
+        "default",
+        {
+          "identifier": "appstore-iap",
+          "description": "Phase 28 (D-06, MAS-IAP-02/05): grant the webview ONLY the iap listener-registration IPC (iap:allow-register-listener + its symmetric iap:allow-remove-listener teardown) so it can subscribe/unsubscribe a Channel to the plugin's background StoreKit transaction updates (purchase approval / REFUND / revocation / family-share). Delivered HERE (inline, appstore overlay) instead of capabilities/appstore.json so Tauri's capability codegen — which globs+validates every capabilities/*.json regardless of Cargo features — does not fail the DIRECT build with 'Permission iap:allow-register-listener not found' (the iap plugin is compiled OUT of the direct build). Mirrors the Phase-27 direct-native delivery (tauri.direct.conf.json), inverted for an appstore-only grant. Deliberately omits the broad plugin default permission — the raw purchase / restore / acknowledge / consume IPC stays Rust-side only (Phase-26 SECURITY CORRECTION, BRIDGE-VIABILITY.md §SECURITY; T-28-05). identifier + windows mirror default.json's shape so the grant actually ATTACHES to the main window at runtime. NOTE the leading \"default\" reference: a non-empty app.security.capabilities array REPLACES the capabilities/ directory glob (tauri-utils get_capabilities), so without the explicit \"default\" CapabilityEntry::Reference the 12 baseline default.json grants (core:window/clipboard/store/global-shortcut/window-state/opener) would be DROPPED from the appstore build (it would launch but deny core IPC). The direct build NEVER passes this --config, so it never references iap:allow-register-listener.",
+          "windows": ["main"],
+          "permissions": [
+            "iap:allow-register-listener",
+            "iap:allow-remove-listener"
+          ]
+        }
+      ]
+    }
+  },
   "bundle": {
     "targets": ["app"],
     "createUpdaterArtifacts": false,

@@ -21,7 +21,7 @@ import {
 import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { listen } from "@tauri-apps/api/event";
-import { invoke } from "@tauri-apps/api/core";
+import { Channel, invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { enable, disable, isEnabled } from "@tauri-apps/plugin-autostart";
 import { getVersion } from "@tauri-apps/api/app";
@@ -183,21 +183,44 @@ export const tauriPlatform: Platform = {
   // NEVER imported — no native/plugin import enters this arm; it
   // reuses the ALREADY-imported `invoke`/`listen` (no new import). Rejections carry
   // the serialized `{ code }` object untransformed (mirrors license).
-  // NOTE (Phase 26 spike): `onPurchaseUpdated` is a NOT-YET-WIRED placeholder.
-  // tauri-plugin-iap does NOT emit a global Tauri event for background
-  // transaction updates — it delivers them through its own register_listener /
-  // ipc::Channel mechanism (src/listeners.rs), so this `storekit://updated`
-  // subscription never fires. The spike instead re-reads entitlements EXPLICITLY
-  // after purchase/restore (LicenseSettings IapSpikeBlock). Wiring the plugin's
-  // real transaction-update channel — for refund/revoke live-drop — is Phase 28
-  // (see PHASE-26-BRIDGE-VIABILITY.md). The `listen` import lives ONLY here (D-12).
+  // NOTE (Phase 28, D-06): `onPurchaseUpdated` is now WIRED. tauri-plugin-iap does
+  // NOT emit a global Tauri event for background transaction updates — it delivers
+  // them through its own `register_listener` IPC + an `ipc::Channel` (the plugin's
+  // `pub(crate)` listener registry is unreachable from our crate, so a Rust-side
+  // re-emit is impossible — BRIDGE-VIABILITY.md §SECURITY). We therefore register
+  // a Channel FROM THE WEBVIEW against the plugin's "purchaseUpdated" event via the
+  // narrow `plugin:iap|register_listener` IPC, granted ONLY by the
+  // `iap:allow-register-listener` capability (tauri.appstore.conf.json) — NOT the
+  // forbidden broad iap:default (the raw purchase/restore IPC stays Rust-side,
+  // Phase-26 SECURITY CORRECTION). The plugin's Swift `handleTransactionUpdate`
+  // calls `trigger("purchaseUpdated", …)` on EVERY verified background transaction
+  // (approval / REFUND / revoke / family-share); each message just RE-RUNS the
+  // entitlement refresh via handler() — the event payload carries no grant, so a
+  // forged message can at most cause a redundant re-read (T-28-06). The old
+  // `storekit://updated` Tauri-event seam name is gone (it never fired). The
+  // `Channel`/`invoke` imports live ONLY here (D-12).
   iap: {
     products: () => invoke<IapProduct[]>("iap_products"),
     purchase: (productId) =>
       invoke<IapPurchaseResult>("iap_purchase", { productId }),
     restore: () => invoke<void>("iap_restore"),
     currentEntitlements: () => invoke<string[]>("iap_current_entitlements"),
-    onPurchaseUpdated: (handler) =>
-      listen("storekit://updated", () => handler()),
+    onPurchaseUpdated: async (handler) => {
+      const channel = new Channel<unknown>();
+      channel.onmessage = () => handler();
+      await invoke("plugin:iap|register_listener", {
+        event: "purchaseUpdated",
+        handler: channel,
+      });
+      // Best-effort teardown via the plugin's remove_listener IPC (granted by the
+      // same listener capability). channel.id is the registered listener id; a
+      // reject is tolerated (the subscription is process-lifetime in practice).
+      return () => {
+        void invoke("plugin:iap|remove_listener", {
+          event: "purchaseUpdated",
+          channelId: channel.id,
+        }).catch(() => {});
+      };
+    },
   },
 };
