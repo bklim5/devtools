@@ -133,7 +133,7 @@ A five-pane in-window Settings modal (License · Appearance · Hotkeys · Genera
 
 - [x] Phase 26: StoreKit Bridge Spike (CRITICAL PATH) — prove `tauri-plugin-iap@0.9` (or swift-rs fallback) in a universal sandboxed build; `platform.iap` seam + `iap_*` Rust commands; native purchase sheet + on-device JWS verify; MAS-IAP-01, MAS-IAP-04 — **COMPLETE 2026-06-23 (GO: tauri-plugin-iap; live Sandbox round-trip passed)**
 - [x] Phase 27: The Build-Variant Seam (3 layers) — `appstore` cargo feature + `tauri.appstore.conf.json` overlay + `VITE_CHANNEL`; sandboxed `.app` launches (network.client, no white-screen); updater compiled OUT; committed verify script; MAS-BUILD-01/02/03/05/06 (4/4 plans complete; signed sandboxed `.app` human-verified launch+render 2026-06-23; binding-harness gates run — code-review + adversarial review caught & fixed a CRITICAL direct-channel capability-drop + half-variant holes, re-verified GREEN end-to-end)
-- [ ] Phase 28: Entitlement-Source Swap + Store License Pane — `baseFromStoreKit` branch through the existing gate; `StoreLicenseSettings` (Buy `displayPrice` + Restore, App-Store-managed wording); App-Store-managed Updates pane; refund/revoke live-drop; Keygen surface compiled out + grep-clean; MAS-IAP-02/03/05/06/07, MAS-BUILD-04/07
+- [x] Phase 28: Entitlement-Source Swap + Store License Pane (2026-06-23) — `baseFromStoreKit` branch through the existing gate; `StoreLicenseSettings` (Buy `displayPrice` + Restore, App-Store-managed wording); App-Store-managed Updates pane; refund/revoke live-drop; Keygen surface compiled out + grep-clean; MAS-IAP-02/03/05/06/07, MAS-BUILD-04/07
 - [ ] Phase 29: Sandbox-Safe Native Features — global summon + tray kept under sandbox; Keychain gated OUT; launch-at-login hidden in the store build; MAS-NATIVE-01/02/03/04
 - [ ] Phase 30: `.pkg` Build + App Store Connect Submission — `productbuild` → `altool` pipeline (Apple Distribution + Mac Installer Distribution + profile); ASC guidance + metadata; direct channel un-regressed; MAS-SHIP-01/02/03/04/05
 
@@ -198,7 +198,7 @@ A five-pane in-window Settings modal (License · Appearance · Hotkeys · Genera
 - [x] 28-02-PLAN.md — real plugin transaction-update bridge (iap:allow-register-listener capability + Channel) + store boot listener + Pro→free drop-diff/drop-notice — MAS-IAP-02/05 (Wave 1, auto)
 - [x] 28-03-PLAN.md — `StoreLicenseSettings` (Buy/Restore/status, two layouts) + `StoreUpdatesSettings` (version + managed line) — MAS-IAP-03/06/07, MAS-BUILD-07 (Wave 2, auto)
 - [x] 28-04-PLAN.md — `StoreUpsell` modal (pitch + Buy + Restore) + `storeProUpsell` router — MAS-IAP-07 (Wave 2, auto)
-- [ ] 28-05-PLAN.md — static IS_APPSTORE switches + IapSpikeBlock removal + verify-script forbidden-string grep + human sandbox gate — MAS-BUILD-04, MAS-IAP-02/05 (Wave 3, human-verify)
+- [x] 28-05-PLAN.md — static IS_APPSTORE switches + IapSpikeBlock removal + verify-script forbidden-string grep + human sandbox gate — MAS-BUILD-04, MAS-IAP-02/05 (Wave 3, human-verify)
 **Research**: Skip — HIGH confidence (one-branch change to the already-tested resolver; seam + gate + drop-notice reused).
 **Gate**: Human — purchase → Pro unlocks live; refund → Pro drops live (sandbox tester).
 **UI hint**: yes
@@ -270,7 +270,7 @@ v1.8 runs 26 → 27 → 28 → 30 with Phase 29 parallel-capable beside 28 once 
 | 25. Updates Pane & Milestone Ship | v1.7 | 5/5 | Complete    | 2026-06-21 |
 | 26. StoreKit Bridge Spike (CRITICAL PATH) | v1.8 | 6/7 | Complete    | 2026-06-23 |
 | 27. The Build-Variant Seam (3 layers) | v1.8 | 4/4 | Complete    | 2026-06-23 |
-| 28. Entitlement-Source Swap + Store License Pane | v1.8 | 4/5 | In Progress|  |
+| 28. Entitlement-Source Swap + Store License Pane | v1.8 | 5/5 | Complete    | 2026-06-23 |
 | 29. Sandbox-Safe Native Features | v1.8 | 0/0 | Not started | - |
 | 30. .pkg Build + App Store Connect Submission | v1.8 | 0/0 | Not started | - |
 
@@ -297,7 +297,7 @@ Unsequenced ideas captured for future planning. Promote with `/gsd-review-backlo
 Each candidate must still pass the product wedge: offline/no-network, paste-instant (<2s), keyboard-driven, registry-driven, WCAG-AA, and the build+verify harness.
 
 **Requirements:** TBD (remaining wishlist; Cron/URL/Regex requirements now in `.planning/REQUIREMENTS.md` for v1.3)
-**Plans:** 2/5 plans executed
+**Plans:** 5/5 plans complete
 
 Plans:
 - [ ] TBD (promote remaining wishlist with /gsd-review-backlog when ready)

@@ -22,14 +22,14 @@
 - [x] **MAS-IAP-04**: Pro is verified on-device (StoreKit 2 JWS `VerificationResult`); `.unverified` or failed verification falls closed to the free tier.
 - [x] **MAS-IAP-05**: A refund/revocation drops Pro live (a `Transaction.updates` listener at boot reuses the existing "Pro features turned off" drop-notice).
 - [x] **MAS-IAP-06**: The store-build License pane shows status + Buy (App Store `displayPrice`) + Restore — and shows NO key field, NO external buy link, and NO literal price (guideline 3.1.1).
-- [ ] **MAS-IAP-07**: Because Apple manages the license, the store-build UI omits every Keygen-only concept — no "activate with key", no machine **deactivate / seat-transfer**, no machine-fingerprint/seat-limit copy, no "lost your key / check your purchase email" — and uses App-Store-managed wording where a status explanation is needed (e.g. "managed through the App Store / your Apple ID"). The contextual Unlock-Pro modal (the focused upsell over `ActivationSurface`) and every Pro-upsell trigger (sidebar "Unlock Pro", locked pin/reorder/⌘K) present the StoreKit Buy/Restore flow in the store build, never the Keygen activation form.
+- [x] **MAS-IAP-07**: Because Apple manages the license, the store-build UI omits every Keygen-only concept — no "activate with key", no machine **deactivate / seat-transfer**, no machine-fingerprint/seat-limit copy, no "lost your key / check your purchase email" — and uses App-Store-managed wording where a status explanation is needed (e.g. "managed through the App Store / your Apple ID"). The contextual Unlock-Pro modal (the focused upsell over `ActivationSurface`) and every Pro-upsell trigger (sidebar "Unlock Pro", locked pin/reorder/⌘K) present the StoreKit Buy/Restore flow in the store build, never the Keygen activation form.
 
 ### Build Variant & Sandbox (MAS-BUILD)
 
 - [x] **MAS-BUILD-01**: The repo builds two variants from one codebase, each from a single canonical build command (direct = today's DMG/updater; appstore = sandboxed StoreKit), so a half-variant can't ship.
 - [x] **MAS-BUILD-02**: The App Store build runs under App Sandbox (`com.apple.security.app-sandbox` + `com.apple.security.network.client`) and launches without a white-screen on the signed `.app`.
 - [x] **MAS-BUILD-03**: The auto-updater (Rust plugin + endpoints) is compiled OUT of the store build — absent, not merely hidden — and verifiable on the built bundle (Apple forbids self-updating apps; the store handles updates).
-- [ ] **MAS-BUILD-04**: The Keygen surface (key field, `license.tinkerdev.io` calls, external buy link, literal `$9`) is compiled OUT of the store build and grep-verifiable clean on the bundle.
+- [x] **MAS-BUILD-04**: The Keygen surface (key field, `license.tinkerdev.io` calls, external buy link, literal `$9`) is compiled OUT of the store build and grep-verifiable clean on the bundle.
 - [x] **MAS-BUILD-05**: The store variant builds at `minimumSystemVersion` 13.0 while the direct channel stays 10.15 (the 13.0 bump never leaks onto the base config).
 - [x] **MAS-BUILD-06**: A committed verify script asserts store-bundle compliance at the gate (required entitlements present; forbidden plugins via `cargo tree`/`otool` and forbidden strings via `grep` absent).
 - [x] **MAS-BUILD-07**: In the store build the Settings ▸ Updates pane is RETAINED but App-Store-managed: it shows "Your app update is managed by the App Store" and the Check-for-updates + Install affordances are removed (not just disabled); the running-version readout may remain. (The underlying updater is compiled out per MAS-BUILD-03 — this is the user-facing counterpart.)
@@ -81,13 +81,13 @@ Phase structure (dependency-forced, continues from Phase 25): **26** StoreKit br
 | MAS-IAP-03 | Phase 28 | Complete (2026-06-23, plan 03) |
 | MAS-IAP-05 | Phase 28 | Complete |
 | MAS-IAP-06 | Phase 28 | Complete (2026-06-23, plan 03) |
-| MAS-IAP-07 | Phase 28 | Partial (plan 03: store License pane omits Keygen concepts; plan 04: StoreUpsell Buy/Restore modal + storeOpenProUpsell unconditional router built; plan 05 wires the mount/triggers behind the static switch + human gate) |
+| MAS-IAP-07 | Phase 28 | Complete (2026-06-23 — plan 05 wired the static IS_APPSTORE switch at App.tsx upsell mount + ToolRoute locked-tool panel + the 3 openProUpsell triggers; human-approved) |
 | MAS-BUILD-01 | Phase 27 | Complete (2026-06-23) |
 | MAS-BUILD-02 | Phase 27 | Complete (2026-06-23, human-verified) |
 | MAS-BUILD-03 | Phase 27 | Complete (2026-06-23) |
 | MAS-BUILD-05 | Phase 27 | Complete (2026-06-23) |
 | MAS-BUILD-06 | Phase 27 | Complete (2026-06-23) |
-| MAS-BUILD-04 | Phase 28 | Pending |
+| MAS-BUILD-04 | Phase 28 | Complete (2026-06-23 — plan 05 verify-appstore-bundle.sh: D-03 grep 0 incl. $9 + D-04 chunk sentinel licenseUiInChunks:false on the signed bundle) |
 | MAS-BUILD-07 | Phase 28 | Complete (2026-06-23, plan 03) |
 | MAS-NATIVE-01 | Phase 29 | Pending |
 | MAS-NATIVE-02 | Phase 29 | Pending |
