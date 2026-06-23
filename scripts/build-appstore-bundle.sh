@@ -124,11 +124,21 @@ if [[ ! -d "$APP_OUT" ]]; then
   exit 1
 fi
 
+# The inner binary name follows the Cargo crate name, NOT productName — and a rename
+# silently breaks any hardcoded path (the TinkerDev-rename bug documented in
+# build-and-publish.mjs). DERIVE it from the bundle's own CFBundleExecutable so this
+# guard tracks the real binary instead of a stale literal.
+APP_BIN="$APP_OUT/Contents/MacOS/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP_OUT/Contents/Info.plist" 2>/dev/null)"
+if [[ ! -f "$APP_BIN" ]]; then
+  echo "ERROR: could not resolve the bundle executable via CFBundleExecutable at $APP_OUT/Contents/Info.plist" >&2
+  exit 1
+fi
+
 # Freshness guard: the produced binary MUST be newer than the pre-build marker. If it is
 # not, the build did not actually run (CLI parse error / no-op) and $APP_OUT is a STALE
 # leftover — fail rather than embed-a-profile + re-sign + "verify" a bundle the real
 # appstore build never produced (the false-GREEN that would defeat Finding 1).
-if [[ ! "$APP_OUT/Contents/MacOS/devtools-app" -nt "$BUILD_MARKER" ]]; then
+if [[ ! "$APP_BIN" -nt "$BUILD_MARKER" ]]; then
   echo "ERROR: the bundle at $APP_OUT is STALE (older than this run) — the real appstore" >&2
   echo "       build did not produce a fresh binary. Check the build log above for a CLI" >&2
   echo "       flag-parse error or a capability-codegen failure (Finding 1)." >&2
@@ -151,7 +161,6 @@ codesign --force --deep --timestamp --sign "$SIGN_ID" \
 # --- 4. Verify -----------------------------------------------------------------
 echo ""
 echo "================ VERIFY ================"
-APP_BIN="$APP_OUT/Contents/MacOS/devtools-app"
 echo "[archs]"; lipo -archs "$APP_BIN" 2>/dev/null || echo "  (could not read archs)"
 echo "[signature]"; codesign -dvvv "$APP_OUT" 2>&1 | grep -iE "Authority=Apple (Development|Distribution)|flags=" | head -3
 echo "[entitlements]"
