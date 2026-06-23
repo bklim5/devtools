@@ -12,36 +12,22 @@
 // Keygen activation form, NO license-key field, NO @/lib/license subtree — so the
 // store build that pulls it carries none of the D-03 forbidden copy markers.
 //
-// Buy/Restore wire the platform.iap seam ONLY (never the native Tauri API directly,
-// never a locally-fabricated grant). On Buy SUCCESS the handler calls
-// refreshEntitlements() DIRECTLY (belt-and-suspenders) — it does NOT rely solely on
-// the Plan-02 boot listener (which may emit no background event for a foreground
-// purchase, may race boot, or may have failed to register); the direct refresh
-// guarantees the foreground purchaser unlocks (T-28-24). Restore likewise calls
-// refreshEntitlements() after re-syncing. Neither GRANTS anything client-side:
-// refreshEntitlements re-reads iap.currentEntitlements() through the Rust
-// JWS-verified core, so the gate stays baseFromStoreKit-only (fall-closed invariant
-// intact; T-28-15). On Buy success the live flip closes the gate; the body calls the
-// optional onPurchased() so a modal host can dismiss (the inline ToolRoute host
-// passes none — the entitlement flip re-renders the route to the unlocked tool).
+// Buy/Restore run through the shared useStoreCheckout hook, which wires the
+// platform.iap seam ONLY (never the native Tauri API directly, never a
+// locally-fabricated grant) and refreshes the gate directly on success. On Buy
+// success / a re-granting Restore the hook calls the optional onUnlocked — here
+// the body's onPurchased() — so a modal host can dismiss (the inline ToolRoute
+// host passes none; the entitlement flip re-renders the route to the unlocked
+// tool). See useStoreCheckout for the full belt-and-suspenders / fall-closed
+// rationale (T-28-15/24).
 //
 // Calm tone (D-15): ONE aria-live="polite" role="status" readout region carries
-// in-flight + result strings as plain text — no spinners, no toasts. Every reject
-// renders the calm "App Store isn't available" line, never a red/amber banner or an
-// uncaught throw (T-28-17). The store build has NO Keygen recovery states.
+// in-flight + result strings as plain text — no spinners, no toasts. The store
+// build has NO Keygen recovery states.
 
-import { useState, type ComponentType } from "react";
+import { type ComponentType } from "react";
 
-import { platform } from "@/lib/platform";
-import { refreshEntitlements } from "@/lib/entitlements/store";
-
-/** The fixed non-consumable Pro product id (matches the 26-01 Rust constant). */
-const PRODUCT_ID = "com.tinkerdev.app.pro";
-
-/** The calm "App Store unavailable" line — every Buy/Restore reject lands here
- *  (never a red banner / uncaught throw). */
-const UNAVAILABLE =
-  "The App Store isn't available right now — try again shortly.";
+import { useStoreCheckout } from "@/shell/useStoreCheckout";
 
 // Pitch chrome — COPIED VERBATIM from UpsellPanel (do not drift). The accent glow
 // card + borderless medallion + larger hero title. The glow is a CSS background
@@ -100,74 +86,10 @@ export function StoreUpsellBody({
   headingId,
   onPurchased,
 }: StoreUpsellBodyProps) {
-  // ONE calm aria-live readout carries every Buy/Restore in-flight + result
-  // string. `null` renders empty. A `busy` flag debounces double-clicks.
-  const [readout, setReadout] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  const onBuy = () =>
-    void (async () => {
-      if (busy) return;
-      setBusy(true);
-      setReadout("Opening the App Store…");
-      try {
-        const result = await platform.iap.purchase(PRODUCT_ID);
-        switch (result.state) {
-          case "success":
-            // Belt-and-suspenders: refresh the gate DIRECTLY rather than relying
-            // solely on the Plan-02 boot listener. GRANTS NOTHING — it re-reads
-            // iap.currentEntitlements() through the Rust JWS-verified core, so the
-            // gate stays baseFromStoreKit-only. Pro is now unlocked.
-            await refreshEntitlements();
-            onPurchased?.();
-            break;
-          case "userCancelled":
-            setReadout("Purchase cancelled.");
-            break;
-          case "pending":
-            // Ask-to-Buy / SCA — the approval arrives later via the boot listener.
-            setReadout(
-              "Purchase pending approval. Pro unlocks automatically once it's approved.",
-            );
-            break;
-          default:
-            // The state crosses the invoke() FFI boundary — guard an unmodeled
-            // value at runtime rather than resolving to undefined.
-            setReadout(UNAVAILABLE);
-        }
-      } catch {
-        // A reject means NO success — refreshEntitlements is intentionally not
-        // called here (nothing changed). Calm guidance, never a thrown error.
-        setReadout(UNAVAILABLE);
-      } finally {
-        setBusy(false);
-      }
-    })();
-
-  const onRestore = () =>
-    void (async () => {
-      if (busy) return;
-      setBusy(true);
-      setReadout("Restoring your purchases…");
-      try {
-        await platform.iap.restore();
-        // Re-resolve the gate from the freshly-synced StoreKit cache (grants
-        // nothing client-side — same baseFromStoreKit authority as Buy success).
-        await refreshEntitlements();
-        // Read the now-current owned codes: if StoreKit re-granted nothing, tell
-        // the user calmly; otherwise the live flip unlocks Pro.
-        const owned = await platform.iap.currentEntitlements();
-        if (owned.length > 0) {
-          onPurchased?.();
-        } else {
-          setReadout("No purchases found for this Apple ID.");
-        }
-      } catch {
-        setReadout(UNAVAILABLE);
-      } finally {
-        setBusy(false);
-      }
-    })();
+  // ONE calm aria-live readout + a `busy` debounce, both owned by the shared
+  // checkout hook. onPurchased fires after a successful Buy / re-granting Restore
+  // so a modal host can dismiss (the inline ToolRoute host passes none).
+  const { readout, busy, onBuy, onRestore } = useStoreCheckout(onPurchased);
 
   return (
     <div className={PITCH_CARD_CLASS} style={PITCH_GLOW_STYLE}>

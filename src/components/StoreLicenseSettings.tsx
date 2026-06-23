@@ -13,17 +13,12 @@
 //
 // Restore is reachable in BOTH layouts (Apple-mandatory always-available restore).
 //
-// Buy/Restore wire the platform.iap seam ONLY (never the native Tauri API
-// directly, never a locally-fabricated grant). On Buy SUCCESS the handler calls
-// refreshEntitlements()
-// DIRECTLY (belt-and-suspenders) — it does NOT rely solely on the Plan-02 boot
-// listener, which may emit no background event for a foreground purchase, may race
-// boot, or may have failed to register; the direct refresh guarantees the
-// foreground purchaser unlocks. Restore likewise calls refreshEntitlements() after
-// re-syncing. Neither GRANTS anything client-side: refreshEntitlements re-reads
-// iap.currentEntitlements() through the Rust JWS-verified core, so the gate stays
-// baseFromStoreKit-only (fall-closed invariant intact). The boot listener is KEPT
-// for refunds / Ask-to-Buy approvals / revokes (D-09).
+// Buy/Restore run through the shared useStoreCheckout hook — the platform.iap seam
+// ONLY (never the native Tauri API directly, never a locally-fabricated grant),
+// refreshing the gate directly on success while granting nothing client-side so it
+// stays baseFromStoreKit-only (fall-closed invariant intact). The boot listener is
+// KEPT for refunds / Ask-to-Buy approvals / revokes (D-09). See useStoreCheckout
+// for the full belt-and-suspenders rationale.
 //
 // Calm tone (D-15): ONE aria-live="polite" readout region carries in-flight +
 // result strings as plain text — no spinners, no toasts. A no-op/error arm renders
@@ -35,9 +30,7 @@
 // SECONDARY) + UpsellPanel (PRIMARY) as LOCAL constants — NOT imported from those
 // modules, which would re-pull the Keygen import subtree and break the tree-shake.
 
-import { useState } from "react";
-import { platform } from "@/lib/platform";
-import { refreshEntitlements } from "@/lib/entitlements/store";
+import { useStoreCheckout } from "@/shell/useStoreCheckout";
 import { useEntitlements } from "@/shell/useEntitlements";
 import { isPro } from "@/lib/entitlements/entitlements";
 
@@ -52,85 +45,13 @@ const SECONDARY_BTN_CLASS =
 const PRIMARY_BTN_CLASS =
   "cursor-pointer rounded-[7px] border border-accent-line bg-accent-soft px-3 py-1 text-[12px] text-accent outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-default disabled:border-bd disabled:bg-input-bg disabled:text-tx-2";
 
-/** The fixed non-consumable Pro product id (matches the 26-01 Rust constant). */
-const PRODUCT_ID = "com.tinkerdev.app.pro";
-
-/** The calm "App Store unavailable" line — every Buy/Restore reject lands here
- *  (never a red banner / uncaught throw). */
-const UNAVAILABLE =
-  "The App Store isn't available right now — try again shortly.";
-
 export function StoreLicenseSettings() {
   const pro = isPro(useEntitlements());
 
-  // ONE calm aria-live readout carries every Buy/Restore in-flight + result
-  // string. `null` renders empty. A `busy` flag debounces double-clicks.
-  const [readout, setReadout] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  const onBuy = () =>
-    void (async () => {
-      if (busy) return;
-      setBusy(true);
-      setReadout("Opening the App Store…");
-      try {
-        const result = await platform.iap.purchase(PRODUCT_ID);
-        switch (result.state) {
-          case "success":
-            // Belt-and-suspenders: refresh the gate DIRECTLY rather than relying
-            // solely on the Plan-02 boot listener. This GRANTS NOTHING — it
-            // re-reads iap.currentEntitlements() through the Rust JWS-verified
-            // core, so the gate stays baseFromStoreKit-only. No readout string:
-            // the live flip re-renders to Pro-active.
-            await refreshEntitlements();
-            setReadout(null);
-            break;
-          case "userCancelled":
-            setReadout("Purchase cancelled.");
-            break;
-          case "pending":
-            // Ask-to-Buy / SCA — the approval arrives later via the boot listener.
-            setReadout(
-              "Purchase pending approval. Pro unlocks automatically once it's approved.",
-            );
-            break;
-          default:
-            // The state crosses the invoke() FFI boundary — guard an unmodeled
-            // value at runtime rather than resolving to undefined.
-            setReadout(UNAVAILABLE);
-        }
-      } catch {
-        // A reject means NO success — refreshEntitlements is intentionally not
-        // called here (nothing changed). Calm guidance, never a thrown error.
-        setReadout(UNAVAILABLE);
-      } finally {
-        setBusy(false);
-      }
-    })();
-
-  const onRestore = () =>
-    void (async () => {
-      if (busy) return;
-      setBusy(true);
-      setReadout("Restoring your purchases…");
-      try {
-        await platform.iap.restore();
-        // Re-resolve the gate from the freshly-synced StoreKit cache (grants
-        // nothing client-side — same baseFromStoreKit authority as Buy success).
-        await refreshEntitlements();
-        // Read the now-current owned codes: if StoreKit re-granted nothing, tell
-        // the user calmly; otherwise the live flip re-renders to Pro-active and we
-        // clear the in-flight line.
-        const owned = await platform.iap.currentEntitlements();
-        setReadout(
-          owned.length > 0 ? null : "No purchases found for this Apple ID.",
-        );
-      } catch {
-        setReadout(UNAVAILABLE);
-      } finally {
-        setBusy(false);
-      }
-    })();
+  // Buy/Restore handlers + the calm aria-live readout + the `busy` debounce, all
+  // owned by the shared checkout hook. No onUnlocked: the live entitlement flip
+  // re-renders this pane to Pro-active (a dismiss would be a dead control).
+  const { readout, busy, onBuy, onRestore } = useStoreCheckout();
 
   // ONE calm readout region (shared by both layouts) — plain text, no spinner.
   const readoutRegion = (
