@@ -3,7 +3,7 @@
 // Tauri (__TAURI_INTERNALS__ present) → FULL_SET, browser/jsdom → FREE_SET,
 // with the persisted D-31 override able only to DOWNGRADE to FREE. The snapshot
 // store propagates flips to subscribers exactly when the set changes.
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   initPlatform,
   platform,
@@ -12,8 +12,18 @@ import {
   type LicenseStatusPayload,
   type Platform,
 } from "@/lib/platform";
-import { createLicenseStub, createStoreStub } from "@/lib/platform/stub";
+import { createIapStub, createLicenseStub, createStoreStub } from "@/lib/platform/stub";
 import { makeMemoryPlatform } from "@/shell/testStore";
+
+// IS_APPSTORE is a build-time constant; mock the channel module so we can flip
+// the appstore vs direct arm per-test. `channelMock.IS_APPSTORE` is mutated in
+// each describe block (default false → direct, the existing baseFromLicense path).
+const channelMock = vi.hoisted(() => ({ value: false }));
+vi.mock("@/lib/platform/channel", () => ({
+  get IS_APPSTORE() {
+    return channelMock.value;
+  },
+}));
 import { PREFERENCES_STORE_KEY } from "@/shell/preferences";
 import { ENT_ORDERING, ENT_THEMING, FREE_SET, FULL_SET } from "./entitlements";
 import { isTauriEnv, resolveEntitlements } from "./resolve";
@@ -56,6 +66,28 @@ async function seedStoredPrefs(
   setPlatformForTest(makeMemoryPlatform(store, license));
 }
 
+/** An iap arm whose currentEntitlements() resolves a fixed set of codes (D-04
+ *  StoreKit arm tests). The rest of the seam is the deterministic no-op stub. */
+function iapArm(codes: string[]): Platform["iap"] {
+  return { ...createIapStub(), currentEntitlements: () => Promise.resolve(codes) };
+}
+
+/** Seed prefs + an appstore platform: IS_APPSTORE true, a spied license arm
+ *  (its status() must NEVER be called — T-28-03), and a StoreKit iap arm. */
+async function seedAppstorePrefs(
+  blob: unknown,
+  iapCodes: string[],
+): Promise<{ statusSpy: ReturnType<typeof vi.fn> }> {
+  channelMock.value = true;
+  const statusSpy = vi.fn(() => Promise.resolve(LICENSED_BOTH));
+  const license: Platform["license"] = { ...createLicenseStub(), status: statusSpy };
+  const store = createStoreStub();
+  await store.set(PREFERENCES_STORE_KEY, blob);
+  const base = makeMemoryPlatform(store, license);
+  setPlatformForTest({ ...base, iap: iapArm(iapCodes) });
+  return { statusSpy };
+}
+
 beforeEach(async () => {
   // Default: no Tauri marker, empty stored prefs.
   delete win.__TAURI_INTERNALS__;
@@ -64,6 +96,7 @@ beforeEach(async () => {
 
 afterEach(() => {
   delete win.__TAURI_INTERNALS__;
+  channelMock.value = false; // restore the direct (baseFromLicense) channel
   resetEntitlementsForTest();
   resetPlatformForTest();
 });
@@ -225,6 +258,62 @@ describe("resolveEntitlements (ENT-03 — the LIVE Phase 21 D-85 flip point)", (
     delete win.__TAURI_INTERNALS__;
     await seedStoredPrefs({ entitlementsOverride: "full" });
     await expect(resolveEntitlements()).resolves.toBe(FULL_SET);
+  });
+});
+
+describe("resolveEntitlements (appstore arm — D-04/D-05 StoreKit source swap, MAS-IAP-02)", () => {
+  it("baseFromStoreKit happy path: both pro codes resolve the FULL Pro set", async () => {
+    setTauriEnv();
+    await seedAppstorePrefs({}, [ENT_THEMING, ENT_ORDERING]);
+    const ents = await resolveEntitlements();
+    expect([...ents].sort()).toEqual([ENT_ORDERING, ENT_THEMING].sort());
+    expect([...ents].sort()).toEqual([...FULL_SET].sort());
+  });
+
+  it("partial: only theming owned resolves theming alone (not ordering)", async () => {
+    setTauriEnv();
+    await seedAppstorePrefs({}, [ENT_THEMING]);
+    const ents = await resolveEntitlements();
+    expect(ents.has(ENT_THEMING)).toBe(true);
+    expect(ents.has(ENT_ORDERING)).toBe(false);
+    expect(ents.size).toBe(1);
+  });
+
+  it("over-grant guard: unexpected/over-broad codes are dropped, never exceed pro.theming+pro.ordering (T-28-01)", async () => {
+    setTauriEnv();
+    await seedAppstorePrefs({}, [ENT_THEMING, "pro.admin", "not-a-code"]);
+    const ents = await resolveEntitlements();
+    expect(ents.has(ENT_THEMING)).toBe(true);
+    expect(ents.has("pro.admin")).toBe(false);
+    expect(ents.has("not-a-code")).toBe(false);
+    expect(ents.size).toBe(1);
+  });
+
+  it("empty StoreKit result (nothing owned / .unverified filtered to []) falls closed to FREE_SET (T-28-02)", async () => {
+    setTauriEnv();
+    await seedAppstorePrefs({}, []);
+    expect((await resolveEntitlements()).size).toBe(0);
+  });
+
+  it("the store arm reads iap.currentEntitlements and NEVER platform.license.status (T-28-03 tamper guard)", async () => {
+    setTauriEnv();
+    const { statusSpy } = await seedAppstorePrefs({}, [ENT_THEMING, ENT_ORDERING]);
+    const ents = await resolveEntitlements();
+    expect([...ents].sort()).toEqual([ENT_ORDERING, ENT_THEMING].sort());
+    expect(statusSpy).toHaveBeenCalledTimes(0);
+  });
+
+  it("store arm with nothing owned resolves FREE_SET, license.status still never called", async () => {
+    setTauriEnv();
+    const { statusSpy } = await seedAppstorePrefs({}, []);
+    expect((await resolveEntitlements()).size).toBe(0);
+    expect(statusSpy).toHaveBeenCalledTimes(0);
+  });
+
+  it("entitlementsOverride=\"free\" still downgrades the store arm to FREE_SET (T-28-04 downgrade-only invariant holds)", async () => {
+    setTauriEnv();
+    await seedAppstorePrefs({ entitlementsOverride: "free" }, [ENT_THEMING, ENT_ORDERING]);
+    await expect(resolveEntitlements()).resolves.toBe(FREE_SET);
   });
 });
 

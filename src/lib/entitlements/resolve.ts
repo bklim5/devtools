@@ -4,6 +4,7 @@
 // the gate and the capability seam can never disagree about the environment.
 
 import { initPlatform, platform } from "@/lib/platform";
+import { IS_APPSTORE } from "@/lib/platform/channel";
 import { loadPreferences } from "@/shell/prefsStore";
 import {
   ALL_ENTITLEMENTS,
@@ -30,6 +31,16 @@ function baseFromLicense(
     return new Set(status.entitlements.filter((e) => ALL_ENTITLEMENTS.includes(e)));
   }
   return FREE_SET;
+}
+
+/** Map the StoreKit currentEntitlements() codes to the resolved base (D-04/D-05).
+ *  Mirrors baseFromLicense: the returned pro.* codes are INTERSECTED with
+ *  ALL_ENTITLEMENTS so an unexpected/over-broad code can never unlock more than
+ *  the two defined entitlements (T-21-12 / T-28-01 over-grant). Empty (nothing
+ *  owned, or an .unverified transaction the Rust core already filtered to []) →
+ *  FREE_SET (falls closed). Same invariant, one mental model. */
+function baseFromStoreKit(codes: string[]): EntitlementSet {
+  return new Set(codes.filter((e) => ALL_ENTITLEMENTS.includes(e)));
 }
 
 /** ENT-03 — THE single resolution point. Phase 18 shipped an in-Tauri "everything
@@ -62,9 +73,18 @@ export async function resolveEntitlements(): Promise<EntitlementSet> {
   // mirrors refreshLicenseUi() (licenseUi.ts) and the prefs hooks, which all await
   // initPlatform() before touching the seam.
   if (isTauriEnv()) await initPlatform();
-  const base = isTauriEnv()
-    ? baseFromLicense(await platform.license.status())
-    : FREE_SET;
+  let base: EntitlementSet;
+  if (isTauriEnv()) {
+    // Appstore build: Pro comes ONLY from StoreKit's on-device verified cache —
+    // never the Keygen license (D-04). IS_APPSTORE is a build-time constant, so
+    // the unused arm + its license-seam import subtree tree-shake out of the
+    // store bundle (3.1.1 compliance). The direct build keeps baseFromLicense.
+    base = IS_APPSTORE
+      ? baseFromStoreKit(await platform.iap.currentEntitlements())
+      : baseFromLicense(await platform.license.status());
+  } else {
+    base = FREE_SET; // jsdom/preview — deterministic free, no licensing/native path
+  }
   const prefs = await loadPreferences(); // awaits initPlatform() internally — store-race safe
   if (prefs.entitlementsOverride === "free") return FREE_SET; // downgrade-only (all builds)
   // DEV-only Pro override (e2e/dev harness). Statically false in production →
