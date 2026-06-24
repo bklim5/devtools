@@ -46,8 +46,25 @@
 #       newest asset is NEWER than the last source commit) AND consistent with the
 #       binary (dist/ not newer than the signed binary — it is built FIRST, then
 #       embedded). A stale clean dist/ next to a fresh binary therefore FAILS.
+# Phase 29 (MAS-NATIVE-02/03/04, D-09) EXTENDS this script with three additive FATAL checks:
+#   (g) keyring (macOS Keychain crate) ABSENT from the appstore cargo tree
+#       (assert_plugins_absent) — 29-01 made it optional under `direct`; a surviving
+#       link re-introduces the Keychain FFI (MAS-NATIVE-03).
+#   (h) NO `keychain-access-groups` entitlement on the signed bundle
+#       (assert_entitlements_present) — the store build uses no Keychain (T-29-08).
+#   (i) NO updater UI subtree in the store chunks (assert_no_license_ui_module reads the
+#       SAME licenseui-inventory.json sentinel and asserts updaterInChunks:false). The
+#       29-02 IS_APPSTORE lazy import tree-shakes the WHOLE updater overlay (UpdaterOverlay
+#       → useUpdater → shell/update → UpdateBanner) out; the shared chunk-module guard
+#       records its absence. NOTE: this is deliberately NOT a `@tauri-apps/plugin-updater`
+#       PACKAGE-absence test — plugin-updater rides along INERT via the shared tauri.ts seam
+#       (D-05, exactly like plugin-autostart); its safety is the 29-02 runtime
+#       updater.check===0 no-invoke proof, NOT bundle exclusion (a string/package grep is a
+#       false signal per keygen-compileout-d04-proof).
+#
 # --selftest proves each marker is load-bearing + free of false-RED; --selftest-realbuild
-# proves the D-04 guard on a REAL fold-in build (importing the EXACT shared guard).
+# proves the D-04 + Phase-29 updater guard on a REAL fold-in build (importing the EXACT
+# shared guard).
 #
 # GREEN at the Phase 27 boundary. When a bundle IS present, any failure is FATAL
 # (non-zero exit) — Finding 2. The no-bundle local case SKIPs the bundle-level
@@ -88,6 +105,19 @@ assert_plugins_absent() {
     return 1
   fi
   echo "OK: updater + autostart + process ABSENT from the appstore dependency graph"
+  # Phase 29 (MAS-NATIVE-03): the macOS Keychain crate must be ABSENT from the store
+  # tree (29-01 made `keyring` optional under the `direct` umbrella feature). It is
+  # `keyring v…`, NOT a tauri-plugin-, so the updater|autostart|process alternation
+  # above does not catch it. A surviving keyring link would re-introduce the Keychain
+  # FFI → an unjustified keychain-access-groups entitlement / a runtime Keychain error.
+  local keyring_found
+  keyring_found="$(printf '%s\n' "$tree" | grep -E '^[^a-zA-Z]*keyring v' || true)"
+  if [[ -n "$keyring_found" ]]; then
+    echo "FAIL: keyring (macOS Keychain crate) present in the appstore dependency graph — 29-01 must drop it (MAS-NATIVE-03):" >&2
+    printf '%s\n' "$keyring_found" | sed 's/^/    /' >&2
+    return 1
+  fi
+  echo "OK: keyring (Keychain crate) ABSENT from the appstore dependency graph (autostart already covered above)"
 }
 
 assert_entitlements_present() {
@@ -111,6 +141,14 @@ assert_entitlements_present() {
   done
   [[ "$missing" -eq 0 ]] || return 1
   echo "OK: app-sandbox + network.client PRESENT on the signed bundle"
+  # Phase 29 (MAS-NATIVE-03 / D-09 check 3): the store build uses NO Keychain (29-01
+  # compiled `keyring` out), so it must carry NO `keychain-access-groups` entitlement.
+  # A shipped keychain-access-groups grant is an unjustified elevation (T-29-08).
+  if printf '%s' "$ents" | grep -qF 'keychain-access-groups'; then
+    echo "FAIL: unjustified 'keychain-access-groups' entitlement PRESENT on the signed store bundle (MAS-NATIVE-03 — the store build uses no Keychain)" >&2
+    return 1
+  fi
+  echo "OK: NO keychain-access-groups entitlement on the signed bundle (MAS-NATIVE-03)"
 }
 
 assert_min_system_version() {
@@ -227,6 +265,26 @@ assert_no_license_ui_module() {
     return 1
   fi
   echo "OK: src/lib/license/licenseUi ABSENT from every store chunk (D-04, from the generateBundle chunk-module inventory sentinel)"
+  # Phase 29 (MAS-NATIVE-02/03): the updater UI subtree (UpdaterOverlay → useUpdater →
+  # shell/update → UpdateBanner, + the DIRECT-only UpdatesSettings pane) is gated out via
+  # the 29-02 IS_APPSTORE lazy import; the SAME generateBundle guard's chunk.modules
+  # inventory records its absence (updaterInChunks) into THIS sentinel. A string grep for
+  # menu://check-updates — OR a plugin-updater PACKAGE-absence test — is INSUFFICIENT
+  # (keygen-compileout-d04-proof; plugin-updater rides along inert via the shared tauri.ts
+  # seam per D-05, exactly like plugin-autostart). We assert the chunk-MODULE sentinel for
+  # the UI modules; the 29-02 runtime updater.check===0 boot-path assertion is the other
+  # half of the proof. Reuse the EXACT true/false + malformed-field discipline above.
+  if grep -E '"updaterInChunks"[[:space:]]*:[[:space:]]*true' "$sentinel" >/dev/null 2>&1; then
+    echo "FAIL: Phase-29 violation — sentinel reports an updater UI module was folded into a store chunk:" >&2
+    sed 's/^/    /' "$sentinel" >&2
+    return 1
+  fi
+  if ! grep -E '"updaterInChunks"[[:space:]]*:[[:space:]]*false' "$sentinel" >/dev/null 2>&1; then
+    echo "FAIL: sentinel present but missing updaterInChunks:false (the guard did not record the updater inventory) at '$sentinel':" >&2
+    sed 's/^/    /' "$sentinel" >&2
+    return 1
+  fi
+  echo "OK: updater UI subtree (update.ts/useUpdater/UpdateBanner/UpdaterOverlay/UpdatesSettings) ABSENT from every store chunk (chunk-module inventory sentinel; plugin-updater rides along inert via the shared seam per D-05 — proven safe by the 29-02 runtime updater.check===0 assertion)"
 }
 
 # mtime helper — epoch seconds for a file (BSD stat on macOS, GNU stat fallback for CI).
@@ -402,20 +460,41 @@ selftest_forbidden_gate() {
   # (3a) BENIGN-PASS (Finding B): a clean sentinel {licenseUiInChunks:false} (a store build
   # where licenseUi is only behind the dead !IS_APPSTORE dynamic import) must PASS — proves the
   # D-04 check keys on the chunk-module fold-in inventory, not on any IPC literal (no false-RED).
-  printf '{ "licenseUiInChunks": false, "hits": [] }\n' > "$dist/licenseui-inventory.json"
+  # The sentinel now ALSO carries the Phase-29 updater fields (updaterInChunks:false), which the
+  # extended assert requires — a clean store build emits both groups absent.
+  printf '{ "licenseUiInChunks": false, "hits": [], "updaterInChunks": false, "updaterHits": [] }\n' > "$dist/licenseui-inventory.json"
   if assert_no_license_ui_module "$dist" >/dev/null 2>&1; then
-    echo "SELFTEST OK: clean sentinel (licenseUiInChunks:false) PASSES the D-04 check (no false-RED)"
+    echo "SELFTEST OK: clean sentinel (licenseUiInChunks:false + updaterInChunks:false) PASSES the check (no false-RED)"
   else
-    echo "SELFTEST FAIL: clean sentinel FALSE-RED the D-04 check (Finding B regression)" >&2; rc=1
+    echo "SELFTEST FAIL: clean sentinel FALSE-RED the check (Finding B regression)" >&2; rc=1
   fi
 
   # (3b) LOAD-BEARING (round-3 Finding): a fold-in sentinel {licenseUiInChunks:true}
   # (licenseUi folded into a chunk) MUST trip D-04 — the false-GREEN the Vite manifest missed.
-  printf '{ "licenseUiInChunks": true, "hits": ["assets/main-abc.js: /abs/src/lib/license/licenseUi.ts"] }\n' > "$dist/licenseui-inventory.json"
+  printf '{ "licenseUiInChunks": true, "hits": ["assets/main-abc.js: /abs/src/lib/license/licenseUi.ts"], "updaterInChunks": false, "updaterHits": [] }\n' > "$dist/licenseui-inventory.json"
   if assert_no_license_ui_module "$dist" >/dev/null 2>&1; then
     echo "SELFTEST FAIL: a fold-in sentinel (licenseUiInChunks:true) did NOT trip the D-04 check (check is vacuous — the false-GREEN survives)" >&2; rc=1
   else
     echo "SELFTEST OK: a fold-in sentinel (licenseUiInChunks:true) trips the D-04 check (load-bearing)"
+  fi
+
+  # (3b-updater) LOAD-BEARING (Phase 29): a sentinel with updaterInChunks:true (an updater UI
+  # module folded into a chunk) MUST trip the check — even when licenseUi is clean. This is the
+  # false-GREEN a menu://check-updates string grep / plugin-updater package-absence test misses.
+  printf '{ "licenseUiInChunks": false, "hits": [], "updaterInChunks": true, "updaterHits": ["assets/main-abc.js: /abs/src/components/UpdaterOverlay.tsx"] }\n' > "$dist/licenseui-inventory.json"
+  if assert_no_license_ui_module "$dist" >/dev/null 2>&1; then
+    echo "SELFTEST FAIL: a fold-in sentinel (updaterInChunks:true) did NOT trip the check (the updater branch is vacuous)" >&2; rc=1
+  else
+    echo "SELFTEST OK: a fold-in sentinel (updaterInChunks:true) trips the check (load-bearing — updater UI)"
+  fi
+
+  # (3b-updater-missing) LOAD-BEARING (Phase 29): a sentinel MISSING the updaterInChunks field
+  # (an OLD guard that did not record the updater inventory) MUST FAIL — the proof is absent.
+  printf '{ "licenseUiInChunks": false, "hits": [] }\n' > "$dist/licenseui-inventory.json"
+  if assert_no_license_ui_module "$dist" >/dev/null 2>&1; then
+    echo "SELFTEST FAIL: a sentinel missing updaterInChunks did NOT trip the check (a stale guard could silently drop the updater inventory)" >&2; rc=1
+  else
+    echo "SELFTEST OK: a sentinel missing the updaterInChunks field trips the check (the extended guard must run)"
   fi
 
   # (3c) LOAD-BEARING: a MISSING sentinel MUST FAIL (the appstore generateBundle plugin
@@ -597,6 +676,48 @@ selftest_foldin_realbuild() {
     fi
   else
     echo "SELFTEST FAIL (realbuild): a clean fixture (licenseUi only behind a dead dynamic import) FAILED the build (false-RED)" >&2; rc=1
+  fi
+
+  # === Phase 29: exercise the NEW updater-UI branch of the SAME shared guard ===
+  # Stand-in updater UI modules at regex-matching paths. We deliberately include a
+  # StoreUpdatesSettings.tsx stand-in to prove it is NOT false-matched by the
+  # /UpdatesSettings\.[tj]sx?$/ regex (the store Updates pane legitimately ships).
+  mkdir -p "$tmp/src/components"
+  printf 'export const updaterOverlayStandin = 7;\n' > "$tmp/src/components/UpdaterOverlay.tsx"
+  printf 'export const storeUpdatesStandin = 9;\n' > "$tmp/src/components/StoreUpdatesSettings.tsx"
+
+  # --- UPDATER FOLD-IN fixture: static import of an updater UI module → MUST FAIL ---
+  local ufold="$tmp/ufold"; mkdir -p "$ufold"
+  printf 'import { updaterOverlayStandin } from "../src/components/UpdaterOverlay.tsx";\nconsole.log(updaterOverlayStandin);\n' > "$ufold/entry.js"
+  if node --input-type=module -e "
+    import { build } from 'vite';
+    import { licenseUiFoldInGuard } from '$guard';
+    await build({ root: '$tmp', logLevel: 'silent', plugins: [licenseUiFoldInGuard()], build: { outDir: '$ufold/out', emptyOutDir: true, lib: { entry: '$ufold/entry.js', formats: ['es'], fileName: 'ufold' } } });
+  " >/dev/null 2>&1; then
+    echo "SELFTEST FAIL (realbuild): a STATIC UpdaterOverlay import folded into the entry chunk did NOT fail the appstore build (the production guard is not catching the updater fold-in case)" >&2; rc=1
+  else
+    echo "SELFTEST OK (realbuild): a real updater-UI fold-in fixture FAILS the appstore build (production guard caught chunk.modules fold-in)"
+  fi
+
+  # --- UPDATER CLEAN fixture: a StoreUpdatesSettings import (legitimately ships) + a dead
+  # dynamic import of an updater UI module → MUST PASS, sentinel updaterInChunks:false.
+  # Folding StoreUpdatesSettings into the entry chunk proves the regex does NOT false-match it.
+  local uclean="$tmp/uclean"; mkdir -p "$uclean"
+  printf 'import { storeUpdatesStandin } from "../src/components/StoreUpdatesSettings.tsx";\nconsole.log(storeUpdatesStandin);\nif (false) { import("../src/components/UpdaterOverlay.tsx").then(() => {}); }\n' > "$uclean/entry.js"
+  if node --input-type=module -e "
+    import { build } from 'vite';
+    import { licenseUiFoldInGuard } from '$guard';
+    await build({ root: '$tmp', logLevel: 'silent', plugins: [licenseUiFoldInGuard()], build: { outDir: '$uclean/out', emptyOutDir: true, lib: { entry: '$uclean/entry.js', formats: ['es'], fileName: 'uclean' } } });
+  " >/dev/null 2>&1; then
+    if grep -E '"updaterInChunks"[[:space:]]*:[[:space:]]*false' "$uclean/out/licenseui-inventory.json" >/dev/null 2>&1; then
+      echo "SELFTEST OK (realbuild): a clean updater fixture (StoreUpdatesSettings folded in + dead UpdaterOverlay import) PASSES + sentinel updaterInChunks:false (StoreUpdatesSettings NOT false-matched)"
+    else
+      echo "SELFTEST FAIL (realbuild): clean updater fixture built but the sentinel did not report updaterInChunks:false (StoreUpdatesSettings may have been false-matched, or the guard did not record the updater inventory)" >&2
+      [[ -f "$uclean/out/licenseui-inventory.json" ]] && sed 's/^/    /' "$uclean/out/licenseui-inventory.json" >&2
+      rc=1
+    fi
+  else
+    echo "SELFTEST FAIL (realbuild): a clean updater fixture (StoreUpdatesSettings + dead UpdaterOverlay import) FAILED the build (false-RED — StoreUpdatesSettings.tsx was wrongly matched by an UPDATER_MODULES regex)" >&2; rc=1
   fi
 
   rm -rf "$tmp"; return "$rc"
