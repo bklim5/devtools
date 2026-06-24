@@ -26,6 +26,17 @@ let mockPreferences: {
 };
 let prefsLoaded: boolean;
 
+// IS_APPSTORE is a build-time constant; mock the channel module so the D-04
+// store-build (launch-at-login ABSENT) vs direct-build (present) arms can be
+// flipped per-test. Default false → direct (the existing arm); set true inside
+// the store-build block, reset in beforeEach so the other cases are unaffected.
+const channelMock = vi.hoisted(() => ({ value: false }));
+vi.mock("@/lib/platform/channel", () => ({
+  get IS_APPSTORE() {
+    return channelMock.value;
+  },
+}));
+
 vi.mock("@/lib/platform", () => ({
   platform: {
     autostart: {
@@ -52,6 +63,7 @@ const liveRegionText = () =>
 
 beforeEach(() => {
   vi.clearAllMocks();
+  channelMock.value = false; // default: direct build (launch-at-login present)
   enable.mockResolvedValue(undefined);
   disable.mockResolvedValue(undefined);
   isEnabled.mockResolvedValue(false); // matches launchAtLogin:false → no reconcile write
@@ -89,6 +101,50 @@ describe("GeneralSettings — launch at login", () => {
     isEnabled.mockResolvedValue(true); // OS says ON, persisted intent is false
     render(<GeneralSettings />);
     await waitFor(() => expect(setLaunchAtLogin).toHaveBeenCalledWith(true));
+  });
+
+  it("DIRECT build: renders the toggle and the reconcile effect reads the OS once", async () => {
+    isEnabled.mockResolvedValue(false);
+    render(<GeneralSettings />);
+    // The toggle is present.
+    expect(
+      screen.getByRole("switch", { name: "Launch at login" }),
+    ).toBeTruthy();
+    // The OS-truth reconcile effect runs once on mount (no extra writes here
+    // since the OS matches the persisted intent).
+    await waitFor(() => expect(isEnabled).toHaveBeenCalledTimes(1));
+  });
+});
+
+describe("GeneralSettings — D-04 store build (launch-at-login ABSENT)", () => {
+  beforeEach(() => {
+    channelMock.value = true; // App Store build
+  });
+
+  it("renders NO launch-at-login control and runs NO autostart reconcile", async () => {
+    render(<GeneralSettings />);
+    // No launch-at-login toggle, label, or helper.
+    expect(screen.queryByRole("switch", { name: "Launch at login" })).toBeNull();
+    expect(screen.queryByText("Launch at login")).toBeNull();
+    expect(
+      screen.queryByText("Start TinkerDev automatically when you log in."),
+    ).toBeNull();
+    // The OS-truth reconcile effect early-returns: the seam is never read.
+    // Flush a tick to be sure no async isEnabled() landed.
+    await new Promise((r) => setTimeout(r, 0));
+    expect(isEnabled).not.toHaveBeenCalled();
+    // No orphan launch-at-login live region.
+    expect(
+      document.querySelector('[role="status"][aria-live="polite"]'),
+    ).toBeNull();
+  });
+
+  it("STILL renders the Start-in-the-menu-bar toggle and the Open-to selector (pane not empty)", () => {
+    render(<GeneralSettings />);
+    expect(
+      screen.getByRole("switch", { name: "Start in the menu bar" }),
+    ).toBeTruthy();
+    expect(screen.getByLabelText("Open to")).toBeTruthy();
   });
 });
 

@@ -19,6 +19,7 @@
 
 import { useEffect, useState } from "react";
 import { platform } from "@/lib/platform";
+import { IS_APPSTORE } from "@/lib/platform/channel";
 import { usePreferences } from "@/shell/usePreferences";
 import { ENABLED_TOOLS } from "@/lib/tools/registry";
 import { SettingToggle } from "./SettingToggle";
@@ -42,7 +43,16 @@ export function GeneralSettings() {
   // loaded (T-24-06 — a pre-load read would seed against the default). The OS is
   // the source of truth (RESEARCH §7): if the plist disagrees with the persisted
   // intent, adopt the OS value. browser/test arms resolve false (no-op there).
+  //
+  // D-04 / MAS-NATIVE-04: launch-at-login is NOT shipped in the App Store build
+  // (the autostart plugin writes a per-user LaunchAgent plist — not sandbox-safe;
+  // SMAppService is deferred to v2 / MAS-NATIVE-05). The store build renders no
+  // toggle (below), so the OS-truth reconcile must also no-op — IS_APPSTORE is a
+  // build-time const, so this early-return drops the platform.autostart.isEnabled
+  // call entirely from the store bundle. The hook is still called unconditionally
+  // (never gate a hook's CALL — only its body).
   useEffect(() => {
+    if (IS_APPSTORE) return;
     if (!prefsLoaded) return;
     let cancelled = false;
     void platform.autostart.isEnabled().then((on) => {
@@ -92,12 +102,19 @@ export function GeneralSettings() {
       </header>
 
       <section className="flex flex-col gap-4">
-        <SettingToggle
-          label="Launch at login"
-          helper="Start TinkerDev automatically when you log in."
-          checked={preferences.launchAtLogin}
-          onChange={(next) => void onToggleLaunchAtLogin(next)}
-        />
+        {/* D-04 / MAS-NATIVE-04: launch-at-login is DIRECT-channel only — the
+            autostart plugin's LaunchAgent plist write is not App-Sandbox-safe
+            (SMAppService deferred to v2 / MAS-NATIVE-05). The store build renders
+            NO toggle, label, or helper (no greyed/dead UI) — IS_APPSTORE is a
+            build-time const so this whole element drops from the store bundle. */}
+        {!IS_APPSTORE && (
+          <SettingToggle
+            label="Launch at login"
+            helper="Start TinkerDev automatically when you log in."
+            checked={preferences.launchAtLogin}
+            onChange={(next) => void onToggleLaunchAtLogin(next)}
+          />
+        )}
 
         <SettingToggle
           label="Start in the menu bar"
@@ -136,10 +153,14 @@ export function GeneralSettings() {
       </section>
 
       {/* Polite live region for the launch-at-login result (WCAG-AA) — the only
-          control here with an async OS round-trip that can fail. */}
-      <div role="status" aria-live="polite" className="sr-only">
-        {announcement}
-      </div>
+          control here with an async OS round-trip that can fail. Gated with the
+          toggle (D-04): the store build has no launch-at-login control, so it must
+          render no orphan empty live-region either. */}
+      {!IS_APPSTORE && (
+        <div role="status" aria-live="polite" className="sr-only">
+          {announcement}
+        </div>
+      )}
     </div>
   );
 }
