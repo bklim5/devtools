@@ -262,13 +262,25 @@ pub fn run() {
             // source). No accelerator on the tray item (the ⌘, lives on the app menu).
             let settings_tray_i =
                 MenuItem::with_id(app, "open_settings", "Settings…", true, None::<&str>)?;
+            // "Check for Updates…" (DST-02 / D-11a) — DIRECT channel ONLY (Phase 29
+            // MAS-NATIVE-02/03). The updater plugin is compiled OUT of the sandboxed App
+            // Store build (lib.rs updater gate above), so the store binary registers no
+            // updater command. Shipping this tray item there would emit menu://check-updates
+            // → the frontend's platform.updater.check() → an invoke against an unregistered
+            // command = a runtime error on a KEPT surface (the tray). Apple forbids
+            // self-updating store apps anyway, so the store tray has no updates affordance.
+            #[cfg(feature = "direct")]
             let check_updates_i =
                 MenuItem::with_id(app, "check_updates", "Check for Updates…", true, None::<&str>)?;
             let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-            let menu = Menu::with_items(
-                app,
-                &[&show_i, &settings_tray_i, &check_updates_i, &quit_i],
-            )?;
+            // Build the tray item list; the updater item is direct-only (gated above), so
+            // it is conditionally inserted — the store tray is exactly Show / Settings… / Quit
+            // while the direct tray keeps Show / Settings… / Check for Updates… / Quit.
+            let mut items: Vec<&dyn tauri::menu::IsMenuItem<_>> = vec![&show_i, &settings_tray_i];
+            #[cfg(feature = "direct")]
+            items.push(&check_updates_i);
+            items.push(&quit_i);
+            let menu = Menu::with_items(app, &items)?;
 
             TrayIconBuilder::new()
                 .icon(app.default_window_icon().unwrap().clone())
@@ -285,6 +297,11 @@ pub fn run() {
                     "open_settings" => {
                         let _ = app.emit("menu://open-settings", ());
                     }
+                    // Direct channel ONLY (Phase 29 MAS-NATIVE-02/03): the "Check for
+                    // Updates…" tray item is direct-gated above, so the store build neither
+                    // builds the item nor matches this arm. The `_ => {}` catch-all below
+                    // makes the store build safe even if a stray id somehow arrived.
+                    #[cfg(feature = "direct")]
                     "check_updates" => {
                         let _ = app.emit("menu://check-updates", ());
                     }
