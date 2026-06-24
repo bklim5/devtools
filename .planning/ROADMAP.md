@@ -214,8 +214,8 @@ A five-pane in-window Settings modal (License · Appearance · Hotkeys · Genera
   4. Launch-at-login is hidden/disabled in the store build's General pane — the toggle and any autostart wiring are absent from the store variant (SMAppService deferred to v2).
 **Plans**: 3 plans
 - [x] 29-01-PLAN.md — keyring optional + direct-gate the whole license Rust module/commands/setup + the tray "Check for Updates…" item (compile-out; both cargo builds exit 0) (Wave 1, auto) — MAS-NATIVE-03, MAS-NATIVE-02 ✓ source-level (signed-bundle audit at 29-03)
-- [ ] 29-02-PLAN.md — IS_APPSTORE-hide launch-at-login in General pane + autostart-seam no-op + boot-path no-license-IPC proof (Wave 1, auto) — MAS-NATIVE-04, MAS-NATIVE-03 (D-03)
-- [ ] 29-03-PLAN.md — extend verify-appstore-bundle.sh (keyring/autostart + no-keychain-access-groups) + human signed-build gate (summon, tray, entitlement audit, launch-at-login absent) (Wave 2, human-verify) — MAS-NATIVE-01/02/03/04
+- [x] 29-02-PLAN.md — IS_APPSTORE-hide launch-at-login in General pane + autostart-seam no-op + boot-path no-license-IPC proof (Wave 1, auto) — MAS-NATIVE-04, MAS-NATIVE-03 (D-03)
+- [ ] 29-03-PLAN.md — Task 1 DONE (verify-appstore-bundle.sh keyring/keychain + updater-UI-fold-in gates, both self-tests green; commit `b2ab996f`); PAUSED at the Task 2 BLOCKING human signed-build gate (summon, tray, entitlement audit, launch-at-login absent) — NOT complete (Wave 2, human-verify) — MAS-NATIVE-01/02/03/04
 **Research**: Skip — sandbox audit + SMAppService-omission are well-scoped; `MissingEntitlement` is runtime-only (verify on the signed build).
 **Gate**: Human — global summon over a real OS chord; tray reveal; SIGNED-build entitlement audit (WebDriver can't synth these).
 **UI hint**: yes
@@ -274,7 +274,7 @@ v1.8 runs 26 → 27 → 28 → 30 with Phase 29 parallel-capable beside 28 once 
 | 26. StoreKit Bridge Spike (CRITICAL PATH) | v1.8 | 6/7 | Complete    | 2026-06-23 |
 | 27. The Build-Variant Seam (3 layers) | v1.8 | 4/4 | Complete    | 2026-06-23 |
 | 28. Entitlement-Source Swap + Store License Pane | v1.8 | 5/5 | Complete    | 2026-06-23 |
-| 29. Sandbox-Safe Native Features | v1.8 | 2/3 | Executing | - |
+| 29. Sandbox-Safe Native Features | v1.8 | 2/3 (29-03 at human gate) | Executing | - |
 | 30. .pkg Build + App Store Connect Submission | v1.8 | 0/0 | Not started | - |
 
 ## Backlog
