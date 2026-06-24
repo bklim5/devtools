@@ -402,9 +402,15 @@ pub fn run() {
     // `invoke_handler` may be called ONLY ONCE per builder, so the `appstore`
     // IAP commands (Phase 26) cannot be a separate call — they fold into the
     // arm set, turning the previous debug/non-debug pair into a 2×2 DEBUG ×
-    // APPSTORE matrix. EXACTLY ONE arm compiles per config: the four cfg
-    // predicates are mutually exclusive and exhaustive over (debug_assertions,
-    // feature="appstore"). The debug half appends `dev_set_license_state`
+    // CHANNEL matrix. The two shipped invocations — default (`direct`) and
+    // `--no-default-features --features appstore` — each compile EXACTLY ONE
+    // arm: license commands are registered iff the `direct`-gated `license`
+    // module exists (`feature = "direct"`), exactly mirroring how the appstore
+    // arms key on `feature = "appstore"` to match the `iap` module. (Gating the
+    // direct arms on `not(feature = "appstore")` would diverge from the module
+    // predicate — a `--no-default-features` build with neither feature would
+    // reference the absent `license` module and fail to compile.) The debug
+    // half appends `dev_set_license_state`
     // (release-stripped, 22.1-04). The plugin itself
     // (`tauri_plugin_iap::init()`) is NOT registered here — that is Plan
     // 05's minimal-harness task.
@@ -416,8 +422,8 @@ pub fn run() {
     // commands (the store frontend never calls `platform.license.*`; its Pro
     // state comes ONLY from StoreKit). `dev_set_license_state` lives in the
     // gated-out module, so it is also absent from the debug-appstore arm. The
-    // two NON-appstore (direct) arms keep the full license surface unchanged.
-    #[cfg(all(debug_assertions, not(feature = "appstore")))]
+    // two `direct` arms keep the full license surface unchanged.
+    #[cfg(all(debug_assertions, feature = "direct"))]
     let builder = builder.invoke_handler(tauri::generate_handler![
         license::commands::license_status,
         license::commands::license_status_detail,
@@ -427,7 +433,7 @@ pub fn run() {
         license::commands::deactivate_machine,
         license::commands::dev_set_license_state
     ]);
-    #[cfg(all(not(debug_assertions), not(feature = "appstore")))]
+    #[cfg(all(not(debug_assertions), feature = "direct"))]
     let builder = builder.invoke_handler(tauri::generate_handler![
         license::commands::license_status,
         license::commands::license_status_detail,
