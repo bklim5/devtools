@@ -90,9 +90,9 @@ Phase structure (dependency-forced, continues from Phase 25): **26** StoreKit br
 | MAS-BUILD-04 | Phase 28 | Complete (2026-06-23 — plan 05 verify-appstore-bundle.sh: D-03 grep 0 incl. $9 + D-04 chunk sentinel licenseUiInChunks:false on the signed bundle) |
 | MAS-BUILD-07 | Phase 28 | Complete (2026-06-23, plan 03) |
 | MAS-NATIVE-01 | Phase 29 | Pending |
-| MAS-NATIVE-02 | Phase 29 | Source-level (2026-06-24, plan 01 — tray updater item direct-gated; store tray = Show/Settings…/Quit); signed-bundle/human gate at plan 03 |
-| MAS-NATIVE-03 | Phase 29 | Source-level (2026-06-24, plan 01 — keyring optional + license module/commands/setup direct-gated; appstore cargo tree keyring=0); signed-bundle entitlement audit at plan 03 |
-| MAS-NATIVE-04 | Phase 29 | Pending |
+| MAS-NATIVE-02 | Phase 29 | Source-level (2026-06-24, plan 01 — tray updater item direct-gated; store tray = Show/Settings…/Quit; plan 02 — the kept tray's frontend wiring drives no compiled-out command: store build registers 0 menu://check-updates listeners); signed-bundle/human gate at plan 03 |
+| MAS-NATIVE-03 | Phase 29 | Source-level (2026-06-24, plan 01 — keyring optional + license module/commands/setup direct-gated; appstore cargo tree keyring=0; plan 02 — the D-03 runtime no-invoke proof: store boot invokes 0 license/updater IPC + reaches iap.currentEntitlements; the whole updater overlay tree-shaken out → 0 updater.check, no forbidden self-update UI); signed-bundle entitlement audit + dist chunk-module guard at plan 03 |
+| MAS-NATIVE-04 | Phase 29 | Source-level (2026-06-24, plan 02 — launch-at-login toggle/helper/live-region/reconcile absent in the store build's General pane via IS_APPSTORE gate; autostart seam no-ops under IS_APPSTORE; test-asserted store=no-control / direct=present); signed-bundle/human gate at plan 03 |
 | MAS-SHIP-01 | Phase 30 | Pending |
 | MAS-SHIP-02 | Phase 30 | Pending |
 | MAS-SHIP-03 | Phase 30 | Pending |

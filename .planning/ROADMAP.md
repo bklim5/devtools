@@ -274,7 +274,7 @@ v1.8 runs 26 → 27 → 28 → 30 with Phase 29 parallel-capable beside 28 once 
 | 26. StoreKit Bridge Spike (CRITICAL PATH) | v1.8 | 6/7 | Complete    | 2026-06-23 |
 | 27. The Build-Variant Seam (3 layers) | v1.8 | 4/4 | Complete    | 2026-06-23 |
 | 28. Entitlement-Source Swap + Store License Pane | v1.8 | 5/5 | Complete    | 2026-06-23 |
-| 29. Sandbox-Safe Native Features | v1.8 | 1/3 | Executing | - |
+| 29. Sandbox-Safe Native Features | v1.8 | 2/3 | Executing | - |
 | 30. .pkg Build + App Store Connect Submission | v1.8 | 0/0 | Not started | - |
 
 ## Backlog
