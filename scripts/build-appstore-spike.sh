@@ -81,13 +81,17 @@ export APPLE_SIGNING_IDENTITY="$SIGN_ID"
 echo "[appstore] building universal appstore bundle, signed '$SIGN_ID' (no notarization)…"
 # (The final tauri-build exit can be non-zero ONLY for the absent updater key — we
 #  judge success by the bundle + its signature below, not the exit code; harness rule.)
+# `-- --no-default-features` drops the default `direct` feature (Phase 29 channel
+# mutual-exclusion guard — a bare `--features appstore` now fails to compile). This
+# superseded spike pre-dates the compile-out, so it must pass the cargo flag too.
 MACOSX_DEPLOYMENT_TARGET=13.0 pnpm tauri build --features appstore \
   --target "$TARGET" --bundles app \
   --config '{"bundle":{"macOS":{
       "entitlements":"entitlements.appstore.plist",
       "minimumSystemVersion":"13.0",
       "hardenedRuntime":false,
-      "signingIdentity":"'"$SIGN_ID"'"}}}' || true
+      "signingIdentity":"'"$SIGN_ID"'"}}}' \
+  -- --no-default-features || true
 
 if [[ ! -d "$APP_OUT" ]]; then
   echo "ERROR: bundle not produced at $APP_OUT — check the build log above."

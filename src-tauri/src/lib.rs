@@ -1,3 +1,21 @@
+// Channel mutual-exclusion guard (Phase 29 / MAS-NATIVE-03, threat T-29-09).
+// `direct` is the DEFAULT feature and Cargo features are ADDITIVE, so a build
+// that says `--features appstore` but forgets `--no-default-features` keeps
+// `direct` ON and compiles BOTH channels: keyring + the updater/autostart/
+// process plugins + the license module all link in, while the appstore
+// invoke_handler arm merely overwrites the direct one — a hybrid binary that
+// silently defeats the App-Store compile-out (and that the gate, which uses the
+// correct `--no-default-features --features appstore`, would never see). Fail
+// LOUDLY at compile time instead. The store build must drop `direct`:
+//   pnpm tauri build -f appstore … -- --no-default-features   (build-appstore-bundle.sh)
+#[cfg(all(feature = "direct", feature = "appstore"))]
+compile_error!(
+    "The `direct` and `appstore` channel features are mutually exclusive. \
+     Build the App Store variant with `--no-default-features --features appstore` \
+     (a bare `--features appstore` keeps the default `direct` feature and links a \
+     hybrid binary with keyring/updater/autostart compiled in)."
+);
+
 // The Keygen license Rust surface (Phase 19) — direct channel ONLY (Phase 29
 // D-01/MAS-NATIVE-03). The whole module (MacKeychain + the keyring dep +
 // keygen_client + fingerprint + the 4 license commands + the LicenseState/
