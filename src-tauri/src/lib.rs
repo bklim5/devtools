@@ -1,3 +1,11 @@
+// The Keygen license Rust surface (Phase 19) — direct channel ONLY (Phase 29
+// D-01/MAS-NATIVE-03). The whole module (MacKeychain + the keyring dep +
+// keygen_client + fingerprint + the 4 license commands + the LicenseState/
+// refresh_if_needed setup) is compiled OUT of the sandboxed App Store build
+// (--no-default-features --features appstore), which drops `direct`. The store
+// gets Pro state ONLY from StoreKit (Phase 28 baseFromStoreKit) — no Keychain,
+// no MissingEntitlement, no unjustified keychain-access-groups entitlement.
+#[cfg(feature = "direct")]
 mod license;
 // Mac App Store IAP bridge (Phase 26). Whole module is `#[cfg(feature =
 // "appstore")]`, so the direct `pnpm tauri build` compiles no iap code at all
@@ -89,61 +97,77 @@ pub fn run() {
             // fingerprint is computed ONCE here; a failure maps to the empty
             // sentinel (resolve_status fails closed to a Problem on any existing
             // machine.lic and activate refuses to run) — never a startup panic.
-            let fingerprint = license::fingerprint::machine_fingerprint().unwrap_or_else(|e| {
-                eprintln!("license: machine fingerprint unavailable: {e}");
-                String::new()
-            });
-            let mgr = license::LicenseManager::new(
-                Box::new(license::store::AppDataLicStore::new(
-                    app.path().app_data_dir()?,
-                )),
-                Box::new(license::keychain::MacKeychain),
-                license::keygen_client::KeygenClient::new(),
-                fingerprint,
-            );
-            app.manage(license::commands::LicenseState(
-                tauri::async_runtime::Mutex::new(mgr),
-            ));
-
-            // Opportunistic background license refresh (D-76, LIC-05). A
-            // fire-and-forget task — setup() returns IMMEDIATELY, so first
-            // paint is never blocked (honoring the v1.6 "no per-launch hard
-            // network check" amendment; the launch trigger waits for the window
-            // to paint, then runs off the UI thread).
             //
-            // Both the launch trigger and the 24h poll funnel through
-            // `refresh_if_needed`, which is itself gated: it makes ZERO network
-            // when the cert is fresh, and SWALLOWS every error (offline /
-            // service down) so a failed attempt is silent and leaves state
-            // untouched. The scheduler's job is to keep machine.lic fresh on
-            // disk so the next `license_status` (panel open / explicit Refresh,
-            // Plan 04) reflects it; the result here is discarded server-side.
-            let handle = app.handle().clone();
-            tauri::async_runtime::spawn(async move {
-                use std::time::Duration;
-                // POLL_INTERVAL_HOURS=24 (config.rs, D-76). tokio's interval
-                // fires its FIRST tick immediately — we consume that first tick
-                // as the launch trigger (after a short paint delay) and every
-                // subsequent tick as a periodic poll, so the launch attempt and
-                // the first poll never double-fire.
-                let mut interval = tokio::time::interval(Duration::from_secs(
-                    license::config::POLL_INTERVAL_HOURS * 3600,
+            // DIRECT channel ONLY (Phase 29 D-01/MAS-NATIVE-03). The whole
+            // license setup — fingerprint, LicenseManager (incl. MacKeychain +
+            // the keyring dep), the managed LicenseState, and the background
+            // refresh_if_needed task — is compiled OUT of the sandboxed App
+            // Store build (--no-default-features --features appstore, which
+            // drops `direct`). `.setup(|app| { ... })` is a closure body
+            // (statements, not items), so the gate is a cfg'd block expression:
+            // the appstore build emits nothing here and never touches the
+            // Keychain (the store's Pro state comes ONLY from StoreKit —
+            // Phase 28 baseFromStoreKit). The updater gate (above), the macOS
+            // application menu, and the tray block are KEPT surfaces and stay.
+            #[cfg(feature = "direct")]
+            {
+                let fingerprint =
+                    license::fingerprint::machine_fingerprint().unwrap_or_else(|e| {
+                        eprintln!("license: machine fingerprint unavailable: {e}");
+                        String::new()
+                    });
+                let mgr = license::LicenseManager::new(
+                    Box::new(license::store::AppDataLicStore::new(
+                        app.path().app_data_dir()?,
+                    )),
+                    Box::new(license::keychain::MacKeychain),
+                    license::keygen_client::KeygenClient::new(),
+                    fingerprint,
+                );
+                app.manage(license::commands::LicenseState(
+                    tauri::async_runtime::Mutex::new(mgr),
                 ));
-                // Let the window paint before the first (launch) attempt — the
-                // refresh must never delay first paint.
-                tokio::time::sleep(Duration::from_secs(2)).await;
-                loop {
-                    interval.tick().await; // immediate on the first iteration
-                    let state = handle.state::<license::commands::LicenseState>();
-                    let _ = state.0.lock().await.refresh_if_needed().await;
-                    // TODO(21-04): emit a `license://refreshed` event here when
-                    // the on-disk state changed, so a long-running window can
-                    // live-flip the UI without a restart. Plan 04 wires the
-                    // status-open + explicit-Refresh paths that already pick up
-                    // the fresh disk state, so the event is a nice-to-have for
-                    // the long-uptime case, not a blocker for this plan.
-                }
-            });
+
+                // Opportunistic background license refresh (D-76, LIC-05). A
+                // fire-and-forget task — setup() returns IMMEDIATELY, so first
+                // paint is never blocked (honoring the v1.6 "no per-launch hard
+                // network check" amendment; the launch trigger waits for the window
+                // to paint, then runs off the UI thread).
+                //
+                // Both the launch trigger and the 24h poll funnel through
+                // `refresh_if_needed`, which is itself gated: it makes ZERO network
+                // when the cert is fresh, and SWALLOWS every error (offline /
+                // service down) so a failed attempt is silent and leaves state
+                // untouched. The scheduler's job is to keep machine.lic fresh on
+                // disk so the next `license_status` (panel open / explicit Refresh,
+                // Plan 04) reflects it; the result here is discarded server-side.
+                let handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    use std::time::Duration;
+                    // POLL_INTERVAL_HOURS=24 (config.rs, D-76). tokio's interval
+                    // fires its FIRST tick immediately — we consume that first tick
+                    // as the launch trigger (after a short paint delay) and every
+                    // subsequent tick as a periodic poll, so the launch attempt and
+                    // the first poll never double-fire.
+                    let mut interval = tokio::time::interval(Duration::from_secs(
+                        license::config::POLL_INTERVAL_HOURS * 3600,
+                    ));
+                    // Let the window paint before the first (launch) attempt — the
+                    // refresh must never delay first paint.
+                    tokio::time::sleep(Duration::from_secs(2)).await;
+                    loop {
+                        interval.tick().await; // immediate on the first iteration
+                        let state = handle.state::<license::commands::LicenseState>();
+                        let _ = state.0.lock().await.refresh_if_needed().await;
+                        // TODO(21-04): emit a `license://refreshed` event here when
+                        // the on-disk state changed, so a long-running window can
+                        // live-flip the UI without a restart. Plan 04 wires the
+                        // status-open + explicit-Refresh paths that already pick up
+                        // the fresh disk state, so the event is a nice-to-have for
+                        // the long-uptime case, not a blocker for this plan.
+                    }
+                });
+            }
 
             // ── macOS application menu (SET-01) ────────────────────────────────
             // The app sets NO app menu otherwise — macOS auto-generates the
@@ -364,10 +388,18 @@ pub fn run() {
     // APPSTORE matrix. EXACTLY ONE arm compiles per config: the four cfg
     // predicates are mutually exclusive and exhaustive over (debug_assertions,
     // feature="appstore"). The debug half appends `dev_set_license_state`
-    // (release-stripped, 22.1-04); the appstore half appends the four `iap_*`
-    // commands (feature-stripped from the direct build, T-26-03). The plugin
-    // itself (`tauri_plugin_iap::init()`) is NOT registered here — that is Plan
+    // (release-stripped, 22.1-04). The plugin itself
+    // (`tauri_plugin_iap::init()`) is NOT registered here — that is Plan
     // 05's minimal-harness task.
+    //
+    // Phase 29 D-01/MAS-NATIVE-03: the `license` module is now `direct`-gated
+    // (it does not exist in the appstore build), so the TWO appstore arms
+    // (`feature = "appstore"`) register NO `license::commands::*` — ONLY the
+    // four `iap_*` commands. The appstore boot therefore registers zero license
+    // commands (the store frontend never calls `platform.license.*`; its Pro
+    // state comes ONLY from StoreKit). `dev_set_license_state` lives in the
+    // gated-out module, so it is also absent from the debug-appstore arm. The
+    // two NON-appstore (direct) arms keep the full license surface unchanged.
     #[cfg(all(debug_assertions, not(feature = "appstore")))]
     let builder = builder.invoke_handler(tauri::generate_handler![
         license::commands::license_status,
@@ -389,13 +421,6 @@ pub fn run() {
     ]);
     #[cfg(all(debug_assertions, feature = "appstore"))]
     let builder = builder.invoke_handler(tauri::generate_handler![
-        license::commands::license_status,
-        license::commands::license_status_detail,
-        license::commands::activate_license,
-        license::commands::refresh_license,
-        license::commands::refresh_license_if_needed,
-        license::commands::deactivate_machine,
-        license::commands::dev_set_license_state,
         iap::commands::iap_products,
         iap::commands::iap_purchase,
         iap::commands::iap_restore,
@@ -403,12 +428,6 @@ pub fn run() {
     ]);
     #[cfg(all(not(debug_assertions), feature = "appstore"))]
     let builder = builder.invoke_handler(tauri::generate_handler![
-        license::commands::license_status,
-        license::commands::license_status_detail,
-        license::commands::activate_license,
-        license::commands::refresh_license,
-        license::commands::refresh_license_if_needed,
-        license::commands::deactivate_machine,
         iap::commands::iap_products,
         iap::commands::iap_purchase,
         iap::commands::iap_restore,
