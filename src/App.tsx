@@ -177,7 +177,7 @@ export function App() {
           status toast + the launch/tray/auto-clear/injector effects) is DIRECT-channel
           only — mounted here via the build-time IS_APPSTORE lazy switch so the store
           build ships none of it (the whole subtree tree-shakes out). */}
-      {!IS_APPSTORE && UpdaterOverlay ? (
+      {UpdaterOverlay ? (
         <Suspense fallback={null}>
           <UpdaterOverlay />
         </Suspense>
