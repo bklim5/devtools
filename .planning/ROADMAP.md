@@ -212,7 +212,10 @@ A five-pane in-window Settings modal (License · Appearance · Hotkeys · Genera
   2. The tray / menu-bar icon + menu work in the sandboxed store build.
   3. Keychain (`keyring`) is gated OUT of the store build — no runtime `MissingEntitlement`, no unjustified `keychain-access-groups` entitlement; store Pro state comes only from StoreKit (validated on the SIGNED build, runtime-only).
   4. Launch-at-login is hidden/disabled in the store build's General pane — the toggle and any autostart wiring are absent from the store variant (SMAppService deferred to v2).
-**Plans**: TBD
+**Plans**: 3 plans
+- [ ] 29-01-PLAN.md — keyring optional + direct-gate the whole license Rust module/commands/setup (compile-out; appstore build still compiles) (Wave 1, auto) — MAS-NATIVE-03
+- [ ] 29-02-PLAN.md — IS_APPSTORE-hide launch-at-login in General pane + autostart-seam no-op + boot-path no-license-IPC proof (Wave 1, auto) — MAS-NATIVE-04, MAS-NATIVE-03 (D-03)
+- [ ] 29-03-PLAN.md — extend verify-appstore-bundle.sh (keyring/autostart + no-keychain-access-groups) + human signed-build gate (summon, tray, entitlement audit, launch-at-login absent) (Wave 2, human-verify) — MAS-NATIVE-01/02/03/04
 **Research**: Skip — sandbox audit + SMAppService-omission are well-scoped; `MissingEntitlement` is runtime-only (verify on the signed build).
 **Gate**: Human — global summon over a real OS chord; tray reveal; SIGNED-build entitlement audit (WebDriver can't synth these).
 **UI hint**: yes
@@ -271,7 +274,7 @@ v1.8 runs 26 → 27 → 28 → 30 with Phase 29 parallel-capable beside 28 once 
 | 26. StoreKit Bridge Spike (CRITICAL PATH) | v1.8 | 6/7 | Complete    | 2026-06-23 |
 | 27. The Build-Variant Seam (3 layers) | v1.8 | 4/4 | Complete    | 2026-06-23 |
 | 28. Entitlement-Source Swap + Store License Pane | v1.8 | 5/5 | Complete    | 2026-06-23 |
-| 29. Sandbox-Safe Native Features | v1.8 | 0/0 | Not started | - |
+| 29. Sandbox-Safe Native Features | v1.8 | 0/3 | Planned | - |
 | 30. .pkg Build + App Store Connect Submission | v1.8 | 0/0 | Not started | - |
 
 ## Backlog
