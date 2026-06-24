@@ -25,6 +25,7 @@ import { Channel, invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { enable, disable, isEnabled } from "@tauri-apps/plugin-autostart";
 import { getVersion } from "@tauri-apps/api/app";
+import { IS_APPSTORE } from "./channel";
 import type {
   IapProduct,
   IapPurchaseResult,
@@ -163,9 +164,16 @@ export const tauriPlatform: Platform = {
   // plist; no network, no UI). The ONLY new webview dep of v1.7, the recorded scoped
   // exception. The native autostart plugin import (top of THIS file) lives ONLY here.
   autostart: {
-    enable: () => enable(),
-    disable: () => disable(),
-    isEnabled: () => isEnabled(),
+    // D-05: the autostart plugin is compiled OUT of the store build (Phase 27) and
+    // its launch-at-login UI is removed (D-04 / 29-02 Task 1), so there is no call
+    // path. Guard the seam anyway (belt-and-suspenders, T-29-05) so a stray call can
+    // never reach the unregistered plugin and reject with a MissingEntitlement /
+    // "plugin not found" under sandbox. IS_APPSTORE is a build-time const, so the
+    // store bundle inlines the no-op arms (the inert plugin JS still rides along via
+    // this shared seam — D-05 accepts that, like plugin-updater).
+    enable: () => (IS_APPSTORE ? Promise.resolve() : enable()),
+    disable: () => (IS_APPSTORE ? Promise.resolve() : disable()),
+    isEnabled: () => (IS_APPSTORE ? Promise.resolve(false) : isEnabled()),
   },
   // SET-10 / D-25-2: the running app version (tauri.conf.json `version`, the single
   // source of truth) read through Tauri's app getVersion(). The Updates pane (Plan

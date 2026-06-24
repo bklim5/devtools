@@ -34,6 +34,27 @@ describe("Updater UX banner (real WKWebView)", () => {
 
     // 2. Inject a detected update via the dev-only hook so the banner renders
     // deterministically (the real download/verify is Manual-Only, Plan 05).
+    //
+    // The DEV __injectUpdate hook is registered by the lazy-mounted UpdaterOverlay
+    // (29-02 extraction). On the real WKWebView the lazy chunk can resolve AFTER
+    // navigateToTool returns, so wait until the hook exists before injecting —
+    // otherwise the optional-chain call is silently dropped and the banner never
+    // renders (Finding 2 race). This only hardens the e2e against the new async-
+    // chunk mount timing; production behaviour is unchanged (the injector is
+    // DEV-only, stripped from prod).
+    await browser.waitUntil(
+      async () =>
+        (await browser.execute(
+          () =>
+            typeof (window as unknown as { __injectUpdate?: unknown })
+              .__injectUpdate === "function",
+        )) === true,
+      {
+        timeout: 10_000,
+        timeoutMsg:
+          "__injectUpdate never registered — UpdaterOverlay lazy mount failed?",
+      },
+    );
     await browser.execute(() => {
       const w = window as unknown as {
         __injectUpdate?: (info: {

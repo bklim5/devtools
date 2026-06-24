@@ -1,14 +1,12 @@
-import { lazy, Suspense, useEffect, useRef } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Lock } from "lucide-react";
 import { Outlet } from "react-router-dom";
 import { Sidebar } from "./components/Sidebar";
 import { CommandPalette } from "./components/CommandPalette";
-import { UpdateBanner } from "./components/UpdateBanner";
 import { SettingsModal } from "./components/SettingsModal";
 import { useTrackActiveTool } from "./shell/useTrackActiveTool";
 import { useAppearance } from "./shell/useAppearance";
 import { usePreferences } from "./shell/usePreferences";
-import { setUpdateInfoForTest, useUpdater } from "./shell/useUpdater";
 import {
   acceleratorToKeyboardInit,
   formatAccelerator,
@@ -17,8 +15,7 @@ import { useSettingsOpen } from "./shell/useSettings";
 import { useUpsellOpen } from "./shell/useUpsell";
 import { openSettings } from "./shell/settingsStore";
 import { closeUpsell } from "./shell/upsellStore";
-import { needsOptInPrompt, shouldAutoCheck } from "./shell/update";
-import { initPlatform, platform, type UpdateInfo } from "@/lib/platform";
+import { initPlatform, platform } from "@/lib/platform";
 import { IS_APPSTORE } from "@/lib/platform/channel";
 
 // D-01/D-02/D-04: the static IS_APPSTORE switch picks the upsell surface at the
@@ -36,19 +33,31 @@ const UpsellSurface = IS_APPSTORE
       import("./components/UpsellPanel").then((m) => ({ default: m.UpsellModal })),
     );
 
+// Phase 29 (MAS-NATIVE-02/03): the whole updater overlay is DIRECT-channel only.
+// The store build compiles out the updater plugin COMMAND (Phase 27) + gates its tray
+// item (29-01 Task 3); shipping the overlay there would render the forbidden first-run
+// "automatic update checks?" opt-in prompt and wire menu://check-updates → an invoke
+// against an unregistered command. Gating via a build-time IS_APPSTORE switch over a
+// DYNAMIC import (NOT a static `{!IS_APPSTORE && <UpdaterOverlay/>}` over a static import
+// — that retains the JSX so the static import can't be DCE'd, per the UpsellSurface
+// comment) tree-shakes the entire UI subtree (UpdaterOverlay → useUpdater → shell/update
+// → UpdateBanner) OUT of the store bundle by construction. (The plugin-updater plugin JS
+// itself rides along inert via the shared tauri.ts seam — D-05, like plugin-autostart;
+// proven safe by the runtime updater.check===0 boot-path assertion, not bundle exclusion.)
+const UpdaterOverlay = IS_APPSTORE
+  ? null
+  : lazy(() => import("./components/UpdaterOverlay"));
+
 // The registry-driven application shell (SHL-01/02). All layout chrome lives
 // HERE — tools stay layout-agnostic and render inside <main>'s <Outlet/> with no
 // fixed widths of their own (UX-05). The compact <Sidebar/> (268px) is a pure
 // projection of ENABLED_TOOLS; <CommandPalette/> is mounted once and overlays
 // everything, owning its own ⌘K open state (it never auto-opens — D-07).
 //
-// Phase 6 (DST-02) adds the updater UX overlay alongside the palette: the first-run
-// opt-in prompt (D-09), the re-appearing dismissible UpdateBanner (D-11c/D-13), and
-// the manual tray-check listener. Every updater call routes through shell/update.ts
-// → the platform seam — App.tsx imports NO native runtime package (D-12). The
-// launch auto-check is co-located here (gated on prefsLoaded + shouldAutoCheck) so
-// it shares the banner state and never fires a network call when the user has not
-// opted in (offline-by-design, T-06-11).
+// Phase 29: the DST-02 updater UX overlay (opt-in prompt + dismissible UpdateBanner
+// + the launch/tray/auto-clear/injector effects) was EXTRACTED into <UpdaterOverlay/>,
+// mounted below ONLY in the direct build via the IS_APPSTORE lazy switch (so the store
+// build ships none of it). App.tsx still imports NO native runtime package (D-12).
 
 // Dispatch a synthetic keydown for the CONFIGURED palette chord so the header pill
 // opens the same palette the global keydown handler does — the palette stays the
@@ -71,65 +80,14 @@ export function App() {
   // launch frame until then.
   useAppearance();
 
-  const { preferences, prefsLoaded, setAutoUpdateCheck } = usePreferences();
+  const { preferences } = usePreferences();
 
-  // D-25-3: ALL updater UX state (detected update / install progress / transient
-  // status / checking) now lives in the shared useUpdater singleton, so the Updates
-  // pane (Plan 04), the tray, and the silent launch check are SECOND entry points to
-  // the SAME check — no divergent state machine, no direct check/install path here.
-  // `runCheck` de-dupes concurrent triggers behind one in-flight promise and stamps
-  // lastUpdateCheck (load-safe) on every resolution; `clearStatus` drives the
-  // auto-clear timer below.
-  const {
-    updateInfo,
-    status,
-    installing,
-    progress,
-    runCheck,
-    install,
-    dismiss,
-    clearStatus,
-  } = useUpdater();
-  // Guards the launch auto-check so it runs at most once per app session.
-  const launchChecked = useRef(false);
-
-  // Silent launch check — ONLY when the user has explicitly opted in (D-09). false
-  // (opted out) and null (never asked) make NO automatic network call (T-06-11).
-  // The check is dispatched on a microtask (Promise.resolve().then) so its setState
-  // never runs synchronously inside the effect body (React Compiler
-  // set-state-in-effect lint) — and so first paint is never blocked (it returns
-  // immediately; the async check resolves later, mirroring the tray-listener path).
-  useEffect(() => {
-    if (!prefsLoaded || launchChecked.current) return;
-    launchChecked.current = true;
-    if (shouldAutoCheck(preferences.autoUpdateCheck)) {
-      void Promise.resolve().then(() => runCheck(false));
-    }
-  }, [prefsLoaded, preferences.autoUpdateCheck, runCheck]);
-
-  // Manual check via the tray's `menu://check-updates` event (06-03), subscribed
-  // through the platform seam so App.tsx never imports a native runtime package.
-  useEffect(() => {
-    let unlisten: (() => void) | undefined;
-    let alive = true;
-    // `platform.events` is a getter over the CURRENT impl, which is the browser
-    // stub until initPlatform() resolves the real Tauri impl (HIGH-22-01). Await
-    // it FIRST so the listener binds to the real platform — otherwise the native
-    // tray `menu://check-updates` event reaches the no-op browser stub and the
-    // manual-check tray item is dead in the packaged app. initPlatform is
-    // memoised/idempotent.
-    void (async () => {
-      await initPlatform();
-      if (!alive) return;
-      const u = await platform.events.onMenuCheckUpdates(() => void runCheck(true));
-      if (alive) unlisten = u;
-      else u();
-    })();
-    return () => {
-      alive = false;
-      unlisten?.();
-    };
-  }, [runCheck]);
+  // Phase 29: the whole updater overlay (useUpdater state machine + the launch
+  // auto-check, the menu://check-updates listener, the status auto-clear timer, the
+  // DEV __injectUpdate injector, the first-run opt-in, and the UpdateBanner) lives in
+  // <UpdaterOverlay/>, mounted ONLY in the direct build via the IS_APPSTORE lazy switch
+  // above — so the store build ships none of it (no opt-in prompt, no banner, 0
+  // updater.check calls, 0 menu://check-updates listeners).
 
   // SET-01/02: the native app-menu (⌘,) + tray "Settings…" items open the shell
   // Settings modal through the platform event seam (menu://open-settings →
@@ -161,30 +119,6 @@ export function App() {
       unlisten?.();
     };
   }, []);
-
-  // A resolving "up to date"/error toast auto-clears so it never lingers. The
-  // status lives in the shared hook now, so the timer clears it through the hook's
-  // action (clearStatus is a stable module reference).
-  useEffect(() => {
-    if (!status) return;
-    const id = setTimeout(() => clearStatus(), 3000);
-    return () => clearTimeout(id);
-  }, [status, clearStatus]);
-
-  // DEV/E2E-ONLY hook: the real download/verify round-trip can't be driven by
-  // WebDriver (Manual-Only, Plan 05), so the real-WKWebView e2e renders the banner
-  // deterministically via this guarded injector. It is stripped from production
-  // bundles (import.meta.env.DEV is false there), so it adds NO shippable surface.
-  useEffect(() => {
-    if (!import.meta.env.DEV) return;
-    const w = window as unknown as { __injectUpdate?: (info: UpdateInfo) => void };
-    w.__injectUpdate = (info: UpdateInfo) => setUpdateInfoForTest(info);
-    return () => {
-      delete w.__injectUpdate;
-    };
-  }, []);
-
-  const showOptIn = prefsLoaded && needsOptInPrompt(preferences.autoUpdateCheck);
 
   // D-S1: the ONE shell-level Settings modal, mounted once and driven by the
   // settingsStore so every entry point (app menu ⌘, · tray · sidebar row · ⌘K ·
@@ -239,73 +173,15 @@ export function App() {
         </Suspense>
       ) : null}
 
-      {/* Updater UX overlay (DST-02). Bottom-right, layout-agnostic, above content. */}
-      <div className="pointer-events-none fixed bottom-4 right-4 z-50 flex w-full max-w-md flex-col items-end gap-2">
-        {showOptIn ? (
-          <UpdateOptIn
-            onChoose={(v) => setAutoUpdateCheck(v)}
-          />
-        ) : null}
-        {updateInfo ? (
-          <UpdateBanner
-            info={updateInfo}
-            onInstall={() => void install()}
-            onDismiss={dismiss}
-            installing={installing}
-            progress={progress}
-          />
-        ) : null}
-        {status ? (
-          <div
-            id="update-status"
-            role="status"
-            aria-live="polite"
-            className="pointer-events-auto rounded-[8px] border border-bd bg-panel px-3 py-2 text-[12px] text-tx-2 shadow-lg"
-          >
-            {status}
-          </div>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-// One-time first-run opt-in (D-09). WCAG-AA, reuses the banner token system; both
-// choices are real keyboard-reachable buttons with a visible focus ring. Choosing
-// either value persists it (setAutoUpdateCheck) so this prompt never re-appears.
-function UpdateOptIn({ onChoose }: { onChoose: (v: boolean) => void }) {
-  return (
-    <div
-      id="update-optin"
-      role="dialog"
-      aria-label="Automatic update checks"
-      className="pointer-events-auto flex w-full max-w-md flex-col gap-2 rounded-[10px] border border-bd bg-panel px-4 py-3 text-tx shadow-lg"
-    >
-      <p className="text-[13px] font-medium text-tx">
-        Enable automatic update checks?
-      </p>
-      <p className="text-[12px] leading-5 text-tx-2">
-        TinkerDev can check for new versions at launch over the network. You can
-        always check manually from the tray menu.
-      </p>
-      <div className="mt-1 flex items-center gap-2">
-        <button
-          type="button"
-          id="update-optin-yes"
-          onClick={() => onChoose(true)}
-          className="cursor-pointer rounded-[7px] border border-accent-line bg-accent-soft px-3 py-1 text-[12px] font-medium text-accent outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent"
-        >
-          Yes, check at launch
-        </button>
-        <button
-          type="button"
-          id="update-optin-no"
-          onClick={() => onChoose(false)}
-          className="cursor-pointer rounded-[7px] border border-bd bg-input-bg px-3 py-1 text-[12px] text-tx-2 outline-none transition-colors hover:border-bd-2 hover:text-tx focus-visible:ring-2 focus-visible:ring-accent"
-        >
-          No thanks
-        </button>
-      </div>
+      {/* Phase 29 (MAS-NATIVE-02/03): the updater overlay (opt-in + UpdateBanner +
+          status toast + the launch/tray/auto-clear/injector effects) is DIRECT-channel
+          only — mounted here via the build-time IS_APPSTORE lazy switch so the store
+          build ships none of it (the whole subtree tree-shakes out). */}
+      {!IS_APPSTORE && UpdaterOverlay ? (
+        <Suspense fallback={null}>
+          <UpdaterOverlay />
+        </Suspense>
+      ) : null}
     </div>
   );
 }

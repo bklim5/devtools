@@ -106,3 +106,93 @@ describe("App updater integration (D-25-3 — shared hook)", () => {
     );
   });
 });
+
+// Phase 29 (MAS-NATIVE-02/03): the store build mounts NO updater overlay. The whole
+// surface (opt-in prompt + UpdateBanner + the launch/tray effects) lives in the lazy
+// <UpdaterOverlay/>, gated to null in App.tsx when IS_APPSTORE is true — so the store
+// bundle renders no #update-optin / #update-banner, registers 0 onMenuCheckUpdates
+// listeners, and invokes platform.updater.check 0 times. IS_APPSTORE is read once at
+// App module-eval (it sets the module-level UpdaterOverlay const), so these cases
+// vi.resetModules + vi.doMock the channel true and re-import App + the platform seam
+// fresh (mirrors main.test.tsx).
+describe("App updater integration — store build (IS_APPSTORE true)", () => {
+  afterEach(() => {
+    cleanup();
+    vi.resetModules();
+    vi.doUnmock("@/lib/platform/channel");
+    vi.restoreAllMocks();
+  });
+
+  async function renderStoreApp(autoUpdateCheck: boolean | null) {
+    vi.resetModules();
+    vi.doMock("@/lib/platform/channel", () => ({ IS_APPSTORE: true }));
+
+    // Re-import the seam + helpers from the SAME fresh module graph the re-imported
+    // App will use, so setPlatformForTest targets the platform singleton App reads.
+    const platformMod = await import("@/lib/platform");
+    const { createStoreStub: freshStoreStub } = await import("@/lib/platform/stub");
+    const { makeMemoryPlatform: freshMemoryPlatform } = await import(
+      "@/shell/testStore"
+    );
+    const prefsMod = await import("@/shell/usePreferences");
+    const updaterMod = await import("@/shell/useUpdater");
+    const { DEFAULT_PREFERENCES: DEF, PREFERENCES_STORE_KEY: KEY } = await import(
+      "@/shell/preferences"
+    );
+    const { App: FreshApp } = await import("./App");
+    const rdom = await import("react-router-dom");
+
+    prefsMod.resetPreferencesForTest();
+    updaterMod.resetUpdaterForTest();
+
+    const freshStore = freshStoreStub();
+    await freshStore.set(KEY, { ...DEF, autoUpdateCheck });
+
+    const checkSpy = vi.fn(async () => null);
+    let storeMenuHandler: (() => void) | undefined;
+    const base = freshMemoryPlatform(freshStore);
+    const onMenuSpy = vi.fn(async (handler: () => void) => {
+      storeMenuHandler = handler;
+      return () => {};
+    });
+    platformMod.setPlatformForTest({
+      ...base,
+      updater: { ...base.updater, check: checkSpy },
+      events: { ...base.events, onMenuCheckUpdates: onMenuSpy },
+    });
+
+    const view = render(
+      <rdom.MemoryRouter initialEntries={["/tools/protobuf-decoder"]}>
+        <rdom.Routes>
+          <rdom.Route path="/" element={<FreshApp />}>
+            <rdom.Route path="tools/:id" element={<div data-testid="tool" />} />
+          </rdom.Route>
+        </rdom.Routes>
+      </rdom.MemoryRouter>,
+    );
+    return { view, checkSpy, onMenuSpy, getMenuHandler: () => storeMenuHandler };
+  }
+
+  it("with autoUpdateCheck=null (the fresh-install opt-in trigger), renders NO opt-in + NO banner and invokes 0 updater.check / 0 onMenuCheckUpdates", async () => {
+    const { checkSpy, onMenuSpy } = await renderStoreApp(null);
+    // Let any effects + a lazy import (there is none in the store arm) settle.
+    await waitFor(() => expect(document.querySelector("main")).toBeTruthy());
+    await new Promise((r) => setTimeout(r, 20));
+
+    expect(document.querySelector("#update-optin")).toBeNull();
+    expect(document.querySelector("#update-banner")).toBeNull();
+    expect(checkSpy).toHaveBeenCalledTimes(0);
+    expect(onMenuSpy).toHaveBeenCalledTimes(0);
+  });
+
+  it("with autoUpdateCheck=true (the auto-check trigger), STILL renders NO opt-in + NO banner and invokes 0 updater.check / 0 onMenuCheckUpdates", async () => {
+    const { checkSpy, onMenuSpy } = await renderStoreApp(true);
+    await waitFor(() => expect(document.querySelector("main")).toBeTruthy());
+    await new Promise((r) => setTimeout(r, 20));
+
+    expect(document.querySelector("#update-optin")).toBeNull();
+    expect(document.querySelector("#update-banner")).toBeNull();
+    expect(checkSpy).toHaveBeenCalledTimes(0);
+    expect(onMenuSpy).toHaveBeenCalledTimes(0);
+  });
+});
