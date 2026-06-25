@@ -36,10 +36,10 @@
 
 ### Sandbox-Safe Native Features (MAS-NATIVE)
 
-- [ ] **MAS-NATIVE-01**: The global summon hotkey works in the sandboxed store build.
-- [ ] **MAS-NATIVE-02**: The tray / menu-bar icon + menu work in the sandboxed store build.
-- [ ] **MAS-NATIVE-03**: Keychain (`keyring`) is gated OUT of the store build (no runtime `MissingEntitlement`, no unjustified `keychain-access-groups` entitlement) — store Pro state comes only from StoreKit.
-- [ ] **MAS-NATIVE-04**: Launch-at-login is hidden/disabled in the store build's General pane (not shipped this milestone; the toggle and any autostart wiring are absent from the store variant).
+- [x] **MAS-NATIVE-01**: The global summon hotkey works in the sandboxed store build.
+- [x] **MAS-NATIVE-02**: The tray / menu-bar icon + menu work in the sandboxed store build.
+- [x] **MAS-NATIVE-03**: Keychain (`keyring`) is gated OUT of the store build (no runtime `MissingEntitlement`, no unjustified `keychain-access-groups` entitlement) — store Pro state comes only from StoreKit.
+- [x] **MAS-NATIVE-04**: Launch-at-login is hidden/disabled in the store build's General pane (not shipped this milestone; the toggle and any autostart wiring are absent from the store variant).
 
 ### .pkg Build & App Store Submission (MAS-SHIP)
 
@@ -89,10 +89,10 @@ Phase structure (dependency-forced, continues from Phase 25): **26** StoreKit br
 | MAS-BUILD-06 | Phase 27 | Complete (2026-06-23) |
 | MAS-BUILD-04 | Phase 28 | Complete (2026-06-23 — plan 05 verify-appstore-bundle.sh: D-03 grep 0 incl. $9 + D-04 chunk sentinel licenseUiInChunks:false on the signed bundle) |
 | MAS-BUILD-07 | Phase 28 | Complete (2026-06-23, plan 03) |
-| MAS-NATIVE-01 | Phase 29 | Pending |
-| MAS-NATIVE-02 | Phase 29 | Source-level (2026-06-24, plan 01 — tray updater item direct-gated; store tray = Show/Settings…/Quit; plan 02 — the kept tray's frontend wiring drives no compiled-out command: store build registers 0 menu://check-updates listeners); signed-bundle/human gate at plan 03 |
-| MAS-NATIVE-03 | Phase 29 | Source-level (2026-06-24, plan 01 — keyring optional + license module/commands/setup direct-gated; appstore cargo tree keyring=0; plan 02 — the D-03 runtime no-invoke proof: store boot invokes 0 license/updater IPC + reaches iap.currentEntitlements; the whole updater overlay tree-shaken out → 0 updater.check, no forbidden self-update UI); signed-bundle entitlement audit + dist chunk-module guard at plan 03 |
-| MAS-NATIVE-04 | Phase 29 | Source-level (2026-06-24, plan 02 — launch-at-login toggle/helper/live-region/reconcile absent in the store build's General pane via IS_APPSTORE gate; autostart seam no-ops under IS_APPSTORE; test-asserted store=no-control / direct=present); signed-bundle/human gate at plan 03 |
+| MAS-NATIVE-01 | Phase 29 | Complete (2026-06-24, plan 03 human gate — global summon revealed+focused the window over a real OS chord on the dev-signed sandboxed .app) |
+| MAS-NATIVE-02 | Phase 29 | Complete (2026-06-24, plan 01 — tray updater item direct-gated; plan 02 — 0 menu://check-updates listeners + updater overlay tree-shaken out; plan 03 human gate — tray menu EXACTLY Show/Settings…/Quit, no "Check for Updates…" item, no updater opt-in/banner, no updater Console error on the signed bundle) |
+| MAS-NATIVE-03 | Phase 29 | Complete (2026-06-24, plan 01 — keyring optional + license module/commands/setup direct-gated, appstore cargo tree keyring=0; plan 02 — D-03 runtime no-invoke proof; plan 03 — verify-appstore-bundle.sh --require-bundle + independent codesign audit: app-sandbox+network.client only, NO keychain-access-groups; human gate — no runtime MissingEntitlement/Keychain error on a Pro exercise) |
+| MAS-NATIVE-04 | Phase 29 | Complete (2026-06-24, plan 02 — launch-at-login control/wiring absent in the store General pane via IS_APPSTORE, autostart seam no-ops; plan 03 human gate — Settings ▸ General has no Launch-at-login toggle + cargo tree --features appstore clean of autostart/keyring on the signed build) |
 | MAS-SHIP-01 | Phase 30 | Pending |
 | MAS-SHIP-02 | Phase 30 | Pending |
 | MAS-SHIP-03 | Phase 30 | Pending |
