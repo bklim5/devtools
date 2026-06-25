@@ -258,6 +258,15 @@ if ! cp "$PRIVACY" "$APP_OUT/Contents/Resources/PrivacyInfo.xcprivacy"; then
 fi
 chmod 644 "$APP_OUT/Contents/embedded.provisionprofile" "$APP_OUT/Contents/Resources/PrivacyInfo.xcprivacy"
 
+# Strip ALL extended attributes from the payload BEFORE the seal. macOS `cp`
+# preserves xattrs, so a profile/PrivacyInfo downloaded via a browser carries
+# com.apple.quarantine into the .app — which Transporter rejects (91109:
+# "com.apple.quarantine extended file attribute isn't permitted"). Clearing
+# recursively (not just the profile) catches any other quarantined payload file,
+# and must run before codesign so the signature covers the cleaned tree.
+echo "[appstore-pkg] stripping extended attributes (com.apple.quarantine et al — ITMS 91109)…"
+xattr -cr "$APP_OUT"
+
 # === Deep re-sign so the seal covers the embedded profile + PrivacyInfo + appstore entitlements
 echo "[appstore-pkg] deep re-signing with Apple Distribution + appstore entitlements…"
 if ! codesign --force --deep --timestamp --sign "$SIGN_ID" \
@@ -292,6 +301,17 @@ if [[ "$sandbox_miss" -ne 0 ]]; then
   exit 1
 fi
 echo "  every nested Mach-O carries app-sandbox ✓"
+
+# (1b) no com.apple.quarantine anywhere in the payload (ITMS 91109). The xattr -cr
+# above strips it pre-seal; this FATAL assert proves it actually stuck (e.g. a
+# re-downloaded profile re-quarantined after a partial run).
+echo "[appstore-pkg] quarantine-xattr check (ITMS 91109)…"
+if xattr -lr "$APP_OUT" 2>/dev/null | grep -q "com.apple.quarantine"; then
+  echo "ERROR: com.apple.quarantine xattr present in the payload (ITMS 91109)." >&2
+  xattr -lr "$APP_OUT" 2>/dev/null | grep "com.apple.quarantine" | head >&2
+  exit 1
+fi
+echo "  no com.apple.quarantine in the payload ✓"
 
 # (2) normalize perms so productbuild cannot leave root-only payload files (Pitfall 4).
 chmod -R a+rX "$APP_OUT"
