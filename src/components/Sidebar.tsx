@@ -638,7 +638,12 @@ export function Sidebar() {
         tabIndex={-1}
         // flex-1 lets the nav fill the aside's height so the empty area below the
         // last row is part of the droppable surface (end-zone), not a dead gap.
-        className="flex flex-1 flex-col gap-0.5 outline-none"
+        // min-h-0 + overflow-y-auto: at short window heights (down to the 480px
+        // floor) the tool list must SCROLL inside the nav, not overflow and get
+        // clipped by the window — otherwise the last tools + the pinned Settings
+        // footer below become unreachable. min-h-0 is required for a flex child to
+        // shrink below its content size so the scroll actually engages.
+        className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto outline-none"
         onContextMenu={openResetMenuFromMouse}
         onKeyDown={openResetMenuFromKeyboard}
         onDragOver={onNavDragOver}
