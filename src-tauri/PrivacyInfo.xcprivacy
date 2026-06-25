@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!--
+    Apple privacy manifest (D-06, MANDATORY for the Mac App Store). TinkerDev's
+    store build collects NO data and performs NO tracking: every tool runs
+    fully offline, the updater + Keygen license surface are compiled OUT of the
+    appstore variant (Phases 28/29), and the ONLY network actor is Apple
+    StoreKit (in-app purchase / entitlement verification). Hence Data Not
+    Collected + no tracking + no tracking domains.
+
+    Plan 03 (scripts/build-appstore-pkg.sh) injects this file into
+    App.app/Contents/Resources/PrivacyInfo.xcprivacy and chmod 644's it BEFORE
+    the deep re-sign (adding a resource invalidates the seal — same embed-then-
+    re-sign order as the embedded.provisionprofile; 30-RESEARCH Pattern 2).
+
+    NSPrivacyAccessedAPITypes declares the UserDefaults required-reason CA92.1
+    (the app's own preferences blob persists via @tauri-apps/plugin-store, which
+    backs onto NSUserDefaults). Over-declaring this reason is harmless; a missing
+    required-reason entry can bounce review (30-RESEARCH A3), so it is included
+    as the safe default.
+  -->
+  <key>NSPrivacyTracking</key>
+  <false/>
+  <key>NSPrivacyTrackingDomains</key>
+  <array/>
+  <key>NSPrivacyCollectedDataTypes</key>
+  <array/>
+  <key>NSPrivacyAccessedAPITypes</key>
+  <array>
+    <dict>
+      <key>NSPrivacyAccessedAPIType</key>
+      <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+      <key>NSPrivacyAccessedAPITypeReasons</key>
+      <array>
+        <string>CA92.1</string>
+      </array>
+    </dict>
+  </array>
+</dict>
+</plist>
