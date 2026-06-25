@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Export-compliance: TinkerDev uses only exempt encryption (Apple OS / StoreKit
+       HTTPS; the Hash tool is one-way hashing and JWT is decode/authentication — no
+       proprietary or non-exempt data encryption). Declaring this here stops App Store
+       Connect asking the App Encryption Documentation question on every submission.
+       Tauri's macOS bundler merges this file into the generated Info.plist. -->
+  <key>ITSAppUsesNonExemptEncryption</key>
+  <false/>
+</dict>
+</plist>
