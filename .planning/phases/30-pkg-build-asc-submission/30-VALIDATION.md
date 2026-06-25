@@ -25,7 +25,7 @@ created: 2026-06-25
 | Property | Value |
 |----------|-------|
 | **Framework** | vitest (existing) + shell asserts (`scripts/verify-appstore-bundle.sh`, new pkg-verify gate) |
-| **Config file** | `vitest.config.ts` (existing); build scripts self-gate |
+| **Config file** | `vite.config.ts` (existing — vitest config inline); build scripts self-gate |
 | **Quick run command** | `pnpm test` (vitest) + `pnpm tsc --noEmit` |
 | **Full suite command** | `pnpm test && pnpm tsc --noEmit && bash scripts/verify-appstore-bundle.sh <app>` |
 | **Estimated runtime** | ~30–60s (vitest+tsc); pkg build+verify minutes |
@@ -50,7 +50,7 @@ created: 2026-06-25
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
 | 30-01-1 | 01 | 1 | MAS-SHIP-04 | T-30-01 | Single base bump; overlay never overrides version | node assert | `node -e "c=require('./src-tauri/tauri.conf.json');o=require('./src-tauri/tauri.appstore.conf.json');process.exit(c.version==='1.0.0' && !('version' in o)?0:1)"` | ✅ | ⬜ pending |
 | 30-01-2 | 01 | 1 | MAS-SHIP-04 | T-30-02 | PrivacyInfo Data Not Collected + CA92.1, lints clean | shell (plutil/PlistBuddy) | `plutil -lint src-tauri/PrivacyInfo.xcprivacy` | ❌ W0 (new) | ⬜ pending |
-| 30-01-3 | 01 | 1 | MAS-SHIP-05 | T-30-03 | Direct un-regressed; decoder byte-identical | preflight + unit + git | `pnpm release:publish --dry-run && pnpm vitest run src/lib/decoder.test.ts && git diff --quiet HEAD -- src/lib/decoder.ts src/lib/decoder.test.ts` | ✅ | ⬜ pending |
+| 30-01-3 | 01 | 1 | MAS-SHIP-05 | T-30-03 | Direct un-regressed; decoder byte-identical | preflight + unit + git | `test -f src/lib/protobuf/decoder.ts && test -f src/lib/protobuf/decoder.test.ts && pnpm release:publish --dry-run && pnpm vitest run src/lib/protobuf/decoder.test.ts && git diff --quiet HEAD -- src/lib/protobuf/decoder.ts src/lib/protobuf/decoder.test.ts` | ✅ | ⬜ pending |
 | 30-02-1 | 02 | 1 | MAS-SHIP-03/04 | T-30-06 | Runbook + Notes tie metadata; on-device StoreKit IAP documented | shell (grep) | `test -f docs/appstore/SUBMISSION-RUNBOOK.md && grep -q 'com.tinkerdev.app.pro' docs/appstore/Notes-for-Review.md && grep -q 'Mac Installer Distribution' docs/appstore/SUBMISSION-RUNBOOK.md` | ❌ W0 (new) | ⬜ pending |
 | 30-02-2 | 02 | 1 | MAS-SHIP-03/04 | T-30-05/07 | /support page exists; /privacy channel-aware | shell (grep) | `test -f .../tinkerdev-io/app/support/page.tsx && grep -q LegalShell .../support/page.tsx && grep -qiE 'App Store edition\|StoreKit' .../privacy/page.tsx` | ❌ W0 (cross-repo) | ⬜ pending |
 | 30-03-1 | 03 | 2 | MAS-SHIP-01/02 | T-30-09..15 | pkg script signs Apple Distribution→productbuild→Installer; injects PrivacyInfo before seal; per-Mach-O sandbox + root-only gates; fail-closed on absent cert; no notarise/spctl-gate | shell (bash -n + grep) | `bash -n scripts/build-appstore-pkg.sh && grep -q 'productbuild --component' scripts/build-appstore-pkg.sh && grep -q 'tauri:build:appstore:pkg' package.json` | ❌ W0 (new) | ⬜ pending |
