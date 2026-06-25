@@ -111,6 +111,11 @@ export interface Platform {
     unminimize(): Promise<void>;
     minimize(): Promise<void>;
     isVisible(): Promise<boolean>;
+    /** Sync the NATIVE window chrome (titlebar text + traffic-light rendering)
+     *  to the in-app theme. Required under titleBarStyle:Overlay — the macOS
+     *  window appearance is otherwise pinned by tauri.conf theme and the title
+     *  text goes invisible in the opposite mode. No-op in the browser fallback. */
+    setTheme(theme: "light" | "dark"): Promise<void>;
   };
   /** OS-level global hotkey register/unregister (NAT-01). No-op in the browser fallback. */
   nativeShortcut: {

@@ -89,6 +89,10 @@ export const tauriPlatform: Platform = {
     unminimize: () => getCurrentWindow().unminimize(),
     minimize: () => getCurrentWindow().minimize(),
     isVisible: () => getCurrentWindow().isVisible(),
+    // Overlay titlebar: keep the native window appearance in lockstep with the
+    // in-app theme so the macOS title text stays legible in both modes (gated by
+    // core:window:allow-set-theme).
+    setTheme: (theme) => getCurrentWindow().setTheme(theme),
   },
   nativeShortcut: {
     // Filter to Pressed so the handler fires once per chord, not on key-up too

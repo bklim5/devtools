@@ -29,6 +29,7 @@ describe("platform seam", () => {
         unminimize: vi.fn().mockResolvedValue(undefined),
         minimize: vi.fn().mockResolvedValue(undefined),
         isVisible: vi.fn().mockResolvedValue(true),
+        setTheme: vi.fn().mockResolvedValue(undefined),
       },
       nativeShortcut: {
         register: vi.fn().mockResolvedValue(undefined),
@@ -153,6 +154,7 @@ describe("platform seam — native capabilities (NAT-01)", () => {
         unminimize: vi.fn(),
         minimize: vi.fn(),
         isVisible: vi.fn(),
+        setTheme: vi.fn(),
       },
       nativeShortcut: {
         register,
@@ -236,6 +238,7 @@ describe("platform seam — auto-updater (DST-02)", () => {
         unminimize: vi.fn(),
         minimize: vi.fn(),
         isVisible: vi.fn(),
+        setTheme: vi.fn(),
       },
       nativeShortcut: {
         register: vi.fn(),
@@ -304,6 +307,7 @@ describe("platform seam — events bind to the resolved impl (HIGH-22-01)", () =
         unminimize: vi.fn(),
         minimize: vi.fn(),
         isVisible: vi.fn(),
+        setTheme: vi.fn(),
       },
       nativeShortcut: {
         register: vi.fn(),

@@ -18,6 +18,7 @@ export const noopWindow: Platform["window"] = {
   unminimize: async () => {},
   minimize: async () => {},
   isVisible: async () => true,
+  setTheme: async () => {},
 };
 
 export const noopNativeShortcut: Platform["nativeShortcut"] = {

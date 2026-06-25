@@ -72,6 +72,7 @@ export const browserPlatform: Platform = {
     async isVisible(): Promise<boolean> {
       return true;
     },
+    async setTheme(): Promise<void> {},
   },
   nativeShortcut: {
     async register(): Promise<void> {},
