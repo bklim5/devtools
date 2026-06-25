@@ -35,6 +35,7 @@ skills-lock.json
 # minisign PUBLIC key lives in tauri.conf.json (it is public by design).
 .env
 .env.*
+!.env.example
 .envrc
 *.key
 *.p8
