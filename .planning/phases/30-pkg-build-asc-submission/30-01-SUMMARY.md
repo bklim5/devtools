@@ -44,10 +44,10 @@ key-decisions:
 patterns-established:
   - "A no-publish build mode is the publish-safe way to prove a release pipeline still builds/signs/notarises without cutting a real release or risking an accidental publish"
 
-requirements-completed: []   # MAS-SHIP-04/05 only fully satisfied after the Task-5 human checkpoint (real DMG build)
+requirements-completed: [MAS-SHIP-04, MAS-SHIP-05]   # MAS-SHIP-04 (version 1.0.0 + PrivacyInfo) + MAS-SHIP-05 (direct channel un-regressed) — fully satisfied after the Task-5 human checkpoint APPROVED (real DMG build verified)
 
 metrics:
-  duration: ~25 min (automated tasks 1-4)
+  duration: ~25 min (automated tasks 1-4) + human Task-5 checkpoint
   completed: 2026-06-25
 ---
 
@@ -57,7 +57,7 @@ A plain multi-file bump of all three direct-channel version sources to 1.0.0, th
 
 ## Status
 
-**Tasks 1–4 COMPLETE (automated).** Task 5 is a BLOCKING human-verify checkpoint (real universal DMG build via `pnpm release:build-only`) that needs human-held Apple notary credentials + the direct signing key — neither is in the agent environment. **Plan is NOT complete until the human runs Task 5 and approves.**
+**Plan COMPLETE — all 5 tasks done.** Tasks 1–4 automated; Task 5 (the real universal DMG build via `pnpm release:build-only`) was human-run with human-held Apple notary credentials + the direct signing key, and APPROVED 2026-06-25 with all five load-bearing checks verified GREEN on disk (see Task 5 below).
 
 ## What Was Built
 
@@ -87,6 +87,23 @@ A plain multi-file bump of all three direct-channel version sources to 1.0.0, th
   - `pnpm exec tsx scripts/build-and-publish.mjs --build-only --dry-run` -> exit 1, mutual-exclusion abort naming both flags.
 - The dry-run-exit-0 (with signing env present) is satisfied at the Task-5 human checkpoint, where the human exports the signing key.
 
+### Task 5 — REAL direct DMG build via `pnpm release:build-only` (HALF B — MAS-SHIP-05 load-bearing proof) — COMPLETE / APPROVED 2026-06-25
+
+Human-run with the full direct release env exported (direct signing key + the App Store Connect API-key notary set `APPLE_API_KEY_PATH`/`APPLE_API_KEY`/`APPLE_API_ISSUER` + `APPLE_SIGNING_IDENTITY`). `pnpm release:build-only` ran the SAME pipeline as `release:publish` through spctl-accept, then the Task-3 `if (buildOnly) return` exited 0 BEFORE any publish write — publish-safe by construction. The orchestrator independently validated all five load-bearing checks GREEN on disk; **APPROVED**.
+
+**Artifacts** (local only — never committed/published), under `src-tauri/target/universal-apple-darwin/release/bundle/`:
+- App: `src-tauri/target/universal-apple-darwin/release/bundle/macos/TinkerDev.app`
+- DMG: `src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg`
+
+**Five verified checks (all GREEN):**
+1. `lipo -archs <App.app/Contents/MacOS/devtools-app>` → `x86_64 arm64` (universal).
+2. `codesign --verify --deep --strict --verbose=2 <App.app>` → exit 0 (valid + satisfies its Designated Requirement).
+3. `xcrun stapler validate <the .dmg>` → exit 0 (notarisation ticket stapled).
+4. `spctl -a -t open --context context:primary-signature <the .dmg>` → exit 0 (accepted — valid for the notarised DIRECT artifact).
+5. NO publish/tag side-effect: no tag at HEAD, no `v1.0.0` tag, `gh release view v1.0.0` 404s, no `latest.json` written, working tree clean. The run printed the build-only stop line.
+
+**Freshness:** binary mtime 14:34 > last source commit 14:30 — not stale. The direct DMG channel is proven un-regressed at 1.0.0 (MAS-SHIP-05 satisfied via a REAL build that is publish-safe by construction — D-Discretion line 39 fully honored).
+
 ## Deviations from Plan
 
 ### Auto-fixed Issues
@@ -103,7 +120,7 @@ No other deviations — Tasks 1, 2, 4 executed exactly as written.
 ## Authentication / Human Gates
 
 - **Task 4 dry-run** required the direct signing env (human-held), absent in the agent env -> by-design preflight abort recorded (not a regression).
-- **Task 5** is a BLOCKING human-verify checkpoint: a real universal DMG build via `pnpm release:build-only` needs the direct signing key + the App Store Connect API-key notary set (`APPLE_API_KEY_PATH` + `APPLE_API_KEY` + `APPLE_API_ISSUER` + `APPLE_SIGNING_IDENTITY`). All human-held -> the agent cannot run it. STOPPED for the human.
+- **Task 5** was a BLOCKING human-verify checkpoint: a real universal DMG build via `pnpm release:build-only` needed the direct signing key + the App Store Connect API-key notary set (`APPLE_API_KEY_PATH` + `APPLE_API_KEY` + `APPLE_API_ISSUER` + `APPLE_SIGNING_IDENTITY`). All human-held. **RESOLVED — the human ran it and APPROVED 2026-06-25; all five load-bearing checks verified GREEN (see Task 5 above).**
 
 ## Verification Evidence
 
@@ -111,6 +128,7 @@ No other deviations — Tasks 1, 2, 4 executed exactly as written.
 - Task 2: `plutil -lint` OK; `NSPrivacyTracking=false`; `NSPrivacyCollectedDataTypes` empty; `NSPrivacyAccessedAPIType=NSPrivacyAccessedAPICategoryUserDefaults`; reason `CA92.1`.
 - Task 3: grep `build-only`/`buildOnly` OK; exact `release:build-only` script string OK; string-index placement guard OK; `publishPlan.test.ts` 61/61; `tsc --noEmit` clean; full suite 1276/1276.
 - Task 4: decoder paths exist; 19/19; byte-clean against HEAD; dry-run + build-only + mutual-exclusion all behave per plan.
+- Task 5 (human, APPROVED): real universal DMG via `pnpm release:build-only` — lipo `x86_64 arm64`, `codesign --verify --deep --strict` exit 0, `xcrun stapler validate` exit 0, `spctl -a -t open` accepted, no tag/no `v1.0.0` release (`gh release view v1.0.0` 404)/no `latest.json`/tree clean; binary mtime 14:34 > last source commit 14:30.
 
 ## Commits
 
@@ -124,4 +142,13 @@ No other deviations — Tasks 1, 2, 4 executed exactly as written.
 - FOUND commit b50bcdbc
 - FOUND commit 944301aa
 - FOUND commit 2dbece65
+- FOUND commit 3c4da6e7 (SUMMARY, Tasks 1-4)
 - decoder.ts + 19 tests byte-for-byte untouched (git-clean against HEAD)
+
+### Finalization self-check (Task 5 APPROVED, 2026-06-25)
+
+- FOUND: src-tauri/target/universal-apple-darwin/release/bundle/macos/TinkerDev.app
+- FOUND: src-tauri/target/universal-apple-darwin/release/bundle/dmg/TinkerDev_1.0.0_universal.dmg
+- `git tag --points-at HEAD` empty (no release/tag cut)
+- package.json + tauri.conf.json both report 1.0.0
+- MAS-SHIP-04 (already complete via 30-02) + MAS-SHIP-05 (newly complete) marked in REQUIREMENTS.md

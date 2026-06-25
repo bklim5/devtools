@@ -230,7 +230,7 @@ A five-pane in-window Settings modal (License · Appearance · Hotkeys · Genera
   3. Submission metadata is prepared as deliverables: privacy label = Data Not Collected (+ `PrivacyInfo.xcprivacy`), 4+ age rating, screenshots of real testable states, working support/privacy URLs, and Notes-for-Review documenting how to exercise the Pro IAP.
   4. The direct channel is un-regressed — the DMG still builds, signs, and notarises; `decoder.ts` + its 19 tests are byte-for-byte untouched.
 **Plans**: 3 plans
-- [ ] 30-01-PLAN.md — base version → 1.0.0 + PrivacyInfo.xcprivacy (Data Not Collected) + direct-channel un-regression proof (Wave 1, auto) — MAS-SHIP-04/05
+- [x] 30-01-PLAN.md — base version → 1.0.0 + PrivacyInfo.xcprivacy (Data Not Collected) + direct-channel un-regression proof (Wave 1, auto) — MAS-SHIP-04/05
 - [x] 30-02-PLAN.md — submission metadata (SUBMISSION-RUNBOOK + Notes-for-Review + screenshots staging) + cross-repo /support page + channel-aware /privacy edit (Wave 1, auto) — MAS-SHIP-03/04 — completed 2026-06-25
 - [ ] 30-03-PLAN.md — new `build-appstore-pkg.sh` (Apple Distribution app → productbuild → Mac Installer Distribution .pkg + local pre-ITMS gates) + terminal human ship-gate (build·walkthrough·Transporter·Submit) (Wave 2, human-verify) — MAS-SHIP-01/02/03
 **Research**: COMPLETE — see 30-RESEARCH.md (productbuild/cert command shapes, ITMS-90238/90296 + root-only-files local pre-checks, channel-aware privacy edit). Original flag was `/gsd-research-phase` LIKELY — `.pkg`/provisioning/signing sequence MEDIUM-confidence; validate ITMS bounce modes against the real universal bundle.
@@ -278,7 +278,7 @@ v1.8 runs 26 → 27 → 28 → 30 with Phase 29 parallel-capable beside 28 once 
 | 27. The Build-Variant Seam (3 layers) | v1.8 | 4/4 | Complete    | 2026-06-23 |
 | 28. Entitlement-Source Swap + Store License Pane | v1.8 | 5/5 | Complete    | 2026-06-23 |
 | 29. Sandbox-Safe Native Features | v1.8 | 3/3 | Complete    | 2026-06-25 |
-| 30. .pkg Build + App Store Connect Submission | v1.8 | 0/3 | Planned | - |
+| 30. .pkg Build + App Store Connect Submission | v1.8 | 2/3 | In Progress | - |
 
 ## Backlog
 

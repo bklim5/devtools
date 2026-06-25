@@ -47,7 +47,7 @@
 - [ ] **MAS-SHIP-02**: The signed `.pkg` uploads to App Store Connect (`productbuild` → `altool`).
 - [x] **MAS-SHIP-03**: The milestone delivers step-by-step App Store Connect setup guidance at the point each item is needed (Paid-Apps Agreement; the non-consumable "Pro" product attached to the binary + "Ready to Submit"; Sandbox tester accounts).
 - [x] **MAS-SHIP-04**: Submission metadata is prepared as deliverables: privacy label = Data Not Collected (+ `PrivacyInfo.xcprivacy`), 4+ age rating, screenshots of real testable states, working support/privacy URLs, and Notes-for-Review documenting how to exercise the Pro IAP.
-- [ ] **MAS-SHIP-05**: The direct channel is un-regressed by the variant work — the DMG still builds, signs, and notarises; decoder.ts + its 19 tests are byte-for-byte untouched.
+- [x] **MAS-SHIP-05**: The direct channel is un-regressed by the variant work — the DMG still builds, signs, and notarises; decoder.ts + its 19 tests are byte-for-byte untouched.
 
 ## v2 Requirements
 
@@ -97,7 +97,7 @@ Phase structure (dependency-forced, continues from Phase 25): **26** StoreKit br
 | MAS-SHIP-02 | Phase 30 | Pending |
 | MAS-SHIP-03 | Phase 30 | Complete |
 | MAS-SHIP-04 | Phase 30 | Complete |
-| MAS-SHIP-05 | Phase 30 | Pending |
+| MAS-SHIP-05 | Phase 30 | Complete |
 
 **Per-phase scope:**
 - **Phase 26** (2): MAS-IAP-01, MAS-IAP-04 — the bridge spike proves the native purchase sheet + on-device JWS verify.
