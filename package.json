@@ -16,6 +16,7 @@
     "release:bump": "tsx scripts/bump-and-tag.mjs",
     "release:changelog": "tsx scripts/changelog.mjs",
     "release:publish": "tsx scripts/build-and-publish.mjs",
+    "release:build-only": "tsx scripts/build-and-publish.mjs --build-only",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "lefthook install",

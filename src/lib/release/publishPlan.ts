@@ -18,7 +18,7 @@
  */
 const RELEASES_REPO = "bklim5/devtools-releases";
 
-const USAGE = "[--dry-run]";
+const USAGE = "[--dry-run | --build-only]";
 
 /**
  * A read-only environment map (the shape of `process.env`, declared locally so
@@ -29,6 +29,14 @@ export type ProcessEnv = Record<string, string | undefined>;
 
 export interface PublishArgs {
   dryRun: boolean;
+  /**
+   * `--build-only`: run the read-only preflights AND the full real pipeline
+   * (build → sign → notarise → staple → spctl), then RETURN exit 0 BEFORE any
+   * publish side-effect (no latest.json write, no `gh release`, no tag). Makes
+   * the MAS-SHIP-05 real-DMG un-regression proof executable AND publish-safe.
+   * Mutually exclusive with `--dry-run` (which short-circuits BEFORE the build).
+   */
+  buildOnly: boolean;
 }
 
 /**
@@ -36,17 +44,25 @@ export interface PublishArgs {
  * arguments and passes them in — this stays pure and never reads the argv global
  * itself).
  *
- * Accepts ONLY the optional `--dry-run` flag. This driver does NOT take a bump
+ * Accepts ONLY the optional `--dry-run` OR `--build-only` flag (mutually
+ * exclusive — `--dry-run` short-circuits BEFORE the build, `--build-only` runs
+ * the real build but stops BEFORE publish). This driver does NOT take a bump
  * level — Phase 10 owns the bump+tag; this phase consumes the already-pushed tag.
  * Anything else (a level like "patch", an unknown flag, a typo) throws an Error
- * naming the offending token and printing the accepted usage.
+ * naming the offending token and printing the accepted usage; passing both
+ * `--dry-run` and `--build-only` throws naming both flags.
  */
 export function parsePublishArgs(argv: string[]): PublishArgs {
   let dryRun = false;
+  let buildOnly = false;
 
   for (const token of argv) {
     if (token === "--dry-run") {
       dryRun = true;
+      continue;
+    }
+    if (token === "--build-only") {
+      buildOnly = true;
       continue;
     }
     throw new Error(
@@ -54,7 +70,13 @@ export function parsePublishArgs(argv: string[]): PublishArgs {
     );
   }
 
-  return { dryRun };
+  if (dryRun && buildOnly) {
+    throw new Error(
+      "--dry-run and --build-only are mutually exclusive: --dry-run short-circuits before the build (preflights only), --build-only runs the real build but stops before publish. Pass at most one.",
+    );
+  }
+
+  return { dryRun, buildOnly };
 }
 
 /**

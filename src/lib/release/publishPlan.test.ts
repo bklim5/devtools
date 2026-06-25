@@ -35,21 +35,47 @@ describe("universalMachoPath", () => {
 });
 
 describe("parsePublishArgs", () => {
-  it("defaults dryRun to false for no args", () => {
-    expect(parsePublishArgs([])).toEqual({ dryRun: false });
+  it("defaults dryRun and buildOnly to false for no args", () => {
+    expect(parsePublishArgs([])).toEqual({ dryRun: false, buildOnly: false });
   });
 
   it("sets dryRun true for --dry-run", () => {
-    expect(parsePublishArgs(["--dry-run"])).toEqual({ dryRun: true });
+    expect(parsePublishArgs(["--dry-run"])).toEqual({
+      dryRun: true,
+      buildOnly: false,
+    });
+  });
+
+  it("sets buildOnly true for --build-only", () => {
+    expect(parsePublishArgs(["--build-only"])).toEqual({
+      dryRun: false,
+      buildOnly: true,
+    });
+  });
+
+  it("throws when both --dry-run and --build-only are passed (mutually exclusive), naming both", () => {
+    expect(() => parsePublishArgs(["--build-only", "--dry-run"])).toThrow(
+      /--dry-run/,
+    );
+    expect(() => parsePublishArgs(["--build-only", "--dry-run"])).toThrow(
+      /--build-only/,
+    );
+    expect(() => parsePublishArgs(["--build-only", "--dry-run"])).toThrow(
+      /mutually exclusive/i,
+    );
+    // order-independent
+    expect(() => parsePublishArgs(["--dry-run", "--build-only"])).toThrow(
+      /mutually exclusive/i,
+    );
   });
 
   it("throws on an unknown token, naming the usage", () => {
-    expect(() => parsePublishArgs(["bogus"])).toThrow(/\[--dry-run\]/);
+    expect(() => parsePublishArgs(["bogus"])).toThrow(/\[--dry-run/);
     expect(() => parsePublishArgs(["bogus"])).toThrow(/bogus/);
   });
 
   it("rejects a bump level — this driver does NOT bump (Phase 10 owns bump)", () => {
-    expect(() => parsePublishArgs(["patch"])).toThrow(/\[--dry-run\]/);
+    expect(() => parsePublishArgs(["patch"])).toThrow(/\[--dry-run/);
     expect(() => parsePublishArgs(["patch"])).toThrow(/patch/);
   });
 });

@@ -291,7 +291,7 @@ function preflights(view) {
  * renderPublishRecovery on any failure before exiting non-zero — NEVER an auto
  * un-publish (revert-by-republish ethos).
  */
-function publish(view, version, { x86Present }) {
+function publish(view, version, { x86Present, buildOnly }) {
   // 0. Materialize the signing key for `tauri build`: it reads ONLY
   //    TAURI_SIGNING_PRIVATE_KEY (the key CONTENT), never *_PATH. The preflight
   //    accepts either form, so a maintainer who exported only the PATH form would
@@ -417,6 +417,22 @@ function publish(view, version, { x86Present }) {
     log("\nSkipping DMG notarisation (no API-key notary env — sign-only/ad-hoc build).");
   }
 
+  // 6.9. --build-only early-return: the real build + sign + notarise + staple +
+  //      spctl-accept have ALL run above (so this proves the direct DMG channel
+  //      still builds/signs/notarises — the MAS-SHIP-05 load-bearing proof the
+  //      --dry-run path can never reach, since it short-circuits before `tauri
+  //      build`). RETURN here BEFORE any publish WRITE — no latest.json, no `gh
+  //      release create`, no `gh release upload`, no tag — so the proof is
+  //      publish-safe by construction. (The read-only preflight `gh` probes ran
+  //      earlier in main()/preflights and are intentionally NOT gated — only the
+  //      publish writes must be unreachable. T-30-04b.)
+  if (buildOnly) {
+    log(
+      "\nbuild-only: artifacts verified (built + signed + notarised + stapled + spctl-accepted) — stopping before publish (no latest.json, no gh release, no tag).",
+    );
+    return;
+  }
+
   // 7. Build latest.json via the PURE fn (generate-only; never `git add` — REL-08).
   //    Real CHANGELOG notes for this version, falling back to the tag (resilient).
   const notes = resolveReleaseNotes(
@@ -497,7 +513,7 @@ function main() {
     abort(err.message ?? String(err));
     return;
   }
-  const { dryRun } = args;
+  const { dryRun, buildOnly } = args;
 
   // 2. Read the current version and build the plan view from it (productName
   //    derived from tauri.conf.json — rename-proof).
@@ -515,8 +531,10 @@ function main() {
     process.exit(0);
   }
 
-  // Task 2: build + publish pipeline
-  publish(view, version, { x86Present });
+  // Task 2: build + publish pipeline. --build-only threads INTO publish() (it
+  //  runs the REAL build) and returns BEFORE any publish write — it does NOT
+  //  short-circuit in main() like --dry-run does.
+  publish(view, version, { x86Present, buildOnly });
 }
 
 try {
