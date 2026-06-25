@@ -89,7 +89,7 @@ describe("StoreLicenseSettings — two layouts", () => {
     ).toBeTruthy();
     // An already-Pro user has nothing to buy or restore (Restore lives on the
     // Free pitch for not-yet-Pro users — Apple's requirement is still met).
-    expect(queryByText("Buy Pro — Lifetime")).toBeNull();
+    expect(queryByText("Buy Pro")).toBeNull();
     expect(queryByText("Restore Purchases")).toBeNull();
     // Green ok token banner (never amber/red).
     expect(container.querySelector(".border-ok-line")).toBeTruthy();
@@ -101,7 +101,7 @@ describe("StoreLicenseSettings — two layouts", () => {
     const { getByText, getByRole } = await renderPane();
 
     expect(getByText("Thank you for using TinkerDev ❤️")).toBeTruthy();
-    expect(getByRole("button", { name: "Buy Pro — Lifetime" })).toBeTruthy();
+    expect(getByRole("button", { name: "Buy Pro" })).toBeTruthy();
     expect(getByRole("button", { name: "Restore Purchases" })).toBeTruthy();
   });
 
@@ -128,7 +128,7 @@ describe("StoreLicenseSettings — Buy handler", () => {
     installPlatform({ purchase });
     const { getByRole, findByText } = await renderPane();
 
-    fireEvent.click(getByRole("button", { name: "Buy Pro — Lifetime" }));
+    fireEvent.click(getByRole("button", { name: "Buy Pro" }));
 
     expect(await findByText("Purchase cancelled.")).toBeTruthy();
     expect(purchase).toHaveBeenCalledWith(PRODUCT_ID);
@@ -143,7 +143,7 @@ describe("StoreLicenseSettings — Buy handler", () => {
     installPlatform({ purchase });
     const { getByRole, findByText } = await renderPane();
 
-    fireEvent.click(getByRole("button", { name: "Buy Pro — Lifetime" }));
+    fireEvent.click(getByRole("button", { name: "Buy Pro" }));
 
     expect(
       await findByText(
@@ -162,7 +162,7 @@ describe("StoreLicenseSettings — Buy handler", () => {
     installPlatform({ purchase });
     const { getByRole, queryByText } = await renderPane();
 
-    fireEvent.click(getByRole("button", { name: "Buy Pro — Lifetime" }));
+    fireEvent.click(getByRole("button", { name: "Buy Pro" }));
 
     // The foreground success path calls refreshEntitlements DIRECTLY — it does NOT
     // rely solely on the Plan-02 boot listener.
@@ -183,7 +183,7 @@ describe("StoreLicenseSettings — Buy handler", () => {
     installPlatform({ purchase });
     const { getByRole, findByText, container } = await renderPane();
 
-    fireEvent.click(getByRole("button", { name: "Buy Pro — Lifetime" }));
+    fireEvent.click(getByRole("button", { name: "Buy Pro" }));
 
     expect(
       await findByText(
@@ -294,7 +294,7 @@ describe("StoreLicenseSettings — D-07 drop notice (MAS-IAP-05)", () => {
 
     // Give the async prefs load a tick to settle, then assert it never appears.
     await waitFor(() =>
-      expect(queryByText("Buy Pro — Lifetime")).toBeTruthy(),
+      expect(queryByText("Buy Pro")).toBeTruthy(),
     );
     expect(queryByText("Your Pro features turned off")).toBeNull();
   });

@@ -146,7 +146,7 @@ const PITCH_FEATURES: ReadonlyArray<{
   {
     icon: Command,
     label: "Command palette",
-    sub: "Jump to any tool with ⌘K — no mouse.",
+    sub: "Jump to any tool with ⌘K.",
   },
   {
     icon: Palette,

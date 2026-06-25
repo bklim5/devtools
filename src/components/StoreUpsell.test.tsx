@@ -55,7 +55,7 @@ describe("StoreUpsell — pitch", () => {
     const { getByText, getByRole } = await renderModal();
 
     expect(getByText("Thank you for using TinkerDev ❤️")).toBeTruthy();
-    expect(getByRole("button", { name: "Buy Pro — Lifetime" })).toBeTruthy();
+    expect(getByRole("button", { name: "Buy Pro" })).toBeTruthy();
     expect(getByRole("button", { name: "Restore Purchases" })).toBeTruthy();
     expect(getByText("Lifetime Pro")).toBeTruthy();
     expect(
@@ -68,7 +68,7 @@ describe("StoreUpsell — pitch", () => {
 
     expect(getByText("Command palette")).toBeTruthy();
     expect(
-      getByText("Jump to any tool from the Command Palette — no mouse."),
+      getByText("Jump to any tool from the Command Palette."),
     ).toBeTruthy();
     expect(container.innerHTML).not.toContain("⌘K");
   });
@@ -83,7 +83,7 @@ describe("StoreUpsell — Buy handler", () => {
     installPlatform({ purchase });
     const { getByRole, findByText } = await renderModal();
 
-    fireEvent.click(getByRole("button", { name: "Buy Pro — Lifetime" }));
+    fireEvent.click(getByRole("button", { name: "Buy Pro" }));
 
     expect(await findByText("Purchase cancelled.")).toBeTruthy();
     expect(purchase).toHaveBeenCalledWith(PRODUCT_ID);
@@ -99,7 +99,7 @@ describe("StoreUpsell — Buy handler", () => {
     installPlatform({ purchase });
     const { getByRole } = await renderModal(onClose);
 
-    fireEvent.click(getByRole("button", { name: "Buy Pro — Lifetime" }));
+    fireEvent.click(getByRole("button", { name: "Buy Pro" }));
 
     // Foreground success calls refreshEntitlements DIRECTLY — not sole reliance
     // on the Plan-02 boot listener.
@@ -119,7 +119,7 @@ describe("StoreUpsell — Buy handler", () => {
     installPlatform({ purchase });
     const { getByRole, findByText, container } = await renderModal();
 
-    fireEvent.click(getByRole("button", { name: "Buy Pro — Lifetime" }));
+    fireEvent.click(getByRole("button", { name: "Buy Pro" }));
 
     expect(
       await findByText(

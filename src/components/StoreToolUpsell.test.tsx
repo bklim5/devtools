@@ -52,7 +52,7 @@ describe("StoreToolUpsell — inline panel (no modal chrome)", () => {
     const { getByText, getByRole, queryByRole } = await renderPanel();
 
     expect(getByText("Thank you for using TinkerDev ❤️")).toBeTruthy();
-    expect(getByRole("button", { name: "Buy Pro — Lifetime" })).toBeTruthy();
+    expect(getByRole("button", { name: "Buy Pro" })).toBeTruthy();
     expect(getByRole("button", { name: "Restore Purchases" })).toBeTruthy();
     expect(getByText("Lifetime Pro")).toBeTruthy();
     // In-place panel, NOT a dialog: no role=dialog, no aria-modal scrim wrapper.
@@ -75,7 +75,7 @@ describe("StoreToolUpsell — Buy/Restore (same body as StoreUpsell)", () => {
     installPlatform({ purchase });
     const { getByRole } = await renderPanel();
 
-    fireEvent.click(getByRole("button", { name: "Buy Pro — Lifetime" }));
+    fireEvent.click(getByRole("button", { name: "Buy Pro" }));
 
     await waitFor(() =>
       expect(refreshEntitlementsSpy).toHaveBeenCalledTimes(1),
@@ -104,7 +104,7 @@ describe("StoreToolUpsell — Buy/Restore (same body as StoreUpsell)", () => {
     installPlatform({ purchase });
     const { getByRole, findByText } = await renderPanel();
 
-    fireEvent.click(getByRole("button", { name: "Buy Pro — Lifetime" }));
+    fireEvent.click(getByRole("button", { name: "Buy Pro" }));
 
     expect(
       await findByText(

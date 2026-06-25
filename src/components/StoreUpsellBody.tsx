@@ -61,7 +61,7 @@ const PITCH_FEATURES: ReadonlyArray<{
   {
     icon: Command,
     label: "Command palette",
-    sub: "Jump to any tool from the Command Palette — no mouse.",
+    sub: "Jump to any tool from the Command Palette.",
   },
   { icon: Palette, label: "Custom themes", sub: "Recolor the whole app to taste." },
   {
@@ -168,7 +168,7 @@ export function StoreUpsellBody({
           disabled={busy}
           className={PRIMARY_BTN_CLASS}
         >
-          Buy Pro — Lifetime
+          Buy Pro
         </button>
         <button
           type="button"

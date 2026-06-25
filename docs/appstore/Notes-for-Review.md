@@ -22,7 +22,7 @@ There is **one** non-consumable In-App Purchase:
 
 1. Launch TinkerDev. All tools are usable immediately, offline, with no purchase.
 2. Open **Settings ▸ License** (or trigger any "Unlock Pro" affordance).
-3. Tap **"Buy Pro — Lifetime"**. The native StoreKit purchase sheet appears.
+3. Tap **"Buy Pro"**. The native StoreKit purchase sheet appears.
 4. Complete the purchase with the provided Sandbox tester account.
 5. **Pro unlocks live, with no relaunch** — custom theming/appearance, tool ordering, and the ⌘K command palette enhancements become available immediately.
 6. To verify restore: on a fresh install (or after removing local state), tap **"Restore Purchases"** in Settings ▸ License — Pro re-unlocks for the same Apple ID.

@@ -23,7 +23,7 @@ Capture **real** tool output — no mockups. During the walkthrough:
 
 1. **Protobuf decoder with a decoded blob** — the hero feature; show the wire-format tree with LEN chips on a real paste.
 2. **JWT decode** — a decoded token showing header + payload.
-3. **Settings ▸ License — Buy / Restore pane** — the Pro upsell with the live StoreKit `displayPrice`, the "Buy Pro — Lifetime" + "Restore Purchases" buttons. **This same shot doubles as the IAP review screenshot** required by `ASC-SETUP.md §5` (the paywall in context).
+3. **Settings ▸ License — Buy / Restore pane** — the Pro upsell with the live StoreKit `displayPrice`, the "Buy Pro" + "Restore Purchases" buttons. **This same shot doubles as the IAP review screenshot** required by `ASC-SETUP.md §5` (the paywall in context).
 
 Optional extras (up to 10 total): Base64/Hex converter, Hash, JSON formatter.
 

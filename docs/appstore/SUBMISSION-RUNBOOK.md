@@ -53,7 +53,7 @@ The `.pkg` installer that you upload to the Mac App Store is signed with a **Mac
 WebDriver cannot drive StoreKit purchases / sandbox / refunds — this is the mandatory manual round-trip (mirrors the v1.6 live-purchase gate).
 
 - ☐ **Launch the DEV-signed `.app`** (the development-signed sandboxed bundle), **NOT the distribution `.pkg`'s app** — a distribution-signed app will not launch locally (AMFI -413; the distribution profile is for App Store delivery, not local execution). See `MEMORY` / `mas-signing-dev-vs-distribution`.
-- ☐ **Sandbox purchase round-trip:** sign the *Sandbox tester* (never your real Apple ID) into the purchase sheet → tap "Buy Pro — Lifetime" → complete → Pro unlocks live (theming / ordering / ⌘K) with no relaunch (MAS-IAP-02).
+- ☐ **Sandbox purchase round-trip:** sign the *Sandbox tester* (never your real Apple ID) into the purchase sheet → tap "Buy Pro" → complete → Pro unlocks live (theming / ordering / ⌘K) with no relaunch (MAS-IAP-02).
 - ☐ **Restore on a fresh container:** reset the app state, "Restore Purchases" re-unlocks Pro (MAS-IAP-03).
 - ☐ **Refund → Pro-drop:** follow the Sandbox Path B in `REFUND-TEST-RUNBOOK.md` → Pro drops live + the "Pro features turned off" notice fires (MAS-IAP-05).
 - ☐ **Capture the screenshots here** (the live UI states) per `screenshots/README.md` and drop the PNGs into `screenshots/`.
