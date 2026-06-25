@@ -137,7 +137,14 @@ export function App() {
     <div className="flex h-screen w-screen overflow-hidden bg-bg-app font-sans text-tx">
       <Sidebar />
       <main className="flex min-w-0 flex-1 flex-col bg-pane">
-        <header className="flex h-11 flex-none items-center justify-end border-b border-bd px-4">
+        {/* data-tauri-drag-region: under the macOS Overlay titlebar this top bar
+            sits in the traffic-light zone, so it doubles as the window drag region
+            for the main column. The search pill is a separate event target and
+            still clicks; only the empty header area drags. */}
+        <header
+          data-tauri-drag-region
+          className="flex h-11 flex-none items-center justify-end border-b border-bd px-4"
+        >
           <button
             type="button"
             onClick={() => openPalette(preferences.paletteChord)}

@@ -619,7 +619,17 @@ export function Sidebar() {
   );
 
   return (
-    <aside className="flex w-[268px] flex-none flex-col gap-3 border-r border-bd bg-sidebar p-3.5">
+    <aside className="flex w-[268px] flex-none flex-col gap-3 border-r border-bd bg-sidebar px-3.5 pb-3.5">
+      {/* macOS Overlay titlebar floats the native traffic-light controls over the
+          top-left of this sidebar. This full-width strip (a) insets the first tool
+          row below them and (b) is the window drag region the Overlay style
+          requires — Overlay reserves no native draggable titlebar, so without an
+          explicit data-tauri-drag-region the window can't be moved from the top
+          (needs core:window:allow-start-dragging in capabilities/default.json).
+          Interactive children (nav rows, search pill) are separate event targets,
+          so they still click — only this empty strip drags. -mx-3.5 bleeds it to
+          the sidebar edges so the grab area spans under the controls. */}
+      <div data-tauri-drag-region aria-hidden="true" className="-mx-3.5 h-7 flex-none" />
       <nav
         ref={navRef}
         // tabIndex -1 keeps the nav OUT of the normal tab order but makes it a
