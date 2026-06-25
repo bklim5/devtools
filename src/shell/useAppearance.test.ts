@@ -6,7 +6,7 @@
 // useEntitlements / useEntitlementsResolved are mocked so the test drives
 // prefs+ents directly.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { renderHook } from "@testing-library/react";
+import { renderHook, waitFor } from "@testing-library/react";
 import { DEFAULT_PREFERENCES, type Preferences } from "./preferences";
 import { FREE_SET, FULL_SET } from "@/lib/entitlements/entitlements";
 import { THEME_HINT_KEY, useAppearance } from "./useAppearance";
@@ -26,6 +26,14 @@ vi.mock("./useEntitlements", () => ({
   useEntitlementsResolved: () => mockEntsResolved,
 }));
 
+// Spy on the native window-chrome seam (Overlay titlebar theme sync). hoisted so
+// the vi.mock factory can close over it.
+const { setThemeSpy } = vi.hoisted(() => ({ setThemeSpy: vi.fn() }));
+vi.mock("@/lib/platform", () => ({
+  initPlatform: vi.fn().mockResolvedValue(undefined),
+  platform: { window: { setTheme: setThemeSpy } },
+}));
+
 function prefs(overrides: Partial<Preferences>): Preferences {
   return { ...DEFAULT_PREFERENCES, ...overrides };
 }
@@ -36,6 +44,7 @@ beforeEach(() => {
   mockEnts = FULL_SET;
   mockEntsResolved = true;
   localStorage.clear();
+  setThemeSpy.mockClear();
 });
 
 afterEach(() => {
@@ -86,5 +95,34 @@ describe("useAppearance", () => {
       "#5b9bf8",
     );
     expect(localStorage.getItem(THEME_HINT_KEY)).toBe("dark"); // gated, not raw "light"
+  });
+
+  // --- native window-chrome sync (Overlay titlebar legibility) --------------
+
+  it("syncs native window theme to the gated effective theme (light) once ents resolve", async () => {
+    mockEnts = FULL_SET;
+    mockPrefs = prefs({ theme: "light", accent: "#a78bfa" });
+    renderHook(() => useAppearance());
+    await waitFor(() => expect(setThemeSpy).toHaveBeenCalledWith("light"));
+  });
+
+  it("FREE_SET gates the native theme to dark even when prefs say light", async () => {
+    mockEnts = FREE_SET;
+    mockPrefs = prefs({ theme: "light", accent: "#a78bfa" });
+    renderHook(() => useAppearance());
+    await waitFor(() => expect(setThemeSpy).toHaveBeenCalledWith("dark"));
+  });
+
+  it("before ents resolve, syncs native chrome to the pre-paint HINT (not gated) so the titlebar matches the DOM at reveal", async () => {
+    // The DOM apply HOLDS until ents resolve, but the native chrome must still
+    // track what the pre-paint script painted — the hint — or the Overlay title
+    // goes invisible in the opposite mode during the entitlement-resolve window.
+    mockEntsResolved = false;
+    mockPrefs = prefs({ theme: "dark" });
+    localStorage.setItem(THEME_HINT_KEY, "light");
+    renderHook(() => useAppearance());
+    await waitFor(() => expect(setThemeSpy).toHaveBeenCalledWith("light"));
+    // DOM apply still held (existing invariant) — only the native chrome synced.
+    expect(document.documentElement.dataset.theme).toBeUndefined();
   });
 });
