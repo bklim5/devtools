@@ -231,7 +231,7 @@ A five-pane in-window Settings modal (License · Appearance · Hotkeys · Genera
   4. The direct channel is un-regressed — the DMG still builds, signs, and notarises; `decoder.ts` + its 19 tests are byte-for-byte untouched.
 **Plans**: 3 plans
 - [ ] 30-01-PLAN.md — base version → 1.0.0 + PrivacyInfo.xcprivacy (Data Not Collected) + direct-channel un-regression proof (Wave 1, auto) — MAS-SHIP-04/05
-- [ ] 30-02-PLAN.md — submission metadata (SUBMISSION-RUNBOOK + Notes-for-Review + screenshots staging) + cross-repo /support page + channel-aware /privacy edit (Wave 1, auto) — MAS-SHIP-03/04
+- [x] 30-02-PLAN.md — submission metadata (SUBMISSION-RUNBOOK + Notes-for-Review + screenshots staging) + cross-repo /support page + channel-aware /privacy edit (Wave 1, auto) — MAS-SHIP-03/04 — completed 2026-06-25
 - [ ] 30-03-PLAN.md — new `build-appstore-pkg.sh` (Apple Distribution app → productbuild → Mac Installer Distribution .pkg + local pre-ITMS gates) + terminal human ship-gate (build·walkthrough·Transporter·Submit) (Wave 2, human-verify) — MAS-SHIP-01/02/03
 **Research**: COMPLETE — see 30-RESEARCH.md (productbuild/cert command shapes, ITMS-90238/90296 + root-only-files local pre-checks, channel-aware privacy edit). Original flag was `/gsd-research-phase` LIKELY — `.pkg`/provisioning/signing sequence MEDIUM-confidence; validate ITMS bounce modes against the real universal bundle.
 **Gate**: Human — full ship-gate walkthrough (signed `.app`, real purchase, restore on a fresh container, refund→drop) + direct-channel un-regressed; mirrors the v1.6 live-purchase gate. Build LAST (verify bundle mtime > last source commit).

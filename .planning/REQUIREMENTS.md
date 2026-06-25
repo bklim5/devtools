@@ -45,8 +45,8 @@
 
 - [ ] **MAS-SHIP-01**: A build pipeline produces a signed `.pkg` (Apple Distribution + Mac Installer Distribution certs + embedded provisioning profile), separate from the direct Developer-ID/notarytool path.
 - [ ] **MAS-SHIP-02**: The signed `.pkg` uploads to App Store Connect (`productbuild` → `altool`).
-- [ ] **MAS-SHIP-03**: The milestone delivers step-by-step App Store Connect setup guidance at the point each item is needed (Paid-Apps Agreement; the non-consumable "Pro" product attached to the binary + "Ready to Submit"; Sandbox tester accounts).
-- [ ] **MAS-SHIP-04**: Submission metadata is prepared as deliverables: privacy label = Data Not Collected (+ `PrivacyInfo.xcprivacy`), 4+ age rating, screenshots of real testable states, working support/privacy URLs, and Notes-for-Review documenting how to exercise the Pro IAP.
+- [x] **MAS-SHIP-03**: The milestone delivers step-by-step App Store Connect setup guidance at the point each item is needed (Paid-Apps Agreement; the non-consumable "Pro" product attached to the binary + "Ready to Submit"; Sandbox tester accounts).
+- [x] **MAS-SHIP-04**: Submission metadata is prepared as deliverables: privacy label = Data Not Collected (+ `PrivacyInfo.xcprivacy`), 4+ age rating, screenshots of real testable states, working support/privacy URLs, and Notes-for-Review documenting how to exercise the Pro IAP.
 - [ ] **MAS-SHIP-05**: The direct channel is un-regressed by the variant work — the DMG still builds, signs, and notarises; decoder.ts + its 19 tests are byte-for-byte untouched.
 
 ## v2 Requirements
@@ -95,8 +95,8 @@ Phase structure (dependency-forced, continues from Phase 25): **26** StoreKit br
 | MAS-NATIVE-04 | Phase 29 | Complete (2026-06-24, plan 02 — launch-at-login control/wiring absent in the store General pane via IS_APPSTORE, autostart seam no-ops; plan 03 human gate — Settings ▸ General has no Launch-at-login toggle + cargo tree --features appstore clean of autostart/keyring on the signed build) |
 | MAS-SHIP-01 | Phase 30 | Pending |
 | MAS-SHIP-02 | Phase 30 | Pending |
-| MAS-SHIP-03 | Phase 30 | Pending |
-| MAS-SHIP-04 | Phase 30 | Pending |
+| MAS-SHIP-03 | Phase 30 | Complete |
+| MAS-SHIP-04 | Phase 30 | Complete |
 | MAS-SHIP-05 | Phase 30 | Pending |
 
 **Per-phase scope:**
