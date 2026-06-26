@@ -1,6 +1,6 @@
 # TinkerDev — Notes for App Review (D-05)
 
-*Paste this into App Store Connect → your version → App Review → "Notes for Review". Attach the Sandbox tester credentials in the App Review sign-in fields.*
+*Paste this into App Store Connect → your version → **App Review Information** → the **Notes** field. Leave **"Sign-in required" UNCHECKED** — TinkerDev has no account/login, and App Review tests the IAP with their own internal sandbox accounts (do NOT put a Sandbox Apple ID in the sign-in fields).*
 
 ---
 
