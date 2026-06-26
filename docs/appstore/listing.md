@@ -21,6 +21,13 @@ Schema-less protobuf decoder
 ```
 Alternatives (≤30): `Protobuf, JSON, JWT & more` (26) · `Protobuf decoder, offline` (25) · `Offline protobuf & dev tools` (28)
 
+## Promotional Text (version page · ≤170 chars · updatable anytime, no review)
+
+```
+Decode unknown Protobuf with no schema, plus JWT, Base64, hashing, JSON/XML and more — fast, keyboard-driven, and 100% offline. Nothing you paste leaves your Mac.
+```
+162 chars. Alt (hero-only, 148): `Paste an unknown Protobuf blob and read it in under two seconds — no .proto needed. A fast, offline, keyboard-driven toolbox for everyday dev bytes.`
+
 ## Description (version page)
 
 ```
