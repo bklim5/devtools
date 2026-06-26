@@ -27,15 +27,18 @@ Capture **real** tool output — no mockups. During the walkthrough:
 
 Optional extras (up to 10 total): Base64/Hex converter, Hash, JSON formatter.
 
-## Staging / placeholder filenames
+## Captured set (real PNGs, in this directory)
 
-Capture into this directory using these names (replace the placeholders with the real PNGs):
+Captured on the dev-signed appstore `.app` at 1440×900 on a Retina display (→ 2880×1800), dark theme + blue accent, flattened to no-alpha via `magick … -alpha remove -alpha off`:
 
 ```
-01-protobuf-decoder.png      # 2880×1800, flattened, no alpha
-02-jwt-decode.png            # 2880×1800
-03-license-buy-restore.png   # 2880×1800 — also the IAP review screenshot
-04-optional-*.png            # optional extras
+01-protobuf-decoder.png      # 2880×1800 — hero: wire-format decode tree (varint/LEN/nested/repeated)
+03-license-buy-restore.png   # 2880×1800 — upsell; ALSO the IAP review screenshot (Lifetime Pro · price, Buy Pro, Restore)
+05-json-formatter.png        # 2880×1800 — compact → pretty, byte counts
+06-command-palette.png       # 2880×1800 — ⌘K palette (Recent + All Tools)
+07-unix-time.png             # 2880×1800 — timestamp → LOCAL/UTC/ISO 8601 + NOW
+08-hash.png                  # 2880×1800 — MD5/SHA-1/SHA-256/SHA-384/SHA-512 digests
+09-cron.png                  # 2880×1800 — cron expression → human description + next runs
 ```
 
-After capturing, reference these from `SUBMISSION-RUNBOOK.md` Step 6 and upload them in App Store Connect. Flatten before upload (`sips -s format png --deleteColorManagementProperties …` or export with no alpha) so ASC does not reject an alpha channel.
+All 2880×1800, PNG, **no alpha** (verified `sips -g hasAlpha` = no). Capture method: `scripts/ui-capture.sh` (Accessibility-fronted native-window screencapture) → `magick -alpha remove`. Reference these from `SUBMISSION-RUNBOOK.md` Step 6 and upload them in App Store Connect (use the **same size tier** for the whole set; `03-license-buy-restore.png` doubles as the in-app-purchase review screenshot per `ASC-SETUP.md §5`).
