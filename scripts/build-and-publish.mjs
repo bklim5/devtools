@@ -74,10 +74,12 @@ import {
 } from "../src/lib/release/publishPlan.ts";
 
 const RELEASES_REPO = "bklim5/devtools-releases";
-const UNIVERSAL_MACOS_DIR =
-  "src-tauri/target/universal-apple-darwin/release/bundle/macos";
-const UNIVERSAL_DMG_DIR =
-  "src-tauri/target/universal-apple-darwin/release/bundle/dmg";
+// Bundle root: build.sh exports an ABSOLUTE per-channel CARGO_TARGET_DIR (it IS the
+// target dir — do NOT append src-tauri/target); standalone (unset) resolves to today's
+// literal "src-tauri/target" so release:publish/build-only is byte-for-byte unchanged.
+const TARGET_DIR = process.env.CARGO_TARGET_DIR || "src-tauri/target";
+const UNIVERSAL_MACOS_DIR = `${TARGET_DIR}/universal-apple-darwin/release/bundle/macos`;
+const UNIVERSAL_DMG_DIR = `${TARGET_DIR}/universal-apple-darwin/release/bundle/dmg`;
 /**
  * Both naming inputs are DERIVED, never hardcoded (the TinkerDev-rename bug:
  * a hardcoded `devtools-app.app/...` lipo path kept "verifying" the stale
@@ -361,7 +363,11 @@ function publish(view, version, { x86Present, buildOnly }) {
   ]);
 
   // 4. lipo both-arch assert (REL-05, T-11-12) — path derived, never hardcoded.
-  const machoPath = universalMachoPath(readProductName(), readMainBinaryName());
+  const machoPath = universalMachoPath(
+    readProductName(),
+    readMainBinaryName(),
+    UNIVERSAL_MACOS_DIR,
+  );
   const archs = run("lipo", ["-archs", machoPath]).stdout;
   if (!parseLipoArchs(archs)) {
     abort(
@@ -518,7 +524,11 @@ function main() {
   // 2. Read the current version and build the plan view from it (productName
   //    derived from tauri.conf.json — rename-proof).
   const version = readCurrentVersion();
-  const view = buildPublishPlanView(version, readProductName());
+  const view = buildPublishPlanView(
+    version,
+    readProductName(),
+    UNIVERSAL_MACOS_DIR,
+  );
 
   // 3. Read-only preflights (ALL before any irreversible action — REL-11).
   const { x86Present } = preflights(view);

@@ -65,8 +65,12 @@ PROFILE="${PROFILE:-src-tauri/embedded.provisionprofile}"
 ENTITLEMENTS="src-tauri/entitlements.appstore.plist"
 PRIVACY="src-tauri/PrivacyInfo.xcprivacy"
 TARGET="universal-apple-darwin"
-APP_OUT="src-tauri/target/${TARGET}/release/bundle/macos/TinkerDev.app"
-PKG_OUT="src-tauri/target/${TARGET}/release/bundle/macos/TinkerDev.pkg"
+# Bundle root: when build.sh sets an ABSOLUTE per-channel CARGO_TARGET_DIR we honor
+# it directly (it IS the target dir — do NOT append src-tauri/target); standalone
+# (unset) resolves to today's literal "src-tauri/target" relative to ROOT_DIR.
+BUNDLE_ROOT="${CARGO_TARGET_DIR:-src-tauri/target}"
+APP_OUT="${BUNDLE_ROOT}/${TARGET}/release/bundle/macos/TinkerDev.app"
+PKG_OUT="${BUNDLE_ROOT}/${TARGET}/release/bundle/macos/TinkerDev.pkg"
 
 # Expected identity values pinned to the team + bundle id (must stay consistent with
 # entitlements.appstore.plist application-identifier + tauri.conf.json identifier).

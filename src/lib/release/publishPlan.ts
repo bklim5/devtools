@@ -307,8 +307,9 @@ const UNIVERSAL_BUNDLE_MACOS_DIR =
 export function universalMachoPath(
   productName: string,
   mainBinaryName: string,
+  baseMacosDir: string = UNIVERSAL_BUNDLE_MACOS_DIR,
 ): string {
-  return `${UNIVERSAL_BUNDLE_MACOS_DIR}/${productName}.app/Contents/MacOS/${mainBinaryName}`;
+  return `${baseMacosDir}/${productName}.app/Contents/MacOS/${mainBinaryName}`;
 }
 
 /**
@@ -335,13 +336,14 @@ export interface PublishPlanView {
 export function buildPublishPlanView(
   version: string,
   productName: string,
+  baseMacosDir: string = UNIVERSAL_BUNDLE_MACOS_DIR,
 ): PublishPlanView {
   return {
     version,
     tag: `v${version}`,
     releasesRepo: RELEASES_REPO,
-    universalBundleDir: UNIVERSAL_BUNDLE_MACOS_DIR,
-    sigGlob: `${UNIVERSAL_BUNDLE_MACOS_DIR}/${productName}.app.tar.gz.sig`,
+    universalBundleDir: baseMacosDir,
+    sigGlob: `${baseMacosDir}/${productName}.app.tar.gz.sig`,
     assetUrlExample: buildAssetUrl(version, `${productName}.app.tar.gz`),
   };
 }

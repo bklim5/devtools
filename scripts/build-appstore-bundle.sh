@@ -46,7 +46,11 @@ SIGN_ID="${SIGN_ID:-$(security find-identity -p codesigning -v 2>/dev/null \
   | grep -oE '"Apple Development: [^"]+"' | head -1 | tr -d '"')}"
 ENTITLEMENTS="src-tauri/entitlements.appstore.plist"
 TARGET="universal-apple-darwin"
-APP_OUT="src-tauri/target/${TARGET}/release/bundle/macos/TinkerDev.app"
+# Bundle root: when build.sh sets an ABSOLUTE per-channel CARGO_TARGET_DIR we honor
+# it directly (it IS the target dir — do NOT append src-tauri/target); standalone
+# (unset) resolves to today's literal "src-tauri/target" relative to ROOT_DIR.
+BUNDLE_ROOT="${CARGO_TARGET_DIR:-src-tauri/target}"
+APP_OUT="${BUNDLE_ROOT}/${TARGET}/release/bundle/macos/TinkerDev.app"
 
 # --- Preflight -----------------------------------------------------------------
 if [[ -z "$SIGN_ID" ]]; then
