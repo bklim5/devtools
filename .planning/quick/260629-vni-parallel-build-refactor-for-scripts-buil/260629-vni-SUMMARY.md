@@ -59,3 +59,26 @@ This is the definitive proof of the fix: the dev-signed appstore `.app` and the 
 - `68b4b178` — shellcheck-clean `.env` source in build.sh
 - `55dab17e` — fail closed when a *set* `CARGO_TARGET_DIR` is relative
 - `6e8bb177` — (adversarial-review fix) verify-appstore-bundle default honors `CARGO_TARGET_DIR`
+
+---
+
+## Follow-up (2026-06-30): canonical per-channel target dir for ALL entry points
+
+User observed that `scripts/build.sh direct` and `pnpm release:publish` produce the same build in **different** trees → duplicate multi-GB target dirs. Asked to publish to one shared target per channel. User chose "all three channels canonical."
+
+**Change:** every build *entry point* now self-defaults + exports its canonical absolute `CARGO_TARGET_DIR` when unset, so cargo and the path-readers always agree, regardless of whether invoked via `scripts/build.sh` or standalone `pnpm`:
+- `build-appstore-bundle.sh` → `$ROOT_DIR/src-tauri/target/appstore`
+- `build-appstore-pkg.sh` → `$ROOT_DIR/src-tauri/target/appstore-pkg`
+- `build-and-publish.mjs` → `resolve(src-tauri/target/direct)`, set on `process.env` so the `tauri build` subprocess inherits it (so `release:publish` + `release:build-only` share the `direct/` tree with `build.sh direct` — no duplicate)
+- `tauri:build:direct` npm script → `$PWD/src-tauri/target/direct`
+- `build.sh` still pre-exports the same absolute dir (redundant twin); the guard runs BEFORE the default so a set-relative value still fails closed.
+
+Updated the appstore runbooks (`PHASE-26-SANDBOX-WALKTHROUGH`, `REFUND-TEST-RUNBOOK`) to the new per-channel paths. Pointed `verify-appstore-bundle.sh`'s bare default at the appstore channel (its canonical home).
+
+**Note:** `docs/RELEASE.md` documents the bare `pnpm tauri build` manual flow (host-arch → `src-tauri/target/release/bundle/`), which this change did NOT touch — it remains accurate. The real automated publish path is `release:publish` (now `direct/`).
+
+**Harness (all passed):** review agent (no bugs) → codex adversarial review (needs-attention: single finding = verifier default/runbooks → addressed) → tsc clean + vitest 1279/1279 → shellcheck clean (only pre-existing SC2164 on untouched `cd` lines). **Real proof:** standalone `pnpm tauri:build:appstore` (CARGO_TARGET_DIR unset) landed fresh in `target/appstore/` + passed all compliance/freshness gates while the bare `universal-apple-darwin` tree stayed untouched; `release:publish --dry-run` resolved all bundle paths to `target/direct/`; bare `verify-appstore-bundle.sh --require-bundle` now inspects `target/appstore/` and its freshness gate correctly flags a stale bundle (fail-safe).
+
+**Commits:** `664eead2` (canonical unification), `1f155665` (verify default → appstore channel).
+
+**Stale legacy trees:** `src-tauri/target/{universal-apple-darwin,aarch64-apple-darwin,x86_64-apple-darwin}` (Jun 2) are now unused by every script — safe to `rm -rf`. `release`/`debug` remain the bare `pnpm tauri build` / `tauri dev` caches.
