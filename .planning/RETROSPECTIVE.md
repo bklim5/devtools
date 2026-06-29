@@ -230,6 +230,35 @@ A five-pane in-window Settings modal (License · Appearance · Hotkeys · Genera
 
 ---
 
+## Milestone: v1.8 — Mac App Store Distribution
+
+**Shipped:** 2026-06-27 (app v1.0.0, Submitted for Review) · **Phases:** 26–30 (21 plans + 1 contingency skipped)
+
+### What Was Built
+The Mac App Store edition as a SECOND distribution channel beside the unchanged direct DMG: a build-variant seam (`appstore` Cargo feature + `--config` overlay + `VITE_CHANNEL`) yields an App-Sandboxed StoreKit build where Pro is a one-time on-device-verified IAP (serverless), the Keygen/updater/keyring surfaces are compiled out, and a signed `.pkg` (Apple Distribution → productbuild → Mac Installer Distribution) was submitted to App Store review. The central entitlement gate, registry, and `decoder.ts` (+ its 19 tests) stayed byte-unchanged.
+
+### What Worked
+- **One central gate, two sources:** the entire store entitlement story was a single `baseFromStoreKit` arm in `resolveEntitlements` — the gate, registry, drop-notice, and `useEntitlements` were all reused unchanged. Channel divergence lived almost entirely at compile-time (`#[cfg(feature="direct")]` + tree-shaken `IS_APPSTORE` switches), not in branching runtime logic.
+- **Verifiable checks on the SIGNED bundle, not source:** `verify-appstore-bundle.sh` (cargo-tree plugin absence, entitlement audit, chunk-module sentinels, freshness/linkage) caught real compliance regressions that grep-on-source would have missed — e.g. the inert plugin JS riding along via the shared seam, provable only by runtime no-invoke + chunk inventory.
+- **The harness caught architecture-level bugs late but pre-ship:** Codex adversarial review flagged the Overlay-titlebar missing drag region (a basic-usability regression invisible to DOM/WebDriver) and the entitlement-gated native-theme-sync leaving a launch window under dark chrome — both fixed before submission.
+
+### What Was Inefficient
+- **Native-window UI checks were silently deferred to the human** until the user called it out — the harness step-5 "real-webview verification" was being read as webview-only, so titlebar/drag/legibility (which live outside the DOM) went unverified by the agent. Fixed mid-milestone by adding `scripts/ui-capture.sh` + upgrading the gate to mandate native-window capture of BOTH channels.
+- **Two Transporter bounces (409 category, 91109 quarantine xattr) only surfaced at the irreversible upload** — neither was in the local pre-ITMS gate set; both are now permanent FATAL guards in `build-appstore-pkg.sh`.
+- **Shared `target/` tree serialized the three builds** (direct/appstore/pkg overwrote each other; the `.pkg` left a distribution-signed `.app` that wouldn't launch) — parallel per-channel `CARGO_TARGET_DIR` deferred post-submission.
+- **`gsd-tools` milestone/state/roadmap helpers mis-scoped** on this project's narrative format (the `milestone complete` CLI dumped whole-project accomplishments + wrong stats) — archival + tracking edits were redone manually.
+
+### Key Lessons
+- **Compile-out > runtime-gate for compliance:** the cleanest way to guarantee a forbidden surface (Keychain, updater, license server) is absent from a store build is `#[cfg(feature)]` + tree-shaking, proven on the signed artifact — never a runtime `if`.
+- **"Real-webview verification" must include native chrome AND drive the actual feature flow** — a screenshot of the appbar isn't verification of a tool change; capture the feature in use, in both channels and themes, at the size floor.
+- **Put every ITMS bounce mode into the local gate** — a pre-upload check that fails closed on category/quarantine/sandbox is worth more than a fast upload, because the upload is the irreversible, slow feedback loop.
+- **The terminal ship step is 100% human and that's correct** — Submit-for-Review, live StoreKit purchases/refunds, and real drag gestures are genuine human gates; the agent's job is to make everything up to that point verifiable and publish-safe.
+
+### Cost Observations
+- Long single-session milestone close with heavy real-app interaction (builds, AX automation, screenshots). Notable: AX element-targeting on the WKWebView was flaky for the settings modal (drifted across calls) but reliable for tool inputs via focused-element + keystroke; coordinate-clicking via un-granted CGEvent was dropped silently — the lesson is to use the Accessibility-granted path (System Events) for synthetic input.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution

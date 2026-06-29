@@ -10,7 +10,7 @@
 - ✅ **v1.5 Pinned Tools** — Phase 17 (shipped 2026-06-07) — see `milestones/v1.5-ROADMAP.md`
 - ✅ **v1.6 Licensing** — Phases 18–21 (shipped 2026-06-17) — see `milestones/v1.6-ROADMAP.md`
 - ✅ **v1.7 Settings & Preferences** — Phases 22–25 (shipped 2026-06-21, app v0.4.1) — see `milestones/v1.7-ROADMAP.md`
-- ✅ **v1.8 Mac App Store Distribution** — Phases 26–30 (all complete; app Submitted for Review 2026-06-27, awaiting Apple) — App Store channel: StoreKit IAP + App Sandbox + `.pkg` submission
+- ✅ **v1.8 Mac App Store Distribution** — Phases 26–30 (shipped 2026-06-27, app v1.0.0 Submitted for Review) — see `milestones/v1.8-ROADMAP.md`
 
 ## Phases
 
@@ -113,129 +113,18 @@ A five-pane in-window Settings modal (License · Appearance · Hotkeys · Genera
 
 </details>
 
-## v1.8 Mac App Store Distribution (Phases 26–30) — IN PROGRESS
-
-**Goal:** Ship TinkerDev on the Mac App Store as a SECOND distribution channel beside the existing direct DMG + updater. Scope = the App Store target ONLY (StoreKit IAP + App Sandbox + the build-variant seam + `.pkg` submission); direct-channel Developer-ID notarisation is already shipped (v0.4.1) and out of scope. Both channels resolve to the SAME `pro.*` entitlement map through the one existing central gate; the webview gate, registry, `decoder.ts` + its 19 tests stay byte-unchanged. Promotes backlog 999.10. Continues phase numbering from Phase 25 → starts at **Phase 26**.
-
-**Build order is dependency-forced:** nothing store-side compiles, resolves, or renders without a working `platform.iap` arm, so the StoreKit bridge spike is the critical-path FIRST phase. The variant seam (27) is the foundation for both the StoreKit UI (28) and the sandbox features (29); 29 can partly parallelize with 28 once 27 lands. The irreversible/integration-bound submission (30) runs LAST, after every source change lands (verify bundle mtime > last source commit).
-
-**The four ship-gate killers** are each designed into a phase with a verifiable check on the SIGNED bundle: (1) missing `network.client` → sandbox white-screen → Phase 27; (2) Keygen surface surviving (`license.tinkerdev.io`/`$9`/`BUY_LICENSE_URL`/key field) → 3.1.1 grep-clean → Phase 28; (3) updater/autostart hidden-but-linked → `cargo tree` empty → Phase 27 (updater) + 29 (autostart); (4) IAP not testable in review → checklist + Sandbox-tester walkthrough → Phase 30.
-
-**Mandatory human ship-gate walkthroughs** (WebDriver CANNOT drive StoreKit purchases / the sandbox / refunds / login-items — mirrors the v1.6 live-purchase gate): real sandbox purchase round-trip at the Phase 26 + 28 boundaries; login-item over a real logout/login at Phase 29; the full ship-gate (signed `.app`, real purchase, restore on a fresh container, refund→drop) at Phase 30.
-
-**Research-phase flags (during planning):**
-- **Phase 26** — `/gsd-research-phase` LIKELY (MEDIUM confidence): the StoreKit bridge internals are spike-gated — `tauri-plugin-iap@0.9.0` is a 72-star single-maintainer plugin; confirm universal-sandboxed compile, seam mapping, serverless JWS verify, and `objc2`/`keyring` link coexistence. Have the `swift-rs` hand-rolled fallback ready (same seam shape).
-- **Phase 30** — `/gsd-research-phase` LIKELY (MEDIUM confidence): the Tauri-specific `productbuild`/provisioning-profile/`.pkg` signing sequence is community-reported, not officially walked through end-to-end; ITMS bounce modes (ITMS-90238/90296) need validation against the real universal bundle + the nested IAP-bridge code.
-- **Phases 27 + 28** — HIGH confidence, skip research-phase: the variant seam is the existing in-repo `webdriver`-feature + Tauri `--config` idiom; the entitlement-source swap is a one-branch change to the already-tested `resolveEntitlements()` (the seam, gate, and drop-notice all exist and are reused).
-
 <details>
-<summary>🔄 v1.8 Mac App Store Distribution (Phases 26–30) — IN PROGRESS</summary>
+<summary>✅ v1.8 Mac App Store Distribution (Phases 26–30) — SHIPPED 2026-06-27 (app v1.0.0, Submitted for Review)</summary>
 
-- [x] Phase 26: StoreKit Bridge Spike (CRITICAL PATH) — prove `tauri-plugin-iap@0.9` (or swift-rs fallback) in a universal sandboxed build; `platform.iap` seam + `iap_*` Rust commands; native purchase sheet + on-device JWS verify; MAS-IAP-01, MAS-IAP-04 — **COMPLETE 2026-06-23 (GO: tauri-plugin-iap; live Sandbox round-trip passed)**
-- [x] Phase 27: The Build-Variant Seam (3 layers) — `appstore` cargo feature + `tauri.appstore.conf.json` overlay + `VITE_CHANNEL`; sandboxed `.app` launches (network.client, no white-screen); updater compiled OUT; committed verify script; MAS-BUILD-01/02/03/05/06 (4/4 plans complete; signed sandboxed `.app` human-verified launch+render 2026-06-23; binding-harness gates run — code-review + adversarial review caught & fixed a CRITICAL direct-channel capability-drop + half-variant holes, re-verified GREEN end-to-end)
-- [x] Phase 28: Entitlement-Source Swap + Store License Pane (2026-06-23) — `baseFromStoreKit` branch through the existing gate; `StoreLicenseSettings` (Buy `displayPrice` + Restore, App-Store-managed wording); App-Store-managed Updates pane; refund/revoke live-drop; Keygen surface compiled out + grep-clean; MAS-IAP-02/03/05/06/07, MAS-BUILD-04/07
-- [x] Phase 29: Sandbox-Safe Native Features (2026-06-25) — global summon + tray kept under sandbox; keyring/Keychain compiled OUT (appstore cargo tree clean, no keychain-access-groups entitlement); the whole updater overlay + tray "Check for Updates…" item gated out; launch-at-login absent in the store General pane; `compile_error!` mutual-exclusion guard for direct+appstore; MAS-NATIVE-01/02/03/04 — **COMPLETE (signed-bundle gates GREEN + human signed-build walkthrough APPROVED: summon over a real OS chord, tray Show/Settings…/Quit, entitlement audit, no launch-at-login)**
-- [x] Phase 30: `.pkg` Build + App Store Connect Submission — `productbuild` → `altool` pipeline (Apple Distribution + Mac Installer Distribution + profile); ASC guidance + metadata; direct channel un-regressed; MAS-SHIP-01/02/03/04/05 — Complete 2026-06-27 (Submitted for Review)
+- [x] Phase 26: StoreKit Bridge Spike (CRITICAL PATH) (6/7 plans; 26-07 swift-rs fallback SKIPPED) — completed 2026-06-23
+- [x] Phase 27: The Build-Variant Seam (3 layers) (4/4 plans) — completed 2026-06-23
+- [x] Phase 28: Entitlement-Source Swap + Store License Pane (5/5 plans) — completed 2026-06-23
+- [x] Phase 29: Sandbox-Safe Native Features (3/3 plans) — completed 2026-06-25
+- [x] Phase 30: `.pkg` Build + App Store Connect Submission (3/3 plans) — completed 2026-06-27
 
-23 v1 requirements (MAS-IAP ×7, MAS-BUILD ×7, MAS-NATIVE ×4, MAS-SHIP ×5) mapped 100% across 5 phases. Research: `.planning/research/`. Requirements: `.planning/REQUIREMENTS.md`.
+The Mac App Store edition as a second distribution channel: a build-variant seam (appstore Cargo feature + --config overlay + VITE_CHANNEL), StoreKit IAP resolved on-device through the existing central gate, Keygen/updater/keyring compiled out, an App-Sandboxed signed `.pkg` submitted for review at v1.0.0; the direct DMG channel un-regressed and `decoder.ts` + its 19 tests byte-untouched. Full detail: `milestones/v1.8-ROADMAP.md` · requirements: `milestones/v1.8-REQUIREMENTS.md`
 
 </details>
-
-## Phase Details — v1.8 Mac App Store Distribution
-
-### Phase 26: StoreKit Bridge Spike (CRITICAL PATH)
-**Goal**: The store build can present the native StoreKit purchase sheet for the one non-consumable "Pro" product and verify the result on-device, behind a `platform.iap` seam that mirrors `platform.license` — proving the highest-risk, longest-pole dependency before anything downstream is built on it.
-**Depends on**: Nothing new (builds on the shipped v1.6/v1.7 platform seam + entitlements gate)
-**Requirements**: MAS-IAP-01, MAS-IAP-04
-**Success Criteria** (what must be TRUE):
-  1. In a sandboxed build, a user can invoke the native StoreKit purchase sheet for the "Pro" non-consumable and see `.success` / `.userCancelled` / `.pending` ("waiting for approval", not an error) each handled calmly.
-  2. A completed purchase is verified on-device via StoreKit 2 JWS (`VerificationResult.verified` only); an `.unverified` result is treated as failed and grants nothing — confirmed serverless (no network call beyond Apple's StoreKit).
-  3. The `platform.iap` seam exists with a real `tauri.ts` arm (calling `iap_*` Rust commands) and a deterministic no-op `browser.ts`/`stub.ts` arm, so unit tests + `vite dev` run with no native call.
-  4. A real purchase round-trip completes in the App Store Connect sandbox with a Sandbox tester account (human-verified — WebDriver cannot drive StoreKit).
-**Plans**: 7 plans (Plan 07 conditional — runs only on a swift-rs NO-GO)
-- [x] 26-01-PLAN.md — Rust IAP verify/grant decision core + appstore cargo feature + iap_* commands (Wave 1, auto)
-- [x] 26-02-PLAN.md — plugin-API preflight (Rust-callable vs JS-companion) + platform.iap seam (interface + real tauri.ts arm + no-op browser/stub arms + tests) (Wave 1, auto) — MODE A PROVEN (compile-checked); seam green 1211/1211
-- [x] 26-03-PLAN.md — temporary D-11 spike button in Settings ▸ License (Restore re-reads + renders currentEntitlements) + no-op-arm e2e (Wave 2, auto)
-- [x] 26-04-PLAN.md — ASC setup checklist (App ID, Paid-Apps Agreement, com.tinkerdev.app.pro, Sandbox tester) — user-driven (Wave 1, human)
-- [x] 26-05-PLAN.md — minimal sandbox harness + tauri-plugin-iap spike (finish() cited + static no-network audit) + bridge-viability go/no-go (Wave 2, human-decision)
-- [x] 26-06-PLAN.md — human Sandbox-tester round-trip gate (relaunch/replay + Restore re-grant) + two-check serverless verify (static audit + process-scoped capture); routes the disposition (Wave 3, human-verify)
-- [ ] 26-07-PLAN.md — **SKIPPED** (go-plugin; conditional swift-rs fallback not needed) — would have rebuilt the same platform.iap seam + iap_* contract + four criteria via swift-rs (Wave 4, human-verify)
-**Research**: COMPLETE — see 26-RESEARCH.md (OQ-1: .storekit inner loop dropped, replaced by Rust verify-core unit tests + human Sandbox-tester gate). swift-rs fallback gated by the single go/no-go in Plan 05.
-**Gate**: Human — real sandbox purchase round-trip (Sandbox tester; `.storekit` not load-bearing per Phase 26 RESEARCH OQ-1 — agent inner loop is the Rust verify/grant unit core).
-
-### Phase 27: The Build-Variant Seam (3 layers)
-**Goal**: The repo builds two variants from one codebase — direct (today's DMG/updater) and appstore (sandboxed StoreKit) — from single canonical build commands, and the appstore variant produces a signed sandboxed `.app` that launches without a white-screen, with the auto-updater compiled OUT and a committed script that asserts bundle compliance.
-**Depends on**: Phase 26 (so the `appstore` cargo feature has the IAP plugin to register)
-**Requirements**: MAS-BUILD-01, MAS-BUILD-02, MAS-BUILD-03, MAS-BUILD-05, MAS-BUILD-06
-**Success Criteria** (what must be TRUE):
-  1. Each variant builds from a single canonical command (`appstore` cargo feature + `tauri.appstore.conf.json --config` overlay + `VITE_CHANNEL` bound in one `package.json` script) so a half-variant cannot ship.
-  2. The signed App Store `.app` launches and renders the webview (not blank) under App Sandbox — `com.apple.security.app-sandbox` + `com.apple.security.network.client` both present (verified via `codesign -d --entitlements` then launching the signed `.app`).
-  3. The auto-updater (Rust plugin + endpoints) is ABSENT from the store build — verifiable on the bundle (`cargo tree --features appstore | grep -E 'updater|autostart'` empty). (The Updates pane is RETAINED with an App-Store-managed message — Phase 28 / MAS-BUILD-07.)
-  4. The store variant builds at `minimumSystemVersion` 13.0 while the direct channel stays 10.15 — the 13.0 bump lives only in the overlay, never leaking onto the base config.
-  5. A committed `scripts/verify-appstore-bundle.sh` asserts required entitlements present + forbidden plugins/strings absent at the gate.
-**Plans**: 4 plans
-- [x] 27-01-PLAN.md — umbrella `direct` Cargo feature: updater + autostart compiled OUT of the appstore build (Wave 1, auto) ✓ 2026-06-23
-- [x] 27-02-PLAN.md — `tauri.appstore.conf.json` overlay (13.0 only here) + `IS_APPSTORE` channel constant + two canonical package.json variant scripts (Wave 2, auto) ✓ 2026-06-23
-- [x] 27-03-PLAN.md — committed `scripts/verify-appstore-bundle.sh` (entitlements present + plugins absent + 13.0-artifact via PlistBuddy; FATAL-when-present, GREEN at boundary) (Wave 2, auto) ✓ 2026-06-23
-- [x] 27-04-PLAN.md — promote spike → canonical `build-appstore-bundle.sh` + human launch/render gate on the signed sandboxed `.app` (Wave 3, human-verify)
-**Research**: Skip — HIGH confidence (existing `webdriver`-feature + `--config` in-repo idiom).
-**Gate**: Verify the sandboxed `.app` renders (network.client white-screen check) on the signed build.
-
-### Phase 28: Entitlement-Source Swap + Store License Pane
-**Goal**: A StoreKit Pro purchase unlocks the same theming / ordering / ⌘K capabilities through the one existing central gate (no relaunch), the store-build License pane shows only Buy + Restore + status (no Keygen concepts), a refund drops Pro live, and the entire Keygen surface is compiled out of the store bundle — the 3.1.1 compliance phase.
-**Depends on**: Phase 26 (the `platform.iap` arm), Phase 27 (the variant seam + `IS_APPSTORE`)
-**Requirements**: MAS-IAP-02, MAS-IAP-03, MAS-IAP-05, MAS-IAP-06, MAS-IAP-07, MAS-BUILD-04, MAS-BUILD-07
-**Success Criteria** (what must be TRUE):
-  1. After a successful purchase, Pro unlocks live (theming, tool ordering/pinning, ⌘K palette) through the same `resolveEntitlements` central gate via a new `baseFromStoreKit` branch — no relaunch.
-  2. A user can Restore Purchases from Settings ▸ License behind an explicit button (Apple-mandatory; never silent at launch) to re-unlock Pro on a fresh install or new machine.
-  3. A refund/revocation drops Pro live — a `Transaction.updates` listener at boot reuses the existing "Pro features turned off" drop-notice.
-  4. The store-build License pane shows status + Buy (label "Buy Pro — Lifetime"; price shown on the App Store sheet, NOT in-app — D-12 relaxes the original `displayPrice` wording) + Restore and shows NO key field, NO external buy link, and NO literal price; the contextual Unlock-Pro modal + every upsell trigger (sidebar "Unlock Pro", locked pin/reorder/Command Palette) present the StoreKit Buy/Restore flow, never the Keygen activation form.
-  5. The store-build UI omits every Keygen-only concept (no "activate with key", no machine deactivate/seat-transfer, no fingerprint/seat-limit copy, no "lost your key / check your purchase email") and uses App-Store-managed wording where a status explanation is needed.
-  6. The Keygen surface (key field, `license.tinkerdev.io` calls, external buy link, literal `$9`) is compiled OUT of the store build and grep-verifiable clean on the bundle.
-  7. In the store build the Settings ▸ Updates pane is RETAINED but shows "Your app update is managed by the App Store" with the Check-for-updates + Install affordances REMOVED (not just disabled); the running-version readout may remain.
-**Plans**: 5 plans
-- [x] 28-01-PLAN.md — `baseFromStoreKit` arm in `resolveEntitlements` (IS_APPSTORE-gated; intersection + fall-closed) — MAS-IAP-02 (Wave 1, auto)
-- [x] 28-02-PLAN.md — real plugin transaction-update bridge (iap:allow-register-listener capability + Channel) + store boot listener + Pro→free drop-diff/drop-notice — MAS-IAP-02/05 (Wave 1, auto)
-- [x] 28-03-PLAN.md — `StoreLicenseSettings` (Buy/Restore/status, two layouts) + `StoreUpdatesSettings` (version + managed line) — MAS-IAP-03/06/07, MAS-BUILD-07 (Wave 2, auto)
-- [x] 28-04-PLAN.md — `StoreUpsell` modal (pitch + Buy + Restore) + `storeProUpsell` router — MAS-IAP-07 (Wave 2, auto)
-- [x] 28-05-PLAN.md — static IS_APPSTORE switches + IapSpikeBlock removal + verify-script forbidden-string grep + human sandbox gate — MAS-BUILD-04, MAS-IAP-02/05 (Wave 3, human-verify)
-**Research**: Skip — HIGH confidence (one-branch change to the already-tested resolver; seam + gate + drop-notice reused).
-**Gate**: Human — purchase → Pro unlocks live; refund → Pro drops live (sandbox tester).
-**UI hint**: yes
-
-### Phase 29: Sandbox-Safe Native Features
-**Goal**: The sandboxed store build is feature-complete on the native surfaces it keeps — the global summon hotkey and tray work under App Sandbox — while the features that cannot be sandbox-safe this milestone (Keychain, launch-at-login) are cleanly gated out without leaving unjustified entitlements or runtime errors.
-**Depends on**: Phase 27 (the sandbox build exists); can partly parallelize with Phase 28 (independent of StoreKit)
-**Requirements**: MAS-NATIVE-01, MAS-NATIVE-02, MAS-NATIVE-03, MAS-NATIVE-04
-**Success Criteria** (what must be TRUE):
-  1. The global summon hotkey works in the sandboxed store build (Tauri's `RegisterEventHotKey` is sandbox-safe; keep Cmd/Ctrl in the chord).
-  2. The tray / menu-bar icon + menu work in the sandboxed store build.
-  3. Keychain (`keyring`) is gated OUT of the store build — no runtime `MissingEntitlement`, no unjustified `keychain-access-groups` entitlement; store Pro state comes only from StoreKit (validated on the SIGNED build, runtime-only).
-  4. Launch-at-login is hidden/disabled in the store build's General pane — the toggle and any autostart wiring are absent from the store variant (SMAppService deferred to v2).
-**Plans**: 3 plans
-- [x] 29-01-PLAN.md — keyring optional + direct-gate the whole license Rust module/commands/setup + the tray "Check for Updates…" item (compile-out; both cargo builds exit 0) (Wave 1, auto) — MAS-NATIVE-03, MAS-NATIVE-02 ✓ source-level (signed-bundle audit at 29-03)
-- [x] 29-02-PLAN.md — IS_APPSTORE-hide launch-at-login in General pane + autostart-seam no-op + boot-path no-license-IPC proof (Wave 1, auto) — MAS-NATIVE-04, MAS-NATIVE-03 (D-03)
-- [x] 29-03-PLAN.md — Task 1 DONE (verify-appstore-bundle.sh keyring/keychain + updater-UI-fold-in gates, both self-tests green; commit `b2ab996f`); Task 2 human signed-build gate APPROVED — all four D-09 checks PASSED on the dev-signed sandboxed `.app` (summon over a real OS chord, tray = Show/Settings…/Quit + no updater UI, clean entitlement audit, no launch-at-login toggle) — COMPLETE (Wave 2, human-verify) — MAS-NATIVE-01/02/03/04
-**Research**: Skip — sandbox audit + SMAppService-omission are well-scoped; `MissingEntitlement` is runtime-only (verify on the signed build).
-**Gate**: Human — global summon over a real OS chord; tray reveal; SIGNED-build entitlement audit (WebDriver can't synth these).
-**UI hint**: yes
-
-### Phase 30: `.pkg` Build + App Store Connect Submission
-**Goal**: A signed `.pkg` (Apple Distribution + Mac Installer Distribution + embedded provisioning profile) uploads to App Store Connect with the IAP attached to the binary and complete submission metadata, the milestone delivers the step-by-step ASC setup guidance at the point each item is needed, and the direct DMG channel is proven un-regressed.
-**Depends on**: Phases 26–29 all green (irreversible/integration-bound → runs LAST, after every source change lands)
-**Requirements**: MAS-SHIP-01, MAS-SHIP-02, MAS-SHIP-03, MAS-SHIP-04, MAS-SHIP-05
-**Success Criteria** (what must be TRUE):
-  1. A build pipeline produces a signed `.pkg` (Apple Distribution + Mac Installer Distribution certs + embedded provisioning profile), separate from the direct Developer-ID/notarytool path, and uploads it to App Store Connect (`productbuild` → `altool`).
-  2. The milestone delivers step-by-step App Store Connect setup guidance at the point each item is needed (Paid-Apps Agreement; the non-consumable "Pro" product attached to the binary + "Ready to Submit"; Sandbox tester accounts).
-  3. Submission metadata is prepared as deliverables: privacy label = Data Not Collected (+ `PrivacyInfo.xcprivacy`), 4+ age rating, screenshots of real testable states, working support/privacy URLs, and Notes-for-Review documenting how to exercise the Pro IAP.
-  4. The direct channel is un-regressed — the DMG still builds, signs, and notarises; `decoder.ts` + its 19 tests are byte-for-byte untouched.
-**Plans**: 3 plans
-- [x] 30-01-PLAN.md — base version → 1.0.0 + PrivacyInfo.xcprivacy (Data Not Collected) + direct-channel un-regression proof (Wave 1, auto) — MAS-SHIP-04/05
-- [x] 30-02-PLAN.md — submission metadata (SUBMISSION-RUNBOOK + Notes-for-Review + screenshots staging) + cross-repo /support page + channel-aware /privacy edit (Wave 1, auto) — MAS-SHIP-03/04 — completed 2026-06-25
-- [ ] 30-03-PLAN.md — new `build-appstore-pkg.sh` (Apple Distribution app → productbuild → Mac Installer Distribution .pkg + local pre-ITMS gates) + terminal human ship-gate (build·walkthrough·Transporter·Submit) (Wave 2, human-verify) — MAS-SHIP-01/02/03
-**Research**: COMPLETE — see 30-RESEARCH.md (productbuild/cert command shapes, ITMS-90238/90296 + root-only-files local pre-checks, channel-aware privacy edit). Original flag was `/gsd-research-phase` LIKELY — `.pkg`/provisioning/signing sequence MEDIUM-confidence; validate ITMS bounce modes against the real universal bundle.
-**Gate**: Human — full ship-gate walkthrough (signed `.app`, real purchase, restore on a fresh container, refund→drop) + direct-channel un-regressed; mirrors the v1.6 live-purchase gate. Build LAST (verify bundle mtime > last source commit).
-
 
 ## Progress
 

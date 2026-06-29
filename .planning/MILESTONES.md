@@ -1,5 +1,21 @@
 # Milestones
 
+## v1.8 Mac App Store Distribution (Shipped: 2026-06-29 — Submitted for Review)
+
+**Phases:** 26–30 (5 phases, 21 plans executed + 1 contingency skipped) · **App version:** 1.0.0 · **Submitted to App Store Review 2026-06-27**
+
+A second distribution channel: the Mac App Store edition. A build-variant seam (`appstore` Cargo feature + `--config` overlay + `VITE_CHANNEL`) produces an App-Sandboxed StoreKit build alongside the unchanged direct Developer-ID/DMG channel — Pro is a one-time StoreKit IAP verified on-device (serverless), the Keygen/updater/keyring surfaces are compiled out, and the same central entitlement gate + registry + `decoder.ts` (and its 19 tests) stay byte-unchanged.
+
+**Key accomplishments:**
+
+- StoreKit bridge spike (26): proved `tauri-plugin-iap@0.9` in a universal sandboxed build; the `platform.iap` seam (real `tauri.ts` arm, no-op browser/stub) + `iap_*` Rust commands with on-device JWS verify (fail-closed); a real Sandbox-tester purchase round-trip granted Pro live (go/no-go = keep the plugin; the swift-rs fallback plan 26-07 was SKIPPED) — MAS-IAP-01/04.
+- The build-variant seam (27): an umbrella `direct` Cargo feature (default) vs `--no-default-features --features appstore`; a `tauri.appstore.conf.json` `--config` overlay + `VITE_CHANNEL`, bound in one `package.json` script; the sandboxed `.app` launches with `network.client` (no white-screen); the updater compiled out; min-version 13.0 store / 10.15 direct; the committed `verify-appstore-bundle.sh` — MAS-BUILD-01/02/03/05/06.
+- Entitlement-source swap + store License pane (28): a `baseFromStoreKit` arm in `resolveEntitlements` (the one gate-flip point; reads on-device `currentEntitlements`, never `license.status`); a transaction-update Channel + boot listener flip Pro live on purchase/refund with no relaunch; separate tree-shakeable StoreLicense/StoreUpdates/StoreUpsell modules (Buy + Restore, no key/$-figure); the entire Keygen surface compiled out + grep-clean on the signed bundle — MAS-IAP-02/03/05/06/07, MAS-BUILD-04/07.
+- Sandbox-safe native features (29): `keyring`/Keychain + the license module + tray "Check for Updates…" + the whole updater overlay gated `#[cfg(feature="direct")]`, so the store binary links no Keychain (no `keychain-access-groups`), ships a Show/Settings…/Quit tray, and runs 0 updater calls (runtime-proven); launch-at-login hidden in the store build; a `compile_error!` guard against a hybrid build — MAS-NATIVE-01/02/03/04.
+- `.pkg` build + App Store Connect submission (30): `scripts/build-appstore-pkg.sh` (Apple Distribution app-sign → embed profile + PrivacyInfo before the seal → `productbuild` Mac-Installer-signed `.pkg` → full local pre-ITMS gate set); version → 1.0.0; metadata deliverables (runbook, Notes-for-Review, listing copy, 7 screenshots @2880×1800, Data-Not-Collected, `ITSAppUsesNonExemptEncryption=false`); tinkerdev.io `/support` + `/privacy` live; the Pro IAP attached for first-release co-review. Two Transporter bounces fixed permanently in the script (409 missing `LSApplicationCategoryType`; 91109 `com.apple.quarantine` xattr). The human ship-gate PASSED → Submitted for Review — MAS-SHIP-01/02/03/04/05.
+
+In-flight (during the ship-gate, under the binding harness): dark macOS Overlay titlebar + window drag region + light-mode titlebar legibility (new `platform.window.setTheme` seam) + sidebar scroll at the size floor + upsell copy cleanup; a `scripts/build.sh <direct|appstore|appstore-pkg>` wrapper (sources `.env`, never prints it) + `scripts/ui-capture.sh` for native-window screenshot verification of both channels (harness step-5 upgrade). Gates held: 23/23 MAS-* requirements; decoder.ts + its 19 tests byte-for-byte untouched; direct channel un-regressed (signed+notarised universal DMG, no publish); suite 1279/1279. Apple's review outcome is external/pending. Full detail: `milestones/v1.8-ROADMAP.md` · `milestones/v1.8-REQUIREMENTS.md`.
+
 ## v1.7 Settings & Preferences (Shipped: 2026-06-21)
 
 **Phases:** 22, 22.1, 22.2, 23, 24, 25 · **Released:** app v0.4.1 (notarized DMG)
