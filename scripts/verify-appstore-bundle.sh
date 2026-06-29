@@ -71,7 +71,9 @@
 # checks LOUDLY (never a false PASS).
 #
 # Usage:  bash scripts/verify-appstore-bundle.sh [path-to-signed.app] [--require-bundle]
-#   default app path: src-tauri/target/universal-apple-darwin/release/bundle/macos/TinkerDev.app
+#   default app path: ${CARGO_TARGET_DIR:-src-tauri/target}/universal-apple-darwin/release/bundle/macos/TinkerDev.app
+#                     (a bare run inside a build.sh-style CARGO_TARGET_DIR-exported shell follows
+#                      the per-channel tree; unset = the legacy src-tauri/target path, unchanged)
 #   default dist dir: dist/  (override with --dist <dir>; the appstore frontend output,
 #                     frontendDist "../dist", produced by the build's beforeBuildCommand
 #                     in the SAME invocation that signs the .app)
@@ -723,7 +725,10 @@ selftest_foldin_realbuild() {
   rm -rf "$tmp"; return "$rc"
 }
 
-APP="src-tauri/target/universal-apple-darwin/release/bundle/macos/TinkerDev.app"
+# Default honors CARGO_TARGET_DIR (set absolute by build.sh per-channel; unset = the legacy
+# literal, byte-for-byte unchanged). In-flow callers pass an explicit "$APP_OUT" (case *) below)
+# which always wins; this default only matters for a bare standalone run.
+APP="${CARGO_TARGET_DIR:-src-tauri/target}/universal-apple-darwin/release/bundle/macos/TinkerDev.app"
 # OPTION A: the appstore frontend output (frontendDist "../dist"), produced by the build's
 # beforeBuildCommand in the SAME invocation that signs the .app — the authoritative
 # pre-compression bytes Tauri embeds. This is where the D-03 copy grep + D-04 sentinel read.
