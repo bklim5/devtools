@@ -77,6 +77,14 @@ const RELEASES_REPO = "bklim5/devtools-releases";
 // Bundle root: build.sh exports an ABSOLUTE per-channel CARGO_TARGET_DIR (it IS the
 // target dir — do NOT append src-tauri/target); standalone (unset) resolves to today's
 // literal "src-tauri/target" so release:publish/build-only is byte-for-byte unchanged.
+// Contract: a SET CARGO_TARGET_DIR must be ABSOLUTE — Tauri runs cargo with CWD=src-tauri/
+// so a relative value resolves to a DIFFERENT tree for cargo vs this driver (CWD=ROOT),
+// silently splitting the build output from where the lipo/sig/dmg globs look. Fail closed.
+if (process.env.CARGO_TARGET_DIR && !process.env.CARGO_TARGET_DIR.startsWith("/")) {
+  throw new Error(
+    `CARGO_TARGET_DIR must be an ABSOLUTE path, got '${process.env.CARGO_TARGET_DIR}'.`,
+  );
+}
 const TARGET_DIR = process.env.CARGO_TARGET_DIR || "src-tauri/target";
 const UNIVERSAL_MACOS_DIR = `${TARGET_DIR}/universal-apple-darwin/release/bundle/macos`;
 const UNIVERSAL_DMG_DIR = `${TARGET_DIR}/universal-apple-darwin/release/bundle/dmg`;
