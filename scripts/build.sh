@@ -38,8 +38,10 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 if [ -f .env ]; then
-  # shellcheck disable=SC1091
-  set -a; . ./.env; set +a
+  set -a
+  # shellcheck disable=SC1091  # .env is gitignored/runtime-only; not a shellcheck input
+  . ./.env
+  set +a
   echo "[build] loaded .env"
 else
   echo "[build] no .env (fine for appstore/appstore-pkg; direct needs it)"
