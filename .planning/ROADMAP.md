@@ -10,7 +10,7 @@
 - ✅ **v1.5 Pinned Tools** — Phase 17 (shipped 2026-06-07) — see `milestones/v1.5-ROADMAP.md`
 - ✅ **v1.6 Licensing** — Phases 18–21 (shipped 2026-06-17) — see `milestones/v1.6-ROADMAP.md`
 - ✅ **v1.7 Settings & Preferences** — Phases 22–25 (shipped 2026-06-21, app v0.4.1) — see `milestones/v1.7-ROADMAP.md`
-- 🔄 **v1.8 Mac App Store Distribution** — Phases 26–30 (in progress) — App Store channel: StoreKit IAP + App Sandbox + `.pkg` submission
+- ✅ **v1.8 Mac App Store Distribution** — Phases 26–30 (all complete; app Submitted for Review 2026-06-27, awaiting Apple) — App Store channel: StoreKit IAP + App Sandbox + `.pkg` submission
 
 ## Phases
 
