@@ -41,11 +41,11 @@ key-decisions:
 patterns-established:
   - "A distribution .pkg pipeline that fails closed on every signing prerequisite + a strong profile-validity gate, stopping at a locally-verified artifact handed to a human for the irreversible Apple submission"
 
-requirements-completed: []   # MAS-SHIP-01/02/03 complete only after the human checkpoint (signed .pkg built + uploaded + Submit clicked)
+requirements-completed: [MAS-SHIP-01, MAS-SHIP-02, MAS-SHIP-03]   # complete: signed .pkg built + uploaded via Transporter + Submit for Review clicked (2026-06-27)
 
 metrics:
-  duration: ~30 min (Task 1 automated)
-  completed: 2026-06-25 (Task 1); Task 2 PENDING human ship-gate
+  duration: ~30 min (Task 1 automated) + human ship-gate
+  completed: 2026-06-25 (Task 1); Task 2 ship-gate PASSED 2026-06-27 (Submit for Review)
 ---
 
 # Phase 30 Plan 03: `.pkg` Build Script + Terminal Human Ship-Gate Summary
@@ -112,6 +112,8 @@ No other deviations — the script implements the `<interfaces>` contract exactl
 ## Authentication / Human Gates
 
 - **Task 2 is a BLOCKING `checkpoint:human-verify`.** It needs: (optionally) creating the Mac Installer Distribution cert (likely already present — see above); running `pnpm tauri:build:appstore:pkg` to produce + locally-verify the signed `.pkg`; the ship-gate walkthrough on the DEV-signed `.app` (`pnpm tauri:build:appstore`, NOT the distribution `.pkg`'s app — AMFI -413): real Sandbox purchase → Pro live, Restore on a fresh container, refund → Pro drops; capturing screenshots; deploying the tinkerdev-io `/support` + `/privacy` pages live (verify 200); uploading the `.pkg` via Transporter; finalizing ASC; and clicking **Submit for Review** (irreversible, 100% human — D-04). Full sequence in `docs/appstore/SUBMISSION-RUNBOOK.md`.
+
+- **SHIP-GATE PASSED — Submitted for Review 2026-06-27 (status "Waiting for Review").** The `.pkg` built via `scripts/build.sh appstore-pkg` and was locally re-validated GREEN by the orchestrator at HEAD (universal `x86_64 arm64`, `3rd Party Mac Developer Installer` chain, app-sandbox + network.client + 0 `keychain-access-groups`, `LSApplicationCategoryType=public.app-category.developer-tools`, no `com.apple.quarantine`, `verify-appstore-bundle: OK`). Two Transporter bounces fixed inline + permanently in `build-appstore-pkg.sh`: **409** (missing `LSApplicationCategoryType` → `bundle.category="DeveloperTools"`) and **91109** (`com.apple.quarantine` on `embedded.provisionprofile` → `xattr -cr` before the seal + a FATAL guard). `tinkerdev.io/support` + `/privacy` deployed live (200). 7 App Store screenshots (2880×1800, no alpha) staged in `screenshots/`; listing copy in `docs/appstore/listing.md`. The Pro IAP `com.tinkerdev.app.pro` (Non-Consumable) attached to the version for first-release co-review. `ITSAppUsesNonExemptEncryption=false` declared (exempt; future submissions skip the dialog). In-flight UI polish landed under the harness during the gate: dark Overlay titlebar + window drag region (Codex-caught), light-mode titlebar legibility (native theme sync), sidebar scroll at the size floor, and upsell copy cleanup ("Buy Pro", no "— no mouse"). Awaiting Apple's review outcome (out of GSD scope).
 
 ## Commits
 
