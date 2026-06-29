@@ -9,7 +9,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "tauri:build:direct": "VITE_CHANNEL=direct tauri build --config src-tauri/tauri.direct.conf.json",
+    "tauri:build:direct": "CARGO_TARGET_DIR=\"$PWD/src-tauri/target/direct\" VITE_CHANNEL=direct tauri build --config src-tauri/tauri.direct.conf.json",
     "tauri:build:appstore": "VITE_CHANNEL=appstore bash scripts/build-appstore-bundle.sh",
     "tauri:build:appstore:pkg": "VITE_CHANNEL=appstore bash scripts/build-appstore-pkg.sh",
     "test": "vitest run",

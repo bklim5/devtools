@@ -65,17 +65,19 @@ PROFILE="${PROFILE:-src-tauri/embedded.provisionprofile}"
 ENTITLEMENTS="src-tauri/entitlements.appstore.plist"
 PRIVACY="src-tauri/PrivacyInfo.xcprivacy"
 TARGET="universal-apple-darwin"
-# Bundle root: when build.sh sets an ABSOLUTE per-channel CARGO_TARGET_DIR we honor
-# it directly (it IS the target dir — do NOT append src-tauri/target); standalone
-# (unset) resolves to today's literal "src-tauri/target" relative to ROOT_DIR.
-BUNDLE_ROOT="${CARGO_TARGET_DIR:-src-tauri/target}"
-# Contract: a SET CARGO_TARGET_DIR must be ABSOLUTE — Tauri runs cargo with CWD=src-tauri/
-# so a relative value resolves to a DIFFERENT tree for cargo vs this script (CWD=ROOT_DIR),
-# silently splitting the build output from where APP_OUT/PKG_OUT/the verifier look. Fail closed.
+# Per-channel target dir. A SET CARGO_TARGET_DIR must be ABSOLUTE — Tauri runs cargo with
+# CWD=src-tauri/ so a relative value resolves to a DIFFERENT tree for cargo vs this script
+# (CWD=ROOT_DIR), splitting the build output from where APP_OUT/PKG_OUT/the verifier look. Fail closed.
 if [[ -n "${CARGO_TARGET_DIR:-}" && "$CARGO_TARGET_DIR" != /* ]]; then
   echo "ERROR: CARGO_TARGET_DIR must be an ABSOLUTE path, got '$CARGO_TARGET_DIR'." >&2
   exit 1
 fi
+# Default to THIS channel's canonical tree and EXPORT it so cargo writes where APP_OUT/PKG_OUT
+# look. Result: EVERY entry point — this script standalone, `pnpm tauri:build:appstore:pkg`, or
+# scripts/build.sh appstore-pkg — shares ONE src-tauri/target/appstore-pkg tree, distinct from
+# the dev-signed appstore tree (the distribution-signed .app no longer overwrites the dev one).
+export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$ROOT_DIR/src-tauri/target/appstore-pkg}"
+BUNDLE_ROOT="$CARGO_TARGET_DIR"
 APP_OUT="${BUNDLE_ROOT}/${TARGET}/release/bundle/macos/TinkerDev.app"
 PKG_OUT="${BUNDLE_ROOT}/${TARGET}/release/bundle/macos/TinkerDev.pkg"
 

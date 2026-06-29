@@ -113,7 +113,7 @@ The final non-zero exit is ONLY the absent updater-signing key
 ### 0c. Confirm the rebuild is DEVELOPMENT-signed (not ad-hoc) before launching
 
 ```sh
-APP=src-tauri/target/universal-apple-darwin/release/bundle/macos/TinkerDev.app
+APP=src-tauri/target/appstore/universal-apple-darwin/release/bundle/macos/TinkerDev.app
 codesign -dvvv "$APP" 2>&1 | grep -i "Authority\|flags"   # expect "Apple Development: …", NOT flags=adhoc
 codesign -d --entitlements - "$APP" 2>&1 | grep -i "app-sandbox\|network.client"  # both true
 # embedded profile present:

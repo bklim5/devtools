@@ -8,9 +8,13 @@
 # CARGO_TARGET_DIR ($ROOT/src-tauri/target/<channel>) so each channel's artifacts
 # land in their OWN tree and can coexist — the dev-signed appstore .app, the
 # distribution-signed appstore-pkg .app/.pkg, and the direct .dmg/.app no longer
-# overwrite each other at the shared universal-apple-darwin bundle path. The
-# sub-scripts derive their bundle root from ${CARGO_TARGET_DIR:-src-tauri/target},
-# so a STANDALONE sub-script call (no CARGO_TARGET_DIR) is unchanged from today.
+# overwrite each other at the shared universal-apple-darwin bundle path.
+# Each channel's build entry ALSO self-defaults to that same canonical per-channel
+# tree when CARGO_TARGET_DIR is unset (build-appstore-bundle.sh → .../appstore,
+# build-appstore-pkg.sh → .../appstore-pkg, build-and-publish.mjs + the
+# tauri:build:direct script → .../direct), so a STANDALONE `pnpm tauri:build:*` /
+# `release:publish` lands in the SAME tree as the build.sh route — one home per
+# channel, no duplicate trees. (This is the export below's redundant twin.)
 #
 # Usage: scripts/build.sh <target>
 #   direct              — direct-channel signed+notarised DMG via release:build-only

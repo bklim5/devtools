@@ -58,7 +58,7 @@ Our app is a Tauri binary, not an Xcode target, so we point an Xcode **scheme** 
 the already‑built `.app` and attach the StoreKit config:
 
 1. Build the appstore bundle: `pnpm tauri:build:appstore`
-   (→ `src-tauri/target/universal-apple-darwin/release/bundle/macos/TinkerDev.app`).
+   (→ `src-tauri/target/appstore/universal-apple-darwin/release/bundle/macos/TinkerDev.app`).
 2. Open Xcode → **File ▸ New ▸ Project ▸ macOS ▸ App** (any throwaway target — you
    only need its scheme). Drag `src-tauri/TinkerDev.storekit` into the project.
 3. **Product ▸ Scheme ▸ Edit Scheme… ▸ Run**:
