@@ -11,6 +11,7 @@
 - ✅ **v1.6 Licensing** — Phases 18–21 (shipped 2026-06-17) — see `milestones/v1.6-ROADMAP.md`
 - ✅ **v1.7 Settings & Preferences** — Phases 22–25 (shipped 2026-06-21, app v0.4.1) — see `milestones/v1.7-ROADMAP.md`
 - ✅ **v1.8 Mac App Store Distribution** — Phases 26–30 (shipped 2026-06-27, app v1.0.0 Submitted for Review) — see `milestones/v1.8-ROADMAP.md`
+- 🚧 **v1.9 Prettier Formatters** — Phases 31–34 (IN PROGRESS, started 2026-06-30) — HTML + JS/TS prettify (Prettier 3.8.3 standalone) + minify (esbuild), lazy/vendored; detail below
 
 ## Phases
 
@@ -126,6 +127,64 @@ The Mac App Store edition as a second distribution channel: a build-variant seam
 
 </details>
 
+## 🚧 v1.9 Prettier Formatters (Phases 31–34) — IN PROGRESS
+
+Two new formatter tools — an **HTML prettifier** and a combined **JavaScript/TypeScript prettifier** — that each **prettify** (Prettier 3.8.3 standalone, output byte-identical to `prettier --write`, HTML incl. embedded `<script>`/`<style>`) AND **minify** (esbuild / `esbuild-wasm` for JS/TS/JSX/TSX + CSS; an offline HTML minifier for HTML). Both heavy engines are vendored/self-hosted (no CDN), lazy-loaded and code-split out of the entry chunk. Async transform with a latest-wins guard; errors as calm `role=alert` values; mirrors the JSON/XML `FormatterView` + `src/lib/format/` shape; registry-only registration; free tier; WCAG-AA. **Two deliberate, scoped HEAVY-dep exceptions** to the zero-dep wedge (Prettier for prettify + esbuild for minify). `decoder.ts` + its 19 tests stay byte-untouched. (User kept Minify on both tools, overriding the research's drop-minify recommendation → esbuild.)
+
+Coverage: all 13 v1.9 requirements (PRT-01..13) mapped to exactly one phase, no orphans.
+
+- [ ] **Phase 31: Doc/Process Correction** — fix the stale CLAUDE.md "six tools only" + "zero new runtime dependencies" wording to record Prettier + esbuild as two scoped exceptions (PRT-13)
+- [ ] **Phase 32: Prettier/esbuild Engine & Async Seam** — async Prettier wrapper, esbuild minify wrapper, shared latest-wins hook, FormatterView generalization, dep moves, chunk-split guard + self-test, golden parity test vs CLI, offline e2e (PRT-01,02,03,04,05,06,11)
+- [ ] **Phase 33: HTML Prettifier Tool** — single Prettier parser; embedded script/style parity + HTML minify; registry-only/free-tier/WCAG-AA (PRT-07,08,12)
+- [ ] **Phase 34: JS/TS Prettifier Tool** — combined typescript-parser tool; semicolons + single-quote toggles; esbuild minify (PRT-09,10)
+
+### Phase 31: Doc/Process Correction
+**Goal**: The project docs honestly record the two scoped heavy-dep exceptions; the hero stays untouched.
+**Depends on**: Nothing (independent, cheap — runs first to unblock the stale "six tools" constraint)
+**Requirements**: PRT-13
+**Success Criteria** (what must be TRUE):
+  1. CLAUDE.md no longer asserts "six tools only" — it records the wedge-gated, growing tool set (11 → 13 tools).
+  2. The "zero new runtime dependencies" wording is corrected to record Prettier (prettify) + esbuild (minify) as two deliberate, scoped, reviewed runtime-dependency exceptions — explicitly NOT a precedent for grab-bag deps.
+  3. `decoder.ts` + its 19 tests remain byte-for-byte untouched (`git diff --quiet`).
+**Plans**: TBD
+
+### Phase 32: Prettier/esbuild Engine & Async Seam
+**Goal**: The async Prettier + esbuild engine seam, the shared formatting hook, the generalized FormatterView, and the parity/isolation guards exist and are proven — the foundation both tools depend on.
+**Depends on**: Nothing (foundation; build the guards WITH the wrapper, not after)
+**Requirements**: PRT-01, PRT-02, PRT-03, PRT-04, PRT-05, PRT-06, PRT-11
+**Success Criteria** (what must be TRUE):
+  1. A reusable async wrapper formats a code string via Prettier 3.8.3 standalone and returns output byte-identical to dev-time `prettier --write`, locked per language by a golden parity test (incl. an embedded-code fixture) that goes RED on any version/option drift. [PRT-01, PRT-05]
+  2. A minify wrapper returns valid, semantically-equivalent compact output via esbuild for JS/TS/JSX/TSX + CSS (and HTML via the offline HTML minifier), with no ASI/regex-literal breakage. [PRT-06]
+  3. Both heavy engines (Prettier + esbuild) and their plugins load only via lazy dynamic `import()` and never appear in the app's entry/initial chunk — proven by an automated build-artifact guard (cloned from the existing chunk-inventory guard) with a non-vacuous self-test. [PRT-02]
+  4. Formatting runs asynchronously with a latest-wins guard (a slow stale result never clobbers newer output), shows a pending/loading state, and surfaces parse/format/minify errors as a calm `role=alert` line:col value — never a crash or silent fallback; a no-network offline check confirms zero CDN/outbound use. [PRT-03, PRT-04]
+  5. `FormatterView` is generalized additively (a `printWidth` control added; the existing `minify` action reused for the Prettier tools, wired to esbuild) with NO change to existing JSON/XML formatter behaviour. [PRT-11]
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 33: HTML Prettifier Tool
+**Goal**: User can prettify or minify pasted HTML — embedded script/style formatted to full Prettier parity — through the new seam.
+**Depends on**: Phase 32
+**Requirements**: PRT-07, PRT-08, PRT-12
+**Success Criteria** (what must be TRUE):
+  1. User pastes HTML and Prettify produces canonical output that ALSO formats embedded `<script>` (JS) and `<style>` (CSS), matching `prettier --write` — locked by a script+style golden fixture.
+  2. User can Minify HTML to compact valid HTML with minified embedded code.
+  3. The HTML toolbar exposes indent (2/4/tab), printWidth (80/100/120, default 80), and a Minify action; output is paste-instant with a visible focusable copy via the platform seam and an in→out byte-delta status bar.
+  4. The HTML tool appears in the sidebar, ⌘K palette, and HashRouter automatically from a registry-only entry, ships free (no entitlement gate), and passes WCAG-AA (visible focus, AA contrast, no opacity-only disabled state). [PRT-12]
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 34: JS/TS Prettifier Tool
+**Goal**: User can prettify or minify pasted JavaScript/TypeScript/JSX/TSX in one combined tool — no language picker — on the proven Phase-32 foundation.
+**Depends on**: Phase 32 (parallel-capable with Phase 33; each plan still passes every harness gate)
+**Requirements**: PRT-09, PRT-10
+**Success Criteria** (what must be TRUE):
+  1. User pastes JavaScript, TypeScript, JSX, or TSX into ONE combined tool and Prettify produces canonical output via the typescript parser (no language picker in the common case) — verified by both a JS and a TS golden fixture.
+  2. User can Minify to compact valid output via esbuild.
+  3. The JS/TS toolbar exposes indent (2/4/tab), printWidth, a semicolons toggle, a single-quote toggle, and a Minify action; output is paste-instant with a visible focusable copy via the platform seam and an in→out byte-delta status bar.
+  4. The tool registers registry-only (sidebar/⌘K/router auto-derive) and ships free + WCAG-AA, reusing the Phase-33 registry/free-tier pattern (shares PRT-12).
+**Plans**: TBD
+**UI hint**: yes
+
 ## Progress
 
 **Execution Order:**
@@ -134,6 +193,8 @@ Phases execute in numeric order. v1.6 runs 18 → 19 → 21 with Phase 20 parall
 v1.7 runs 22 → 23 → 24 → 25 (started non-destructively while v1.6 is in final sign-off; numbering continues from Phase 21). Phase 22 is the modal-shell foundation all panes mount into; Phases 23 and 24 are independent pane work (parallel-capable after 22); Phase 25 adds the Updates pane and carries the milestone-close sign-off. Within Phase 22: wave 1 = the modal foundation (22-01); wave 2 = the webview entry points (22-02) + the native menu/tray (22-03) in parallel (no file overlap).
 
 v1.8 runs 26 → 27 → 28 → 30 with Phase 29 parallel-capable beside 28 once 27 lands (29 shares only the sandbox-enable change). The bridge spike (26) is the critical path — nothing store-side compiles/renders without `platform.iap` — so it is strictly first; the variant seam (27) is the foundation for both 28 and 29; the irreversible `.pkg` submission (30) runs LAST, after every source change lands (verify bundle mtime > last source commit). Phases 26 + 28 + 29 + 30 each carry a MANDATORY human ship-gate walkthrough (WebDriver cannot drive StoreKit purchases / the sandbox / refunds / login-items).
+
+v1.9 runs 31 → 32 → {33, 34}: Phase 31 (doc correction) is independent and cheap, so it runs first to unblock the stale "six tools" constraint; Phase 32 (engine/seam infra) is the hard prerequisite both tools depend on (async wrapper + shared latest-wins hook + FormatterView generalization + the parity/isolation guards, where all the async/lazy/parity risk concentrates); Phases 33 (HTML) and 34 (JS/TS) are independent tool chunks, parallel-capable after 32 — HTML first to exercise the seam end-to-end via its embedded-code golden fixture. Continues numbering from v1.8's Phase 30. Each plan still passes every binding-harness gate (no skipping ahead).
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -168,6 +229,10 @@ v1.8 runs 26 → 27 → 28 → 30 with Phase 29 parallel-capable beside 28 once 
 | 28. Entitlement-Source Swap + Store License Pane | v1.8 | 5/5 | Complete    | 2026-06-23 |
 | 29. Sandbox-Safe Native Features | v1.8 | 3/3 | Complete    | 2026-06-25 |
 | 30. .pkg Build + App Store Connect Submission | v1.8 | 3/3 | Complete    | 2026-06-27 |
+| 31. Doc/Process Correction | v1.9 | 0/? | Not started | - |
+| 32. Prettier/esbuild Engine & Async Seam | v1.9 | 0/? | Not started | - |
+| 33. HTML Prettifier Tool | v1.9 | 0/? | Not started | - |
+| 34. JS/TS Prettifier Tool | v1.9 | 0/? | Not started | - |
 
 ## Backlog
 

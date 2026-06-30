@@ -72,24 +72,24 @@ Which phases cover which requirements. Populated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PRT-01 | TBD | Pending |
-| PRT-02 | TBD | Pending |
-| PRT-03 | TBD | Pending |
-| PRT-04 | TBD | Pending |
-| PRT-05 | TBD | Pending |
-| PRT-06 | TBD | Pending |
-| PRT-07 | TBD | Pending |
-| PRT-08 | TBD | Pending |
-| PRT-09 | TBD | Pending |
-| PRT-10 | TBD | Pending |
-| PRT-11 | TBD | Pending |
-| PRT-12 | TBD | Pending |
-| PRT-13 | TBD | Pending |
+| PRT-01 | Phase 32 | Pending |
+| PRT-02 | Phase 32 | Pending |
+| PRT-03 | Phase 32 | Pending |
+| PRT-04 | Phase 32 | Pending |
+| PRT-05 | Phase 32 | Pending |
+| PRT-06 | Phase 32 | Pending |
+| PRT-07 | Phase 33 | Pending |
+| PRT-08 | Phase 33 | Pending |
+| PRT-09 | Phase 34 | Pending |
+| PRT-10 | Phase 34 | Pending |
+| PRT-11 | Phase 32 | Pending |
+| PRT-12 | Phase 33 | Pending |
+| PRT-13 | Phase 31 | Pending |
 
 **Coverage:**
 - v1 requirements: 13 total
-- Mapped to phases: 0 (roadmap pending)
-- Unmapped: 13 ⚠️ (resolved by `/gsd-new-milestone` roadmap step)
+- Mapped to phases: 13 ✓ (Phase 31: 1 · Phase 32: 7 · Phase 33: 3 · Phase 34: 2)
+- Unmapped: 0 ✓ (every requirement maps to exactly one phase; PRT-12 owned by Phase 33, its registry/free-tier/WCAG-AA pattern reused by Phase 34)
 
 ---
 *Requirements defined: 2026-06-30*
