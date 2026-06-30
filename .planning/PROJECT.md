@@ -13,13 +13,14 @@ DevTools is a fast, offline, keyboard-driven **desktop application** (macOS firs
 **Goal:** Add two new formatter tools — an **HTML prettifier** and a combined **JavaScript/TypeScript prettifier** — powered by **Prettier standalone**, producing canonical output that matches dev-time Prettier, fully offline. Promotes the HTML + JS/TS slice of backlog 999.1. Continues phase numbering from v1.8 (ended Phase 30 → v1.9 starts at **Phase 31**).
 
 **Resolved decisions (from `/gsd-review-backlog` 2026-06-30 + milestone questioning):**
-- **Engine = Prettier standalone** (`prettier/standalone` + the babel/typescript/html plugins) — the project's **FIRST deliberate HEAVY runtime dependency** (vs the single tiny `js-md5` to date). An intentional, scoped exception to the zero-dep wedge, accepted by the user for canonical output matching the dev-time Prettier formatter.
-- **Lazy-loaded** via the existing registry code-split so the heavy Prettier chunk never loads until one of these tools is opened; **vendored/self-hosted** (no CDN — honours the no-network-at-runtime constraint).
-- **Two tools** (user-chosen split): one **HTML** tool, one combined **JS/TS** tool (TypeScript is a superset; the babel/typescript plugins handle both behind one tool, language auto-detected or toggled).
-- **Mirror the JSON/XML formatter shape** — `FormatResult`, prettify/options surface, pure-ish logic in `src/lib/format/`, the shared two-pane paste-instant `FormatterView`, visible focusable copy via the platform seam — but these WRAP Prettier (async/lazy) rather than native pure transforms (`JSON`/`DOMParser`). Minify is whatever Prettier supports cleanly per language.
+- **Prettify engine = Prettier standalone** (`prettier/standalone` + the babel/typescript/estree/html/postcss plugins) — **pinned to the same 3.8.3 already used dev-time** so output is byte-identical to `prettier --write` (move the existing devDep → a single exact-pinned dependency). HTML formats embedded `<script>`/`<style>` too (full parity).
+- **Minify engine = esbuild** (offline `esbuild-wasm`, lazy-loaded, vendored) — the user chose to KEEP a Minify button on both tools (matching JSON/XML); Prettier cannot minify, so esbuild does the real, safe minification of JS/TS/JSX/TSX + CSS (no naive ASI-breaking strip), and an offline HTML minifier handles HTML. **This makes v1.9 accept TWO deliberate, scoped HEAVY runtime-dependency exceptions** (Prettier + esbuild) to the zero-dep wedge — vs the single tiny `js-md5` to date — accepted for canonical prettify + real minify.
+- **Both heavy engines are lazy-loaded** via dynamic `import()` / the registry code-split so their chunks never load until one of these tools is opened; **vendored/self-hosted** (no CDN — honours the no-network-at-runtime constraint); proven code-split by a build-artifact chunk guard.
+- **Two tools** (user-chosen split): one **HTML** tool, one combined **JS/TS** tool (TypeScript is a superset; the typescript parser handles JS+TS+JSX+TSX behind one tool, no picker).
+- **Mirror the JSON/XML formatter shape** — `FormatResult`, prettify + minify + options surface, logic in `src/lib/format/`, the shared two-pane paste-instant `FormatterView`, visible focusable copy via the platform seam — but these WRAP Prettier/esbuild (async/lazy) rather than native pure transforms (`JSON`/`DOMParser`), reconciled via a latest-wins async guard.
 - **Update the stale "six tools only" line** in `CLAUDE.md` as part of v1.9 scoping (already retired by v1.1 JSON/XML + v1.3 Cron/URL/Regex; this milestone makes the doc honest). These prettifiers are **distinct** from the parked "HTML entity encode/decode" backlog item.
 
-**Constraints that still hold:** offline/no-network at runtime, HashRouter, the wedge (each new tool clears it), `decoder.ts` + its 19 tests byte-for-byte untouched, WCAG-AA, the full build+verify harness. The zero-dep line bends ONCE here (Prettier) — deliberately and visibly, not as a precedent for grab-bag deps. Research: `.planning/research/` (this milestone).
+**Constraints that still hold:** offline/no-network at runtime, HashRouter, the wedge (each new tool clears it), `decoder.ts` + its 19 tests byte-for-byte untouched, WCAG-AA, the full build+verify harness. The zero-dep line bends TWICE here (Prettier for prettify + esbuild for minify) — deliberately and visibly, not as a precedent for grab-bag deps. Research: `.planning/research/` (this milestone; note the user kept Minify, overriding the research drop-minify recommendation → esbuild).
 
 ## Current State
 
@@ -138,13 +139,13 @@ Remaining backlog parked: 999.1 tool wishlist (SQL/Date/JSON↔YAML/Number Base/
 - [ ] License refreshes opportunistically (~30-day TTL) so refund/chargeback revocation propagates; offline grace in between
 - [ ] Corrupt, tampered, or foreign-machine license files fail closed to the free tier
 
-**Prettier Formatters (v1.9)** — hypotheses, REQ-IDs assigned in REQUIREMENTS.md
-- [ ] User can paste HTML and get canonical prettified output (Prettier `html` plugin), matching dev-time Prettier
-- [ ] User can paste JavaScript or TypeScript and get canonical prettified output (Prettier `babel`/`typescript` plugins), one combined tool
-- [ ] Formatting options (e.g. tab width / indent) exposed, mirroring the JSON/XML formatter option surface; minify where Prettier supports it cleanly
-- [ ] Prettier standalone + plugins are **vendored/self-hosted** (no CDN) and **lazy-loaded** via registry code-split — the heavy chunk loads only when an HTML/JS/TS formatter tool is opened
-- [ ] Parse/format errors surface as a calm `role=alert` value (line:col where Prettier provides it), never a crash; paste-instant transform with visible focusable copy
-- [ ] The stale `CLAUDE.md` "six tools only" line is corrected; `decoder.ts` + its 19 tests stay byte-for-byte untouched; WCAG-AA upheld
+**Prettier Formatters (v1.9)** — hypotheses, REQ-IDs (PRT-01..13) assigned in REQUIREMENTS.md
+- [ ] User can paste HTML and prettify (incl. embedded `<script>`/`<style>`, full parity) OR minify it
+- [ ] User can paste JavaScript/TypeScript/JSX/TSX into one combined tool and prettify OR minify it
+- [ ] Prettify = Prettier 3.8.3 standalone (output = `prettier --write`); Minify = esbuild (real, safe) — both vendored/no-CDN, lazy-loaded/code-split (chunks load only on tool open)
+- [ ] Options exposed mirroring JSON/XML: indent + printWidth (+ JS/TS semicolons/single-quote); the Minify action reused for both tools
+- [ ] Async transform with latest-wins guard; errors → calm `role=alert` (line:col), never a crash; paste-instant, visible focusable copy, WCAG-AA
+- [ ] The stale `CLAUDE.md` "six tools only" / "zero new runtime dependencies" lines corrected to record Prettier + esbuild as two scoped exceptions; `decoder.ts` + its 19 tests stay byte-for-byte untouched
 
 **Ideas / backlog (not yet scheduled)**
 - [ ] Protobuf decoder: decimal-byte-array (JS `Uint8Array`) input mode — paste `10, 3, 80, 81, 82` and decode, alongside hex/base64 (user feedback at Phase-3 sign-off, 2026-05-31)
