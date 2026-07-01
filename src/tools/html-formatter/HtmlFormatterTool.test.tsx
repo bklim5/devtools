@@ -149,6 +149,46 @@ describe("HtmlFormatterTool", () => {
     }
   });
 
+  it("over-cap ALL-WHITESPACE paste is oversize WITHOUT a full-length trim at the tool seam (Codex adversarial fix — mounted)", async () => {
+    // The hook classifies oversize before trimming, but the tool must ALSO not
+    // re-run input.trim() on the raw value: an over-cap all-whitespace paste would
+    // otherwise get a full-length main-thread trim() scan at the tool seam, re-opening
+    // the exact DoS the hook guard closes. The tool now reads `isEmpty` from the hook.
+    const bigWs = " ".repeat(2_100_000); // 2.1M whitespace bytes > 2 MB cap
+    const realTrim = String.prototype.trim;
+    const trimmedLengths: number[] = [];
+    const trimSpy = vi
+      .spyOn(String.prototype, "trim")
+      .mockImplementation(function (this: string) {
+        trimmedLengths.push(this.length);
+        return realTrim.call(this);
+      });
+    const fmtSpy = vi.spyOn(prettier, "formatHtml");
+    try {
+      const { container } = render(<HtmlFormatterTool />);
+      fireEvent.change(inputEl(container), { target: { value: bigWs } });
+      await waitFor(
+        () => {
+          const footer = container.querySelector("footer")!;
+          expect(footer.getAttribute("role")).toBe("alert");
+        },
+        { timeout: 5000 },
+      );
+      const err = container.querySelector<HTMLElement>('[data-status="error"]')!;
+      expect(err.textContent ?? "").toMatch(/Input too large/);
+      expect(outputEl(container).value).toBe("");
+      // Never reached the engine…
+      expect(fmtSpy).not.toHaveBeenCalled();
+      // …and NO trim() call ever saw the full 2.1M-char payload (the tool reads the
+      // hook's isEmpty instead of re-trimming; the hook short-circuits to oversize
+      // before its own trim). Fails loudly if either seam re-trims the raw value.
+      expect(trimmedLengths.every((len) => len < bigWs.length)).toBe(true);
+    } finally {
+      fmtSpy.mockRestore();
+      trimSpy.mockRestore();
+    }
+  });
+
   it("surfaces a role=alert error for a broken embedded <script> in Minify mode (D-11)", async () => {
     const { container, getByRole } = render(<HtmlFormatterTool />);
     fireEvent.click(getByRole("button", { name: "Minify" }));

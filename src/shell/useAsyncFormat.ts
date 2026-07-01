@@ -125,7 +125,12 @@ export function useAsyncFormat<O>(
   opts: O,
   runner: (input: string, opts: O) => Promise<FormatResult>,
   maxInputBytes: number = MAX_FORMAT_INPUT_BYTES,
-): { result: FormatResult; pending: boolean; inputBytes: number | undefined } {
+): {
+  result: FormatResult;
+  pending: boolean;
+  inputBytes: number | undefined;
+  isEmpty: boolean;
+} {
   const [resolved, setResolved] = useState<FormatResult>(EMPTY_OK);
   const [pending, setPending] = useState(false);
 
@@ -214,5 +219,10 @@ export function useAsyncFormat<O>(
     result: isEmpty ? EMPTY_OK : isOversize ? OVERSIZE_RESULT : resolved,
     pending,
     inputBytes,
+    // Emptiness derived from the bounded-first ordering above — a consuming tool
+    // reads this INSTEAD of re-running input.trim() on the raw value, so an over-cap
+    // all-whitespace paste is never full-scanned at the tool seam either (an
+    // over-cap payload is oversize, so isEmpty is false without touching trim).
+    isEmpty,
   };
 }

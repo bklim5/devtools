@@ -52,11 +52,17 @@ export default function HtmlFormatterTool() {
     [indent, printWidth, mode],
   );
 
-  // Omit the 4th arg → inherit the default 2 MB guard. Destructure inputBytes:
-  // the tool reads size from the hook, never recomputing the input byte length.
-  const { result, pending, inputBytes } = useAsyncFormat(input, opts, runHtml);
-
-  const isEmpty = input.trim() === "";
+  // Omit the 4th arg → inherit the default 2 MB guard. Read size AND emptiness from
+  // the hook — the tool NEVER recomputes byteLen(input) NOR re-runs input.trim() on
+  // the raw value. Re-trimming here would re-open the DoS the hook guard closes: an
+  // over-cap all-whitespace paste would get a full-length main-thread trim() scan at
+  // the tool seam. The hook's isEmpty is derived AFTER the bounded byte scan, so an
+  // over-cap payload is oversize (isEmpty false) without ever being trimmed.
+  const { result, pending, inputBytes, isEmpty } = useAsyncFormat(
+    input,
+    opts,
+    runHtml,
+  );
   // On error the output pane CLEARS; otherwise the formatted output flows through.
   const output = result.ok ? result.output : "";
   // STRAIGHT from the hook (`number | undefined`) — no re-encode, no `?? 0`
