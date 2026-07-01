@@ -7,6 +7,7 @@ import { hashTool } from "@/tools/hash";
 import { uuidUlidTool } from "@/tools/uuid-ulid";
 import { jsonFormatterTool } from "@/tools/json-formatter";
 import { xmlFormatterTool } from "@/tools/xml-formatter";
+import { htmlFormatterTool } from "@/tools/html-formatter";
 import { urlTool } from "@/tools/url";
 import { regexTool } from "@/tools/regex";
 import { cronTool } from "@/tools/cron";
@@ -28,6 +29,7 @@ export const TOOLS: ToolDefinition[] = [
   uuidUlidTool,
   jsonFormatterTool,
   xmlFormatterTool,
+  htmlFormatterTool,
   urlTool,
   regexTool,
   cronTool,

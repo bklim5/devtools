@@ -39,7 +39,14 @@ export interface FormatterControls {
 
 export interface FormatterStatus {
   parseState: ParseState;
-  byteCount: number;
+  // OPTIONAL (widened Phase 33-03): an async tool reads byteCount straight from
+  // useAsyncFormat's `inputBytes`, which is `undefined` for an over-cap (>2 MB)
+  // paste (the Plan-01 bounded counter never fully encodes it). Forwarded verbatim
+  // to StatusBar, whose own `byteCount?: number` renders NO size readout when it is
+  // not a number — so the over-cap case suppresses the readout instead of a `?? 0`
+  // fallback that would wrongly print "0 bytes". Every json/xml caller still passes
+  // a concrete number, so nothing existing changes.
+  byteCount?: number;
   outputBytes?: number;
   error?: string | null;
   timingMs?: number;
