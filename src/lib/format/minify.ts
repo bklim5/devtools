@@ -119,3 +119,127 @@ export async function minifyScript(
     return { ok: false, error: toError(e) };
   }
 }
+
+// ── Offline HTML minifier (D-05) ─────────────────────────────────────────────
+// esbuild has no HTML loader, so HTML minifies via a pure, zero-dep, bounded
+// string transform: collapse insignificant whitespace + strip non-conditional
+// comments, PRESERVING whitespace-sensitive elements (<pre>/<textarea>) verbatim
+// and delegating embedded <script>/<style> bodies to minifyScript. A single
+// segmenting regex matches every span that must be handled specially; the gaps
+// between matches are ordinary markup that gets whitespace-collapsed. All groups
+// end-anchored to their own closing tag (`\k<name>`), so blocks can't leak.
+
+/**
+ * One pass matches, in order: a `<pre>`/`<textarea>` block (content preserved
+ * verbatim), a `<script>`/`<style>` block (body minified via esbuild), or an HTML
+ * comment. The source is cloned per call (fresh `lastIndex`) so calls never race.
+ */
+const HTML_SEGMENT =
+  /<(?<pre>pre|textarea)\b[^>]*>[\s\S]*?<\/\k<pre>>|<(?<code>script|style)(?<attrs>[^>]*)>(?<body>[\s\S]*?)<\/\k<code>>|<!--(?<comment>[\s\S]*?)-->/gi;
+
+/**
+ * Collapse every run of ASCII whitespace to a single space. This is exactly how a
+ * browser renders whitespace in normal flow (outside pre/textarea), so it is
+ * semantically equivalent while dropping all indentation/newlines between tags.
+ */
+function collapseMarkup(s: string): string {
+  return s.replace(/\s+/g, " ");
+}
+
+/** 1-based {line, col} of a character offset in `input` (for error mapping). */
+function docPosition(input: string, index: number): { line: number; col: number } {
+  let line = 1;
+  let lineStart = 0;
+  for (let i = 0; i < index; i++) {
+    if (input.charCodeAt(i) === 10 /* \n */) {
+      line++;
+      lineStart = i + 1;
+    }
+  }
+  return { line, col: index - lineStart + 1 };
+}
+
+/** IE conditional comments (`<!--[if …]>` / `<![endif]-->`) are preserved. */
+function isConditionalComment(inner: string): boolean {
+  return /^\s*\[if\b/i.test(inner) || /\[endif\]/i.test(inner);
+}
+
+/**
+ * Minify an HTML string offline (D-05): collapse insignificant whitespace, strip
+ * non-conditional comments, preserve `<pre>`/`<textarea>` verbatim, and minify
+ * embedded `<script>` (JS) and `<style>` (CSS) via `minifyScript`.
+ *
+ * D-07/PRT-04: an embedded block that FAILS to minify is NEVER silently skipped —
+ * it returns `{ok:false}` naming the block type with a best-effort line:col mapped
+ * back to the HTML document, rather than shipping an un-minified block in
+ * "minified" output. Structural failures return error-as-value, never a throw.
+ */
+export async function minifyHtml(input: string): Promise<FormatResult> {
+  if (input.trim() === "") {
+    return { ok: true, output: "", inputBytes: 0, outputBytes: 0 };
+  }
+  try {
+    const re = new RegExp(HTML_SEGMENT.source, HTML_SEGMENT.flags);
+    const parts: string[] = [];
+    let lastIndex = 0;
+    let m: RegExpExecArray | null;
+
+    while ((m = re.exec(input)) !== null) {
+      const g = m.groups as Record<string, string | undefined>;
+      // Ordinary markup before this special span → whitespace-collapsed.
+      parts.push(collapseMarkup(input.slice(lastIndex, m.index)));
+      lastIndex = re.lastIndex;
+
+      if (g.pre !== undefined) {
+        parts.push(m[0]); // <pre>/<textarea>: preserve verbatim
+        continue;
+      }
+      if (g.code !== undefined) {
+        const tag = g.code;
+        const attrs = g.attrs ?? "";
+        const body = g.body ?? "";
+        if (body.trim() === "") {
+          parts.push(`<${tag}${attrs}></${tag}>`);
+          continue;
+        }
+        const loader: MinifyLoader = tag.toLowerCase() === "script" ? "js" : "css";
+        const inner = await minifyScript(body, loader);
+        if (!inner.ok) {
+          // D-07: surface the failure — never leave the raw block in the output.
+          const bodyStart = m.index + m[0].indexOf(">") + 1;
+          const pos = docPosition(input, bodyStart);
+          const eLine = inner.error.line;
+          const eCol = inner.error.col;
+          const line = eLine !== undefined ? pos.line + eLine - 1 : pos.line;
+          const col =
+            eLine === 1 && eCol !== undefined ? pos.col + eCol - 1 : (eCol ?? pos.col);
+          return {
+            ok: false,
+            error: {
+              message: `<${tag.toLowerCase()}> block: ${inner.error.message}`,
+              line,
+              col,
+            },
+          };
+        }
+        parts.push(`<${tag}${attrs}>${inner.output}</${tag}>`);
+        continue;
+      }
+      // Comment: drop unless it's an IE conditional comment.
+      if (g.comment !== undefined && isConditionalComment(g.comment)) {
+        parts.push(m[0]);
+      }
+    }
+
+    parts.push(collapseMarkup(input.slice(lastIndex)));
+    const output = parts.join("").trim();
+    return {
+      ok: true,
+      output,
+      inputBytes: byteLen(input),
+      outputBytes: byteLen(output),
+    };
+  } catch (e) {
+    return { ok: false, error: { message: e instanceof Error ? e.message : String(e) } };
+  }
+}

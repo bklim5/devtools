@@ -10,7 +10,7 @@
 // real esbuild transform, only the engine-loading swapped off the Vite `?url`
 // asset pipeline. `initCalls` proves the init is memoized (once).
 import { beforeAll, describe, expect, it } from "vitest";
-import { __setEsbuildInitForTest, minifyScript } from "./minify";
+import { __setEsbuildInitForTest, minifyHtml, minifyScript } from "./minify";
 
 let initCalls = 0;
 
@@ -109,5 +109,92 @@ describe("minifyScript", () => {
     await minifyScript("const p = 1;", "js");
     await minifyScript("const q = 2;", "js");
     expect(initCalls).toBe(1);
+  });
+});
+
+describe("minifyHtml", () => {
+  it("collapses inter-element whitespace (semantically equivalent)", async () => {
+    const r = await minifyHtml("<div>  <span>hi</span>  </div>");
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.output).toContain("<span>hi</span>");
+      expect(r.output).not.toMatch(/\s{2,}/); // no collapsed-away runs remain
+      expect(r.output).not.toContain("\n");
+    }
+  });
+
+  it("strips a non-conditional HTML comment", async () => {
+    const r = await minifyHtml("<div><!-- remove me --><span>hi</span></div>");
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.output).not.toContain("<!--");
+      expect(r.output).not.toContain("remove me");
+      expect(r.output).toContain("<span>hi</span>");
+    }
+  });
+
+  it("preserves <pre> content verbatim (whitespace-sensitive)", async () => {
+    const r = await minifyHtml("<div>\n  <pre>  a   b\n  c  </pre>\n</div>");
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.output).toContain("<pre>  a   b\n  c  </pre>");
+    }
+  });
+
+  it("minifies an embedded <script> body via esbuild (js)", async () => {
+    const r = await minifyHtml("<script>const a = 1 ;  const b = 2 ;</script>");
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.output).toContain("<script>");
+      expect(r.output).toContain("const a=1");
+      expect(r.output).not.toContain("const a = 1 ;");
+    }
+  });
+
+  it("minifies an embedded <style> body via esbuild (css)", async () => {
+    const r = await minifyHtml("<style>a {  color : red ; }</style>");
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.output).toContain("a{color:red}");
+      expect(r.output).not.toContain("color : red");
+    }
+  });
+
+  it("minifies both an embedded <script> AND <style> in one doc", async () => {
+    const input =
+      "<html><head><style>a {  color : red ; }</style></head>" +
+      "<body>  <script>const a = 1 ;</script>  </body></html>";
+    const r = await minifyHtml(input);
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.output).toContain("a{color:red}");
+      expect(r.output).toContain("const a=1");
+    }
+  });
+
+  it("surfaces a broken embedded <script> as ok:false with block type + line:col (never a silent skip)", async () => {
+    const input = "<html>\n<body>\n<script>const a = {</script>\n</body>\n</html>";
+    const r = await minifyHtml(input);
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.error.message.toLowerCase()).toContain("script");
+      expect(typeof r.error.line).toBe("number");
+      expect(r.error.line!).toBeGreaterThanOrEqual(1);
+      expect(typeof r.error.col).toBe("number");
+      expect(r.error.col!).toBeGreaterThanOrEqual(1);
+      // must NOT be a silent ok:true carrying the raw block
+      expect((r as { output?: string }).output).toBeUndefined();
+    }
+  });
+
+  it("maps empty/whitespace input to ok with empty output and 0 bytes", async () => {
+    const r = await minifyHtml("   \n  ");
+    expect(r).toEqual({ ok: true, output: "", inputBytes: 0, outputBytes: 0 });
+  });
+
+  it("returns error-as-value (never throws/hangs) and stays valid on plain markup", async () => {
+    const r = await minifyHtml("<div><p>one</p><p>two</p></div>");
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.output).toBe("<div><p>one</p><p>two</p></div>");
   });
 });
