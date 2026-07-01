@@ -1,6 +1,6 @@
 # DevTools — Project Guide
 
-A fast, offline, keyboard-driven **desktop app** (Tauri 2 + Vite + React + TS, macOS first) for the messy bytes developers see at work. **Schema-less Protobuf decoding is the hero.** Six tools, not a catalogue.
+A fast, offline, keyboard-driven **desktop app** (Tauri 2 + Vite + React + TS, macOS first) for the messy bytes developers see at work. **Schema-less Protobuf decoding is the hero.** A tight, wedge-gated tool set (11 tools today → 13 in v1.9), not a catalogue.
 
 This file is the slim entry point. The full detail lives in the docs below — read the relevant one before working a phase.
 
@@ -35,9 +35,9 @@ This file is the slim entry point. The full detail lives in the docs below — r
 ## Critical constraints (full list in PROJECT.md → Constraints)
 
 - **HashRouter only** — `BrowserRouter` forbidden (static files 404 on reload).
-- **Six tools only** — nothing from the deferred list, no matter how easy.
+- **Wedge-gated tool set (not a fixed count)** — a disciplined, GROWING set (11 tools today → 13 in v1.9); every addition must independently clear the product wedge (offline, paste-instant <2s, keyboard-driven, registry-driven, WCAG-AA). Deferred-list tools stay deferred until they clear it — no grab-bag.
 - **Do not refactor `decoder.ts` or its 19 tests** without explicit approval.
-- **No network at runtime** — self-host IBM Plex Sans + JetBrains Mono; no CDN.
+- **No network at runtime** — self-host IBM Plex Sans + JetBrains Mono; no CDN. Runtime deps stay near-zero by default. Two deliberate, scoped, reviewed exceptions to the zero-new-dep wedge: **Prettier standalone** (v1.9 prettify engine) + **esbuild** (v1.9 minify engine) — both vendored/self-hosted offline (no CDN) and lazy-loaded, so "no network at runtime" still holds. NOT a precedent for grab-bag deps; any further dep must independently clear the wedge.
 - Tools import **`src/lib/platform/`**, never `@tauri-apps/*` directly.
 - Registry is the single control plane (sidebar, palette, router derive from it).
 - Protobuf: **cards default + rows/cards toggle**; `#N` numbers **neutral** (accent = selected only); LEN chips computed from the decoder's `LenInterpretation`; **no hover-only copy**.
@@ -48,15 +48,15 @@ This file is the slim entry point. The full detail lives in the docs below — r
 
 **DevTools**
 
-DevTools is a fast, offline, keyboard-driven **desktop application** (macOS first; cross-platform-capable via Tauri 2) of engineering utilities for the messy bytes developers actually see at work. **Schema-less Protobuf decoding is the hero feature**, supported by a tight set of six high-frequency transforms. It is a sharp wedge, not a catalogue — it wins on speed and confidence, not breadth.
+DevTools is a fast, offline, keyboard-driven **desktop application** (macOS first; cross-platform-capable via Tauri 2) of engineering utilities for the messy bytes developers actually see at work. **Schema-less Protobuf decoding is the hero feature**, supported by a tight, wedge-gated set of high-frequency transforms (11 tools today, growing to 13 in v1.9 — each addition earns its place through the product wedge). It is a sharp wedge, not a catalogue — it wins on speed and confidence, not breadth.
 
 **Core Value:** **Paste an unknown blob → get a usable, explorable interpretation in under 2 seconds, entirely offline, without touching the mouse.** If everything else fails, the Protobuf decoder doing this flawlessly is the product.
 
 ### Constraints
 
 - **Tech stack**: Tauri 2 + Vite + React + TypeScript + Tailwind; `react-router` **HashRouter only** (`BrowserRouter` forbidden — static files 404 on reload). Tool logic is pure frontend TS; Rust core is thin (clipboard, hotkey, tray, single-instance, auto-update).
-- **No network at runtime** — self-host fonts (IBM Plex Sans + JetBrains Mono, SIL OFL, vendored), no CDN, no accounts, no setup.
-- **Six tools only** — no additions from the deferred list, no matter how easy.
+- **No network at runtime** — self-host fonts (IBM Plex Sans + JetBrains Mono, SIL OFL, vendored), no CDN, no accounts, no setup. Runtime deps near-zero by default, with two deliberate, scoped, reviewed exceptions — **Prettier standalone** (prettify) + **esbuild** (minify), both vendored/self-hosted offline + lazy-loaded ("no network at runtime" preserved). NOT a precedent for grab-bag deps.
+- **Wedge-gated tool set** — a disciplined, growing set (11 tools today → 13 in v1.9); each addition must clear the product wedge before shipping. Deferred-list tools stay deferred until they do — no grab-bag additions.
 - **Do not refactor `decoder.ts` or its 19 tests** without explicit approval — the test bar is the hero feature's spec.
 - **Performance**: paste-to-interpretation < 2s; the app should feel instant (OS webview, small binary).
 - **Verification (binding harness)**: every task's Definition of Done = **`/codex:review` → unit tests green (`vitest` + `tsc`) → real-webview UI verification**, in that order. Every phase ends with a **human sign-off** on a `tauri build` + `gsd-ui-review` audit. **Parallelize plans, but never let a plan advance past these gates — no skipping ahead.**
