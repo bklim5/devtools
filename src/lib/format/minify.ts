@@ -126,17 +126,31 @@ export async function minifyScript(
 // end-anchored to their own closing tag (`\k<name>`), so blocks can't leak.
 
 /**
+ * A start-tag attribute run: any char that is NOT a quote or `>`, OR a fully quoted
+ * value (`"…"`/`'…'`) that may itself contain a `>`. The three alternatives are
+ * disjoint on their first character, so the `*` is linear-time (ReDoS-safe) while
+ * still consuming a `>` that lives inside a quoted attribute value instead of
+ * treating it as the tag terminator. This is what lets `<a title="x > y">` and
+ * `<script data-x="a > b">…` tokenize correctly rather than splitting mid-value.
+ */
+const ATTRS = `(?:[^>"']|"[^"]*"|'[^']*')*`;
+
+/**
  * One pass matches, in order: a `<pre>`/`<textarea>` block (content preserved
  * verbatim), a `<script>`/`<style>` block (body minified via esbuild), or an HTML
  * comment. The source is cloned per call (fresh `lastIndex`) so calls never race.
+ * Start-tag attributes use {@link ATTRS} so a quoted `>` never ends the tag early.
  */
-const HTML_SEGMENT =
-  /<(?<pre>pre|textarea)\b[^>]*>[\s\S]*?<\/\k<pre>>|<(?<code>script|style)(?<attrs>[^>]*)>(?<body>[\s\S]*?)<\/\k<code>>|<!--(?<comment>[\s\S]*?)-->/gi;
+const HTML_SEGMENT = new RegExp(
+  `<(?<pre>pre|textarea)\\b${ATTRS}>[\\s\\S]*?<\\/\\k<pre>>` +
+    `|<(?<code>script|style)(?<attrs>${ATTRS})>(?<body>[\\s\\S]*?)<\\/\\k<code>>` +
+    `|<!--(?<comment>[\\s\\S]*?)-->`,
+  "gi",
+);
 
-/** Matches a single tag `<…>`. Uses `[^>]*`, matching the engine's existing
- *  attribute assumption (see HTML_SEGMENT `attrs`): a literal `>` inside a quoted
- *  attribute value is not handled — rare, and consistent across the engine. */
-const TAG = /<[^>]*>/g;
+/** Matches a single tag `<…>`, quote-aware (see {@link ATTRS}) so a literal `>`
+ *  inside a quoted attribute value does not terminate the tag early. */
+const TAG = new RegExp(`<${ATTRS}>`, "g");
 
 /**
  * Collapse structural whitespace inside a tag (between attributes) to a single

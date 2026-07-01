@@ -264,4 +264,25 @@ describe("minifyHtml", () => {
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.output).toContain(`data-t='x   y'`);
   });
+
+  it("does NOT treat a `>` inside a quoted attribute value as the tag boundary (ordinary tag)", async () => {
+    // `>` is valid unescaped inside a quoted HTML attribute value. A `[^>]*` scan
+    // would split the tag at the inner `>`, corrupting the value / trailing markup.
+    const r = await minifyHtml(`<a  title="x > y">link</a>`);
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.output).toBe(`<a title="x > y">link</a>`);
+    }
+  });
+
+  it("tokenizes an embedded <script> whose attribute value contains `>` (no false error)", async () => {
+    // A quoted `>` in the script's attrs must not shift the attrs/body split — that
+    // would feed ` y">const x = 1 ;` to esbuild and fail the whole page falsely.
+    const r = await minifyHtml(`<script data-x="a > b">const x = 1 ;</script>`);
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.output).toContain(`data-x="a > b"`);
+      expect(r.output).toContain(`const x=1`);
+    }
+  });
 });
