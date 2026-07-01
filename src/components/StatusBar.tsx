@@ -73,7 +73,12 @@ export function StatusBar({
       role={parseState === "error" ? "alert" : "status"}
       aria-live={parseState === "error" ? "assertive" : "polite"}
     >
-      <div className="flex min-w-0 items-center gap-3">
+      {/* Left cluster is short + fixed (state · size · encoding · hint); it must NOT
+          shrink, or a long error in the right cluster squeezes it until the byte
+          count wraps to a second line and overflows the 38px row. `shrink-0` +
+          `whitespace-nowrap` keep it on one line; the error cluster absorbs all the
+          shrink and truncates. */}
+      <div className="flex shrink-0 items-center gap-3 whitespace-nowrap">
         <span
           className={parseState === "error" ? "text-bad" : "text-tx-2"}
           aria-label="parse state"
@@ -95,7 +100,7 @@ export function StatusBar({
           </span>
         ) : null}
       </div>
-      <div className="flex min-w-0 items-center gap-3">
+      <div className="flex min-w-0 flex-1 items-center justify-end gap-3">
         {error ? (
           // Clipped with `truncate`, so the full message must stay reachable: the
           // accessible name carries the actual error (not the literal word "error")

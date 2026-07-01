@@ -90,6 +90,23 @@ describe("StatusBar error full-text affordance (Fix-2)", () => {
     const errEl = screen.getByLabelText(longError);
     expect(errEl.getAttribute("title")).toBe(longError);
   });
+
+  it("keeps the byte count in a non-shrinking cluster while the error truncates (no overlap regression)", () => {
+    // A long error must not squeeze the short left cluster until the byte count
+    // wraps to a second line and overflows the fixed-height footer. Structural
+    // guard: the left cluster is `shrink-0` (won't compress) and the error span
+    // truncates within the flexible right cluster.
+    render(<StatusBar parseState="error" byteCount={10} error={longError} />);
+    const byteEl = screen.getByLabelText("byte count");
+    const errEl = screen.getByLabelText(longError);
+    // Byte count lives in the shrink-0 left cluster (its parent never compresses).
+    expect(byteEl.parentElement?.className).toContain("shrink-0");
+    // The error is the element that yields space + clips.
+    expect(errEl.className).toContain("truncate");
+    // Its cluster absorbs the shrink (min-w-0 + flex-1), so truncate has a bound.
+    expect(errEl.parentElement?.className).toContain("min-w-0");
+    expect(errEl.parentElement?.className).toContain("flex-1");
+  });
 });
 
 // Phase 32 (D-07/D-01): the single footer is the one error surface — upgraded to an
