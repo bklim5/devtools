@@ -11,11 +11,11 @@ Requirements for milestone v1.9. Each maps to exactly one roadmap phase (31–34
 
 ### Prettier Engine & Async Seam
 
-- [ ] **PRT-01**: Prettier 3.8.3 standalone is the runtime PRETTIFY engine — vendored/self-hosted (no CDN), moved from devDependency to a single exact-pinned `dependency` — so prettified output is byte-identical to dev-time `prettier --write`.
+- [x] **PRT-01**: Prettier 3.8.3 standalone is the runtime PRETTIFY engine — vendored/self-hosted (no CDN), moved from devDependency to a single exact-pinned `dependency` — so prettified output is byte-identical to dev-time `prettier --write`. *(Phase 32-01 — done 2026-07-01)*
 - [ ] **PRT-02**: Both heavy engines (Prettier + esbuild) and their language plugins are lazy-loaded via dynamic `import()` and code-split — never present in the app's entry/initial chunk — proven by an automated build-artifact guard (cloned from the existing chunk-inventory guard) with a non-vacuous self-test.
 - [ ] **PRT-03**: Formatting (prettify AND minify) runs asynchronously with a latest-wins guard (a slow stale format never clobbers newer output); a pending/loading state is shown; the paste-to-output experience stays within the <2s "instant" feel.
 - [ ] **PRT-04**: Parse/format/minify errors surface as a calm `role=alert` value with line:col where the engine provides it — never a crash, never a silent fallback.
-- [ ] **PRT-05**: A golden parity test locks prettified output byte-equal to CLI `prettier --write` (per language, including a fixture with embedded code), so a future Prettier bump or option drift fails the suite.
+- [x] **PRT-05**: A golden parity test locks prettified output byte-equal to CLI `prettier --write` (per language, including a fixture with embedded code), so a future Prettier bump or option drift fails the suite. *(Phase 32-01 — done 2026-07-01)*
 
 ### Minify Engine (esbuild)
 
@@ -72,11 +72,11 @@ Which phases cover which requirements. Populated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PRT-01 | Phase 32 | Pending |
+| PRT-01 | Phase 32 | Complete (32-01) |
 | PRT-02 | Phase 32 | Pending |
 | PRT-03 | Phase 32 | Pending |
 | PRT-04 | Phase 32 | Pending |
-| PRT-05 | Phase 32 | Pending |
+| PRT-05 | Phase 32 | Complete (32-01) |
 | PRT-06 | Phase 32 | Pending |
 | PRT-07 | Phase 33 | Pending |
 | PRT-08 | Phase 33 | Pending |
