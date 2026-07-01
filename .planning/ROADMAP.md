@@ -146,7 +146,8 @@ Coverage: all 13 v1.9 requirements (PRT-01..13) mapped to exactly one phase, no 
   1. CLAUDE.md no longer asserts "six tools only" — it records the wedge-gated, growing tool set (11 → 13 tools).
   2. The "zero new runtime dependencies" wording is corrected to record Prettier (prettify) + esbuild (minify) as two deliberate, scoped, reviewed runtime-dependency exceptions — explicitly NOT a precedent for grab-bag deps.
   3. `decoder.ts` + its 19 tests remain byte-for-byte untouched (`git diff --quiet`).
-**Plans**: TBD
+**Plans**: 1 plan
+- [ ] 31-01-PLAN.md — retire the stale "six tools only" + "zero new runtime deps" wording in CLAUDE.md, README.md, and PROJECT.md; record Prettier + esbuild as two scoped exceptions
 
 ### Phase 32: Prettier/esbuild Engine & Async Seam
 **Goal**: The async Prettier + esbuild engine seam, the shared formatting hook, the generalized FormatterView, and the parity/isolation guards exist and are proven — the foundation both tools depend on.
@@ -229,7 +230,7 @@ v1.9 runs 31 → 32 → {33, 34}: Phase 31 (doc correction) is independent and c
 | 28. Entitlement-Source Swap + Store License Pane | v1.8 | 5/5 | Complete    | 2026-06-23 |
 | 29. Sandbox-Safe Native Features | v1.8 | 3/3 | Complete    | 2026-06-25 |
 | 30. .pkg Build + App Store Connect Submission | v1.8 | 3/3 | Complete    | 2026-06-27 |
-| 31. Doc/Process Correction | v1.9 | 0/? | Not started | - |
+| 31. Doc/Process Correction | v1.9 | 0/1 | Planned | - |
 | 32. Prettier/esbuild Engine & Async Seam | v1.9 | 0/? | Not started | - |
 | 33. HTML Prettifier Tool | v1.9 | 0/? | Not started | - |
 | 34. JS/TS Prettifier Tool | v1.9 | 0/? | Not started | - |
