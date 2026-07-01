@@ -178,7 +178,11 @@ Coverage: all 13 v1.9 requirements (PRT-01..13) mapped to exactly one phase, no 
   4. The HTML tool appears in the sidebar, ⌘K palette, and HashRouter automatically from a registry-only entry, ships free (no entitlement gate), and passes WCAG-AA (visible focus, AA contrast, no opacity-only disabled state). [PRT-12]
   5. As the first mounted prettier/esbuild consumer, the HTML tool inherits the P32 offline-e2e obligation: a real-WKWebView offline paste proof (Wi-Fi off, DevTools Network tab clean while prettifying/minifying) MUST pass before this tool can close. [PRT-04, carried from Phase 32]
   6. **Large-paste guard (carried from Phase 32, Codex adversarial review):** the P32 engines run Prettier/esbuild synchronously on the webview main thread with no size cap (a deliberate altitude choice — off-threading buys nothing for the common case). The HTML tool, as the first mounted consumer, MUST decide + implement the pathological-paste UX: a hard input-size guard returning a clear "input too large" status (or an interruptible/worker path) so a multi-MB paste cannot freeze the UI, contradicting the <2s paste-instant promise. Cover with a test that oversized input never enters the engine path.
-**Plans**: TBD
+**Plans**: 4 plans (3 waves)
+- [ ] 33-01-PLAN.md — shared large-paste size guard in `useAsyncFormat` (2 MB cap, `maxInputBytes` param) + SC6 test proving 0 runner calls for over-cap input [PRT-04] (wave 1)
+- [ ] 33-02-PLAN.md — HTML engine golden locks: SC1 script+style prettify parity (CLI golden, RED on drift) + SC2 frozen minifyHtml golden [PRT-07] (wave 1)
+- [ ] 33-03-PLAN.md — HtmlFormatterTool (first async-hook consumer) + registry-only free entry (CodeXml icon) + unit tests (async prettify/minify, printWidth, oversize role=alert, error, copy) [PRT-07, PRT-08, PRT-12] (wave 2, depends 33-01)
+- [ ] 33-04-PLAN.md — BLOCKING real-WKWebView e2e (async prettify/minify + role=alert D-11) + human offline paste proof (Wi-Fi off, Network clean) both channels + WCAG-AA audit [PRT-04, PRT-12] (wave 3, depends 33-03)
 **UI hint**: yes
 
 ### Phase 34: JS/TS Prettifier Tool
@@ -240,7 +244,7 @@ v1.9 runs 31 → 32 → {33, 34}: Phase 31 (doc correction) is independent and c
 | 30. .pkg Build + App Store Connect Submission | v1.8 | 3/3 | Complete    | 2026-06-27 |
 | 31. Doc/Process Correction | v1.9 | 1/1 | Complete    | 2026-07-01 |
 | 32. Prettier/esbuild Engine & Async Seam | v1.9 | 5/5 | Complete    | 2026-07-01 |
-| 33. HTML Prettifier Tool | v1.9 | 0/? | Not started | - |
+| 33. HTML Prettifier Tool | v1.9 | 0/4 | Planned | - |
 | 34. JS/TS Prettifier Tool | v1.9 | 0/? | Not started | - |
 
 ## Backlog
