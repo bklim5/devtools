@@ -7,8 +7,16 @@ import globals from "globals";
 
 export default tseslint.config(
   {
-    // Don't lint build output, deps, vendored scaffold reference, or Rust target.
-    ignores: ["dist", "node_modules", "src-tauri/target", "scaffold"],
+    // Don't lint build output, deps, vendored scaffold reference, Rust target, or
+    // the DELIBERATELY-messy Prettier golden fixtures (unformatted test data whose
+    // whole point is to trip unused-vars/undef — the parity test, not eslint, owns them).
+    ignores: [
+      "dist",
+      "node_modules",
+      "src-tauri/target",
+      "scaffold",
+      "test/fixtures",
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
