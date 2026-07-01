@@ -19,7 +19,7 @@ Requirements for milestone v1.9. Each maps to exactly one roadmap phase (31–34
 
 ### Minify Engine (esbuild)
 
-- [ ] **PRT-06**: esbuild is the runtime MINIFY engine — vendored/self-hosted offline (`esbuild-wasm`, no CDN), lazy-loaded/code-split — minifying JavaScript, TypeScript, JSX, TSX, and CSS safely (no ASI/regex-literal breakage); HTML is minified via an offline HTML minifier (collapsing whitespace + minifying embedded `<script>`/`<style>`). Minify output is valid and semantically equivalent to the input.
+- [ ] **PRT-06**: esbuild is the runtime MINIFY engine — vendored/self-hosted offline (`esbuild-wasm`, no CDN), lazy-loaded/code-split — minifying JavaScript, TypeScript, JSX, TSX, and CSS safely (no ASI/regex-literal breakage); HTML is minified via an offline HTML minifier (collapsing whitespace + minifying embedded `<script>`/`<style>`). Minify output is valid and semantically equivalent to the input. *(Phase 32-04 — engine landed 2026-07-01: `minifyScript` via lazily-loaded/memoized esbuild-wasm 0.28.0 + offline pure `minifyHtml`, error-as-value, ASI/regex-literal safe; checkbox left UNCHECKED until 32-05 proves the lazy/code-split isolation + no-network offline build artifact)*
 
 ### HTML Prettifier Tool
 
@@ -77,7 +77,7 @@ Which phases cover which requirements. Populated during roadmap creation.
 | PRT-03 | Phase 32 | In progress (32-02: latest-wins hook + pending flag; UI display/minify pending) |
 | PRT-04 | Phase 32 | Pending |
 | PRT-05 | Phase 32 | Complete (32-01) |
-| PRT-06 | Phase 32 | Pending |
+| PRT-06 | Phase 32 | In progress (engine landed 32-04; lazy/code-split + offline proof 32-05) |
 | PRT-07 | Phase 33 | Pending |
 | PRT-08 | Phase 33 | Pending |
 | PRT-09 | Phase 34 | Pending |
