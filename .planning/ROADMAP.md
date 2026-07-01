@@ -133,7 +133,7 @@ Two new formatter tools — an **HTML prettifier** and a combined **JavaScript/T
 
 Coverage: all 13 v1.9 requirements (PRT-01..13) mapped to exactly one phase, no orphans.
 
-- [ ] **Phase 31: Doc/Process Correction** — fix the stale CLAUDE.md "six tools only" + "zero new runtime dependencies" wording to record Prettier + esbuild as two scoped exceptions (PRT-13)
+- [x] **Phase 31: Doc/Process Correction** — fix the stale CLAUDE.md "six tools only" + "zero new runtime dependencies" wording to record Prettier + esbuild as two scoped exceptions (PRT-13) (completed 2026-07-01)
 - [ ] **Phase 32: Prettier/esbuild Engine & Async Seam** — async Prettier wrapper, esbuild minify wrapper, shared latest-wins hook, FormatterView generalization, dep moves, chunk-split guard + self-test, golden parity test vs CLI, offline e2e (PRT-01,02,03,04,05,06,11)
 - [ ] **Phase 33: HTML Prettifier Tool** — single Prettier parser; embedded script/style parity + HTML minify; registry-only/free-tier/WCAG-AA (PRT-07,08,12)
 - [ ] **Phase 34: JS/TS Prettifier Tool** — combined typescript-parser tool; semicolons + single-quote toggles; esbuild minify (PRT-09,10)
@@ -147,7 +147,7 @@ Coverage: all 13 v1.9 requirements (PRT-01..13) mapped to exactly one phase, no 
   2. The "zero new runtime dependencies" wording is corrected to record Prettier (prettify) + esbuild (minify) as two deliberate, scoped, reviewed runtime-dependency exceptions — explicitly NOT a precedent for grab-bag deps.
   3. `decoder.ts` + its 19 tests remain byte-for-byte untouched (`git diff --quiet`).
 **Plans**: 1 plan
-- [ ] 31-01-PLAN.md — retire the stale "six tools only" + "zero new runtime deps" wording in CLAUDE.md, README.md, and PROJECT.md; record Prettier + esbuild as two scoped exceptions
+- [x] 31-01-PLAN.md — retire the stale "six tools only" + "zero new runtime deps" wording in CLAUDE.md, README.md, and PROJECT.md; record Prettier + esbuild as two scoped exceptions
 
 ### Phase 32: Prettier/esbuild Engine & Async Seam
 **Goal**: The async Prettier + esbuild engine seam, the shared formatting hook, the generalized FormatterView, and the parity/isolation guards exist and are proven — the foundation both tools depend on.
@@ -230,7 +230,7 @@ v1.9 runs 31 → 32 → {33, 34}: Phase 31 (doc correction) is independent and c
 | 28. Entitlement-Source Swap + Store License Pane | v1.8 | 5/5 | Complete    | 2026-06-23 |
 | 29. Sandbox-Safe Native Features | v1.8 | 3/3 | Complete    | 2026-06-25 |
 | 30. .pkg Build + App Store Connect Submission | v1.8 | 3/3 | Complete    | 2026-06-27 |
-| 31. Doc/Process Correction | v1.9 | 0/1 | Planned | - |
+| 31. Doc/Process Correction | v1.9 | 1/1 | Complete    | 2026-07-01 |
 | 32. Prettier/esbuild Engine & Async Seam | v1.9 | 0/? | Not started | - |
 | 33. HTML Prettifier Tool | v1.9 | 0/? | Not started | - |
 | 34. JS/TS Prettifier Tool | v1.9 | 0/? | Not started | - |
@@ -260,7 +260,7 @@ Unsequenced ideas captured for future planning. Promote with `/gsd-review-backlo
 Each candidate must still pass the product wedge: offline/no-network, paste-instant (<2s), keyboard-driven, registry-driven, WCAG-AA, and the build+verify harness.
 
 **Requirements:** TBD (remaining wishlist; Cron/URL/Regex requirements now in `.planning/REQUIREMENTS.md` for v1.3)
-**Plans:** 3/3 plans complete
+**Plans:** 1/1 plans complete
 
 Plans:
 - [ ] TBD (promote remaining wishlist with /gsd-review-backlog when ready)

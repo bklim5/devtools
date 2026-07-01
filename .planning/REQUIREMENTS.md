@@ -38,7 +38,7 @@ Requirements for milestone v1.9. Each maps to exactly one roadmap phase (31–34
 
 ### Documentation & Wedge Integrity
 
-- [ ] **PRT-13**: The stale `CLAUDE.md` "six tools only" + "zero new runtime dependencies" wording is corrected to record Prettier (prettify) + esbuild (minify) as TWO deliberate, scoped, reviewed runtime-dependency exceptions (not a precedent for grab-bag deps); `decoder.ts` + its 19 tests stay byte-for-byte untouched.
+- [x] **PRT-13**: The stale `CLAUDE.md` "six tools only" + "zero new runtime dependencies" wording is corrected to record Prettier (prettify) + esbuild (minify) as TWO deliberate, scoped, reviewed runtime-dependency exceptions (not a precedent for grab-bag deps); `decoder.ts` + its 19 tests stay byte-for-byte untouched.
 
 ## v2 Requirements
 
@@ -84,7 +84,7 @@ Which phases cover which requirements. Populated during roadmap creation.
 | PRT-10 | Phase 34 | Pending |
 | PRT-11 | Phase 32 | Pending |
 | PRT-12 | Phase 33 | Pending |
-| PRT-13 | Phase 31 | Pending |
+| PRT-13 | Phase 31 | Complete |
 
 **Coverage:**
 - v1 requirements: 13 total
