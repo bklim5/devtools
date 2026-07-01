@@ -230,4 +230,38 @@ describe("minifyHtml", () => {
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.output).toBe("<div><p>one</p><p>two</p></div>");
   });
+
+  // Attribute-value integrity (Codex adversarial finding): collapsing markup
+  // whitespace must NEVER rewrite the contents of a quoted attribute value, while
+  // still collapsing structural whitespace between attributes and between tags.
+  it("preserves runs of spaces inside quoted attribute values (no silent corruption)", async () => {
+    const r = await minifyHtml(
+      `<div  title="keep   spacing"  data-tpl="a   b">hi</div>`,
+    );
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      // Quoted values kept verbatim…
+      expect(r.output).toContain(`title="keep   spacing"`);
+      expect(r.output).toContain(`data-tpl="a   b"`);
+      // …but structural whitespace between attributes still collapses to one space.
+      expect(r.output).toContain(
+        `<div title="keep   spacing" data-tpl="a   b">`,
+      );
+    }
+  });
+
+  it("preserves newlines inside quoted attribute values (alt / aria-label)", async () => {
+    const r = await minifyHtml(`<img alt="line one\nline two" aria-label="a\n\nb">`);
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.output).toContain(`alt="line one\nline two"`);
+      expect(r.output).toContain(`aria-label="a\n\nb"`);
+    }
+  });
+
+  it("preserves whitespace in single-quoted attribute values too", async () => {
+    const r = await minifyHtml(`<span data-t='x   y'>t</span>`);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.output).toContain(`data-t='x   y'`);
+  });
 });

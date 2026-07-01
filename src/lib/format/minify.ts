@@ -133,13 +133,44 @@ export async function minifyScript(
 const HTML_SEGMENT =
   /<(?<pre>pre|textarea)\b[^>]*>[\s\S]*?<\/\k<pre>>|<(?<code>script|style)(?<attrs>[^>]*)>(?<body>[\s\S]*?)<\/\k<code>>|<!--(?<comment>[\s\S]*?)-->/gi;
 
+/** Matches a single tag `<…>`. Uses `[^>]*`, matching the engine's existing
+ *  attribute assumption (see HTML_SEGMENT `attrs`): a literal `>` inside a quoted
+ *  attribute value is not handled — rare, and consistent across the engine. */
+const TAG = /<[^>]*>/g;
+
 /**
- * Collapse every run of ASCII whitespace to a single space. This is exactly how a
- * browser renders whitespace in normal flow (outside pre/textarea), so it is
- * semantically equivalent while dropping all indentation/newlines between tags.
+ * Collapse structural whitespace inside a tag (between attributes) to a single
+ * space, but keep the interior of every quoted attribute value ("…"/'…') VERBATIM.
+ * A blind `\s+`→` ` over a tag would rewrite values like `title="keep   spacing"`,
+ * `alt`, `aria-label`, or `data-*` that carry semantic runs of spaces/newlines — a
+ * silent data-corruption path. The alternation matches a quoted value OR a
+ * whitespace run; only the latter collapses.
+ */
+function collapseTag(tag: string): string {
+  return tag.replace(/"[^"]*"|'[^']*'|\s+/g, (t) =>
+    t[0] === '"' || t[0] === "'" ? t : " ",
+  );
+}
+
+/**
+ * Collapse insignificant whitespace in an ordinary-markup slice. Whitespace between
+ * tags (text nodes, indentation) collapses to a single space — exactly how a browser
+ * renders normal-flow whitespace — and structural whitespace inside a tag collapses
+ * too, but quoted attribute values are preserved verbatim (see {@link collapseTag}).
+ * This is the attribute-safe replacement for a blind `\s+`→` ` over the raw markup.
  */
 function collapseMarkup(s: string): string {
-  return s.replace(/\s+/g, " ");
+  let out = "";
+  let last = 0;
+  const re = new RegExp(TAG.source, TAG.flags);
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(s)) !== null) {
+    out += s.slice(last, m.index).replace(/\s+/g, " "); // text before the tag
+    out += collapseTag(m[0]); // the tag: keep quoted values verbatim
+    last = re.lastIndex;
+  }
+  out += s.slice(last).replace(/\s+/g, " "); // trailing text after the last tag
+  return out;
 }
 
 /**
