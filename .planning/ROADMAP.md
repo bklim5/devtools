@@ -134,7 +134,7 @@ Two new formatter tools — an **HTML prettifier** and a combined **JavaScript/T
 Coverage: all 13 v1.9 requirements (PRT-01..13) mapped to exactly one phase, no orphans.
 
 - [x] **Phase 31: Doc/Process Correction** — fix the stale CLAUDE.md "six tools only" + "zero new runtime dependencies" wording to record Prettier + esbuild as two scoped exceptions (PRT-13) (completed 2026-07-01)
-- [ ] **Phase 32: Prettier/esbuild Engine & Async Seam** — async Prettier wrapper, esbuild minify wrapper, shared latest-wins hook, FormatterView generalization, dep moves, chunk-split guard + self-test, golden parity test vs CLI, offline e2e (PRT-01,02,03,04,05,06,11)
+- [x] **Phase 32: Prettier/esbuild Engine & Async Seam** — async Prettier wrapper, esbuild minify wrapper, shared latest-wins hook, FormatterView generalization, dep moves, chunk-split guard + self-test, golden parity test vs CLI, offline e2e (PRT-01,02,03,04,05,06,11) (completed 2026-07-01)
 - [ ] **Phase 33: HTML Prettifier Tool** — single Prettier parser; embedded script/style parity + HTML minify; registry-only/free-tier/WCAG-AA (PRT-07,08,12)
 - [ ] **Phase 34: JS/TS Prettifier Tool** — combined typescript-parser tool; semicolons + single-quote toggles; esbuild minify (PRT-09,10)
 
@@ -164,7 +164,7 @@ Coverage: all 13 v1.9 requirements (PRT-01..13) mapped to exactly one phase, no 
 - [x] 32-02-PLAN.md — shared `useAsyncFormat` hook (debounce ~180ms + reqId latest-wins gate + pending) [PRT-03] ✓ 2026-07-01
 - [x] 32-03-PLAN.md — FormatterView generalized to `[ Prettify | Minify ]` mode selector + optional printWidth (D-04 hide-in-minify) + StatusBar role=alert; JSON/XML retrofit; PRT-11 amended [PRT-11, PRT-04] ✓ 2026-07-01
 - [x] 32-04-PLAN.md — esbuild-wasm minify wrapper (JS/TS/JSX/TSX + CSS, offline lazy wasm) + offline pure HTML minifier [PRT-06] ✓ 2026-07-01
-- [ ] 32-05-PLAN.md — heavy-engine chunk-isolation guard (cloned, ungated) + non-vacuous self-test + verifier sentinel + no-network integration test [PRT-02, PRT-04]
+- [x] 32-05-PLAN.md — heavy-engine chunk-isolation guard (cloned, ungated) + non-vacuous self-test + verifier sentinel + no-network integration test [PRT-02, PRT-04]
 **UI hint**: yes
 
 ### Phase 33: HTML Prettifier Tool
@@ -239,7 +239,7 @@ v1.9 runs 31 → 32 → {33, 34}: Phase 31 (doc correction) is independent and c
 | 29. Sandbox-Safe Native Features | v1.8 | 3/3 | Complete    | 2026-06-25 |
 | 30. .pkg Build + App Store Connect Submission | v1.8 | 3/3 | Complete    | 2026-06-27 |
 | 31. Doc/Process Correction | v1.9 | 1/1 | Complete    | 2026-07-01 |
-| 32. Prettier/esbuild Engine & Async Seam | v1.9 | 3/5 | In progress | - |
+| 32. Prettier/esbuild Engine & Async Seam | v1.9 | 5/5 | Complete    | 2026-07-01 |
 | 33. HTML Prettifier Tool | v1.9 | 0/? | Not started | - |
 | 34. JS/TS Prettifier Tool | v1.9 | 0/? | Not started | - |
 
@@ -268,7 +268,7 @@ Unsequenced ideas captured for future planning. Promote with `/gsd-review-backlo
 Each candidate must still pass the product wedge: offline/no-network, paste-instant (<2s), keyboard-driven, registry-driven, WCAG-AA, and the build+verify harness.
 
 **Requirements:** TBD (remaining wishlist; Cron/URL/Regex requirements now in `.planning/REQUIREMENTS.md` for v1.3)
-**Plans:** 1/1 plans complete
+**Plans:** 5/5 plans complete
 
 Plans:
 - [ ] TBD (promote remaining wishlist with /gsd-review-backlog when ready)
