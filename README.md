@@ -46,6 +46,6 @@ Work the milestones in `docs/design-and-plan.md` §11 in order:
 
 ## What's in scope for v1, briefly
 
-Six tools, Protobuf as the hero. Six. Not seven. The plan's deferred list is **deferred, not promised** — resist scope drift.
+A tight, wedge-gated tool set with Protobuf as the hero — 11 tools today, growing to 13 in v1.9. Growth is deliberate and disciplined: the deferred list stays **deferred, not promised**, and every new tool must clear the product wedge before it ships — resist scope drift.
 
 See `docs/design-and-plan.md` §1 for the five workflow success criteria (paste-to-interpretation <2s, no-mouse switching, one-keystroke copy, opens to last/summoned tool, no network). These are how you'll know v1 is done.
