@@ -61,6 +61,15 @@
 #       (D-05, exactly like plugin-autostart); its safety is the 29-02 runtime
 #       updater.check===0 no-invoke proof, NOT bundle exclusion (a string/package grep is a
 #       false signal per keygen-compileout-d04-proof).
+# Phase 32 (PRT-02) EXTENDS this script with ONE additive FATAL check (both channels):
+#   (j) NO heavy engine INITIALLY-REACHABLE — assert_no_heavy_engine_in_entry reads the
+#       prettier-chunk-inventory.json sentinel emitted by the UNGATED prettierChunkGuard
+#       (scripts/prettierChunkGuard.mjs in vite.config.ts) and FATALs on
+#       heavyEngineInitiallyReachable:true. The prettier + esbuild-wasm engines MAY ship
+#       but ONLY from a dynamic-import() chunk (never on the initial page-load path — the
+#       cold-start/offline lazy-load requirement). Same EXACT-root sentinel read +
+#       duplicate rejection + missing/malformed FAIL discipline as the licenseUi guard,
+#       bound by the same assert_dist_freshness.
 #
 # --selftest proves each marker is load-bearing + free of false-RED; --selftest-realbuild
 # proves the D-04 + Phase-29 updater guard on a REAL fold-in build (importing the EXACT
@@ -289,6 +298,47 @@ assert_no_license_ui_module() {
     return 1
   fi
   echo "OK: updater UI subtree (update.ts/useUpdater/UpdateBanner/UpdaterOverlay/UpdatesSettings) ABSENT from every store chunk (chunk-module inventory sentinel; plugin-updater rides along inert via the shared seam per D-05 — proven safe by the 29-02 runtime updater.check===0 assertion)"
+}
+
+assert_no_heavy_engine_in_entry() {
+  # PRT-02 (Phase 32): the heavy prettify/minify engines (prettier + esbuild-wasm)
+  # MAY ship, but ONLY from a chunk loaded lazily via dynamic import() — never
+  # initially-reachable from an entry chunk (entry chunk OR an entry-static-imported
+  # shared/vendor chunk). scripts/prettierChunkGuard.mjs (wired UNGATED in
+  # vite.config.ts) computes the initial-reachability set over the REAL chunk.modules
+  # and emits prettier-chunk-inventory.json recording heavyEngineInitiallyReachable.
+  # This mirrors assert_no_license_ui_module EXACTLY: read the sentinel at the EXACT
+  # root path, reject duplicates, FAIL on a missing/malformed sentinel, FATAL on
+  # heavyEngineInitiallyReachable:true. Bound by the SAME assert_dist_freshness as the
+  # licenseUi assertion (the dist/ the sentinel lives in must be fresh vs the binary).
+  local dist="${1:?usage: assert_no_heavy_engine_in_entry <appstore-build-dist-dir>}"
+  [[ -d "$dist" ]] || { echo "FAIL: appstore-build dist/ not found at '$dist'" >&2; return 1; }
+  local sentinel="$dist/prettier-chunk-inventory.json"
+  local dup
+  dup="$(find "$dist" -name 'prettier-chunk-inventory.json' 2>/dev/null | wc -l | tr -d '[:space:]')"
+  if [[ ! -f "$sentinel" ]]; then
+    echo "FAIL: PRT-02 sentinel not found at the EXACT root path '$sentinel' — the prettierChunkGuard generateBundle plugin (vite.config.ts, ungated) did NOT run; without it the heavy-engine initial-reachability check cannot be proven. Fix the plugin wiring before release." >&2
+    return 1
+  fi
+  if [[ "${dup:-0}" -gt 1 ]]; then
+    echo "FAIL: PRT-02 found $dup copies of prettier-chunk-inventory.json under '$dist' — exactly one (the root sentinel emitted by the guard) is expected; a duplicate signals a stale/tampered sentinel and is rejected (mirrors the D-04 licenseUi guard)." >&2
+    find "$dist" -name 'prettier-chunk-inventory.json' 2>/dev/null | sed 's/^/    /' >&2
+    return 1
+  fi
+  # The guard throws (fails the build) on an initially-reachable engine, so a shipped
+  # sentinel is normally false; assert it explicitly as defence-in-depth (and to catch
+  # a future guard that records-without-throwing). Match the JSON boolean exactly.
+  if grep -E '"heavyEngineInitiallyReachable"[[:space:]]*:[[:space:]]*true' "$sentinel" >/dev/null 2>&1; then
+    echo "FAIL: PRT-02 violation — prettier-chunk-inventory.json reports a prettier/esbuild-wasm module is initially-reachable from an entry chunk (cold-start regression / not lazy):" >&2
+    sed 's/^/    /' "$sentinel" >&2
+    return 1
+  fi
+  if ! grep -E '"heavyEngineInitiallyReachable"[[:space:]]*:[[:space:]]*false' "$sentinel" >/dev/null 2>&1; then
+    echo "FAIL: PRT-02 sentinel present but malformed (no heavyEngineInitiallyReachable:false) at '$sentinel':" >&2
+    sed 's/^/    /' "$sentinel" >&2
+    return 1
+  fi
+  echo "OK: prettier + esbuild-wasm ABSENT from every initially-reachable chunk (PRT-02, from the prettierChunkGuard initial-reachability sentinel — heavy engines load only via dynamic import())"
 }
 
 # mtime helper — epoch seconds for a file (BSD stat on macOS, GNU stat fallback for CI).
@@ -780,6 +830,11 @@ if [[ -d "$APP" ]]; then
   #   the four-COPY-marker Keygen grep, and the chunk-module-inventory sentinel check.
   assert_no_keygen_strings "$DIST" || rc=1
   assert_no_license_ui_module "$DIST" || rc=1
+  # PRT-02 (Phase 32) — the heavy prettify/minify engines must not be initially-reachable
+  # from an entry chunk (dynamic import() only). Reads the prettier-chunk-inventory.json
+  # sentinel emitted by the UNGATED prettierChunkGuard, bound by the SAME assert_dist_freshness
+  # above. FATAL when a bundle is present (Finding 2).
+  assert_no_heavy_engine_in_entry "$DIST" || rc=1
 elif [[ "$REQUIRE_BUNDLE" -eq 1 ]]; then
   echo "FAIL: --require-bundle set but no signed .app at '$APP' — the canonical build did not produce a bundle" >&2
   rc=1
