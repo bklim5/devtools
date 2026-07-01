@@ -63,16 +63,15 @@ export default function HtmlFormatterTool() {
   // fallback. Over-cap is `undefined` → StatusBar suppresses the size readout.
   const byteCount = inputBytes;
   const outputBytes = result.ok ? result.outputBytes : undefined;
-  // JSON-style line:col (D-11): both present → "line:col message"; line only →
-  // "line N: message"; neither → bare message. The malformed-HTML case carries a
-  // real column, so the column is never dropped.
+  // JSON-style line:col (D-11): both present → "line:col message"; otherwise the
+  // bare message — mirroring the JSON sibling exactly. The malformed-HTML case
+  // always carries a real column (engines emit line+col together via
+  // offsetToLineCol), so the column is never dropped in practice.
   const error = result.ok
     ? null
     : result.error.line !== undefined && result.error.col !== undefined
       ? `${result.error.line}:${result.error.col} ${result.error.message}`
-      : result.error.line !== undefined
-        ? `line ${result.error.line}: ${result.error.message}`
-        : result.error.message;
+      : result.error.message;
   const parseState: ParseState = result.ok ? (isEmpty ? "empty" : "ok") : "error";
 
   return (
