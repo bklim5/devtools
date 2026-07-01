@@ -8,11 +8,11 @@ file is the greppable record.
 
 ## Build under test
 
-- **Build SHA:** `986cb3382830633397ac70850f25a65888c211a8` (HEAD at build time — Task 1 e2e commit, the last Phase-33 source/test commit)
-- **Channels built (rebuilt LAST, after all Plan 01–03 source landed):**
-  - **direct:** `src-tauri/target/direct/universal-apple-darwin/release/bundle/macos/TinkerDev.app` (+ `.../bundle/dmg/*.dmg`)
-  - **appstore (dev-signed):** `src-tauri/target/appstore/universal-apple-darwin/release/bundle/macos/TinkerDev.app`
-- **Freshness (T-33-10 anti-stale):** each bundle binary mtime asserted **newer than** the last source commit (`986cb338`, 2026-07-01 20:02:29 +0100) before the walkthrough. See "Bundle freshness" below.
+- **Build SHA:** `b71cf005` (HEAD at REBUILD — includes the boundary harness-remediation fixes to `minify.ts` + `useAsyncFormat.ts`; see `33-HARNESS-REMEDIATION.md`). The original 33-04 executor bundles (`986cb338`) are SUPERSEDED — those predate the 5 Codex-round fixes to Minify (attribute-whitespace + quoted-`>` + error offset) and the whitespace DoS guard, exactly the paths the offline Minify walkthrough exercises. Test THIS build.
+- **Channels built (rebuilt LAST, after ALL source incl. the remediation fixes landed):**
+  - **direct (arm64):** `src-tauri/target/direct/release/bundle/macos/TinkerDev.app` (+ `.../bundle/dmg/TinkerDev_1.0.0_aarch64.dmg`)
+  - **appstore (dev-signed, universal):** `src-tauri/target/appstore/universal-apple-darwin/release/bundle/macos/TinkerDev.app`
+- **Freshness (T-33-10 anti-stale):** each bundle binary mtime asserted **newer than** the newest source commit (`3ab84bca`, epoch `1782943243`) before the walkthrough. See "Bundle freshness" below.
 
 ## Allowed-request criteria (what a CLEAN Network tab means)
 
@@ -47,13 +47,13 @@ This file does NOT claim a machine-checkable OS-level network intercept the harn
 ## Bundle freshness (T-33-10) — agent-recorded
 
 Agent-recorded (`stat -f %m` on each `.app/Contents/MacOS/devtools-app` vs the
-`986cb338` commit epoch `1782932549` = 2026-07-01 20:02:29 +0100). Both bundles
-are universal (`lipo -archs` → `x86_64 arm64`).
+newest source commit `3ab84bca` epoch `1782943243`). Direct is arm64 (this host);
+appstore is universal (`lipo -archs` → `x86_64 arm64`).
 
-| Channel  | Bundle binary mtime            | > last source commit? |
-|----------|--------------------------------|-----------------------|
-| direct   | 1782932663 (2026-07-01 20:04:23) | YES ✓                 |
-| appstore | 1782932804 (2026-07-01 20:06:44) | YES ✓                 |
+| Channel  | Bundle binary mtime | > newest source commit (1782943243)? | archs |
+|----------|---------------------|--------------------------------------|-------|
+| direct   | 1782943711          | YES ✓                                | arm64 |
+| appstore | 1782943781          | YES ✓                                | x86_64 arm64 |
 
 Both builds exited 0. The appstore bundle passed `verify-appstore-bundle.sh
 --require-bundle` in full, INCLUDING the PRT-02 sentinel: "prettier + esbuild-wasm
