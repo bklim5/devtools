@@ -5,6 +5,8 @@ import tailwindcss from "@tailwindcss/vite";
 import { fileURLToPath, URL } from "node:url";
 // @ts-expect-error .mjs guard module has no type declarations (nodejs ESM)
 import { licenseUiFoldInGuard } from "./scripts/licenseUiFoldInGuard.mjs";
+// @ts-expect-error .mjs guard module has no type declarations (nodejs ESM)
+import { prettierChunkGuard } from "./scripts/prettierChunkGuard.mjs";
 
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
@@ -24,6 +26,11 @@ export default defineConfig(async () => ({
   plugins: [
     react(),
     tailwindcss(),
+    // PRT-02 heavy-engine chunk-isolation guard — UNGATED (both channels ship
+    // prettier + esbuild, so this is NOT inside the isAppstoreBuild branch). Fails
+    // the build if a prettier/esbuild-wasm module becomes initially-reachable from
+    // an entry chunk via static imports, and emits prettier-chunk-inventory.json.
+    prettierChunkGuard(),
     ...(isAppstoreBuild ? [licenseUiFoldInGuard()] : []),
   ],
 
