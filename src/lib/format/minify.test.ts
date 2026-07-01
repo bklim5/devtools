@@ -187,6 +187,39 @@ describe("minifyHtml", () => {
     }
   });
 
+  it("preserves a JSON-LD (application/ld+json) data block verbatim — not fed to esbuild", async () => {
+    // Bare JSON object syntax is NOT valid JS; routing it to esbuild would reject
+    // the whole page. JSON-LD is ubiquitous (SEO), so this must stay ok:true.
+    const block = `<script type="application/ld+json">{ "@context": "https://schema.org" }</script>`;
+    const r = await minifyHtml(`<html><head>${block}</head><body>  hi  </body></html>`);
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      // Body preserved byte-for-byte (whitespace inside the data block untouched).
+      expect(r.output).toContain(`{ "@context": "https://schema.org" }`);
+      expect(r.output).toContain(`type="application/ld+json"`);
+    }
+  });
+
+  it("preserves an importmap and an application/json data block verbatim", async () => {
+    const importmap = `<script type="importmap">{ "imports": { "x": "/x.js" } }</script>`;
+    const dataJson = `<script type='application/json'>{ "a": 1 }</script>`;
+    const r = await minifyHtml(`${importmap}${dataJson}`);
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.output).toContain(`{ "imports": { "x": "/x.js" } }`);
+      expect(r.output).toContain(`{ "a": 1 }`);
+    }
+  });
+
+  it("still minifies a JS script when type is module or a JS MIME (not treated as data)", async () => {
+    const mod = await minifyHtml(`<script type="module">const a = 1 ;</script>`);
+    expect(mod.ok).toBe(true);
+    if (mod.ok) expect(mod.output).toContain("const a=1");
+    const mime = await minifyHtml(`<script type="text/javascript">const b = 2 ;</script>`);
+    expect(mime.ok).toBe(true);
+    if (mime.ok) expect(mime.output).toContain("const b=2");
+  });
+
   it("maps empty/whitespace input to ok with empty output and 0 bytes", async () => {
     const r = await minifyHtml("   \n  ");
     expect(r).toEqual({ ok: true, output: "", inputBytes: 0, outputBytes: 0 });

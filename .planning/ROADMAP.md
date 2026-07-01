@@ -177,6 +177,7 @@ Coverage: all 13 v1.9 requirements (PRT-01..13) mapped to exactly one phase, no 
   3. The HTML toolbar exposes indent (2/4/tab), printWidth (80/100/120, default 80), and a Minify action; output is paste-instant with a visible focusable copy via the platform seam and an in→out byte-delta status bar.
   4. The HTML tool appears in the sidebar, ⌘K palette, and HashRouter automatically from a registry-only entry, ships free (no entitlement gate), and passes WCAG-AA (visible focus, AA contrast, no opacity-only disabled state). [PRT-12]
   5. As the first mounted prettier/esbuild consumer, the HTML tool inherits the P32 offline-e2e obligation: a real-WKWebView offline paste proof (Wi-Fi off, DevTools Network tab clean while prettifying/minifying) MUST pass before this tool can close. [PRT-04, carried from Phase 32]
+  6. **Large-paste guard (carried from Phase 32, Codex adversarial review):** the P32 engines run Prettier/esbuild synchronously on the webview main thread with no size cap (a deliberate altitude choice — off-threading buys nothing for the common case). The HTML tool, as the first mounted consumer, MUST decide + implement the pathological-paste UX: a hard input-size guard returning a clear "input too large" status (or an interruptible/worker path) so a multi-MB paste cannot freeze the UI, contradicting the <2s paste-instant promise. Cover with a test that oversized input never enters the engine path.
 **Plans**: TBD
 **UI hint**: yes
 
@@ -189,6 +190,7 @@ Coverage: all 13 v1.9 requirements (PRT-01..13) mapped to exactly one phase, no 
   2. User can Minify to compact valid output via esbuild.
   3. The JS/TS toolbar exposes indent (2/4/tab), printWidth, a semicolons toggle, a single-quote toggle, and a Minify action; output is paste-instant with a visible focusable copy via the platform seam and an in→out byte-delta status bar.
   4. The tool registers registry-only (sidebar/⌘K/router auto-derive) and ships free + WCAG-AA, reusing the Phase-33 registry/free-tier pattern (shares PRT-12).
+  5. **Large-paste guard (carried from Phase 32, Codex adversarial review):** same obligation as Phase 33 criterion 6 — the JS/TS tool mounts the same uncapped main-thread P32 engines, so if Phase 33 has not already landed a shared large-input guard, this tool MUST ensure a multi-MB paste returns a clear "too large" status rather than freezing the UI, with a test proving oversized input never reaches the engine.
 **Plans**: TBD
 **UI hint**: yes
 

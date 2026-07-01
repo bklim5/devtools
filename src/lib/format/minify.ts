@@ -142,6 +142,30 @@ function collapseMarkup(s: string): string {
   return s.replace(/\s+/g, " ");
 }
 
+/**
+ * A `<script>` holds executable JavaScript only when its `type` is absent, empty,
+ * `module`, or a JS MIME type. Everything else — `application/json`,
+ * `application/ld+json` (JSON-LD), `importmap`, `text/plain`, or a custom template
+ * type — is a DATA block, not code (WHATWG "the script block's type"). Feeding such
+ * a block to esbuild's JS parser would reject valid content (bare JSON object
+ * syntax) and fail the whole page's minify, so data blocks are preserved verbatim.
+ */
+const JS_SCRIPT_TYPES = new Set([
+  "",
+  "module",
+  "text/javascript",
+  "application/javascript",
+  "text/ecmascript",
+  "application/ecmascript",
+]);
+
+function scriptIsJavaScript(attrs: string): boolean {
+  const m = /\btype\s*=\s*("([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/i.exec(attrs);
+  if (!m) return true; // no type attribute → a classic JavaScript script
+  const value = (m[2] ?? m[3] ?? m[4] ?? "").trim().toLowerCase();
+  return JS_SCRIPT_TYPES.has(value);
+}
+
 /** IE conditional comments (`<!--[if …]>` / `<![endif]-->`) are preserved. */
 function isConditionalComment(inner: string): boolean {
   return /^\s*\[if\b/i.test(inner) || /\[endif\]/i.test(inner);
@@ -182,6 +206,13 @@ export async function minifyHtml(input: string): Promise<FormatResult> {
         const tagLower = tag.toLowerCase();
         const attrs = g.attrs ?? "";
         const body = g.body ?? "";
+        // A non-JS <script> data block (JSON-LD, importmap, application/json, …) is
+        // NOT code — esbuild would reject it and fail the whole page. Preserve it
+        // verbatim, exactly like <pre>/<textarea>.
+        if (tagLower === "script" && !scriptIsJavaScript(attrs)) {
+          parts.push(m[0]);
+          continue;
+        }
         if (body.trim() === "") {
           parts.push(`<${tag}${attrs}></${tag}>`);
           continue;
