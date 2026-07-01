@@ -78,12 +78,12 @@ Which phases cover which requirements. Populated during roadmap creation.
 | PRT-04 | Phase 32 | In progress (error-surface 32-03 + offline engine-layer 32-05 + large-paste guard 33-01; interactive + WKWebView offline paste half carried to P33/34: 33-03/33-04) |
 | PRT-05 | Phase 32 | Complete (32-01) |
 | PRT-06 | Phase 32 | Complete (engine 32-04; lazy/code-split + offline proof 32-05) |
-| PRT-07 | Phase 33 | Pending |
-| PRT-08 | Phase 33 | Pending |
+| PRT-07 | Phase 33 | In progress (engine SC1/SC2 locks 33-02 + mounted prettify/minify tool + unit tests 33-03; interactive real-WKWebView proof 33-04) |
+| PRT-08 | Phase 33 | In progress (toolbar indent + printWidth 80/100/120 default 80 + Minify + in→out byte delta + focusable copy, mounted + unit-tested 33-03; paste-instant real-WKWebView proof 33-04) |
 | PRT-09 | Phase 34 | Pending |
 | PRT-10 | Phase 34 | Pending |
 | PRT-11 | Phase 32 | Pending |
-| PRT-12 | Phase 33 | Pending |
+| PRT-12 | Phase 33 | In progress (registry-only sidebar/⌘K/HashRouter derive + free/no-entitlement tool mounted + unit-tested 33-03; WCAG-AA audit 33-04) |
 | PRT-13 | Phase 31 | Complete |
 
 **Coverage:**
