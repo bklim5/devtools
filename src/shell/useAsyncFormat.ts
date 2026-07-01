@@ -30,6 +30,53 @@ import type { FormatResult } from "@/lib/format/types";
  */
 export const DEBOUNCE_MS = 180;
 
+/**
+ * Hard input-size cap (SC6 / PRT-04): 2 MB UTF-8 (D-02). Comfortably covers real
+ * pasted HTML (~200–500 KB) while keeping the worst-case 4-plugin Prettier-with-
+ * embedded-code parse well under the <2s paste-instant promise; messaged to the
+ * user as "2 MB". A paste over this never enters the (chunk-loading, synchronous
+ * main-thread) engine path, so a multi-MB blob can't freeze the UI.
+ */
+export const MAX_FORMAT_INPUT_BYTES = 2_000_000;
+
+/**
+ * Bounded UTF-8 byte length: returns the exact byte count when it is <= max, or
+ * null (over-cap) the instant the running total exceeds max — never allocating/
+ * encoding the whole string. Work is O(min(n, max)), bounded by the cap, not the
+ * input length. This is the DoS-safe replacement for byteLen() (a full
+ * TextEncoder.encode) AND for an input.length pre-check (which is UTF-16 code
+ * units and wrongly passes a multibyte over-cap input).
+ *
+ * Byte-for-byte identical to TextEncoder for ALL inputs: it consumes the next code
+ * unit ONLY for a genuine surrogate PAIR (a supplementary code point = 4 bytes); a
+ * lone/unpaired high OR low surrogate is 3 bytes (TextEncoder emits U+FFFD) and does
+ * NOT swallow the following unit. The naive "every high surrogate ⇒ 4 bytes + i++"
+ * under-counts "\uD800€" as 4 bytes and drops the €, letting a crafted malformed
+ * paste under-report and slip past the cap into the runner (a guard BYPASS).
+ */
+function utf8LenBounded(s: string, max: number): number | null {
+  let bytes = 0;
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (c < 0x80) bytes += 1;
+    else if (c < 0x800) bytes += 2;
+    else if (
+      c >= 0xd800 &&
+      c <= 0xdbff && // high surrogate …
+      i + 1 < s.length &&
+      s.charCodeAt(i + 1) >= 0xdc00 && // … immediately followed by a
+      s.charCodeAt(i + 1) <= 0xdfff // genuine LOW surrogate → a real pair
+    ) {
+      bytes += 4; // valid surrogate PAIR = one supplementary code point (4 UTF-8 bytes)
+      i++; // consume the paired low surrogate ONLY when it is actually there
+    } else {
+      bytes += 3; // BMP char OR unpaired/lone surrogate → 3 bytes (matches TextEncoder U+FFFD)
+    }
+    if (bytes > max) return null; // over-cap: bail immediately, no full encode
+  }
+  return bytes;
+}
+
 /** Neutral empty state — a successful format of nothing (stable ref so an empty
  *  input never churns a re-render). Returned whenever the input is blank. */
 const EMPTY_OK: FormatResult = {
@@ -37,6 +84,15 @@ const EMPTY_OK: FormatResult = {
   output: "",
   inputBytes: 0,
   outputBytes: 0,
+};
+
+/** Stable over-cap rejection (mirrors the EMPTY_OK stable-ref pattern so an
+ *  over-cap render never churns a new object). A SINGLE static message — with a
+ *  bounded counter the exact over-cap byte count is deliberately never computed,
+ *  so it says "> 2 MB", not an exact "X.X MB" (D-01/D-02). */
+const OVERSIZE_RESULT: FormatResult = {
+  ok: false,
+  error: { message: "Input too large (> 2 MB) — 2 MB max" },
 };
 
 /**
@@ -48,7 +104,19 @@ const EMPTY_OK: FormatResult = {
  * - The previously-resolved `result` stays readable while `pending` (no blank flash).
  * - Empty/whitespace input returns {@link EMPTY_OK}, clears `pending`, and bumps the
  *   reqId so any in-flight resolve is dropped; the runner is never called for empty.
+ * - Over-cap input (> `maxInputBytes` UTF-8, default {@link MAX_FORMAT_INPUT_BYTES})
+ *   short-circuits to {@link OVERSIZE_RESULT} BEFORE the debounce/runner — a
+ *   multi-MB paste never enters the engine path (SC6). Oversize is detected by
+ *   {@link utf8LenBounded}, which bails the instant the running byte total exceeds
+ *   the cap, so the pathological paste is NEVER fully encoded just to measure it
+ *   (ASCII, multibyte, AND malformed-surrogate alike).
  * - A stale resolve (`id !== reqIdRef.current`) is dropped — the ordering guarantee.
+ *
+ * Returns `inputBytes` alongside so a consuming tool reads the input size straight
+ * from the hook and NEVER recomputes `byteLen(input)`: `0` when empty · `undefined`
+ * when over-cap (deliberately unmeasured — the bounded counter returned null
+ * without a full encode) · the engine's `inputBytes` when the result is ok · the
+ * bounded exact count when under-cap but the result is an error.
  *
  * `opts` is compared by identity — callers pass primitives or a memoized object.
  */
@@ -56,7 +124,8 @@ export function useAsyncFormat<O>(
   input: string,
   opts: O,
   runner: (input: string, opts: O) => Promise<FormatResult>,
-): { result: FormatResult; pending: boolean } {
+  maxInputBytes: number = MAX_FORMAT_INPUT_BYTES,
+): { result: FormatResult; pending: boolean; inputBytes: number | undefined } {
   const [resolved, setResolved] = useState<FormatResult>(EMPTY_OK);
   const [pending, setPending] = useState(false);
 
@@ -76,15 +145,23 @@ export function useAsyncFormat<O>(
 
   const isEmpty = input.trim() === "";
 
-  // Adjust state during render (React's documented pattern) — a blank input clears
-  // any stale `pending` from a run that was dropped, so it never lingers true. The
-  // `pending` guard makes this a one-shot, not a render loop.
-  if (isEmpty && pending) setPending(false);
+  // The ONLY size work for a non-empty input — a bounded counter that returns null
+  // (over-cap) the instant its running byte total crosses the cap, so an oversize
+  // paste is NEVER fully encoded just to be measured (the load-bearing DoS fix).
+  const measured = isEmpty ? 0 : utf8LenBounded(input, maxInputBytes);
+  const isOversize = measured === null; // counter bailed → over-cap, no full encode
+  const exactBytes = measured === null ? undefined : measured; // exact count when under-cap
+
+  // Adjust state during render (React's documented pattern) — a blank or oversize
+  // input clears any stale `pending` from a run that was dropped, so it never
+  // lingers true. The `pending` guard makes this a one-shot, not a render loop.
+  if ((isEmpty || isOversize) && pending) setPending(false);
 
   useEffect(() => {
-    // Empty/whitespace is the neutral state; the prior render's cleanup already
-    // bumped the reqId (dropping any in-flight resolve), so just don't run.
-    if (isEmpty) return;
+    // Empty/whitespace is the neutral state and oversize is a hard reject; the
+    // prior render's cleanup already bumped the reqId (dropping any in-flight
+    // resolve), so in either case just don't run.
+    if (isEmpty || isOversize) return;
 
     const timer = setTimeout(() => {
       const id = ++reqIdRef.current;
@@ -113,7 +190,22 @@ export function useAsyncFormat<O>(
       // eslint-disable-next-line react-hooks/exhaustive-deps
       reqIdRef.current++;
     };
-  }, [isEmpty, input, opts]);
+  }, [isEmpty, isOversize, input, opts]);
 
-  return { result: isEmpty ? EMPTY_OK : resolved, pending };
+  // The size metadata a consuming tool reads INSTEAD of recomputing byteLen(input).
+  // Over-cap is deliberately `undefined` — the ONE place that would otherwise
+  // re-encode a multi-MB string at the tool seam is eliminated by construction.
+  const inputBytes: number | undefined = isEmpty
+    ? 0
+    : isOversize
+      ? undefined // over-cap: deliberately unmeasured — the tool must NOT re-encode
+      : resolved.ok
+        ? resolved.inputBytes // engine-provided count (last-good during pending)
+        : exactBytes; // under-cap error: exact count from the bounded counter
+
+  return {
+    result: isEmpty ? EMPTY_OK : isOversize ? OVERSIZE_RESULT : resolved,
+    pending,
+    inputBytes,
+  };
 }
