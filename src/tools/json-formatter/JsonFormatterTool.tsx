@@ -8,7 +8,7 @@
 import { useMemo, useState } from "react";
 import { formatJson } from "@/lib/format/json";
 import { timed, type IndentMode } from "@/lib/format/types";
-import { FormatterView } from "@/components/FormatterView";
+import { FormatterView, type FormatMode } from "@/components/FormatterView";
 import type { ParseState } from "@/components/StatusBar";
 
 function byteLen(s: string): number {
@@ -18,8 +18,11 @@ function byteLen(s: string): number {
 export default function JsonFormatterTool() {
   const [input, setInput] = useState("");
   const [indent, setIndent] = useState<IndentMode>("2");
-  const [minify, setMinify] = useState(false);
+  // Unified mode selector (D-03/D-05): prettify default, minify derived from mode.
+  // The pure formatJson is UNCHANGED — it still takes a boolean `minify`.
+  const [mode, setMode] = useState<FormatMode>("prettify");
   const [sortKeys, setSortKeys] = useState(false);
+  const minify = mode === "minify";
 
   // Derive synchronously — formatJson is pure and cheap (D-07). Time the pure call
   // HERE, where the work actually happens; the old code measured around setInput (a
@@ -53,10 +56,11 @@ export default function JsonFormatterTool() {
       onInputChange={setInput}
       output={output}
       controls={{
+        mode,
+        onMode: setMode,
         indent,
         onIndent: setIndent,
-        minify,
-        onMinify: setMinify,
+        // No onPrintWidth: JSON never exposes printWidth (D-06).
         sortKeys,
         onSortKeys: setSortKeys,
       }}

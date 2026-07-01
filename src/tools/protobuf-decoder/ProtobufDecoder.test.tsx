@@ -68,7 +68,9 @@ describe("ProtobufDecoder", () => {
     expect(() =>
       fireEvent.change(input(container), { target: { value: "1c" } }),
     ).not.toThrow();
-    const status = container.querySelector("footer[role='status']")!;
+    // On error the shared StatusBar footer is now role=alert (D-07), not status.
+    const status = container.querySelector("footer")!;
+    expect(status.getAttribute("role")).toBe("alert");
     expect(within(status as HTMLElement).getByLabelText("parse state").textContent).toBe(
       "Error",
     );
@@ -142,7 +144,9 @@ describe("ProtobufDecoder", () => {
     expect(() =>
       fireEvent.change(input(container), { target: { value: "1, 2, 999" } }),
     ).not.toThrow();
-    const status = container.querySelector("footer[role='status']")!;
+    // On error the shared StatusBar footer is now role=alert (D-07), not status.
+    const status = container.querySelector("footer")!;
+    expect(status.getAttribute("role")).toBe("alert");
     expect(within(status as HTMLElement).getByLabelText("parse state").textContent).toBe(
       "Error",
     );

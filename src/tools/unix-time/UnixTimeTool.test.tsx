@@ -79,7 +79,9 @@ describe("UnixTimeTool", () => {
     const err = container.querySelector("#unix-time-input-error");
     expect(err).toBeTruthy();
     expect(err!.className).toContain("text-bad");
-    const status = container.querySelector("footer[role='status']")!;
+    // On error the shared StatusBar footer is now role=alert (D-07), not status.
+    const status = container.querySelector("footer")!;
+    expect(status.getAttribute("role")).toBe("alert");
     expect(status.textContent).toContain("Error");
   });
 

@@ -35,6 +35,13 @@ export interface StatusBarProps {
   error?: string | null;
   /** Last operation timing in ms (optional; omitted when not measured). */
   timingMs?: number;
+  /**
+   * Async formatters (Phase 32+) set this true while a format is in-flight (incl.
+   * the one-time lazy-chunk load). When true AND not in an error state, a calm,
+   * subtle "Formatting…" hint renders in the left cluster (D-01 — no spinner/overlay,
+   * no output flicker). Synchronous tools (JSON/XML/Base64/…) never pass it.
+   */
+  pending?: boolean;
 }
 
 /** Thousands-separated count, used ONLY in the delta branch (D-04). */
@@ -55,12 +62,16 @@ export function StatusBar({
   encoding,
   error,
   timingMs,
+  pending,
 }: StatusBarProps) {
+  // D-07: ONE error surface, upgraded — parse/format/minify errors announce
+  // assertively (role=alert) so they interrupt; the calm ok/empty/pending states
+  // stay polite (role=status). No second alert line.
   return (
     <footer
       className="flex h-[38px] flex-none items-center justify-between gap-3 border-t border-bd px-3 font-mono text-[11.5px] text-tx-2"
-      role="status"
-      aria-live="polite"
+      role={parseState === "error" ? "alert" : "status"}
+      aria-live={parseState === "error" ? "assertive" : "polite"}
     >
       <div className="flex min-w-0 items-center gap-3">
         <span
@@ -77,6 +88,12 @@ export function StatusBar({
           </span>
         ) : null}
         {encoding ? <span aria-label="encoding">{encoding}</span> : null}
+        {pending && parseState !== "error" ? (
+          // D-01: calm in-flight hint — no spinner/overlay, last-good output stays.
+          <span aria-label="formatting" className="text-tx-2">
+            Formatting…
+          </span>
+        ) : null}
       </div>
       <div className="flex min-w-0 items-center gap-3">
         {error ? (

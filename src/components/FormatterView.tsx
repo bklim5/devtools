@@ -1,16 +1,19 @@
-// Shared presentational formatter shell (D-01/D-03/D-06/D-08) — JSON/XML-AGNOSTIC.
-// Both JsonFormatterTool and (wave 3) XmlFormatterTool render this; it owns no
-// transform logic. A single top toolbar (indent 2/4/tab segmented group, a minify
-// toggle, an OPTIONAL sort-keys toggle rendered only when `onSortKeys` is given —
-// JSON yes, XML no, D-06 — plus the output copy button), then a resizable
-// input | output split, then the StatusBar footer. The container and panes are
-// layout-agnostic (no fixed widths, min-w-0/min-h-0; UX-05).
+// Shared presentational formatter shell (D-01/D-03/D-04/D-06/D-08) — TOOL-AGNOSTIC.
+// JSON, XML, and (Phase 33/34) the HTML + JS/TS tools all render this; it owns no
+// transform logic. A single top toolbar carries a mutually-exclusive
+// [ Prettify | Minify ] segmented MODE selector (D-03), the indent 2/4/tab segmented
+// group, an OPTIONAL printWidth 80/100/120 group (D-06 — rendered only when a tool
+// supplies `onPrintWidth`, Prettier-tools only; JSON/XML omit it), an OPTIONAL
+// sort-keys toggle (JSON yes, XML no), plus the output copy button, then a resizable
+// input | output split, then the StatusBar footer. When Minify mode is active the
+// indent + printWidth groups are HIDDEN (D-04 — meaningless for minified output).
+// The container and panes are layout-agnostic (no fixed widths, min-w-0/min-h-0; UX-05).
 //
 // Output is a READ-ONLY <textarea> showing plain monospace text — NO syntax
 // highlighting and NO raw-HTML injection (D-03 / threat T-07-05). Copy is a real,
 // visible, focusable <button> (FMT-08, no hover gate) writing through the platform
-// clipboard seam. Accent = selected only: the active indent option and an ON toggle
-// carry aria-pressed + accent classes; inactive ones stay neutral.
+// clipboard seam. Accent = selected only: the active mode/indent/width segment and
+// an ON toggle carry aria-pressed + accent classes; inactive ones stay neutral.
 import { Check, Copy } from "lucide-react";
 import { platform } from "@/lib/platform";
 import { useCopyFeedback } from "@/shell/useCopyFeedback";
@@ -18,12 +21,18 @@ import { ResizableSplit } from "@/components/ResizableSplit";
 import { StatusBar, type ParseState } from "@/components/StatusBar";
 import type { IndentMode } from "@/lib/format/types";
 
+/** Mutually-exclusive prettify/minify mode (D-03) — replaces the old minify toggle. */
+export type FormatMode = "prettify" | "minify";
+
 export interface FormatterControls {
+  mode: FormatMode;
+  onMode: (m: FormatMode) => void;
   indent: IndentMode;
   onIndent: (m: IndentMode) => void;
-  minify: boolean;
-  onMinify: (v: boolean) => void;
-  /** Present (with `onSortKeys`) = JSON; omit for XML. */
+  /** Present (with `onPrintWidth`) = Prettier tools (P33/P34); JSON/XML OMIT it (D-06). */
+  printWidth?: number;
+  onPrintWidth?: (w: number) => void;
+  /** Present (with `onSortKeys`) = JSON; omit for XML. Visible in both modes (D-04). */
   sortKeys?: boolean;
   onSortKeys?: (v: boolean) => void;
 }
@@ -34,6 +43,8 @@ export interface FormatterStatus {
   outputBytes?: number;
   error?: string | null;
   timingMs?: number;
+  /** Subtle "Formatting…" StatusBar hint while an async format is in-flight (D-01). */
+  pending?: boolean;
 }
 
 export interface FormatterViewProps {
@@ -55,10 +66,23 @@ export interface FormatterViewProps {
   status: FormatterStatus;
 }
 
+const MODE_OPTIONS: { value: FormatMode; label: string }[] = [
+  { value: "prettify", label: "Prettify" },
+  { value: "minify", label: "Minify" },
+];
+
 const INDENT_OPTIONS: { value: IndentMode; label: string }[] = [
   { value: "2", label: "2" },
   { value: "4", label: "4" },
   { value: "tab", label: "tab" },
+];
+
+// D-06: printWidth = the max line length before Prettier wraps a long line
+// (independent of indent). Prettier-tools only; JSON/XML omit onPrintWidth.
+const PRINT_WIDTH_OPTIONS: { value: number; label: string }[] = [
+  { value: 80, label: "80" },
+  { value: 100, label: "100" },
+  { value: 120, label: "120" },
 ];
 
 /** Shared accent-on-selected toggle/segment styling (mirrors Base64's AlphabetToggle). */
@@ -70,6 +94,53 @@ function toggleClasses(active: boolean): string {
       ? "border border-accent-line bg-accent-soft text-accent"
       : "border border-transparent text-tx-2 hover:text-tx",
   ].join(" ");
+}
+
+interface SegmentGroupProps<T extends string | number> {
+  /** Visible + accessible-name label for the group (e.g. "Mode", "Indent", "Width"). */
+  label: string;
+  /** Stable id linking the label span to the role=group container (aria-labelledby). */
+  labelId: string;
+  options: readonly { value: T; label: string }[];
+  value: T;
+  onChange: (v: T) => void;
+}
+
+/** A labelled, accent-on-selected segmented control (mode / indent / printWidth). */
+function SegmentGroup<T extends string | number>({
+  label,
+  labelId,
+  options,
+  value,
+  onChange,
+}: SegmentGroupProps<T>) {
+  return (
+    <div className="flex items-center gap-2">
+      <span
+        id={labelId}
+        className="text-[11px] font-medium uppercase tracking-wide text-tx-2"
+      >
+        {label}
+      </span>
+      <div
+        role="group"
+        aria-labelledby={labelId}
+        className="flex items-center gap-1 rounded-[7px] border border-bd bg-input-bg p-0.5"
+      >
+        {options.map((opt) => (
+          <button
+            key={String(opt.value)}
+            type="button"
+            aria-pressed={value === opt.value}
+            onClick={() => onChange(opt.value)}
+            className={toggleClasses(value === opt.value)}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 interface ToggleProps {
@@ -181,34 +252,37 @@ export function FormatterView({
     <div className="flex h-full min-w-0 flex-col">
       {/* Shared top toolbar */}
       <div className="flex flex-none flex-wrap items-center gap-3 border-b border-bd px-3 py-2">
-        <div className="flex items-center gap-2">
-          {/* Visible label so the 2/4/tab segments are self-explanatory. "Indent"
-              (not "Spaces") because one option is a literal tab, not spaces. */}
-          <span
-            id={`${inputId}-indent-label`}
-            className="text-[11px] font-medium uppercase tracking-wide text-tx-2"
-          >
-            Indent
-          </span>
-          <div
-            role="group"
-            aria-labelledby={`${inputId}-indent-label`}
-            className="flex items-center gap-1 rounded-[7px] border border-bd bg-input-bg p-0.5"
-          >
-            {INDENT_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                aria-pressed={controls.indent === opt.value}
-                onClick={() => controls.onIndent(opt.value)}
-                className={toggleClasses(controls.indent === opt.value)}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <Toggle label="Minify" pressed={controls.minify} onToggle={controls.onMinify} />
+        {/* Mutually-exclusive [ Prettify | Minify ] mode selector (D-03). */}
+        <SegmentGroup
+          label="Mode"
+          labelId={`${inputId}-mode-label`}
+          options={MODE_OPTIONS}
+          value={controls.mode}
+          onChange={controls.onMode}
+        />
+        {/* D-04: indent is meaningless for minified output, so it is HIDDEN in
+            Minify mode and restored in Prettify. "Indent" (not "Spaces") because
+            one option is a literal tab. */}
+        {controls.mode === "prettify" && (
+          <SegmentGroup
+            label="Indent"
+            labelId={`${inputId}-indent-label`}
+            options={INDENT_OPTIONS}
+            value={controls.indent}
+            onChange={controls.onIndent}
+          />
+        )}
+        {/* Optional printWidth (D-06): Prettier tools only (onPrintWidth supplied)
+            AND only in Prettify mode — likewise hidden in Minify (D-04). */}
+        {controls.onPrintWidth && controls.mode === "prettify" ? (
+          <SegmentGroup
+            label="Width"
+            labelId={`${inputId}-width-label`}
+            options={PRINT_WIDTH_OPTIONS}
+            value={controls.printWidth ?? 80}
+            onChange={controls.onPrintWidth}
+          />
+        ) : null}
         {controls.onSortKeys ? (
           <Toggle
             label="Sort keys"
@@ -229,6 +303,7 @@ export function FormatterView({
         outputBytes={status.outputBytes}
         error={status.error}
         timingMs={status.timingMs}
+        pending={status.pending}
       />
     </div>
   );

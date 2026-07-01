@@ -63,7 +63,9 @@ describe("XmlFormatterTool", () => {
     const { container } = render(<XmlFormatterTool />);
     fireEvent.change(inputEl(container), { target: { value: "<a><b></a>" } });
     expect(outputEl(container).value).toBe("");
-    const status = container.querySelector("footer[role=status]")! as HTMLElement;
+    // On error the footer is an assertive alert live region (D-07), not role=status.
+    const status = container.querySelector("footer")! as HTMLElement;
+    expect(status.getAttribute("role")).toBe("alert");
     expect(within(status).getByLabelText("parse state").textContent).toBe("Error");
     // The error span's accessible name IS the message (Fix-2); locate it via its
     // title tooltip rather than the old literal "error" label.
@@ -87,8 +89,18 @@ describe("XmlFormatterTool", () => {
     fireEvent.click(getByRole("button", { name: "4" }));
     expect(outputEl(container).value).toBe("<a>\n    <b>1</b>\n</a>");
 
-    fireEvent.click(getByRole("button", { name: /minify/i }));
+    // Minify is now a mode SEGMENT (not a toggle): clicking it selects minify mode.
+    fireEvent.click(getByRole("button", { name: "Minify" }));
     expect(outputEl(container).value).toBe("<a><b>1</b></a>");
+  });
+
+  it("hides the Indent control in Minify mode and restores it in Prettify (D-04)", () => {
+    const { getByRole, queryByRole } = render(<XmlFormatterTool />);
+    expect(getByRole("group", { name: "Indent" })).toBeTruthy();
+    fireEvent.click(getByRole("button", { name: "Minify" }));
+    expect(queryByRole("group", { name: "Indent" })).toBeNull();
+    fireEvent.click(getByRole("button", { name: "Prettify" }));
+    expect(getByRole("group", { name: "Indent" })).toBeTruthy();
   });
 
   it("renders NO sort-keys control (XML omits onSortKeys, D-06)", () => {

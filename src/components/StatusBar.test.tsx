@@ -91,3 +91,46 @@ describe("StatusBar error full-text affordance (Fix-2)", () => {
     expect(errEl.getAttribute("title")).toBe(longError);
   });
 });
+
+// Phase 32 (D-07/D-01): the single footer is the one error surface — upgraded to an
+// assertive role=alert live region on error (was always role=status), and gains a
+// calm "Formatting…" pending hint for the async formatter tools.
+describe("StatusBar live region + pending hint", () => {
+  it("uses role=alert / aria-live=assertive when parseState is error (D-07)", () => {
+    const { container } = render(
+      <StatusBar parseState="error" byteCount={10} error="3:5 unexpected token" />,
+    );
+    const footer = container.querySelector("footer")!;
+    expect(footer.getAttribute("role")).toBe("alert");
+    expect(footer.getAttribute("aria-live")).toBe("assertive");
+    // line:col is still surfaced on the error span.
+    expect(screen.getByLabelText("3:5 unexpected token").textContent).toContain("3:5");
+  });
+
+  it("uses role=status / aria-live=polite when ok", () => {
+    const { container } = render(<StatusBar parseState="ok" byteCount={12} />);
+    const footer = container.querySelector("footer")!;
+    expect(footer.getAttribute("role")).toBe("status");
+    expect(footer.getAttribute("aria-live")).toBe("polite");
+  });
+
+  it("uses role=status when empty", () => {
+    const { container } = render(<StatusBar parseState="empty" />);
+    expect(container.querySelector("footer")!.getAttribute("role")).toBe("status");
+  });
+
+  it("renders a subtle 'Formatting…' hint when pending and not in error (D-01)", () => {
+    render(<StatusBar parseState="ok" byteCount={12} pending />);
+    expect(screen.getByLabelText("formatting").textContent).toContain("Formatting");
+  });
+
+  it("hides the 'Formatting…' hint in an error state even when pending", () => {
+    render(<StatusBar parseState="error" error="boom" pending />);
+    expect(screen.queryByLabelText("formatting")).toBeNull();
+  });
+
+  it("renders no 'Formatting…' hint by default (synchronous tools omit pending)", () => {
+    render(<StatusBar parseState="ok" byteCount={12} />);
+    expect(screen.queryByLabelText("formatting")).toBeNull();
+  });
+});

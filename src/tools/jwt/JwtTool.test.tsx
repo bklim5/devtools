@@ -88,9 +88,10 @@ describe("JwtTool", () => {
     expect(err).toBeTruthy();
     expect(err.className).toContain("text-bad");
     expect(err.textContent!.toLowerCase()).toContain("token");
-    expect(container.querySelector("footer[role='status']")!.textContent).toContain(
-      "Error",
-    );
+    // On error the shared StatusBar footer is now role=alert (D-07), not status.
+    const status = container.querySelector("footer")!;
+    expect(status.getAttribute("role")).toBe("alert");
+    expect(status.textContent).toContain("Error");
   });
 
   it("a token with exp in the PAST renders a visible 'expired' flag (text-bad)", () => {

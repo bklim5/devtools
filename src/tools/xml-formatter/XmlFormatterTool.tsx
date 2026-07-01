@@ -8,7 +8,7 @@
 import { useMemo, useState } from "react";
 import { formatXml } from "@/lib/format/xml";
 import { timed, type IndentMode } from "@/lib/format/types";
-import { FormatterView } from "@/components/FormatterView";
+import { FormatterView, type FormatMode } from "@/components/FormatterView";
 import type { ParseState } from "@/components/StatusBar";
 
 function byteLen(s: string): number {
@@ -18,7 +18,10 @@ function byteLen(s: string): number {
 export default function XmlFormatterTool() {
   const [input, setInput] = useState("");
   const [indent, setIndent] = useState<IndentMode>("2");
-  const [minify, setMinify] = useState(false);
+  // Unified mode selector (D-03/D-05): prettify default, minify derived from mode.
+  // The pure formatXml is UNCHANGED — it still takes a boolean `minify`.
+  const [mode, setMode] = useState<FormatMode>("prettify");
+  const minify = mode === "minify";
 
   // Derive synchronously — formatXml is pure and cheap (D-07). Time the pure call
   // HERE, where the work actually happens; the old code measured around setInput (a
@@ -52,11 +55,12 @@ export default function XmlFormatterTool() {
       onInputChange={setInput}
       output={output}
       controls={{
+        mode,
+        onMode: setMode,
         indent,
         onIndent: setIndent,
-        minify,
-        onMinify: setMinify,
-        // No onSortKeys: XML has no sort-keys toggle (D-06).
+        // No onSortKeys: XML has no sort-keys toggle. No onPrintWidth: XML never
+        // exposes printWidth (D-06).
       }}
       status={{ parseState, byteCount, outputBytes, error, timingMs }}
     />
