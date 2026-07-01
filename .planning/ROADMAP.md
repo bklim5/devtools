@@ -176,6 +176,7 @@ Coverage: all 13 v1.9 requirements (PRT-01..13) mapped to exactly one phase, no 
   2. User can Minify HTML to compact valid HTML with minified embedded code.
   3. The HTML toolbar exposes indent (2/4/tab), printWidth (80/100/120, default 80), and a Minify action; output is paste-instant with a visible focusable copy via the platform seam and an in→out byte-delta status bar.
   4. The HTML tool appears in the sidebar, ⌘K palette, and HashRouter automatically from a registry-only entry, ships free (no entitlement gate), and passes WCAG-AA (visible focus, AA contrast, no opacity-only disabled state). [PRT-12]
+  5. As the first mounted prettier/esbuild consumer, the HTML tool inherits the P32 offline-e2e obligation: a real-WKWebView offline paste proof (Wi-Fi off, DevTools Network tab clean while prettifying/minifying) MUST pass before this tool can close. [PRT-04, carried from Phase 32]
 **Plans**: TBD
 **UI hint**: yes
 
