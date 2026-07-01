@@ -16,6 +16,16 @@
 const WEBDRIVER_HOST = "127.0.0.1"; // localhost ONLY — never 0.0.0.0
 const WEBDRIVER_PORT = Number(process.env.TAURI_WEBDRIVER_PORT ?? "4445");
 
+// Optional per-task scope: `E2E_SPECS` (comma-separated globs/paths) narrows the
+// run to the tool(s) under test for a phase's UI gate, per the harness "exercise
+// the actual feature flow" rule. Unset → the full suite (CI / phase-close default).
+const SPEC_FILTER = process.env.E2E_SPECS?.trim();
+const SPECS = SPEC_FILTER
+  ? SPEC_FILTER.split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+  : ["./test/e2e/*.e2e.ts"];
+
 export const config: WebdriverIO.Config = {
   runner: "local",
 
@@ -26,7 +36,7 @@ export const config: WebdriverIO.Config = {
   port: WEBDRIVER_PORT,
   path: "/",
 
-  specs: ["./test/e2e/*.e2e.ts"],
+  specs: SPECS,
   maxInstances: 1,
 
   // A single empty capability set: the embedded server drives the one app
