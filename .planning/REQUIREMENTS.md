@@ -33,7 +33,7 @@ Requirements for milestone v1.9. Each maps to exactly one roadmap phase (31–34
 
 ### Shared Shell & Registry Integration
 
-- [ ] **PRT-11**: The shared two-pane `FormatterView` is generalized additively — a `printWidth` control is added and the existing `minify` action is reused for the Prettier tools (wired to esbuild) — with NO change to the existing JSON/XML formatter behaviour.
+- [ ] **PRT-11**: The shared two-pane `FormatterView` is generalized additively — an OPTIONAL `printWidth` control is added and the standalone `minify` toggle is replaced by a mutually-exclusive `[ Prettify | Minify ]` mode selector reused across all four formatter tools (JSON, XML, HTML, JS/TS), with `esbuild` wired as the Minify engine for the Prettier tools only (D-05). **Amended by D-05 (Phase 32):** the earlier "NO change to existing JSON/XML formatter behaviour" is superseded — JSON and XML were **retrofitted to the unified mode selector in Phase 32 (plan 32-03) and re-verified**, while their pure `src/lib/format/json.ts` / `xml.ts` transform logic (native `JSON.stringify` compact / XML whitespace-strip) and tests are **unchanged** (only the UI/control wiring changed — engines stay per-tool). `printWidth` (80/100/120, default 80) renders only in Prettify mode for tools that supply it; JSON/XML never expose it (D-06). Indent + printWidth are hidden in Minify mode (D-04).
 - [ ] **PRT-12**: Both tools register registry-only (the registry stays the single control plane — sidebar, ⌘K palette, and HashRouter all auto-derive), ship on the free tier (no entitlement gate), and meet WCAG-AA (visible focus, AA contrast, no opacity-only disabled state).
 
 ### Documentation & Wedge Integrity

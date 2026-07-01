@@ -5,8 +5,9 @@
 // json-formatter.e2e.ts. Run by scripts/e2e-spike.sh (starts `tauri dev --features
 // webdriver`, waits for :4445, runs `pnpm e2e`, tears the child down). Stable
 // selectors come from XmlFormatterTool.tsx via FormatterView: #xml-input,
-// #xml-output, the output copy <button aria-label="Copy output">, and the status
-// footer[role=status].
+// #xml-output, the output copy <button aria-label="Copy output">, the
+// [ Prettify | Minify ] mode segments (button text), and the status <footer>
+// (role=status normally, role=alert on error — D-07).
 //
 // This is the load-bearing real-runtime check for the XML formatter: it proves the
 // native DOMParser/XMLSerializer path (well-formedness + parsererror surfacing)
@@ -32,13 +33,41 @@ describe("XML formatter tool (real WKWebView)", () => {
       `expected prettified 2-space output, got "${pretty}"`,
     );
 
-    // 2. Invalid XML → output CLEARS and the status bar shows an error (D-08).
+    // 2. Mode selector (D-03/D-04): the Minify SEGMENT compacts the output and
+    //    hides the Indent control; Prettify restores both.
+    const minifyBtn = await $("button=Minify");
+    await minifyBtn.click();
+    const minified = await output.getValue();
+    assert(
+      !minified.includes("\n"),
+      `expected compact output in Minify mode, got "${minified}"`,
+    );
+    const indentInMinify = await $('[aria-labelledby="xml-input-indent-label"]');
+    assert(
+      !(await indentInMinify.isExisting()),
+      "expected the Indent control HIDDEN in Minify mode (D-04)",
+    );
+    const prettifyBtn = await $("button=Prettify");
+    await prettifyBtn.click();
+    const restored = await output.getValue();
+    assert(
+      restored.includes("\n"),
+      `expected prettified output restored in Prettify mode, got "${restored}"`,
+    );
+    const indentRestored = await $('[aria-labelledby="xml-input-indent-label"]');
+    assert(
+      await indentRestored.isExisting(),
+      "expected the Indent control visible again in Prettify mode",
+    );
+
+    // 3. Invalid XML → output CLEARS and the status bar shows an error (D-08). The
+    //    footer is now an assertive role=alert live region on error (D-07).
     await input.setValue("<a><b></a>");
     assert(
       (await output.getValue()) === "",
       `expected output cleared on invalid XML, got "${await output.getValue()}"`,
     );
-    const status = await $("footer[role=status]");
+    const status = await $("footer");
     const errEl = await status.$('[data-status="error"]');
     assert(
       await errEl.isExisting(),
@@ -53,14 +82,14 @@ describe("XML formatter tool (real WKWebView)", () => {
       `XML error leaked DOMParser boilerplate: "${errText}"`,
     );
 
-    // 3. Copy affordance is a visible, focusable <button> — never hover-only (FMT-08).
+    // 4. Copy affordance is a visible, focusable <button> — never hover-only (FMT-08).
     const copy = await $('button[aria-label="Copy output"]');
     assert(
       await copy.isDisplayed(),
       "Copy output button is not visible — hover-only copy is forbidden",
     );
 
-    // 4. Screenshot the real WKWebView (the HRN-02 artifact for this tool).
+    // 5. Screenshot the real WKWebView (the HRN-02 artifact for this tool).
     await saveScreenshot("xml-formatter", "xml-formatter-wkwebview.png");
   });
 });
