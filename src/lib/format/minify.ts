@@ -17,14 +17,10 @@
 // type + best-effort line:col) rather than leaving an un-minified block in the
 // "minified" output.
 import type { FormatResult } from "./types";
+import { byteLen, offsetToLineCol } from "./types";
 
 /** esbuild single-file transform loaders — code languages only (D-05). */
 export type MinifyLoader = "js" | "ts" | "jsx" | "tsx" | "css";
-
-/** UTF-8 byte length — mirrors xml.ts `byteLen` so the StatusBar delta matches. */
-function byteLen(s: string): number {
-  return new TextEncoder().encode(s).length;
-}
 
 type EsbuildModule = typeof import("esbuild-wasm");
 type InitOptions = Parameters<EsbuildModule["initialize"]>[0];
@@ -146,19 +142,6 @@ function collapseMarkup(s: string): string {
   return s.replace(/\s+/g, " ");
 }
 
-/** 1-based {line, col} of a character offset in `input` (for error mapping). */
-function docPosition(input: string, index: number): { line: number; col: number } {
-  let line = 1;
-  let lineStart = 0;
-  for (let i = 0; i < index; i++) {
-    if (input.charCodeAt(i) === 10 /* \n */) {
-      line++;
-      lineStart = i + 1;
-    }
-  }
-  return { line, col: index - lineStart + 1 };
-}
-
 /** IE conditional comments (`<!--[if …]>` / `<![endif]-->`) are preserved. */
 function isConditionalComment(inner: string): boolean {
   return /^\s*\[if\b/i.test(inner) || /\[endif\]/i.test(inner);
@@ -196,18 +179,19 @@ export async function minifyHtml(input: string): Promise<FormatResult> {
       }
       if (g.code !== undefined) {
         const tag = g.code;
+        const tagLower = tag.toLowerCase();
         const attrs = g.attrs ?? "";
         const body = g.body ?? "";
         if (body.trim() === "") {
           parts.push(`<${tag}${attrs}></${tag}>`);
           continue;
         }
-        const loader: MinifyLoader = tag.toLowerCase() === "script" ? "js" : "css";
+        const loader: MinifyLoader = tagLower === "script" ? "js" : "css";
         const inner = await minifyScript(body, loader);
         if (!inner.ok) {
           // D-07: surface the failure — never leave the raw block in the output.
           const bodyStart = m.index + m[0].indexOf(">") + 1;
-          const pos = docPosition(input, bodyStart);
+          const pos = offsetToLineCol(input, bodyStart);
           const eLine = inner.error.line;
           const eCol = inner.error.col;
           const line = eLine !== undefined ? pos.line + eLine - 1 : pos.line;
@@ -216,7 +200,7 @@ export async function minifyHtml(input: string): Promise<FormatResult> {
           return {
             ok: false,
             error: {
-              message: `<${tag.toLowerCase()}> block: ${inner.error.message}`,
+              message: `<${tagLower}> block: ${inner.error.message}`,
               line,
               col,
             },

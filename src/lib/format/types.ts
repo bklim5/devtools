@@ -36,3 +36,28 @@ export function timed<T>(fn: () => T): { result: T; timingMs: number } {
   const result = fn();
   return { result, timingMs: performance.now() - t0 };
 }
+
+const UTF8 = new TextEncoder();
+
+/** UTF-8 byte length — the single shared source for every formatter's StatusBar delta. */
+export function byteLen(s: string): number {
+  return UTF8.encode(s).length;
+}
+
+/**
+ * 1-based {line, col} of a character offset in `input` — the shared error-position
+ * helper for the formatters. Clamps out-of-range offsets so a bad index can never
+ * throw; `col` is 1-based (offset at a line's first char → col 1).
+ */
+export function offsetToLineCol(input: string, offset: number): { line: number; col: number } {
+  const clamped = Math.max(0, Math.min(offset, input.length));
+  let line = 1;
+  let lastNewline = -1;
+  for (let i = 0; i < clamped; i++) {
+    if (input[i] === "\n") {
+      line += 1;
+      lastNewline = i;
+    }
+  }
+  return { line, col: clamped - lastNewline }; // col is 1-based
+}

@@ -13,11 +13,7 @@
 //   order is PRESERVED.
 // - minify wins over prettify (D-06): `JSON.stringify(value)` (single line).
 import type { FormatOptions, FormatResult, IndentMode } from "./types";
-
-/** UTF-8 byte length, matching how the StatusBar delta is measured. */
-function byteLen(s: string): number {
-  return new TextEncoder().encode(s).length;
-}
+import { byteLen, offsetToLineCol } from "./types";
 
 /**
  * Recursively rebuild a parsed value with object keys in sorted order. Arrays
@@ -42,20 +38,6 @@ function sortKeysDeep(value: unknown): unknown {
 /** The `space` arg for `JSON.stringify`: number of spaces, or a literal tab. */
 function indentSpace(indent: IndentMode): number | string {
   return indent === "tab" ? "\t" : Number(indent);
-}
-
-/** Convert a 0-based char offset over `input` into a 1-based line:col. */
-function offsetToLineCol(input: string, offset: number): { line: number; col: number } {
-  const clamped = Math.max(0, Math.min(offset, input.length));
-  let line = 1;
-  let lastNewline = -1;
-  for (let i = 0; i < clamped; i++) {
-    if (input[i] === "\n") {
-      line += 1;
-      lastNewline = i;
-    }
-  }
-  return { line, col: clamped - lastNewline }; // col is 1-based
 }
 
 /**

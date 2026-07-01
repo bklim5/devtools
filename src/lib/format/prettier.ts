@@ -12,17 +12,13 @@
 // OWN defaults (printWidth 80, tabWidth 2, semi true, singleQuote false,
 // trailingComma "all") — NOT the repo's 100 (STACK.md output-parity caveat).
 import type { FormatOptions, FormatResult } from "./types";
+import { byteLen } from "./types";
 
 /** Which parser drives the combined JS/TS tool (P34); HTML has its own entry. */
 export type ScriptLang = "babel" | "typescript";
 
 /** Callers (P33/P34) may widen the shared options with an explicit printWidth. */
 export type PrettierFormatOptions = FormatOptions & { printWidth?: number };
-
-/** UTF-8 byte length — mirrors json.ts `byteLen` so the StatusBar delta matches. */
-function byteLen(s: string): number {
-  return new TextEncoder().encode(s).length;
-}
 
 // Prettier 3 plugins are ESM; a dynamic `import()` yields a namespace object
 // whose `.default` is the plugin (PITFALLS 11). Normalise to `.default ?? ns`.

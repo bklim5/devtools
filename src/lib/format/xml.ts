@@ -22,11 +22,7 @@
 // module uses no other XML engine and enables no external-entity option — there is
 // no network or file access reachable from the parse.
 import type { FormatOptions, FormatResult, IndentMode } from "./types";
-
-/** UTF-8 byte length, matching how the StatusBar delta is measured. */
-function byteLen(s: string): number {
-  return new TextEncoder().encode(s).length;
-}
+import { byteLen } from "./types";
 
 /** One indentation unit: a literal tab, or N spaces. */
 function indentUnit(indent: IndentMode): string {
