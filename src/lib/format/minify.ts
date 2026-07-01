@@ -266,7 +266,11 @@ export async function minifyHtml(input: string): Promise<FormatResult> {
         const inner = await minifyScript(body, loader);
         if (!inner.ok) {
           // D-07: surface the failure — never leave the raw block in the output.
-          const bodyStart = m.index + m[0].indexOf(">") + 1;
+          // Body starts right after the start tag `<${tag}${attrs}>`. Compute its
+          // length from the captured groups, NOT `m[0].indexOf(">")` — a quoted
+          // attribute value may contain a `>` (now tokenized correctly), which
+          // indexOf would mistake for the tag terminator and shift the offset.
+          const bodyStart = m.index + 1 + tag.length + attrs.length + 1;
           const pos = offsetToLineCol(input, bodyStart);
           const eLine = inner.error.line;
           const eCol = inner.error.col;

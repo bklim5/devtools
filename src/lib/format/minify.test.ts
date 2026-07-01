@@ -285,4 +285,18 @@ describe("minifyHtml", () => {
       expect(r.output).toContain(`const x=1`);
     }
   });
+
+  it("maps a broken-script error to the BODY line even when a quoted attr holds `>` + newline (D-07 offset from captured groups, not indexOf('>'))", async () => {
+    // The quoted attr value spans a `>` AND a newline, so the start tag ends on
+    // line 2. The body `const a = {` is malformed. bodyStart must come from the
+    // captured start-tag length: `m[0].indexOf(">")` would find the `>` inside the
+    // attribute (line 1) and report the error a full line too early.
+    const r = await minifyHtml(`<script data-x="a >\nb">const a = {</script>`);
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.error.message.toLowerCase()).toContain("script");
+      // Body is on line 2 (after the newline inside the attribute value).
+      expect(r.error.line).toBe(2);
+    }
+  });
 });
