@@ -12,14 +12,14 @@ Requirements for milestone v1.9. Each maps to exactly one roadmap phase (31–34
 ### Prettier Engine & Async Seam
 
 - [x] **PRT-01**: Prettier 3.8.3 standalone is the runtime PRETTIFY engine — vendored/self-hosted (no CDN), moved from devDependency to a single exact-pinned `dependency` — so prettified output is byte-identical to dev-time `prettier --write`. *(Phase 32-01 — done 2026-07-01)*
-- [ ] **PRT-02**: Both heavy engines (Prettier + esbuild) and their language plugins are lazy-loaded via dynamic `import()` and code-split — never present in the app's entry/initial chunk — proven by an automated build-artifact guard (cloned from the existing chunk-inventory guard) with a non-vacuous self-test.
+- [x] **PRT-02**: Both heavy engines (Prettier + esbuild) and their language plugins are lazy-loaded via dynamic `import()` and code-split — never present in the app's entry/initial chunk — proven by an automated build-artifact guard (cloned from the existing chunk-inventory guard) with a non-vacuous self-test. *(Phase 32-05 — done 2026-07-01: `scripts/prettierChunkGuard.mjs` initial-reachability guard (entry + transitive static `.imports`), UNGATED in vite.config.ts, emitting `prettier-chunk-inventory.json`; non-vacuous real-Vite self-test covers BOTH engines + the non-entry-static hoist trap; `verify-appstore-bundle.sh` FATALs on `heavyEngineInitiallyReachable:true`)*
 - [ ] **PRT-03**: Formatting (prettify AND minify) runs asynchronously with a latest-wins guard (a slow stale format never clobbers newer output); a pending/loading state is shown; the paste-to-output experience stays within the <2s "instant" feel.
-- [ ] **PRT-04**: Parse/format/minify errors surface as a calm `role=alert` value with line:col where the engine provides it — never a crash, never a silent fallback.
+- [ ] **PRT-04**: Parse/format/minify errors surface as a calm `role=alert` value with line:col where the engine provides it — never a crash, never a silent fallback. *(Error-surface half: 32-03 (StatusBar `role=alert`) + engine error-as-value (32-01/32-04). Offline half: 32-05 engine-level no-network integration test + no-CDN bundle grep + chunk sentinel proven 2026-07-01. Checkbox left UNCHECKED — the interactive mounted-tool half (calm role=alert on a real paste, never-a-crash async, + the real-WKWebView Wi-Fi-off offline paste e2e) is a BLOCKING carry-forward onto Phase 33/34, the first mounted consumers)*
 - [x] **PRT-05**: A golden parity test locks prettified output byte-equal to CLI `prettier --write` (per language, including a fixture with embedded code), so a future Prettier bump or option drift fails the suite. *(Phase 32-01 — done 2026-07-01)*
 
 ### Minify Engine (esbuild)
 
-- [ ] **PRT-06**: esbuild is the runtime MINIFY engine — vendored/self-hosted offline (`esbuild-wasm`, no CDN), lazy-loaded/code-split — minifying JavaScript, TypeScript, JSX, TSX, and CSS safely (no ASI/regex-literal breakage); HTML is minified via an offline HTML minifier (collapsing whitespace + minifying embedded `<script>`/`<style>`). Minify output is valid and semantically equivalent to the input. *(Phase 32-04 — engine landed 2026-07-01: `minifyScript` via lazily-loaded/memoized esbuild-wasm 0.28.0 + offline pure `minifyHtml`, error-as-value, ASI/regex-literal safe; checkbox left UNCHECKED until 32-05 proves the lazy/code-split isolation + no-network offline build artifact)*
+- [x] **PRT-06**: esbuild is the runtime MINIFY engine — vendored/self-hosted offline (`esbuild-wasm`, no CDN), lazy-loaded/code-split — minifying JavaScript, TypeScript, JSX, TSX, and CSS safely (no ASI/regex-literal breakage); HTML is minified via an offline HTML minifier (collapsing whitespace + minifying embedded `<script>`/`<style>`). Minify output is valid and semantically equivalent to the input. *(Phase 32-04 — engine landed 2026-07-01: `minifyScript` via lazily-loaded/memoized esbuild-wasm 0.28.0 + offline pure `minifyHtml`, error-as-value, ASI/regex-literal safe. Phase 32-05 — 2026-07-01: the remaining lazy/code-split isolation + no-network offline build-artifact proof landed (prettierChunkGuard initial-reachability guard + sentinel + no-network engine integration test), so the checkbox is now complete)*
 
 ### HTML Prettifier Tool
 
@@ -73,11 +73,11 @@ Which phases cover which requirements. Populated during roadmap creation.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | PRT-01 | Phase 32 | Complete (32-01) |
-| PRT-02 | Phase 32 | Pending |
+| PRT-02 | Phase 32 | Complete (32-05) |
 | PRT-03 | Phase 32 | In progress (32-02: latest-wins hook + pending flag; UI display/minify pending) |
-| PRT-04 | Phase 32 | Pending |
+| PRT-04 | Phase 32 | In progress (error-surface 32-03 + offline engine-layer 32-05; interactive + WKWebView offline paste half carried to P33/34) |
 | PRT-05 | Phase 32 | Complete (32-01) |
-| PRT-06 | Phase 32 | In progress (engine landed 32-04; lazy/code-split + offline proof 32-05) |
+| PRT-06 | Phase 32 | Complete (engine 32-04; lazy/code-split + offline proof 32-05) |
 | PRT-07 | Phase 33 | Pending |
 | PRT-08 | Phase 33 | Pending |
 | PRT-09 | Phase 34 | Pending |
