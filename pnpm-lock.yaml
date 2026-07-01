@@ -38,6 +38,9 @@ importers:
       '@tauri-apps/plugin-updater':
         specifier: 2.10.1
         version: 2.10.1
+      esbuild-wasm:
+        specifier: 0.28.0
+        version: 0.28.0
       js-md5:
         specifier: 0.8.3
         version: 0.8.3
@@ -1981,6 +1984,11 @@ packages:
 
   es-module-lexer@2.1.0:
     resolution: {integrity: sha512-n27zTYMjYu1aj4MjCWzSP7G9r75utsaoc8m61weK+W8JMBGGQybd43GstCXZ3WNmSFtGT9wi59qQTW6mhTR5LQ==}
+
+  esbuild-wasm@0.28.0:
+    resolution: {integrity: sha512-5TRVKExcEmeMkccIZMzUq+Az6X2RoMAJyfl6SMMO1dMVhmvt0I2mx7gAb6zYi42n4d1ETcatFXazGKzA+aW7fg==}
+    engines: {node: '>=18'}
+    hasBin: true
 
   esbuild@0.27.7:
     resolution: {integrity: sha512-IxpibTjyVnmrIQo5aqNpCgoACA/dTKLTlhMHihVHhdkxKyPO1uBBthumT0rdHmcsk9uMonIWS0m4FljWzILh3w==}
@@ -5352,6 +5360,8 @@ snapshots:
       is-arrayish: 0.2.1
 
   es-module-lexer@2.1.0: {}
+
+  esbuild-wasm@0.28.0: {}
 
   esbuild@0.27.7:
     optionalDependencies:
