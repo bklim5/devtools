@@ -26,6 +26,12 @@ function ok(output: string): FormatResult {
   return { ok: true, output, inputBytes: 0, outputBytes: output.length };
 }
 
+/** A resolved error `FormatResult` — used to surface the under-cap `inputBytes`
+ *  (which maps to the bounded exact count on the error branch). */
+function err(message: string): FormatResult {
+  return { ok: false, error: { message } };
+}
+
 /** Advance past the debounce so the pending run's setTimeout callback fires. */
 function fireDebounce() {
   act(() => {
@@ -207,6 +213,255 @@ describe("useAsyncFormat", () => {
         }),
       ).not.toThrow();
       expect(calls).toHaveLength(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("size guard (SC6)", () => {
+  it("does NOT call the runner for over-cap ASCII input (0 calls)", () => {
+    vi.useFakeTimers();
+    try {
+      const { runner, calls } = makeDeferredRunner();
+      const bigInput = "x".repeat(50); // 50 bytes > cap 10
+      const { result } = renderHook(() =>
+        useAsyncFormat(bigInput, OPTS, runner, 10),
+      );
+
+      fireDebounce();
+      expect(calls).toHaveLength(0);
+      expect(result.current.pending).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("surfaces an ok:false 'too large' result for over-cap input", () => {
+    vi.useFakeTimers();
+    try {
+      const { runner } = makeDeferredRunner();
+      const bigInput = "x".repeat(50);
+      const { result } = renderHook(() =>
+        useAsyncFormat(bigInput, OPTS, runner, 10),
+      );
+
+      fireDebounce();
+      const r = result.current.result;
+      expect(r.ok).toBe(false);
+      if (!r.ok) {
+        expect(r.error.message).toMatch(/Input too large \(> 2 MB\) — 2 MB max/);
+      }
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("rejects a MULTIBYTE over-cap input WITHOUT a full-string encode (4th-Codex-finding fix)", () => {
+    vi.useFakeTimers();
+    // "€" = 1 UTF-16 code unit / 3 UTF-8 bytes → length 4 <= cap 10, but 4×3 = 12 > 10.
+    const bigMb = "€".repeat(4);
+    const encodeSpy = vi.spyOn(TextEncoder.prototype, "encode");
+    try {
+      const { runner, calls } = makeDeferredRunner();
+      const { result } = renderHook(() =>
+        useAsyncFormat(bigMb, OPTS, runner, 10),
+      );
+
+      fireDebounce();
+      expect(calls).toHaveLength(0); // runner never reached
+      const r = result.current.result;
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.error.message).toMatch(/> 2 MB/);
+      // IDENTITY check: the over-cap string itself was NEVER encoded (the bounded
+      // counter detected over-cap without a full encode). A `.length` filter would
+      // be WRONG here — bigMb.length (4) is already under the cap.
+      expect(encodeSpy.mock.calls.every(([s]) => s !== bigMb)).toBe(true);
+    } finally {
+      encodeSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it("rejects a MALFORMED-SURROGATE over-cap input — the 5th-Codex-finding bypass fix", () => {
+    vi.useFakeTimers();
+    try {
+      const { runner, calls } = makeDeferredRunner();
+      // "\uD800€" = lone high surrogate + € → TextEncoder emits 6 bytes (U+FFFD 3 +
+      // € 3), but the OLD naive counter scored it 4 (and swallowed the €). With cap
+      // 15: TRUE = 3×6 = 18 > 15, naive = 3×4 = 12 < 15.
+      const unit = "\uD800€";
+      const bad = unit.repeat(3);
+      // Prove the fixture is genuinely over-cap by the REAL encoder.
+      expect(new TextEncoder().encode(bad).length).toBeGreaterThan(15);
+
+      const { result } = renderHook(() =>
+        useAsyncFormat(bad, OPTS, runner, 15),
+      );
+
+      fireDebounce();
+      expect(calls).toHaveLength(0); // the over-cap payload did NOT reach the runner
+      const r = result.current.result;
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.error.message).toMatch(/> 2 MB/);
+      expect(result.current.inputBytes).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("counts unpaired surrogates byte-for-byte like TextEncoder (exact under-cap parity)", async () => {
+    vi.useFakeTimers();
+    try {
+      // lone high, lone low, lone-high+ASCII, lone-high+multibyte, ASCII+lone-low+ASCII,
+      // and a VALID pair. Each is well under the 1 MB cap.
+      const fixtures = ["\uD800", "\uDC00", "\uD800a", "\uD800€", "a\uDC00b", "😀"];
+      for (const s of fixtures) {
+        const { runner, calls } = makeDeferredRunner();
+        const { result } = renderHook(() =>
+          useAsyncFormat(s, OPTS, runner, 1_000_000),
+        );
+        fireDebounce();
+        expect(calls).toHaveLength(1);
+        await act(async () => {
+          calls[0].resolve(err("bad")); // error branch surfaces the bounded exact count
+        });
+        expect(result.current.inputBytes).toBe(
+          new TextEncoder().encode(s).length,
+        );
+      }
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("runs the runner normally for under-cap input", async () => {
+    vi.useFakeTimers();
+    try {
+      const { runner, calls } = makeDeferredRunner();
+      const { result } = renderHook(() =>
+        useAsyncFormat("ab", OPTS, runner, 10),
+      ); // 2 bytes <= 10
+
+      fireDebounce();
+      expect(calls).toHaveLength(1);
+      expect(calls[0].input).toBe("ab");
+      await act(async () => {
+        calls[0].resolve(ok("AB"));
+      });
+      expect(result.current.result).toEqual(ok("AB"));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("empty input wins over the oversize check", () => {
+    vi.useFakeTimers();
+    try {
+      const { runner, calls } = makeDeferredRunner();
+      const { result } = renderHook(() =>
+        useAsyncFormat("   ", OPTS, runner, 1),
+      ); // whitespace, tiny cap
+
+      fireDebounce();
+      expect(calls).toHaveLength(0);
+      expect(result.current.result).toEqual({
+        ok: true,
+        output: "",
+        inputBytes: 0,
+        outputBytes: 0,
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("uses the 2 MB default when maxInputBytes is omitted", () => {
+    vi.useFakeTimers();
+    try {
+      const { runner, calls } = makeDeferredRunner();
+      renderHook(() => useAsyncFormat("<a>hi</a>", OPTS, runner)); // no 4th arg
+
+      fireDebounce();
+      expect(calls).toHaveLength(1); // small input runs under the default 2 MB cap
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("exposes inputBytes without recomputation — 0 / undefined / exact contract", async () => {
+    vi.useFakeTimers();
+    try {
+      // empty → 0
+      {
+        const { runner } = makeDeferredRunner();
+        const { result } = renderHook(() =>
+          useAsyncFormat("   ", OPTS, runner, 1),
+        );
+        expect(result.current.inputBytes).toBe(0);
+      }
+      // over-cap ASCII → undefined (and 0 runner calls)
+      {
+        const { runner, calls } = makeDeferredRunner();
+        const { result } = renderHook(() =>
+          useAsyncFormat("x".repeat(50), OPTS, runner, 10),
+        );
+        fireDebounce();
+        expect(result.current.inputBytes).toBeUndefined();
+        expect(calls).toHaveLength(0);
+      }
+      // over-cap multibyte → undefined
+      {
+        const { runner } = makeDeferredRunner();
+        const { result } = renderHook(() =>
+          useAsyncFormat("€".repeat(4), OPTS, runner, 10),
+        );
+        expect(result.current.inputBytes).toBeUndefined();
+      }
+      // over-cap malformed-surrogate → undefined
+      {
+        const { runner } = makeDeferredRunner();
+        const { result } = renderHook(() =>
+          useAsyncFormat("\uD800€".repeat(3), OPTS, runner, 15),
+        );
+        expect(result.current.inputBytes).toBeUndefined();
+      }
+      // under-cap error (ASCII) → exact bounded count 2
+      {
+        const { runner, calls } = makeDeferredRunner();
+        const { result } = renderHook(() =>
+          useAsyncFormat("ab", OPTS, runner, 10),
+        );
+        fireDebounce();
+        await act(async () => {
+          calls[0].resolve(err("bad"));
+        });
+        expect(result.current.inputBytes).toBe(2);
+      }
+      // under-cap error (MULTIBYTE) → 3, not the code-unit length 1
+      {
+        const { runner, calls } = makeDeferredRunner();
+        const { result } = renderHook(() =>
+          useAsyncFormat("€", OPTS, runner, 10),
+        );
+        fireDebounce();
+        await act(async () => {
+          calls[0].resolve(err("bad"));
+        });
+        expect(result.current.inputBytes).toBe(3);
+      }
+      // ok → engine-provided inputBytes 2
+      {
+        const { runner, calls } = makeDeferredRunner();
+        const { result } = renderHook(() =>
+          useAsyncFormat("ab", OPTS, runner, 10),
+        );
+        fireDebounce();
+        await act(async () => {
+          calls[0].resolve({ ok: true, output: "AB", inputBytes: 2, outputBytes: 2 });
+        });
+        expect(result.current.inputBytes).toBe(2);
+      }
     } finally {
       vi.useRealTimers();
     }
