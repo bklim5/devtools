@@ -172,6 +172,12 @@ describe("HTML formatter tool (real WKWebView)", () => {
       /^\d+:\d+ /.test(prettifyError),
       `expected a LINE:COL html-parser error (col confirmed, not line-only), got "${prettifyError}"`,
     );
+    // CONCISE (D-13): Prettier's "It may happen…" explanation + spec URL are stripped
+    // so the message fits without hover-only truncation.
+    assert(
+      !/It may happen|For more info|https?:\/\//i.test(prettifyError),
+      `expected a concise error (no boilerplate/URL), got "${prettifyError}"`,
+    );
 
     // 4. RECOVERY: a subsequent VALID paste in Prettify produces output again and
     //    the footer returns to role=status — proves the app NEVER crashed and

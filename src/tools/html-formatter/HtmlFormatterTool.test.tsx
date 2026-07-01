@@ -218,8 +218,15 @@ describe("HtmlFormatterTool", () => {
       { timeout: 5000 },
     );
     const err = container.querySelector<HTMLElement>('[data-status="error"]')!;
+    const text = err.textContent ?? "";
     // line:col form (e.g. "1:14 …") — NOT the XML line-only "line N:" form.
-    expect(err.textContent ?? "").toMatch(/^\d+:\d+ /);
+    expect(text).toMatch(/^\d+:\d+ /);
+    // CONCISE (D-13 UX): the essential clause only — Prettier's "It may happen…"
+    // explanation + spec URL are stripped, so the message shows in full without a
+    // hover-only truncation. No verbose boilerplate, no leftover "(1:14)".
+    expect(text).toContain('Unexpected closing tag "div"');
+    expect(text).not.toMatch(/It may happen|For more info|https?:\/\//i);
+    expect(text).not.toMatch(/\(\d+:\d+\)\s*$/);
     expect(outputEl(container).value).toBe("");
   });
 

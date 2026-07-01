@@ -40,6 +40,20 @@ const runHtml = (input: string, o: HtmlOpts): Promise<FormatResult> =>
     ? minifyHtml(input)
     : formatHtml(input, { indent: o.indent, minify: false, printWidth: o.printWidth });
 
+// Prettier's HTML-parser errors tack an explanatory clause + a spec URL onto the
+// essential message (e.g. `Unexpected closing tag "div". It may happen when the tag
+// has already been closed by another tag. For more info see https://…`). The status
+// bar wants only the essential head — the line:col is surfaced separately — so drop
+// everything from the first boilerplate marker onward, plus any trailing "(1:14)"
+// Prettier repeats. esbuild minify errors carry no such boilerplate, so they pass
+// through unchanged (aside from a trailing paren-locus, if any).
+function conciseError(message: string): string {
+  return message
+    .split(/\.\s+(?:It may happen\b|For more info(?:rmation)? see\b)/i)[0]
+    .replace(/\s*\(\d+:\d+\)\s*$/, "")
+    .trim();
+}
+
 export default function HtmlFormatterTool() {
   const [input, setInput] = useState("");
   const [indent, setIndent] = useState<IndentMode>("2");
@@ -76,8 +90,8 @@ export default function HtmlFormatterTool() {
   const error = result.ok
     ? null
     : result.error.line !== undefined && result.error.col !== undefined
-      ? `${result.error.line}:${result.error.col} ${result.error.message}`
-      : result.error.message;
+      ? `${result.error.line}:${result.error.col} ${conciseError(result.error.message)}`
+      : conciseError(result.error.message);
   const parseState: ParseState = result.ok ? (isEmpty ? "empty" : "ok") : "error";
 
   return (
