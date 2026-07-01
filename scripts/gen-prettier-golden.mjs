@@ -38,6 +38,7 @@ const FIXTURES = [
   { file: "messy.js", parser: "babel" },
   { file: "messy.ts", parser: "typescript" },
   { file: "embedded.html", parser: "html" },
+  { file: "html-tool.html", parser: "html" },
 ];
 
 // Mirror src/lib/format/prettier.ts `optionsFrom` at the default opts (indent "2").

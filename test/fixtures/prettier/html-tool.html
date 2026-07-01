@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Dashboard</title>
+<style>body{margin:0;color:red;font-family:sans-serif}  .card{display:flex;gap:8px;padding:12px;border:1px solid #ccc}   .card .title{font-weight:600;text-transform:uppercase}</style>
+</head>
+<body>
+<header class="bar"><nav><a href="/">Home</a><a href="/about">About</a></nav></header>
+<main><section class="card"><h2 class="title">Totals</h2><p id="out">0</p></section></main>
+<script>const items=[1,2,3];function render(x){return x.map(i=>i*2)}   let total=items.reduce((a,b)=>a+b,0);document.getElementById("out").textContent=String(total)</script>
+</body>
+</html>
