@@ -42,7 +42,8 @@ const EMPTY_OK: FormatResult = {
 /**
  * Run `runner(input, opts)` asynchronously with a debounce + a latest-wins guard.
  *
- * - Debounces `input`/`opts`/`runner` changes by {@link DEBOUNCE_MS}, then runs.
+ * - Debounces `input`/`opts` changes by {@link DEBOUNCE_MS}, then runs. `runner` is
+ *   read from a ref (see below), so its identity never resets the debounce.
  * - `pending` is true from when a debounced run starts until its result is applied.
  * - The previously-resolved `result` stays readable while `pending` (no blank flash).
  * - Empty/whitespace input returns {@link EMPTY_OK}, clears `pending`, and bumps the
@@ -61,6 +62,18 @@ export function useAsyncFormat<O>(
 
   const reqIdRef = useRef(0);
 
+  // The runner is read from a ref, not an effect dep: a tool that passes an inline
+  // `(i, o) => formatX(i, o)` (the natural call shape) would otherwise give the
+  // effect a fresh identity every render, resetting the debounce timer forever so
+  // the format never fires. A per-tool runner is effectively constant, so reading
+  // the latest from a ref at call time is both safe and thrash-proof. The ref is
+  // synced in a commit effect (the latest-ref pattern — writing it during render
+  // is forbidden), which always lands before the 180ms debounce timer fires.
+  const runnerRef = useRef(runner);
+  useEffect(() => {
+    runnerRef.current = runner;
+  });
+
   const isEmpty = input.trim() === "";
 
   // Adjust state during render (React's documented pattern) — a blank input clears
@@ -76,7 +89,7 @@ export function useAsyncFormat<O>(
     const timer = setTimeout(() => {
       const id = ++reqIdRef.current;
       setPending(true);
-      runner(input, opts)
+      runnerRef.current(input, opts)
         .then((r) => {
           if (id !== reqIdRef.current) return; // stale — a newer run superseded it
           setPending(false);
@@ -100,7 +113,7 @@ export function useAsyncFormat<O>(
       // eslint-disable-next-line react-hooks/exhaustive-deps
       reqIdRef.current++;
     };
-  }, [isEmpty, input, opts, runner]);
+  }, [isEmpty, input, opts]);
 
   return { result: isEmpty ? EMPTY_OK : resolved, pending };
 }

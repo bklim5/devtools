@@ -79,7 +79,9 @@ describe("Protobuf Decoder (real WKWebView)", () => {
     // 5. Group byte "1c" -> status-bar error + inline error, NOT a white-screen — PRO-02.
     await input.setValue("1c");
     await demoPause(1800);
-    const status = await $("footer[role='status']");
+    // The shared StatusBar flips role to "alert" in the error state (D-07, Phase 32),
+    // so match the footer role-agnostically rather than pinning role='status'.
+    const status = await $("footer");
     assert(
       (await status.getText()).toLowerCase().includes("error"),
       `expected the status bar to show an error for a group byte, got "${await status.getText()}"`,

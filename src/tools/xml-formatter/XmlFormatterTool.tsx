@@ -7,13 +7,9 @@
 // parsererror message (D-08); empty/whitespace input is status "empty", not an error.
 import { useMemo, useState } from "react";
 import { formatXml } from "@/lib/format/xml";
-import { timed, type IndentMode } from "@/lib/format/types";
+import { byteLen, timed, type IndentMode } from "@/lib/format/types";
 import { FormatterView, type FormatMode } from "@/components/FormatterView";
 import type { ParseState } from "@/components/StatusBar";
-
-function byteLen(s: string): number {
-  return new TextEncoder().encode(s).length;
-}
 
 export default function XmlFormatterTool() {
   const [input, setInput] = useState("");
