@@ -74,7 +74,7 @@ Which phases cover which requirements. Populated during roadmap creation.
 |-------------|-------|--------|
 | PRT-01 | Phase 32 | Complete (32-01) |
 | PRT-02 | Phase 32 | Pending |
-| PRT-03 | Phase 32 | Pending |
+| PRT-03 | Phase 32 | In progress (32-02: latest-wins hook + pending flag; UI display/minify pending) |
 | PRT-04 | Phase 32 | Pending |
 | PRT-05 | Phase 32 | Complete (32-01) |
 | PRT-06 | Phase 32 | Pending |

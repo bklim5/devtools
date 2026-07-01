@@ -161,7 +161,7 @@ Coverage: all 13 v1.9 requirements (PRT-01..13) mapped to exactly one phase, no 
   5. `FormatterView` is generalized additively (a `printWidth` control added; the existing `minify` action reused for the Prettier tools, wired to esbuild) with NO change to existing JSON/XML formatter behaviour. [PRT-11]
 **Plans**: 5 plans (3 waves)
 - [x] 32-01-PLAN.md — async Prettier standalone wrapper (devDep→dep, byte-identical) + golden parity test vs CLI (embedded-code fixture, RED on drift) [PRT-01, PRT-05] ✓ 2026-07-01
-- [ ] 32-02-PLAN.md — shared `useAsyncFormat` hook (debounce ~180ms + reqId latest-wins gate + pending) [PRT-03]
+- [x] 32-02-PLAN.md — shared `useAsyncFormat` hook (debounce ~180ms + reqId latest-wins gate + pending) [PRT-03] ✓ 2026-07-01
 - [ ] 32-03-PLAN.md — FormatterView generalized to `[ Prettify | Minify ]` mode selector + optional printWidth (D-04 hide-in-minify) + StatusBar role=alert; JSON/XML retrofit; PRT-11 amended [PRT-11, PRT-04]
 - [ ] 32-04-PLAN.md — esbuild-wasm minify wrapper (JS/TS/JSX/TSX + CSS, offline lazy wasm) + offline pure HTML minifier [PRT-06]
 - [ ] 32-05-PLAN.md — heavy-engine chunk-isolation guard (cloned, ungated) + non-vacuous self-test + verifier sentinel + no-network integration test [PRT-02, PRT-04]
@@ -236,7 +236,7 @@ v1.9 runs 31 → 32 → {33, 34}: Phase 31 (doc correction) is independent and c
 | 29. Sandbox-Safe Native Features | v1.8 | 3/3 | Complete    | 2026-06-25 |
 | 30. .pkg Build + App Store Connect Submission | v1.8 | 3/3 | Complete    | 2026-06-27 |
 | 31. Doc/Process Correction | v1.9 | 1/1 | Complete    | 2026-07-01 |
-| 32. Prettier/esbuild Engine & Async Seam | v1.9 | 1/5 | In progress | - |
+| 32. Prettier/esbuild Engine & Async Seam | v1.9 | 2/5 | In progress | - |
 | 33. HTML Prettifier Tool | v1.9 | 0/? | Not started | - |
 | 34. JS/TS Prettifier Tool | v1.9 | 0/? | Not started | - |
 
