@@ -355,13 +355,13 @@ describe("size guard (SC6)", () => {
     }
   });
 
-  it("empty input wins over the oversize check", () => {
+  it("treats UNDER-cap whitespace as empty (neutral reset, no runner call)", () => {
     vi.useFakeTimers();
     try {
       const { runner, calls } = makeDeferredRunner();
       const { result } = renderHook(() =>
-        useAsyncFormat("   ", OPTS, runner, 1),
-      ); // whitespace, tiny cap
+        useAsyncFormat("   ", OPTS, runner, 10),
+      ); // 3 whitespace bytes <= cap 10 → empty, not oversize
 
       fireDebounce();
       expect(calls).toHaveLength(0);
@@ -372,6 +372,44 @@ describe("size guard (SC6)", () => {
         outputBytes: 0,
       });
     } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("treats OVER-cap whitespace as OVERSIZE without trimming the full payload (Codex adversarial fix)", () => {
+    vi.useFakeTimers();
+    // A whitespace-only blob larger than the cap must be rejected as oversize, NOT
+    // classified empty: classifying it empty would require input.trim() to scan the
+    // ENTIRE leading-whitespace run (= the whole payload), an unbounded scan on the
+    // exact large-paste path the byte guard exists to protect. The bounded byte scan
+    // runs FIRST, so an over-cap whitespace paste short-circuits to oversize and is
+    // never trimmed.
+    const realTrim = String.prototype.trim;
+    const trimmedLengths: number[] = [];
+    const trimSpy = vi
+      .spyOn(String.prototype, "trim")
+      .mockImplementation(function (this: string) {
+        trimmedLengths.push(this.length);
+        return realTrim.call(this);
+      });
+    try {
+      const { runner, calls } = makeDeferredRunner();
+      const bigWs = " ".repeat(50); // 50 whitespace bytes > cap 10
+      const { result } = renderHook(() =>
+        useAsyncFormat(bigWs, OPTS, runner, 10),
+      );
+
+      fireDebounce();
+      expect(calls).toHaveLength(0); // runner never reached — oversize hard reject
+      const r = result.current.result;
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.error.message).toMatch(/> 2 MB/);
+      expect(result.current.inputBytes).toBeUndefined();
+      // The over-cap payload was NEVER trimmed: no trim() call saw a string as long
+      // as bigWs (the `!isOversize &&` short-circuit skips input.trim() entirely).
+      expect(trimmedLengths.every((len) => len < bigWs.length)).toBe(true);
+    } finally {
+      trimSpy.mockRestore();
       vi.useRealTimers();
     }
   });
@@ -392,11 +430,11 @@ describe("size guard (SC6)", () => {
   it("exposes inputBytes without recomputation — 0 / undefined / exact contract", async () => {
     vi.useFakeTimers();
     try {
-      // empty → 0
+      // under-cap whitespace → empty → 0 (cap 10 > the 3 whitespace bytes)
       {
         const { runner } = makeDeferredRunner();
         const { result } = renderHook(() =>
-          useAsyncFormat("   ", OPTS, runner, 1),
+          useAsyncFormat("   ", OPTS, runner, 10),
         );
         expect(result.current.inputBytes).toBe(0);
       }

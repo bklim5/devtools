@@ -143,14 +143,21 @@ export function useAsyncFormat<O>(
     runnerRef.current = runner;
   });
 
-  const isEmpty = input.trim() === "";
-
-  // The ONLY size work for a non-empty input — a bounded counter that returns null
-  // (over-cap) the instant its running byte total crosses the cap, so an oversize
-  // paste is NEVER fully encoded just to be measured (the load-bearing DoS fix).
-  const measured = isEmpty ? 0 : utf8LenBounded(input, maxInputBytes);
-  const isOversize = measured === null; // counter bailed → over-cap, no full encode
+  // Bounded byte scan FIRST — returns null (over-cap) the instant the running total
+  // crosses the cap, so an oversize paste is NEVER fully scanned just to be measured
+  // (the load-bearing DoS fix). This MUST run before any full-string whitespace
+  // check: `input.trim()` scans the entire leading-whitespace run, which for an
+  // all-whitespace blob is the WHOLE payload — an unbounded scan on the exact large-
+  // paste path the guard exists to protect. Scanning bytes first lets an over-cap
+  // all-whitespace paste be classified oversize (not empty) without ever trimming it.
+  const measured = utf8LenBounded(input, maxInputBytes);
+  const isOversize = measured === null; // counter bailed → over-cap, no full scan
   const exactBytes = measured === null ? undefined : measured; // exact count when under-cap
+
+  // Empty/whitespace neutral state — computed ONLY once the input is known under-cap,
+  // so the bounded `trim()` scan runs on a <= cap string. An over-cap all-whitespace
+  // paste short-circuits to oversize above and never reaches this trim.
+  const isEmpty = !isOversize && input.trim() === "";
 
   // Adjust state during render (React's documented pattern) — a blank or oversize
   // input clears any stale `pending` from a run that was dropped, so it never
