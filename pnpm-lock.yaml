@@ -44,6 +44,9 @@ importers:
       lucide-react:
         specifier: 1.17.0
         version: 1.17.0(react@19.2.6)
+      prettier:
+        specifier: 3.8.3
+        version: 3.8.3
       react:
         specifier: ^19.1.0
         version: 19.2.6
@@ -108,9 +111,6 @@ importers:
       lefthook:
         specifier: 2.1.9
         version: 2.1.9
-      prettier:
-        specifier: 3.8.3
-        version: 3.8.3
       tailwindcss:
         specifier: 4.3.0
         version: 4.3.0
