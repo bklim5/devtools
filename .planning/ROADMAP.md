@@ -197,7 +197,7 @@ Coverage: all 13 v1.9 requirements (PRT-01..13) mapped to exactly one phase, no 
   5. **Large-paste guard (carried from Phase 32, Codex adversarial review):** same obligation as Phase 33 criterion 6 — the JS/TS tool mounts the same uncapped main-thread P32 engines, so if Phase 33 has not already landed a shared large-input guard, this tool MUST ensure a multi-MB paste returns a clear "too large" status rather than freezing the UI, with a test proving oversized input never reaches the engine.
 **Plans**: 5 plans (3 waves)
 - [ ] 34-01-PLAN.md — engine: semi/singleQuote plumb-through + formatJsTs (typescript→babel) + minifyJsTs (tsx→ts) fallback chains [PRT-09, PRT-10] (wave 1)
-- [ ] 34-02-PLAN.md — four-dialect golden locks: add messy.jsx + messy.tsx fixtures/goldens + parity cases (RED-on-drift) [PRT-09] (wave 1)
+- [ ] 34-02-PLAN.md — four-dialect golden locks: add messy.jsx + messy.tsx fixtures/goldens + formatJsTs routing goldens + fallback fixture + parity cases (RED-on-drift) [PRT-09] (wave 2, depends 34-01)
 - [ ] 34-03-PLAN.md — FormatterView Semi + Single-quotes toggles (Prettify-gated) + extract shared conciseError [PRT-10] (wave 1)
 - [ ] 34-04-PLAN.md — JsFormatterTool (clone HTML pattern) + registry-only free entry (Braces icon) + jsdom suite (4 dialects, toggles, 2 MB guard, errors) [PRT-09, PRT-10, PRT-12] (wave 2, depends 34-01/34-03)
 - [ ] 34-05-PLAN.md — BLOCKING real-WKWebView e2e + full harness gates + both-channel build + human offline proof + WCAG-AA audit [PRT-09, PRT-10, PRT-12] (wave 3, depends 34-04)
