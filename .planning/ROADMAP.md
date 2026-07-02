@@ -135,7 +135,7 @@ Coverage: all 13 v1.9 requirements (PRT-01..13) mapped to exactly one phase, no 
 
 - [x] **Phase 31: Doc/Process Correction** — fix the stale CLAUDE.md "six tools only" + "zero new runtime dependencies" wording to record Prettier + esbuild as two scoped exceptions (PRT-13) (completed 2026-07-01)
 - [x] **Phase 32: Prettier/esbuild Engine & Async Seam** — async Prettier wrapper, esbuild minify wrapper, shared latest-wins hook, FormatterView generalization, dep moves, chunk-split guard + self-test, golden parity test vs CLI, offline e2e (PRT-01,02,03,04,05,06,11) (completed 2026-07-01)
-- [ ] **Phase 33: HTML Prettifier Tool** — single Prettier parser; embedded script/style parity + HTML minify; registry-only/free-tier/WCAG-AA (PRT-07,08,12)
+- [x] **Phase 33: HTML Prettifier Tool** — single Prettier parser; embedded script/style parity + HTML minify; registry-only/free-tier/WCAG-AA (PRT-07,08,12) (completed 2026-07-02)
 - [ ] **Phase 34: JS/TS Prettifier Tool** — combined typescript-parser tool; semicolons + single-quote toggles; esbuild minify (PRT-09,10)
 
 ### Phase 31: Doc/Process Correction
@@ -182,7 +182,7 @@ Coverage: all 13 v1.9 requirements (PRT-01..13) mapped to exactly one phase, no 
 - [x] 33-01-PLAN.md — shared large-paste size guard in `useAsyncFormat` (2 MB cap, `maxInputBytes` param) + SC6 test proving 0 runner calls for over-cap input [PRT-04] (wave 1) — DONE 2026-07-01 (`915990c3` feat, `b8fd9bfe` test; bounded `utf8LenBounded` counter, pair-guarded surrogates, `inputBytes` returned; 16/16 hook tests, tsc clean, decoder + types.ts byte-untouched)
 - [x] 33-02-PLAN.md — HTML engine golden locks: SC1 script+style prettify parity (CLI golden, RED on drift) + SC2 frozen minifyHtml golden [PRT-07] (wave 1) — DONE 2026-07-01 (`abf3a85a` SC1, `52922221` SC2; html-tool.html + CLI golden via gen-prettier-golden.mjs, frozen minify-input.html golden; 4/4 new tests, suite 1355/1355, engine files + decoder byte-untouched)
 - [x] 33-03-PLAN.md — HtmlFormatterTool (first async-hook consumer) + registry-only free entry (CodeXml icon) + unit tests (async prettify/minify, printWidth, oversize role=alert, error, copy) [PRT-07, PRT-08, PRT-12] (wave 2, depends 33-01) — DONE 2026-07-01 (`585ca9fa` feat, `b2f60ba4` test; mode-dispatch runner + memo'd opts, byteCount straight from hook inputBytes—no byteLen re-encode, json-style line:col D-11, FormatterStatus.byteCount widened optional; 9/9 tool tests incl. SC6 0-encode over ASCII+multibyte+malformed-surrogate, suite 1364/1364, engines+decoder byte-untouched)
-- [ ] 33-04-PLAN.md — BLOCKING real-WKWebView e2e (async prettify/minify + role=alert D-11) + human offline paste proof (Wi-Fi off, Network clean) both channels + WCAG-AA audit [PRT-04, PRT-12] (wave 3, depends 33-03)
+- [x] 33-04-PLAN.md — BLOCKING real-WKWebView e2e (async prettify/minify + role=alert D-11) + human offline paste proof (Wi-Fi off, Network clean) both channels + WCAG-AA audit [PRT-04, PRT-12] (wave 3, depends 33-03) — DONE 2026-07-02 (`986cb338` e2e; human APPROVED 2026-07-02; 5-round Codex remediation + 3 human-gate fixes: whitespace-DoS guard, minify attribute integrity + quote-aware tag scan, CSP `wasm-unsafe-eval` for packaged esbuild minify, StatusBar no-overlap, concise errors; both channels rebuilt fresh `70e26914`, e2e GREEN on webkit, suite 1372/1372)
 **UI hint**: yes
 
 ### Phase 34: JS/TS Prettifier Tool
@@ -244,7 +244,7 @@ v1.9 runs 31 → 32 → {33, 34}: Phase 31 (doc correction) is independent and c
 | 30. .pkg Build + App Store Connect Submission | v1.8 | 3/3 | Complete    | 2026-06-27 |
 | 31. Doc/Process Correction | v1.9 | 1/1 | Complete    | 2026-07-01 |
 | 32. Prettier/esbuild Engine & Async Seam | v1.9 | 5/5 | Complete    | 2026-07-01 |
-| 33. HTML Prettifier Tool | v1.9 | 0/4 | Planned | - |
+| 33. HTML Prettifier Tool | v1.9 | 4/4 | Complete    | 2026-07-02 |
 | 34. JS/TS Prettifier Tool | v1.9 | 0/? | Not started | - |
 
 ## Backlog
@@ -272,7 +272,7 @@ Unsequenced ideas captured for future planning. Promote with `/gsd-review-backlo
 Each candidate must still pass the product wedge: offline/no-network, paste-instant (<2s), keyboard-driven, registry-driven, WCAG-AA, and the build+verify harness.
 
 **Requirements:** TBD (remaining wishlist; Cron/URL/Regex requirements now in `.planning/REQUIREMENTS.md` for v1.3)
-**Plans:** 5/5 plans complete
+**Plans:** 4/4 plans complete
 
 Plans:
 - [ ] TBD (promote remaining wishlist with /gsd-review-backlog when ready)
