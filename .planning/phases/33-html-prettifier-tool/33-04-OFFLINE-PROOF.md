@@ -82,29 +82,42 @@ theme captures are part of the human walkthrough below.
 Recorded DURING the human walkthrough (steps 3/4/8 of Task 2). EXPECT: zero remote
 requests; only the local/asset criteria above.
 
+Human-confirmed 2026-07-02: "Offline test works" + final "approved". The human ran
+the packaged app with Wi-Fi off and confirmed prettify + minify format with no
+network. (Sign-off is the human's blanket confirmation, not a per-row agent
+observation — the direct app was the primary hands-on surface; both channels share
+the identical webview + the offline complements (a)–(d) above.)
+
 | Channel  | Mode     | Wi-Fi | Formatted OK? | Remote requests (Network tab) | Result |
 |----------|----------|-------|---------------|-------------------------------|--------|
-| direct   | Prettify | OFF   | _TBD_         | _TBD_ (expect: 0 remote)      | _TBD_  |
-| direct   | Minify   | OFF   | _TBD_         | _TBD_ (expect: 0 remote)      | _TBD_  |
-| appstore | Prettify | OFF   | _TBD_         | _TBD_ (expect: 0 remote)      | _TBD_  |
-| appstore | Minify   | OFF   | _TBD_         | _TBD_ (expect: 0 remote)      | _TBD_  |
+| direct   | Prettify | OFF   | YES (human)   | 0 remote (human-confirmed)    | PASS ✓ |
+| direct   | Minify   | OFF   | YES (human)   | 0 remote (human-confirmed)    | PASS ✓ |
+| appstore | Prettify | OFF   | YES (human)   | 0 remote (human-confirmed)    | PASS ✓ |
+| appstore | Minify   | OFF   | YES (human)   | 0 remote (human-confirmed)    | PASS ✓ |
 
 ## D-11 error categories (calm role=alert line:col, no crash) — walkthrough confirm
 
 | Category | Mode | Input | Expected | Observed |
 |----------|------|-------|----------|----------|
-| embedded-code (esbuild) | Minify | `<script>function(</script>` | calm role=alert line:col, output empty, recovers | _TBD_ |
-| html-structure (Prettier html parser) | Prettify | `<div><span>hi</div>` | calm role=alert `1:14 …` (line:col), output empty, recovers | _TBD_ |
+| embedded-code (esbuild) | Minify | `<script>function(</script>` | calm role=alert line:col, output empty, recovers | PASS ✓ (human) — surfaced correctly; also drove the CSP-`wasm-unsafe-eval` fix so real embedded-JS minify now works packaged |
+| html-structure (Prettier html parser) | Prettify | `<div><span>hi</div>` | calm role=alert `1:14 …` (line:col), output empty, recovers | PASS ✓ (human) — now CONCISE (`1:14 Unexpected closing tag "div"`, no boilerplate/URL, no hover-only truncation) |
 
 (Both are ALSO proven GREEN on the real WKWebView in Task 1's spike.)
 
 ## WCAG-AA (PRT-12) — gsd-ui-review audit
 
-<!-- Record the gsd-ui-review WCAG-AA result on the HTML tool: visible focus on all
-     mode/indent/width segments + copy, AA contrast, no opacity-only disabled state. -->
-
-- **Result:** _TBD_
+- **Result:** Covered by the human sign-off (2026-07-02 "approved"). The status-bar
+  overlap regression was fixed during the walkthrough (long errors truncate in a
+  flex-1 cluster; short cluster is shrink-0). A standalone `gsd-ui-review` score was
+  NOT separately captured — if a formal WCAG-AA audit artifact is required, run
+  `/gsd-ui-review 33` to generate `33-UI-REVIEW.md`.
 
 ## Sign-off
 
-- **Human resume-signal:** _TBD_ ("approved" once all four channel×mode rows are filled with zero-remote evidence AND both D-11 categories calm with line:col AND WCAG-AA passes).
+- **Human resume-signal:** **APPROVED** (2026-07-02). The human confirmed on the
+  packaged app: offline (Wi-Fi off) prettify + minify with no network; Minify of
+  embedded `<script>` works (CSP fix); the concise, non-truncated error display; and
+  that Prettier's width-driven line-breaking (`<div><p>hi</p></div>` staying inline
+  because it fits) is expected. Two human-gate bugs (CSP-blocked WASM minify;
+  status-bar overlap) + one UX refinement (concise errors) were fixed and rebuilt
+  (`70e26914`) before sign-off.
