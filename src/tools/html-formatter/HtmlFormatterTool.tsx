@@ -21,6 +21,7 @@
 import { useMemo, useState } from "react";
 import { formatHtml } from "@/lib/format/prettier";
 import { minifyHtml } from "@/lib/format/minify";
+import { conciseError } from "@/lib/format/conciseError";
 import type { IndentMode, FormatResult } from "@/lib/format/types";
 import { useAsyncFormat } from "@/shell/useAsyncFormat";
 import { FormatterView, type FormatMode } from "@/components/FormatterView";
@@ -40,19 +41,11 @@ const runHtml = (input: string, o: HtmlOpts): Promise<FormatResult> =>
     ? minifyHtml(input)
     : formatHtml(input, { indent: o.indent, minify: false, printWidth: o.printWidth });
 
-// Prettier's HTML-parser errors tack an explanatory clause + a spec URL onto the
-// essential message (e.g. `Unexpected closing tag "div". It may happen when the tag
-// has already been closed by another tag. For more info see https://…`). The status
-// bar wants only the essential head — the line:col is surfaced separately — so drop
-// everything from the first boilerplate marker onward, plus any trailing "(1:14)"
-// Prettier repeats. esbuild minify errors carry no such boilerplate, so they pass
-// through unchanged (aside from a trailing paren-locus, if any).
-function conciseError(message: string): string {
-  return message
-    .split(/\.\s+(?:It may happen\b|For more info(?:rmation)? see\b)/i)[0]
-    .replace(/\s*\(\d+:\d+\)\s*$/, "")
-    .trim();
-}
+// Error messages are trimmed for the status bar via the shared `conciseError`
+// helper (src/lib/format/conciseError.ts) — Prettier's HTML-parser errors tack an
+// explanatory clause + a spec URL + a trailing "(1:14)" onto the essential head,
+// which it strips (the line:col is surfaced separately); esbuild minify errors have
+// no such boilerplate and pass through unchanged aside from a trailing paren-locus.
 
 export default function HtmlFormatterTool() {
   const [input, setInput] = useState("");
