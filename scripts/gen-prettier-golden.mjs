@@ -39,6 +39,22 @@ const FIXTURES = [
   { file: "messy.ts", parser: "typescript" },
   { file: "embedded.html", parser: "html" },
   { file: "html-tool.html", parser: "html" },
+  // Dialect goldens for the named-parser parity layer (js→babel / ts→typescript
+  // pattern extended to jsx/tsx): D-09 first-class JSX/TSX.
+  { file: "messy.jsx", parser: "babel" },
+  { file: "messy.tsx", parser: "typescript" },
+  // Routing goldens for the tool's REAL no-picker path (`formatJsTs`), which is
+  // typescript-first — so its canonical output for every well-formed dialect is
+  // `--parser typescript`. The optional `out` renames the golden so one input can
+  // emit a second, differently-named golden (byte-DRIFT lock of formatJsTs output).
+  { file: "messy.js", parser: "typescript", out: "messy.js.jsts.golden" },
+  { file: "messy.ts", parser: "typescript", out: "messy.ts.jsts.golden" },
+  { file: "messy.jsx", parser: "typescript", out: "messy.jsx.jsts.golden" },
+  { file: "messy.tsx", parser: "typescript", out: "messy.tsx.jsts.golden" },
+  // Fallback golden: `fallback.js` is valid JS the typescript parser REJECTS but
+  // babel ACCEPTS, so `formatJsTs` falls back to babel — this babel golden is the
+  // locked fallback output (proves the fallback chain fires + pins its bytes).
+  { file: "fallback.js", parser: "babel", out: "fallback.js.golden" },
 ];
 
 // Mirror src/lib/format/prettier.ts `optionsFrom` at the default opts (indent "2").
@@ -54,14 +70,15 @@ const OPTIONS = [
   "all",
 ];
 
-for (const { file, parser } of FIXTURES) {
+for (const { file, parser, out } of FIXTURES) {
   const input = join(fixturesDir, file);
   const output = execFileSync(
     prettierBin,
     [...OPTIONS, "--parser", parser, input],
     { encoding: "utf8", cwd: repoRoot },
   );
-  const goldenPath = join(fixturesDir, `${file}.golden`);
+  const goldenName = out ?? `${file}.golden`;
+  const goldenPath = join(fixturesDir, goldenName);
   writeFileSync(goldenPath, output);
   stdout.write(`wrote ${goldenPath} (${output.length} bytes, parser=${parser})\n`);
 }

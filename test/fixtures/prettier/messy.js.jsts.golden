@@ -1,0 +1,10 @@
+const a = 1;
+let b = 2;
+function add(x, y) {
+  return x + y;
+}
+const obj = { foo: 1, bar: 2, baz: 3 };
+const doubled = [1, 2, 3].map((n) => n * 2);
+if (a) {
+  console.log(add(a, b));
+}
