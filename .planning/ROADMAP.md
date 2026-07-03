@@ -198,7 +198,7 @@ Coverage: all 13 v1.9 requirements (PRT-01..13) mapped to exactly one phase, no 
 **Plans**: 5 plans (3 waves)
 - [x] 34-01-PLAN.md — engine: semi/singleQuote plumb-through + formatJsTs (typescript→babel) + minifyJsTs (tsx→ts) fallback chains [PRT-09, PRT-10] (wave 1) — COMPLETE 2026-07-03 (`71216c48`, `d9db1837`)
 - [ ] 34-02-PLAN.md — four-dialect golden locks: add messy.jsx + messy.tsx fixtures/goldens + formatJsTs routing goldens + fallback fixture + parity cases (RED-on-drift) [PRT-09] (wave 2, depends 34-01)
-- [ ] 34-03-PLAN.md — FormatterView Semi + Single-quotes toggles (Prettify-gated) + extract shared conciseError [PRT-10] (wave 1)
+- [x] 34-03-PLAN.md — FormatterView Semi + Single-quotes toggles (Prettify-gated) + extract shared conciseError [PRT-10] (wave 1) — COMPLETE 2026-07-03 (`c176acf9`, `781928ec`)
 - [ ] 34-04-PLAN.md — JsFormatterTool (clone HTML pattern) + registry-only free entry (Braces icon) + jsdom suite (4 dialects, toggles, 2 MB guard, errors) [PRT-09, PRT-10, PRT-12] (wave 2, depends 34-01/34-03)
 - [ ] 34-05-PLAN.md — BLOCKING real-WKWebView e2e + full harness gates + both-channel build + human offline proof + WCAG-AA audit [PRT-09, PRT-10, PRT-12] (wave 3, depends 34-04)
 **UI hint**: yes
@@ -250,7 +250,7 @@ v1.9 runs 31 â 32 â {33, 34}: Phase 31 (doc correction) is independent
 | 31. Doc/Process Correction | v1.9 | 1/1 | Complete    | 2026-07-01 |
 | 32. Prettier/esbuild Engine & Async Seam | v1.9 | 5/5 | Complete    | 2026-07-01 |
 | 33. HTML Prettifier Tool | v1.9 | 4/4 | Complete    | 2026-07-02 |
-| 34. JS/TS Prettifier Tool | v1.9 | 1/5 | In progress | 34-01 |
+| 34. JS/TS Prettifier Tool | v1.9 | 2/5 | In progress | 34-03 |
 
 ## Backlog
 
