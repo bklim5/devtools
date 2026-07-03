@@ -72,3 +72,6 @@ src-tauri/*.provisionprofile
 # Mac App Store distribution installer — a build output (productbuild), never
 # committed (Phase 30, MAS-SHIP). Built locally + uploaded to App Store Connect.
 *.pkg
+
+# gsd-tools state backup (runtime artifact)
+.planning/.state-backup/
