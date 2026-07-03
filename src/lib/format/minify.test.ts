@@ -71,16 +71,22 @@ describe("minifyScript", () => {
     }
   });
 
-  it("accepts the jsx loader", async () => {
+  it("accepts the jsx loader AND preserves JSX (jsx:preserve — no transpile)", async () => {
     const r = await minifyScript("const x = <div className='a' />;", "jsx");
     expect(r.ok).toBe(true);
-    if (r.ok) expect(r.output.length).toBeGreaterThan(0);
+    if (r.ok) {
+      expect(r.output).toContain("<div");
+      expect(r.output).not.toContain("React.createElement");
+    }
   });
 
-  it("accepts the tsx loader", async () => {
+  it("accepts the tsx loader AND preserves JSX (jsx:preserve — no transpile)", async () => {
     const r = await minifyScript("const x: unknown = <div />;", "tsx");
     expect(r.ok).toBe(true);
-    if (r.ok) expect(r.output.length).toBeGreaterThan(0);
+    if (r.ok) {
+      expect(r.output).toContain("<div");
+      expect(r.output).not.toContain("React.createElement");
+    }
   });
 
   it("minifies CSS (css loader)", async () => {
@@ -130,10 +136,27 @@ describe("minifyJsTs (tsx→ts fallback, D-02/D-03)", () => {
     }
   });
 
-  it("minifies JSX via the tsx loader", async () => {
-    const r = await minifyJsTs("const x = <div className='a' />;");
+  it("minifies JSX via the tsx loader WITHOUT transpiling it (jsx:preserve — no React.createElement)", async () => {
+    // MINIFY MUST NOT TRANSPILE: esbuild's default lowers JSX to
+    // `React.createElement(…)`, changing the runtime (breaks automatic-runtime /
+    // no-`React`-in-scope projects). jsx:"preserve" keeps the JSX dialect while
+    // still folding `{1 + 1}`→`{2}` + collapsing whitespace.
+    const r = await minifyJsTs("const A = () => <div className='x'>{1 + 1}</div>;");
     expect(r.ok).toBe(true);
-    if (r.ok) expect(r.output.length).toBeGreaterThan(0);
+    if (r.ok) {
+      expect(r.output).toContain("<div");
+      expect(r.output).not.toContain("React.createElement");
+      expect(r.output).toContain("{2}"); // constant still folded → genuine minify
+    }
+  });
+
+  it("preserves TSX JSX too (generic component stays JSX, not React.createElement)", async () => {
+    const r = await minifyJsTs("const T = <K,>(p: { v: K }) => <span>{String(p.v)}</span>;");
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.output).toContain("<span>");
+      expect(r.output).not.toContain("React.createElement");
+    }
   });
 
   it("compacts multiple statements ASI-safely (no merge error)", async () => {

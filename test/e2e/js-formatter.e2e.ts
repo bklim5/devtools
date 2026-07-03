@@ -163,6 +163,17 @@ describe("JS/TS formatter tool (real WKWebView)", () => {
       { timeout: 15_000, timeoutMsg: "expected compact single-line esbuild output in Minify mode" },
     );
 
+    // 3b. MINIFY MUST NOT TRANSPILE JSX (real-runtime guard for the codex 34-05
+    //     finding): pasting JSX under Minify keeps the JSX dialect (jsx:"preserve")
+    //     and still folds `{1 + 1}`→`{2}` — it must NEVER lower to
+    //     `React.createElement(...)`, which would change the required runtime. The
+    //     plain-JS minify above can't catch this; only a JSX minify assertion does.
+    await pasteAndWait(
+      "const A = () => <div className='x'>{1 + 1}</div>;",
+      (s) => s.output.includes("<div") && s.output.includes("{2}") && !s.output.includes("React.createElement"),
+      "expected JSX minify to PRESERVE JSX (no React.createElement) and fold {1+1}->{2}",
+    );
+
     // 4. ERROR (D-11): genuinely malformed input → calm role=alert, output CLEARED
     //    (never a silent fallback). Still in Minify mode, so esbuild is the erroring
     //    engine; the composed error carries a line:col.

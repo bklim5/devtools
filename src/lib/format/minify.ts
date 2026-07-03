@@ -104,7 +104,18 @@ export async function minifyScript(
   }
   try {
     const esbuild = await ensureEsbuild();
-    const { code } = await esbuild.transform(input, { loader, minify: true });
+    // jsx:"preserve" — MINIFY MUST NOT TRANSPILE. esbuild's default JSX handling
+    // LOWERS `<div/>` to `React.createElement("div",…)`, which is a runtime change
+    // (requires `React` in scope; breaks React-automatic-runtime / custom-factory
+    // projects), not minification. Preserving JSX keeps the output in the SAME
+    // dialect the user pasted while still collapsing whitespace + folding constants.
+    // For non-JSX loaders (js/css, incl. HTML embedded <script>/<style>) it is a
+    // no-op — those loaders never parse JSX — so this is safe for every caller.
+    const { code } = await esbuild.transform(input, {
+      loader,
+      minify: true,
+      jsx: "preserve",
+    });
     return {
       ok: true,
       output: code,
