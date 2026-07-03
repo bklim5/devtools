@@ -35,6 +35,12 @@ export interface FormatterControls {
   /** Present (with `onSortKeys`) = JSON; omit for XML. Visible in both modes (D-04). */
   sortKeys?: boolean;
   onSortKeys?: (v: boolean) => void;
+  /** Present (with onSemi) = JS/TS tool; Prettify-only (D-06). Prettier `semi`. */
+  semi?: boolean;
+  onSemi?: (v: boolean) => void;
+  /** Present (with onSingleQuote) = JS/TS tool; Prettify-only (D-06). Prettier `singleQuote`. */
+  singleQuote?: boolean;
+  onSingleQuote?: (v: boolean) => void;
 }
 
 export interface FormatterStatus {
@@ -154,13 +160,16 @@ interface ToggleProps {
   label: string;
   pressed: boolean;
   onToggle: (next: boolean) => void;
+  /** Full accessible name when it must differ from the short visible label (D-07). */
+  ariaLabel?: string;
 }
 
-function Toggle({ label, pressed, onToggle }: ToggleProps) {
+function Toggle({ label, pressed, onToggle, ariaLabel }: ToggleProps) {
   return (
     <button
       type="button"
       aria-pressed={pressed}
+      aria-label={ariaLabel ?? label}
       onClick={() => onToggle(!pressed)}
       className={[
         toggleClasses(pressed),
@@ -295,6 +304,26 @@ export function FormatterView({
             label="Sort keys"
             pressed={controls.sortKeys ?? false}
             onToggle={controls.onSortKeys}
+          />
+        ) : null}
+        {/* Semi + Single-quotes (D-06/D-07): JS/TS tool only (handler supplied) AND
+            Prettify-only — hidden in Minify like indent/printWidth. Short visible
+            labels, full aria-labels. Defaults match the engine (semi ON, singleQuote
+            OFF). */}
+        {controls.onSemi && controls.mode === "prettify" ? (
+          <Toggle
+            label="Semi"
+            ariaLabel="semicolons"
+            pressed={controls.semi ?? true}
+            onToggle={controls.onSemi}
+          />
+        ) : null}
+        {controls.onSingleQuote && controls.mode === "prettify" ? (
+          <Toggle
+            label="Single quotes"
+            ariaLabel="single quotes"
+            pressed={controls.singleQuote ?? false}
+            onToggle={controls.onSingleQuote}
           />
         ) : null}
       </div>

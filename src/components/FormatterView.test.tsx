@@ -44,6 +44,10 @@ interface Overrides {
   onPrintWidth?: ((w: number) => void) | undefined;
   sortKeys?: boolean;
   onSortKeys?: ((v: boolean) => void) | undefined;
+  semi?: boolean;
+  onSemi?: ((v: boolean) => void) | undefined;
+  singleQuote?: boolean;
+  onSingleQuote?: ((v: boolean) => void) | undefined;
   onInputChange?: (raw: string) => void;
   onIndent?: (m: IndentMode) => void;
   onMode?: (m: FormatMode) => void;
@@ -65,6 +69,10 @@ function renderView(o: Overrides = {}) {
   const onSortKeys = hasSort ? (o.onSortKeys ?? vi.fn()) : undefined;
   const hasWidth = "onPrintWidth" in o ? o.onPrintWidth !== undefined : false;
   const onPrintWidth = hasWidth ? (o.onPrintWidth ?? vi.fn()) : undefined;
+  const hasSemi = "onSemi" in o ? o.onSemi !== undefined : false;
+  const onSemi = hasSemi ? (o.onSemi ?? vi.fn()) : undefined;
+  const hasSingleQuote = "onSingleQuote" in o ? o.onSingleQuote !== undefined : false;
+  const onSingleQuote = hasSingleQuote ? (o.onSingleQuote ?? vi.fn()) : undefined;
   const utils = render(
     <FormatterView
       inputId="fv-input"
@@ -82,11 +90,24 @@ function renderView(o: Overrides = {}) {
         onPrintWidth,
         sortKeys: hasSort ? (o.sortKeys ?? false) : undefined,
         onSortKeys,
+        semi: hasSemi ? (o.semi ?? true) : undefined,
+        onSemi,
+        singleQuote: hasSingleQuote ? (o.singleQuote ?? false) : undefined,
+        onSingleQuote,
       }}
       status={o.status ?? { parseState: "empty", byteCount: 0 }}
     />,
   );
-  return { ...utils, onInputChange, onIndent, onMode, onSortKeys, onPrintWidth };
+  return {
+    ...utils,
+    onInputChange,
+    onIndent,
+    onMode,
+    onSortKeys,
+    onPrintWidth,
+    onSemi,
+    onSingleQuote,
+  };
 }
 
 function input(container: HTMLElement): HTMLTextAreaElement {
@@ -206,6 +227,68 @@ describe("FormatterView indent / printWidth / sort-keys visibility (D-04/D-06)",
     const { getByRole } = renderView({ printWidth: 80, onPrintWidth });
     fireEvent.click(getByRole("button", { name: "120" }));
     expect(onPrintWidth).toHaveBeenCalledWith(120);
+  });
+});
+
+describe("FormatterView Semi / Single-quotes toggles (D-06/D-07)", () => {
+  it("renders both toggles (by full aria-label) in Prettify when handlers supplied", () => {
+    const { getByRole } = renderView({ onSemi: vi.fn(), onSingleQuote: vi.fn() });
+    expect(getByRole("button", { name: "semicolons" })).toBeTruthy();
+    expect(getByRole("button", { name: "single quotes" })).toBeTruthy();
+  });
+
+  it("gives the toggles short visible labels distinct from their aria-labels", () => {
+    const { getByRole } = renderView({ onSemi: vi.fn(), onSingleQuote: vi.fn() });
+    const semi = getByRole("button", { name: "semicolons" });
+    const single = getByRole("button", { name: "single quotes" });
+    expect(semi.textContent).toBe("Semi");
+    expect(single.textContent).toBe("Single quotes");
+  });
+
+  it("reflects semi/singleQuote via aria-pressed (semi ON, singleQuote OFF by default)", () => {
+    const { getByRole } = renderView({
+      semi: true,
+      onSemi: vi.fn(),
+      singleQuote: false,
+      onSingleQuote: vi.fn(),
+    });
+    expect(
+      getByRole("button", { name: "semicolons" }).getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(
+      getByRole("button", { name: "single quotes" }).getAttribute("aria-pressed"),
+    ).toBe("false");
+  });
+
+  it("hides BOTH toggles in Minify mode (D-06)", () => {
+    const { queryByRole } = renderView({
+      mode: "minify",
+      onSemi: vi.fn(),
+      onSingleQuote: vi.fn(),
+    });
+    expect(queryByRole("button", { name: "semicolons" })).toBeNull();
+    expect(queryByRole("button", { name: "single quotes" })).toBeNull();
+  });
+
+  it("renders NEITHER toggle for a tool that omits the handlers (JSON/XML/HTML)", () => {
+    const { queryByRole } = renderView();
+    expect(queryByRole("button", { name: "semicolons" })).toBeNull();
+    expect(queryByRole("button", { name: "single quotes" })).toBeNull();
+  });
+
+  it("fires onSemi / onSingleQuote with the negated value", () => {
+    const onSemi = vi.fn();
+    const onSingleQuote = vi.fn();
+    const { getByRole } = renderView({
+      semi: true,
+      onSemi,
+      singleQuote: false,
+      onSingleQuote,
+    });
+    fireEvent.click(getByRole("button", { name: "semicolons" }));
+    expect(onSemi).toHaveBeenCalledWith(false);
+    fireEvent.click(getByRole("button", { name: "single quotes" }));
+    expect(onSingleQuote).toHaveBeenCalledWith(true);
   });
 });
 
