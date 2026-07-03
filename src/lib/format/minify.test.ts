@@ -9,8 +9,15 @@
 // flags. So `beforeAll` injects an empty init-options provider: the SAME wrapper +
 // real esbuild transform, only the engine-loading swapped off the Vite `?url`
 // asset pipeline. `initCalls` proves the init is memoized (once).
-import { beforeAll, describe, expect, it } from "vitest";
-import { __setEsbuildInitForTest, minifyHtml, minifyScript } from "./minify";
+import { beforeAll, describe, expect, it, vi } from "vitest";
+import type { MinifyLoader } from "./minify";
+import { __setEsbuildInitForTest, minifyHtml, minifyJsTs, minifyScript } from "./minify";
+
+// An angle-bracket TS type cast: the tsx loader mis-lexes `<T>` as a JSX element
+// and errors, while the ts loader accepts it. Author-verified at the pinned
+// esbuild-wasm — tsx fails, ts yields `const v=1,y=1;`. The fallback-path fixture,
+// reused by the ORDER proof below.
+const ANGLE_BRACKET_CAST = "type T = number;\nconst v = 1;\nconst y = <T>v;";
 
 let initCalls = 0;
 
@@ -109,6 +116,88 @@ describe("minifyScript", () => {
     await minifyScript("const p = 1;", "js");
     await minifyScript("const q = 2;", "js");
     expect(initCalls).toBe(1);
+  });
+});
+
+describe("minifyJsTs (tsx→ts fallback, D-02/D-03)", () => {
+  it("minifies TS via the tsx loader (compact valid output)", async () => {
+    const r = await minifyJsTs("const x: number = 1;");
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.output).not.toContain(": number");
+      expect(r.output).toContain("x=1");
+      expect(isValidJs(r.output)).toBe(true);
+    }
+  });
+
+  it("minifies JSX via the tsx loader", async () => {
+    const r = await minifyJsTs("const x = <div className='a' />;");
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.output.length).toBeGreaterThan(0);
+  });
+
+  it("compacts multiple statements ASI-safely (no merge error)", async () => {
+    const r = await minifyJsTs("let a=1;\nlet b=2;");
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(isValidJs(r.output)).toBe(true);
+      expect(r.output).toContain("a=1");
+      expect(r.output).toContain("b=2");
+    }
+  });
+
+  it("RECOVERS an angle-bracket type cast via the ts fallback (tsx mis-reads `<T>` as JSX)", async () => {
+    // Sanity: the fixture actually diverges (tsx rejects, ts accepts) at this pin.
+    const tsx = await minifyScript(ANGLE_BRACKET_CAST, "tsx");
+    const ts = await minifyScript(ANGLE_BRACKET_CAST, "ts");
+    expect(tsx.ok).toBe(false);
+    expect(ts.ok).toBe(true);
+
+    const r = await minifyJsTs(ANGLE_BRACKET_CAST);
+    expect(r.ok).toBe(true); // the FALLBACK path executes and succeeds
+    if (r.ok && ts.ok) expect(r.output).toBe(ts.output);
+  });
+
+  it("attempts the tsx loader BEFORE ts (routing ORDER, not just output)", async () => {
+    const order: MinifyLoader[] = [];
+    const spyRun = vi.fn((input: string, loader: MinifyLoader) => {
+      order.push(loader);
+      return minifyScript(input, loader);
+    });
+    const result = await minifyJsTs("const x=1", spyRun);
+    expect(result.ok).toBe(true);
+    expect(order).toEqual(["tsx"]); // tsx-first succeeded → ts never tried
+  });
+
+  it("falls back to ts ONLY after tsx (order preserved on fallback)", async () => {
+    const order: MinifyLoader[] = [];
+    const spyRun = vi.fn((input: string, loader: MinifyLoader) => {
+      order.push(loader);
+      return minifyScript(input, loader);
+    });
+    const result = await minifyJsTs(ANGLE_BRACKET_CAST, spyRun);
+    expect(result.ok).toBe(true);
+    expect(order).toEqual(["tsx", "ts"]); // tsx FIRST, then ts
+  });
+
+  it("surfaces the FIRST (tsx) attempt's error when BOTH loaders fail (D-03)", async () => {
+    const bad = "function(";
+    const r = await minifyJsTs(bad);
+    expect(r.ok).toBe(false);
+    const tsxErr = await minifyScript(bad, "tsx");
+    expect(tsxErr.ok).toBe(false);
+    if (!r.ok && !tsxErr.ok) {
+      expect(r.error.message).toBe(tsxErr.error.message);
+      expect(r.error.line).toBe(tsxErr.error.line);
+      expect(r.error.col).toBe(tsxErr.error.col);
+    }
+  });
+
+  it("empty/whitespace → ok with empty output and 0 bytes (short-circuit)", async () => {
+    for (const input of ["", "   ", "\n\t "]) {
+      const r = await minifyJsTs(input);
+      expect(r).toEqual({ ok: true, output: "", inputBytes: 0, outputBytes: 0 });
+    }
   });
 });
 

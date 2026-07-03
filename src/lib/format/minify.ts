@@ -116,6 +116,26 @@ export async function minifyScript(
   }
 }
 
+/**
+ * Minify a JS/TS/JSX/TSX string with NO language picker (D-02/D-04): try the
+ * `tsx` esbuild loader first (handles TS + JSX + plain JS — the modern common
+ * case), and only on error retry the `ts` loader (recovers the rare angle-bracket
+ * type cast `<T>value` that tsx mis-lexes as JSX). On total failure the input is
+ * genuinely broken, so surface the FIRST (tsx) attempt's error (D-03).
+ */
+export async function minifyJsTs(
+  input: string,
+  // Test-only injection seam for the ORDER proof (default = the real
+  // minifyScript, so callers stay one-arg — additive). minifyJsTs calls
+  // minifyScript intra-module, so a module-boundary spy would not intercept.
+  run: (input: string, loader: MinifyLoader) => Promise<FormatResult> = minifyScript,
+): Promise<FormatResult> {
+  const primary = await run(input, "tsx");
+  if (primary.ok) return primary;
+  const fallback = await run(input, "ts");
+  return fallback.ok ? fallback : primary; // first-attempt error on total failure
+}
+
 // ── Offline HTML minifier (D-05) ─────────────────────────────────────────────
 // esbuild has no HTML loader, so HTML minifies via a pure, zero-dep, bounded
 // string transform: collapse insignificant whitespace + strip non-conditional
