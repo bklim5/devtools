@@ -17,8 +17,18 @@ import { byteLen } from "./types";
 /** Which parser drives the combined JS/TS tool (P34); HTML has its own entry. */
 export type ScriptLang = "babel" | "typescript";
 
-/** Callers (P33/P34) may widen the shared options with an explicit printWidth. */
-export type PrettierFormatOptions = FormatOptions & { printWidth?: number };
+/**
+ * Callers (P33/P34) may widen the shared options with an explicit printWidth and
+ * — for the JS/TS tool (D-10) — the two Prettier style toggles `semi`/`singleQuote`.
+ * Both are OPTIONAL and default (in {@link optionsFrom}) to the old hardcoded
+ * values (`semi: true`, `singleQuote: false`), so every existing caller (HTML tool,
+ * JSON/XML, goldens) stays byte-identical.
+ */
+export type PrettierFormatOptions = FormatOptions & {
+  printWidth?: number;
+  semi?: boolean;
+  singleQuote?: boolean;
+};
 
 // Prettier 3 plugins are ESM; a dynamic `import()` yields a namespace object
 // whose `.default` is the plugin (PITFALLS 11). Normalise to `.default ?? ns`.
@@ -73,8 +83,10 @@ function optionsFrom(opts: PrettierFormatOptions) {
     printWidth: opts.printWidth ?? 80,
     tabWidth: opts.indent === "4" ? 4 : 2,
     useTabs: opts.indent === "tab",
-    semi: true,
-    singleQuote: false,
+    // Default to the old hardcoded values so existing callers stay byte-identical;
+    // the JS/TS tool (D-10) overrides these via the toolbar toggles.
+    semi: opts.semi ?? true,
+    singleQuote: opts.singleQuote ?? false,
     trailingComma: "all" as const,
     embeddedLanguageFormatting: "auto" as const,
   };
@@ -144,6 +156,34 @@ export function formatScript(
   opts: PrettierFormatOptions,
 ): Promise<FormatResult> {
   return formatWith(input, lang, () => loadScriptPlugins(lang), opts);
+}
+
+/**
+ * Prettify a JS/TS/JSX/TSX string with NO language picker (D-01/D-04): try the
+ * `typescript` parser first (covers TS + JS + JSX + TSX), and only on a parse
+ * ERROR retry ONCE with `babel` (recovers the rare valid-JS the TS parser
+ * rejects — e.g. throw/do expressions). When BOTH fail the input is genuinely
+ * malformed, so surface the FIRST (typescript) attempt's error — deterministic +
+ * most-accurate for the common case (D-03). Empty input is handled by the
+ * composed formatScript.
+ */
+export async function formatJsTs(
+  input: string,
+  opts: PrettierFormatOptions,
+  // Test-only injection seam for the ORDER proof (default = the real
+  // formatScript, so every caller stays two-arg — additive, no caller edits).
+  // formatJsTs calls formatScript INTRA-MODULE, so a vi.spyOn on the module
+  // export would NOT intercept the internal call; the injected runner does.
+  run: (
+    input: string,
+    lang: ScriptLang,
+    opts: PrettierFormatOptions,
+  ) => Promise<FormatResult> = formatScript,
+): Promise<FormatResult> {
+  const primary = await run(input, "typescript", opts);
+  if (primary.ok) return primary;
+  const fallback = await run(input, "babel", opts);
+  return fallback.ok ? fallback : primary; // first-attempt error on total failure
 }
 
 /**

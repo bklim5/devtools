@@ -2,11 +2,18 @@
 // prettify paths, the embedded-code path, the empty short-circuit, error-as-value
 // on malformed input, and the indent→option mapping. Pure (no DOM); the engine
 // loads via dynamic import at call time.
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { FormatOptions } from "./types";
-import { formatHtml, formatScript } from "./prettier";
+import type { ScriptLang, PrettierFormatOptions } from "./prettier";
+import { formatHtml, formatJsTs, formatScript } from "./prettier";
 
 const DEFAULT: FormatOptions = { indent: "2", minify: false };
+
+// A valid-JS input the TYPESCRIPT parser REJECTS but babel accepts (a throw
+// expression). Author-verified at pin 3.8.3: formatScript(_, "typescript") is
+// ok:false while formatScript(_, "babel") is ok:true (see 34-01-SUMMARY). This is
+// the fallback-path fixture — reused by the ORDER proof below.
+const BABEL_ONLY = "const req=(o,k)=>o[k]||throw new Error('x')";
 
 describe("formatScript", () => {
   it("prettifies JS with Prettier's own defaults (babel parser)", async () => {
@@ -77,6 +84,121 @@ describe("formatScript", () => {
       expect(typeof r.error.col).toBe("number");
       expect(r.error.col).toBeGreaterThanOrEqual(1);
     }
+  });
+});
+
+describe("formatJsTs (typescript→babel fallback, D-01/D-03)", () => {
+  it("prettifies common JS via the typescript parser (byte-equal to the typescript path)", async () => {
+    const r = await formatJsTs("const a=1", DEFAULT);
+    expect(r).toEqual({
+      ok: true,
+      output: "const a = 1;\n",
+      inputBytes: 9,
+      outputBytes: 13,
+    });
+    const viaScript = await formatScript("const a=1", "typescript", DEFAULT);
+    expect(viaScript.ok && r.ok && viaScript.output).toBe(r.ok ? r.output : "");
+  });
+
+  it("handles real TS-only syntax (typescript parser)", async () => {
+    const r = await formatJsTs("interface Y{a:number}const z:Y={a:1}", DEFAULT);
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.output).toContain("interface Y {");
+      expect(r.output).toContain("const z: Y = { a: 1 };");
+    }
+  });
+
+  it("RECOVERS valid-JS-the-TS-parser-rejects via the babel fallback (ok:true, byte-equal to the babel path)", async () => {
+    // Sanity: the fixture actually diverges at this pin (ts rejects, babel accepts).
+    const ts = await formatScript(BABEL_ONLY, "typescript", DEFAULT);
+    const babel = await formatScript(BABEL_ONLY, "babel", DEFAULT);
+    expect(ts.ok).toBe(false);
+    expect(babel.ok).toBe(true);
+
+    const r = await formatJsTs(BABEL_ONLY, DEFAULT);
+    expect(r.ok).toBe(true); // the FALLBACK SUCCEEDS (not just error attribution)
+    if (r.ok && babel.ok) expect(r.output).toBe(babel.output);
+  });
+
+  it("attempts the typescript parser BEFORE babel (routing ORDER, not just output)", async () => {
+    const order: ScriptLang[] = [];
+    const spyRun = vi.fn(
+      (input: string, lang: ScriptLang, opts: PrettierFormatOptions) => {
+        order.push(lang);
+        return formatScript(input, lang, opts);
+      },
+    );
+    // Common JS BOTH parsers accept + format IDENTICALLY (the golden blind spot):
+    const result = await formatJsTs("const a=1", DEFAULT, spyRun);
+    expect(result.ok).toBe(true);
+    expect(order).toEqual(["typescript"]); // ts-first succeeded → babel never tried
+  });
+
+  it("falls back to babel ONLY after typescript (order preserved on fallback)", async () => {
+    const order: ScriptLang[] = [];
+    const spyRun = vi.fn(
+      (input: string, lang: ScriptLang, opts: PrettierFormatOptions) => {
+        order.push(lang);
+        return formatScript(input, lang, opts);
+      },
+    );
+    const result = await formatJsTs(BABEL_ONLY, DEFAULT, spyRun);
+    expect(result.ok).toBe(true);
+    expect(order).toEqual(["typescript", "babel"]); // ts FIRST, then babel
+  });
+
+  it("singleQuote:true → double quotes become single", async () => {
+    const r = await formatJsTs('const s="h"', { ...DEFAULT, singleQuote: true });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.output).toBe("const s = 'h';\n");
+      expect(r.output).not.toContain('"h"');
+    }
+  });
+
+  it("semi:false → no trailing semicolons", async () => {
+    const r = await formatJsTs("const a=1", { ...DEFAULT, semi: false });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.output).toBe("const a = 1\n");
+      expect(r.output).not.toContain(";");
+    }
+  });
+
+  it("surfaces the FIRST (typescript) attempt's error when BOTH parsers fail (D-03)", async () => {
+    const bad = "const = = =";
+    const r = await formatJsTs(bad, DEFAULT);
+    expect(r.ok).toBe(false);
+    const tsErr = await formatScript(bad, "typescript", DEFAULT);
+    expect(tsErr.ok).toBe(false);
+    if (!r.ok && !tsErr.ok) {
+      // attribution = the typescript attempt, NOT babel's
+      expect(r.error.message).toBe(tsErr.error.message);
+      expect(r.error.line).toBe(tsErr.error.line);
+      expect(r.error.col).toBe(tsErr.error.col);
+    }
+  });
+
+  it("empty/whitespace → ok with empty output and 0 bytes (short-circuit)", async () => {
+    for (const input of ["", "   ", "\n\t "]) {
+      const r = await formatJsTs(input, DEFAULT);
+      expect(r).toEqual({ ok: true, output: "", inputBytes: 0, outputBytes: 0 });
+    }
+  });
+});
+
+describe("PrettierFormatOptions semi/singleQuote defaults (byte-stability, D-10)", () => {
+  it("existing formatScript default output is byte-unchanged (semi true, singleQuote false)", async () => {
+    const r = await formatScript("const a=1", "babel", DEFAULT);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.output).toBe("const a = 1;\n");
+  });
+
+  it("keeps double quotes + semicolons when the toggles are omitted", async () => {
+    const r = await formatScript('const s = "h"', "typescript", DEFAULT);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.output).toBe('const s = "h";\n');
   });
 });
 
