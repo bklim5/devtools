@@ -174,6 +174,17 @@ describe("JS/TS formatter tool (real WKWebView)", () => {
       "expected JSX minify to PRESERVE JSX (no React.createElement) and fold {1+1}->{2}",
     );
 
+    // 3c. MINIFY MUST NOT DROP SIDE-EFFECTING IMPORTS (real-runtime guard for the
+    //     codex 34-05 finding): the tsx loader would otherwise elide an unused value
+    //     import, silently deleting the module's side effects. verbatimModuleSyntax
+    //     keeps `import x from "mod"` (as a bare side-effect import) — the compact
+    //     output must still reference "mod".
+    await pasteAndWait(
+      'import x from "mod"; console.log(1);',
+      (s) => s.output.includes('"mod"') && s.output.includes("console.log(1)"),
+      "expected minify to PRESERVE the side-effecting import (verbatimModuleSyntax)",
+    );
+
     // 4. ERROR (D-11): genuinely malformed input → calm role=alert, output CLEARED
     //    (never a silent fallback). Still in Minify mode, so esbuild is the erroring
     //    engine; the composed error carries a line:col.

@@ -159,6 +159,28 @@ describe("minifyJsTs (tsx→ts fallback, D-02/D-03)", () => {
     }
   });
 
+  it("does NOT drop a side-effecting import whose binding is unused (verbatimModuleSyntax)", async () => {
+    // Under the tsx/ts loader esbuild's default TS import elision would delete
+    // `import x from "mod"` when `x` is unused — but a static import must still run
+    // the module for its SIDE EFFECTS. verbatimModuleSyntax keeps it (as a bare
+    // side-effect import) so the minified output stays semantically equivalent.
+    const r = await minifyJsTs('import x from "mod"; console.log(1);');
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.output).toContain('"mod"'); // the import survives (side effect kept)
+      expect(r.output).toContain("console.log(1)");
+    }
+  });
+
+  it("still elides an explicit `import type` (type-only, no runtime side effect)", async () => {
+    const r = await minifyJsTs('import type { A } from "mod"; const a: A = 1; console.log(a);');
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.output).not.toContain('"mod"'); // import type carries no side effect → dropped
+      expect(r.output).toContain("console.log");
+    }
+  });
+
   it("compacts multiple statements ASI-safely (no merge error)", async () => {
     const r = await minifyJsTs("let a=1;\nlet b=2;");
     expect(r.ok).toBe(true);

@@ -104,17 +104,25 @@ export async function minifyScript(
   }
   try {
     const esbuild = await ensureEsbuild();
-    // jsx:"preserve" — MINIFY MUST NOT TRANSPILE. esbuild's default JSX handling
-    // LOWERS `<div/>` to `React.createElement("div",…)`, which is a runtime change
-    // (requires `React` in scope; breaks React-automatic-runtime / custom-factory
-    // projects), not minification. Preserving JSX keeps the output in the SAME
-    // dialect the user pasted while still collapsing whitespace + folding constants.
-    // For non-JSX loaders (js/css, incl. HTML embedded <script>/<style>) it is a
-    // no-op — those loaders never parse JSX — so this is safe for every caller.
+    // MINIFY MUST NOT CHANGE SEMANTICS — two esbuild defaults would, so both are
+    // pinned here:
+    //   jsx:"preserve" — esbuild's default LOWERS `<div/>` to
+    //     `React.createElement("div",…)`, a runtime change (needs `React` in scope;
+    //     breaks React-automatic-runtime / custom-factory projects). Preserve keeps
+    //     the pasted dialect while still folding constants + collapsing whitespace.
+    //   verbatimModuleSyntax — under the ts/tsx loader esbuild applies TypeScript's
+    //     import elision, DROPPING an unused value import (`import x from "mod";` when
+    //     `x` is unused) even though a static import must still evaluate the module
+    //     for its SIDE EFFECTS. verbatimModuleSyntax keeps it (as a bare side-effect
+    //     `import"mod"`) while still eliding an explicit `import type`.
+    // Both are no-ops for the loaders that don't apply them (jsx:preserve for js/css;
+    // tsconfigRaw for js/jsx/css — incl. HTML embedded <script>/<style>), so the
+    // 33-02 HTML SC2 golden stays byte-identical and every caller is safe.
     const { code } = await esbuild.transform(input, {
       loader,
       minify: true,
       jsx: "preserve",
+      tsconfigRaw: { compilerOptions: { verbatimModuleSyntax: true } },
     });
     return {
       ok: true,
