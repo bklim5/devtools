@@ -400,3 +400,12 @@ Plans:
 
 Plans:
 - [ ] Ready to promote (decision resolved) — run /gsd-review-backlog or /gsd-new-milestone to open v1.8 (APP-STORE-01..).
+
+### Phase 999.11: Syntax-highlighted output for formatter tools (BACKLOG)
+
+**Goal:** [Captured for future planning — origin: Phase-34 boundary review, DevUtils JS Beautify/Minify comparison 2026-07-06] — color-code the OUTPUT pane of the formatter tools (JSON, XML/HTML, JS/TS) the way DevUtils does, via **one shared highlighted-output component in the shell** (not per-tool). **Leading candidate: Shiki** (TextMate grammars, VS Code fidelity; WASM regex engine — the packaged CSP already carries `wasm-unsafe-eval` from esbuild, so the hardest packaging gotcha is pre-cleared), vendored offline + lazy-loaded exactly like the Prettier/esbuild exceptions. Rejected-leaning alternatives: highlight.js/Prism (smaller but worse TS/JSX fidelity; Prism has ReDoS history — bad fit for paste-unknown-blobs), CodeMirror 6 read-only (brings fold arrows + line numbers like the DevUtils screenshot, but replaces the output `<pre>` across tools — a separate, bigger decision). **Hard constraint: the paste-instant <2s wedge** — highlighting a 2 MB minified blob produces ~100k+ DOM spans; needs a size cutoff (~256–512 KB, plain text above) or line virtualization. **Open questions for promotion:** Shiki bundle size budget (~1–2 MB grammars/themes for 4 langs × 2 themes); theme tokens mapped to the app's light/dark CSS vars (WCAG-AA contrast in both); whether input pane highlights too or output-only (DevUtils colors both); interaction with the byte-delta status bar + copy affordance; whether the new-dep wedge gate clears (third scoped exception after Prettier + esbuild — NOT a grab-bag precedent).
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
