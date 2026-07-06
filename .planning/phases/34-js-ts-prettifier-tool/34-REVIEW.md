@@ -25,6 +25,7 @@ findings:
   warning: 1
   info: 2
   total: 3
+fixed: 1
 status: issues_found
 ---
 
@@ -66,7 +67,14 @@ memoize correctly), `StatusBar` (all e2e selectors — `[data-status="error"]`,
 
 ## Warnings
 
-### WR-01: `conciseError` leaks Prettier's multi-line code frame (and a redundant mid-message locus) into the status bar on the JS/TS Prettify error path
+### WR-01 (FIXED — commit daebe052): `conciseError` leaks Prettier's multi-line code frame (and a redundant mid-message locus) into the status bar on the JS/TS Prettify error path
+
+**Resolution:** `conciseError` now cuts the message at the first newline before
+the existing pipeline, dropping the babel/typescript code frame and re-exposing
+the `(1:11)` locus as trailing so the paren-locus regex strips it. Regression
+tests added for both the typescript and babel parser code-frame shapes. HTML
+single-line errors are unaffected (no-op cut). Full suite 1431 green, tsc clean.
+
 
 **File:** `src/lib/format/conciseError.ts:8-13` (consumer: `src/tools/js-formatter/JsFormatterTool.tsx:83-87`)
 **Issue:** The helper was extracted from the HTML tool, whose `html`-parser
