@@ -1,5 +1,22 @@
 # Milestones
 
+## v1.9 Prettier Formatters (Shipped: 2026-07-06)
+
+**Phases:** 31–34 (4 phases, 15 plans) · **Suite:** 1429/1429 vitest, tsc clean · **Tools:** 11 → 13
+
+Two new wedge-gated formatter tools — a 12th (HTML prettifier) and a 13th (combined JS/TS/JSX/TSX prettifier, no language picker) — that each **Prettify** (Prettier 3.8.3 standalone, output byte-identical to `prettier --write`, HTML incl. embedded `<script>`/`<style>` parity) AND **Minify** (esbuild-wasm 0.28.0 for JS/TS/JSX/TSX + CSS; a pure offline `minifyHtml` for HTML). Both heavy engines are vendored/self-hosted (no CDN), lazy-loaded and code-split out of the entry chunk — the two deliberate, scoped, reviewed heavy-dep exceptions to the zero-dep wedge (user kept Minify, overriding research's drop-minify recommendation → esbuild). `decoder.ts` + its 19 tests stayed byte-for-byte untouched.
+
+**Key accomplishments:**
+
+- Engine + async seam (32): the async **Prettier 3.8.3 standalone** wrapper (byte-identical, golden-parity-locked incl. an embedded-code fixture, RED on version/option drift), the **esbuild-wasm** minify wrapper + offline pure HTML minifier (type-aware `<script>` routing preserves JSON-LD/importmap data blocks), the shared latest-wins **`useAsyncFormat`** hook (180ms debounce + monotonic reqId gate + pending), the generalized `[Prettify|Minify]` **FormatterView** + optional printWidth (JSON/XML retrofitted, pure transforms + decoder untouched), and the **heavy-engine chunk-isolation guard** (`prettierChunkGuard.mjs`, initial-reachability, non-vacuous self-test, verifier sentinel) + no-network engine test — PRT-01/02/03/04/05/06/11.
+- HTML prettifier tool (33, the 12th): single Prettier html parser with full embedded `<script>`/`<style>` parity (SC1 golden) + esbuild HTML minify (SC2 golden), registry-only/free/WCAG-AA, indent + printWidth 80/100/120 + in→out byte delta + focusable copy; the shared 2 MB DoS guard landed here — PRT-07/08/12.
+- JS/TS prettifier tool (34, the 13th): combined typescript-parser tool with NO language picker — `formatJsTs` (typescript→babel) + `minifyJsTs` (tsx→ts) fallback chains, Prettify-only Semi/Single-quotes toggles, shared `conciseError`, registry-only/free — PRT-09/10/12.
+- Golden parity locks (RED-on-drift): an HTML script+style fixture, four JS/TS dialects at named parsers, `formatJsTs` routing goldens + a proven-live babel-fallback fixture; the fallback chains' routing ORDER is locked by injectable-runner tests (byte goldens can't catch mis-routing since the parsers emit identical output on common input).
+- Adversarial hardening: packaged CSP `wasm-unsafe-eval` (esbuild WASM was dev-only-masked — a packaged-only class), minify attribute integrity + ReDoS-safe quote-aware tag scan, whitespace-DoS guard, concise `role=alert` line:col errors, and two Codex-caught minify-semantics fixes (jsx:preserve — never lower `<div/>` to `React.createElement`; verbatimModuleSyntax — side-effecting value imports survive elision).
+- Docs/wedge correction (31, PRT-13): the stale CLAUDE.md/README/PROJECT "six tools only" + "zero new runtime dependencies" wording corrected to the wedge-gated growing tool set (11 → 13) with Prettier + esbuild recorded as the two scoped heavy-dep exceptions.
+
+Gates held: 13/13 PRT-* requirements (audit PASSED 2026-07-06; integration 11/11, flows 5/5); per-phase VERIFICATION all passed; the binding harness (`/simplify` → `/code-review xhigh` → `/codex:adversarial-review`) run per phase, incl. 5 Codex rounds on P33 + 2 Codex minify-semantics fixes on P34; human sign-offs on both tools (HTML 2026-07-02, JS/TS 2026-07-06 + Option A JSX-factory-import minify semantics ratified); `decoder.ts` + its 19 tests byte-untouched; both channels rebuilt fresh at HEAD. 5 non-blocking tech-debt items (golden-check CI wiring, status-block duplication, no standalone P34 ui-review/SECURITY.md artifact, PRT-08 e2e depth). Full detail: `milestones/v1.9-ROADMAP.md` · `milestones/v1.9-REQUIREMENTS.md`.
+
 ## v1.8 Mac App Store Distribution (Shipped: 2026-06-29 — Submitted for Review)
 
 **Phases:** 26–30 (5 phases, 21 plans executed + 1 contingency skipped) · **App version:** 1.0.0 · **Submitted to App Store Review 2026-06-27**

@@ -259,6 +259,40 @@ The Mac App Store edition as a SECOND distribution channel beside the unchanged 
 
 ---
 
+## Milestone: v1.9 — Prettier Formatters
+
+**Shipped:** 2026-07-06 (app tools 12 + 13) · **Phases:** 31–34 (15 plans)
+
+### What Was Built
+Two new wedge-gated formatter tools — an HTML prettifier (12th) and a combined JS/TS/JSX/TSX prettifier (13th, no language picker) — each Prettify (Prettier 3.8.3 standalone, byte-identical to `prettier --write`, HTML incl. embedded `<script>`/`<style>` parity) AND Minify (esbuild-wasm 0.28.0 for JS/TS/JSX/TSX + CSS; a pure offline `minifyHtml` for HTML). Both heavy engines are vendored/self-hosted (no CDN), lazy-loaded/code-split out of the entry chunk (the two deliberate, scoped heavy-dep exceptions to the zero-dep wedge). The shared async seam is `useAsyncFormat` (180ms debounce + monotonic-reqId latest-wins + pending) with a default-on 2 MB DoS guard; FormatterView was generalized to one `[Prettify|Minify]` mode selector + optional printWidth across all four formatter tools (JSON/XML retrofitted, pure transforms unchanged). `decoder.ts` + its 19 tests byte-for-byte untouched.
+
+### What Worked
+- **Goldens-locked parity caught drift by design** — per-language `.golden` fixtures (HTML script+style; four JS/TS dialects at named parsers; `formatJsTs` routing goldens) byte-lock output against CLI `prettier --write`, so a Prettier bump or option drift REDs the suite. The generator's `git diff --exit-code` integrity leg proved committed goldens == fresh CLI at the pin.
+- **Injectable-runner ORDER tests caught what byte goldens can't** — typescript/babel (and tsx/ts) emit byte-identical output on common input, so no byte comparison can prove routing order. An additive test-only `run` param records the actual attempt order (`["typescript"]` vs `["typescript","babel"]`), so a mis-routed fallback chain REDs even when the bytes match.
+- **The pure-engine-then-thin-tool split, reused a fifth time** — engine (`prettier.ts`/`minify.ts`) landed golden-locked before the mounted tools, which cloned the P33 HTML tool seam exactly for P34.
+
+### What Was Inefficient
+- **Codex adversarial review caught two real minify-semantics bugs the first e2e missed** — the tsx loader LOWERED `<div/>` to `React.createElement` (a runtime change, not minification → fixed with `jsx:"preserve"`), and TypeScript import elision DROPPED an unused *value* import, losing its module side effects (→ fixed with `verbatimModuleSyntax:true`). The initial e2e only minified local decls/JSX, so both passed it; both are Rule-1 wrong-output-on-common-input. (Plus 5 Codex rounds on P33 — the stopping rule is now a memory: fix diff-introduced + common-input-wrong-output findings, route pre-existing design policy to the owner.)
+- **Packaged CSP blocked esbuild WASM — a packaged-only class invisible to dev/unit/e2e** — `tauri dev`'s CSP is permissive and jsdom/e2e never exercised the real WASM init, so `script-src 'self'` blocking WebAssembly in the packaged `.app` surfaced only at the human gate. Fixed by adding `wasm-unsafe-eval` to the base tauri.conf.json CSP, verified via `strings` on the binary.
+- **esbuild-wasm won't init under jsdom's cross-realm TextEncoder** — the JS-tool Minify path had to be `vi.mock`ed in the jsdom suite (the injected empty-options provider didn't fix it); real esbuild minification stays proven in the node-env `minify.test.ts` + the real-WKWebView e2e, so the unit tool test's scope is narrower by necessity.
+
+### Patterns Established
+- **A test-only injectable runner is the observation point for intra-module routing** — when a fallback chain's branches produce identical bytes, inject the runner and assert the attempt-order array; a module-boundary `vi.spyOn` misses the intra-module call.
+- **Scoped heavy-dep exceptions stay honest via lazy + vendored + an ungated build guard** — Prettier + esbuild bend the zero-dep line deliberately; the chunk-isolation guard (initial-reachability predicate, non-vacuous self-test, verifier sentinel) enforces "never in the entry chunk" mechanically, so the exception can't silently become grab-bag.
+- **A shared main-thread size cap beats a worker for ~linear engines** — a 2 MB `useAsyncFormat` guard (bounded UTF-8 counter, never full-encodes oversize input) handles pathological pastes without fragmenting the lazy chunks or duplicating the heavy engines.
+
+### Key Lessons
+1. **Byte goldens lock output, not control flow** — pair them with an injectable-runner ORDER test whenever a fallback/routing chain has branches that can emit identical bytes, or a mis-route ships green.
+2. **The packaged CSP is its own gate** — WebAssembly (and other packaged-only CSP restrictions) are masked by the permissive `tauri dev` CSP and by jsdom/e2e; verify the real binary (`strings`/native launch), and keep `wasm-unsafe-eval` in the base config for any WASM engine.
+3. **Adversarial review earns its place on semantics, not just line bugs** — Codex caught two minify-*semantics* regressions (JSX lowering, side-effect-import elision) that a byte-diff over local-decl fixtures passed; budget an adversarial pass for any transform that could silently change runtime meaning.
+4. **lefthook forbids RED-only commits** — tests land GREEN with their impl (a standing repo convention); don't plan standalone RED waves.
+
+### Cost Observations
+- Model mix: GSD `quality` profile — primarily Opus for planning/execution/review; Fable orchestration spawning Opus subagents for the milestone close-out.
+- Notable: the automatable surface was green (1429/1429 vitest) before both human sign-offs; the material late work was the two Codex minify-semantics fixes + the packaged-CSP WASM fix — all surfaced by adversarial review / the real packaged app, not the unit suite.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -271,6 +305,7 @@ The Mac App Store edition as a SECOND distribution channel beside the unchanged 
 | v1.3 More Tools | 4 (12–15) | 11 | Risk-ordered independent features; pure-core-then-thin-view per tool; highest-risk slice (Cron L/nL) isolated with its own fixtures; auto-build at the human-verify checkpoint |
 | v1.4 Reorderable Tools | 1 (16) | 2 | First personalization feature; persisted overlay over the canonical registry (never a mutation); pure reconciliation backbone landed UI-free before the thin Sidebar wiring |
 | v1.5 Pinned Tools | 1 (17) | 2 | Two-group partition overlay reusing v1.4's reconciler per group; all real bugs (macOS Alt+P dead-key, Tab/arrow nav) surfaced by the human walkthrough, driving three post-gate gap-closure rounds |
+| v1.9 Prettier Formatters | 4 (31–34) | 15 | Two scoped heavy-dep exceptions (Prettier + esbuild, vendored/lazy/chunk-guard-isolated) on a shared async latest-wins seam; goldens + injectable-runner ORDER tests lock parity AND routing; Codex caught 2 packaged-only minify-semantics bugs + the CSP-blocks-WASM class |
 
 ### Cumulative Quality
 
@@ -284,6 +319,7 @@ The Mac App Store edition as a SECOND distribution channel beside the unchanged 
 | v1.5 Pinned Tools | 694 vitest | pinned sidebar section — `pinnedToolIds` overlay + pure `partitionTools`/`resolveRovingTarget` helpers (Alt+P, arrow focus-nav, per-group reorder) | **0** |
 | v1.6 Licensing | ~895 vitest + 81 cargo | central entitlement gate + lazy registry (frontend); Rust license core (HMAC fingerprint, Ed25519 verify) | **0 webview** (Rust `ed25519-dalek`/`keyring`/HMAC expected + allowed) |
 | v1.7 Settings & Preferences | 1200 vitest | five-pane in-window Settings modal + shared `useUpdater` singleton + pure chord/prefs helpers | **1** (`@tauri-apps/plugin-autostart` — explicit scoped exception for launch-at-login) |
+| v1.9 Prettier Formatters | 1429 vitest | HTML + JS/TS prettify/minify tools on the generalized FormatterView + shared `useAsyncFormat` seam (2 MB guard) | **2** (Prettier 3.8.3 standalone + esbuild-wasm 0.28.0 — the two scoped heavy-dep exceptions, vendored/self-hosted/lazy-loaded) |
 
 Constant across all eight: the hero decoder (`src/lib/protobuf/decoder.ts`) + its **19 tests** stayed byte-for-byte untouched.
 

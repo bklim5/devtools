@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v1.9
 milestone_name: Prettier Formatters
-status: verifying
-last_updated: "2026-07-06T20:41:52.855Z"
+status: completed
+last_updated: "2026-07-06T23:15:00.000Z"
 last_activity: 2026-07-06
 progress:
   total_phases: 14
@@ -17,10 +17,10 @@ progress:
 
 ## Current Position
 
-Milestone: **v1.9 "Prettier Formatters" — STARTED 2026-06-30 (defining requirements).** Promotes the HTML + JS/TS slice of backlog 999.1. Scope = two new formatter tools (an **HTML prettifier** + a combined **JavaScript/TypeScript prettifier**) powered by **Prettier standalone** (vendored/self-hosted, lazy-loaded). FIRST deliberate heavy runtime dependency — a scoped, accepted exception to the zero-dep wedge. Mirror the JSON/XML `FormatterView`/`src/lib/format/` shape but wrap Prettier (async/lazy). Continues phase numbering from v1.8's Phase 30 → first phase is **Phase 31**.
-Phase: — (all v1.9 phases complete; milestone close-out pending)
-Plan: Not started
-Status: Phase 34 complete — v1.9 tool work delivered (PRT-09/PRT-10/PRT-12 closed). v1.9 milestone close-out pending (verify PRT-03/PRT-11 tracking checkboxes from Phase 32).
+Milestone: **v1.9 "Prettier Formatters" — SHIPPED 2026-07-06, ARCHIVED** (Phases 31–34, 15 plans; archived to `.planning/milestones/v1.9-{ROADMAP,REQUIREMENTS,MILESTONE-AUDIT}.md` + `v1.9-phases/`). Delivered the 12th + 13th tools: an **HTML prettifier** and a combined **JS/TS/JSX/TSX prettifier** (no language picker), each Prettify (Prettier 3.8.3 standalone, byte-identical to `prettier --write`) AND Minify (esbuild-wasm 0.28.0 / offline `minifyHtml`) — both heavy engines vendored/self-hosted/lazy-loaded (the two scoped heavy-dep exceptions to the zero-dep wedge). **13 tools live.** All 13 PRT-* requirements complete (audit PASSED 13/13); suite 1429/1429; `decoder.ts` + its 19 tests byte-untouched; both channels rebuilt fresh at HEAD; human sign-offs on both tools.
+Phase: — (v1.9 complete + archived; no active milestone)
+Plan: —
+Status: **v1.9 milestone CLOSED.** Next: `/gsd-new-milestone` (or `/gsd-review-backlog`).
 
 **Decision (34-05, 2026-07-06): Option A — JSX factory-import minify semantics.** Under esbuild preserve-mode minify, unused JSX factory bindings are dropped; the human accepted esbuild's default as correct for the modern automatic runtime. NO code change, NO rebuild. The two committed Codex fixes stand: minify passes `jsx:"preserve"` (never lower `<div/>` to `React.createElement`) + `verbatimModuleSyntax:true` (side-effecting value imports survive; `import type` still elides) — both no-ops for js/css/HTML-embedded loaders, so the 33-02 HTML SC2 golden is byte-identical.
 
