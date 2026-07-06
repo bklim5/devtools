@@ -48,4 +48,18 @@ describe("conciseError", () => {
       "Transform failed with 1 error",
     );
   });
+
+  it("cuts the typescript parser's multi-line code frame to the head, stripping the re-exposed trailing locus", () => {
+    // Prettier 3.8.3 `typescript` parser shape for `const a = )` — head line
+    // carries a `(1:11)` locus, then an ASCII code frame on following lines.
+    const msg = "Expression expected. (1:11)\n> 1 | const a = )\n    |           ^";
+    expect(conciseError(msg)).toBe("Expression expected.");
+  });
+
+  it("cuts the babel parser's multi-line code frame (blank-line-separated frame) to the head", () => {
+    // Prettier 3.8.3 `babel` parser shape — head line, a blank line, then the frame.
+    const msg =
+      "Unexpected token (1:11)\n\n> 1 | const a = )\n    |           ^";
+    expect(conciseError(msg)).toBe("Unexpected token");
+  });
 });
