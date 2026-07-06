@@ -136,7 +136,7 @@ Coverage: all 13 v1.9 requirements (PRT-01..13) mapped to exactly one phase, no 
 - [x] **Phase 31: Doc/Process Correction** — fix the stale CLAUDE.md "six tools only" + "zero new runtime dependencies" wording to record Prettier + esbuild as two scoped exceptions (PRT-13) (completed 2026-07-01)
 - [x] **Phase 32: Prettier/esbuild Engine & Async Seam** — async Prettier wrapper, esbuild minify wrapper, shared latest-wins hook, FormatterView generalization, dep moves, chunk-split guard + self-test, golden parity test vs CLI, offline e2e (PRT-01,02,03,04,05,06,11) (completed 2026-07-01)
 - [x] **Phase 33: HTML Prettifier Tool** — single Prettier parser; embedded script/style parity + HTML minify; registry-only/free-tier/WCAG-AA (PRT-07,08,12) (completed 2026-07-02)
-- [ ] **Phase 34: JS/TS Prettifier Tool** — combined typescript-parser tool; semicolons + single-quote toggles; esbuild minify (PRT-09,10)
+- [x] **Phase 34: JS/TS Prettifier Tool** — combined typescript-parser tool; semicolons + single-quote toggles; esbuild minify (PRT-09,10,12) (completed 2026-07-06)
 
 ### Phase 31: Doc/Process Correction
 **Goal**: The project docs honestly record the two scoped heavy-dep exceptions; the hero stays untouched.
@@ -200,7 +200,7 @@ Coverage: all 13 v1.9 requirements (PRT-01..13) mapped to exactly one phase, no 
 - [x] 34-02-PLAN.md — four-dialect golden locks: add messy.jsx + messy.tsx fixtures/goldens + formatJsTs routing goldens + fallback fixture + parity cases (RED-on-drift) [PRT-09] (wave 2, depends 34-01) — COMPLETE 2026-07-03 (`e1457926`, `0870c0f2`)
 - [x] 34-03-PLAN.md — FormatterView Semi + Single-quotes toggles (Prettify-gated) + extract shared conciseError [PRT-10] (wave 1) — COMPLETE 2026-07-03 (`c176acf9`, `781928ec`)
 - [x] 34-04-PLAN.md — JsFormatterTool (clone HTML pattern) + registry-only free entry (Braces icon) + jsdom suite (4 dialects, toggles, 2 MB guard, errors) [PRT-09, PRT-10, PRT-12] (wave 2, depends 34-01/34-03) — COMPLETE 2026-07-03 (`48c35867`, `dd8436b2`; suite 1426/1426; Minify dispatch stubbed under jsdom — real esbuild in minify.test.ts + 34-05 e2e)
-- [ ] 34-05-PLAN.md — BLOCKING real-WKWebView e2e + full harness gates + both-channel build + human offline proof + WCAG-AA audit [PRT-09, PRT-10, PRT-12] (wave 3, depends 34-04)
+- [x] 34-05-PLAN.md — BLOCKING real-WKWebView e2e (all four dialects on JavaScriptCore) + full harness gates + both-channel build + human offline proof + Option A JSX-factory ratification [PRT-09, PRT-10, PRT-12] (wave 3, depends 34-04) — COMPLETE 2026-07-06 (`abfd8da6` e2e; `4924ca86`/`d7141217` Codex minify-semantics fixes: jsx:preserve + verbatimModuleSyntax side-effecting imports; human APPROVED "looks ok"; suite 1429/1429)
 **UI hint**: yes
 
 ## Progress
@@ -250,7 +250,7 @@ v1.9 runs 31 â 32 â {33, 34}: Phase 31 (doc correction) is independent
 | 31. Doc/Process Correction | v1.9 | 1/1 | Complete    | 2026-07-01 |
 | 32. Prettier/esbuild Engine & Async Seam | v1.9 | 5/5 | Complete    | 2026-07-01 |
 | 33. HTML Prettifier Tool | v1.9 | 4/4 | Complete    | 2026-07-02 |
-| 34. JS/TS Prettifier Tool | v1.9 | 4/5 | In progress | 34-04 |
+| 34. JS/TS Prettifier Tool | v1.9 | 5/5 | Complete    | 2026-07-06 |
 
 ## Backlog
 

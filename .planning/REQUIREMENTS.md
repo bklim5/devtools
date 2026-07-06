@@ -28,13 +28,13 @@ Requirements for milestone v1.9. Each maps to exactly one roadmap phase (31–34
 
 ### JavaScript/TypeScript Prettifier Tool
 
-- [ ] **PRT-09**: User can paste JavaScript, TypeScript, JSX, or TSX into ONE combined tool and **Prettify** → canonical output (typescript parser default, no language picker in the common case), OR **Minify** → compact valid output via esbuild.
-- [ ] **PRT-10**: The JS/TS tool exposes indent (2/4/tab), printWidth, a semicolons toggle, a single-quote toggle, and a Minify action; it is paste-instant, offers visible focusable copy via the platform seam, and shows the status bar in→out byte delta.
+- [x] **PRT-09**: User can paste JavaScript, TypeScript, JSX, or TSX into ONE combined tool and **Prettify** → canonical output (typescript parser default, no language picker in the common case), OR **Minify** → compact valid output via esbuild. *(Done 2026-07-06, Phase 34: engine chains formatJsTs/minifyJsTs 34-01 + four-dialect goldens 34-02 + mounted tool 34-04 + real-WKWebView e2e proving all four dialects on JavaScriptCore 34-05; human APPROVED. Minify made semantically safe by two Codex fixes — jsx:preserve (no React.createElement lowering) + verbatimModuleSyntax (side-effecting imports survive).)*
+- [x] **PRT-10**: The JS/TS tool exposes indent (2/4/tab), printWidth, a semicolons toggle, a single-quote toggle, and a Minify action; it is paste-instant, offers visible focusable copy via the platform seam, and shows the status bar in→out byte delta. *(Done 2026-07-06, Phase 34: FormatterView Prettify-gated Semi/Single-quotes toggles 34-03 + tool wiring 34-04 + real-WKWebView paste-instant/toggles/copy/byte-delta proof 34-05; human APPROVED.)*
 
 ### Shared Shell & Registry Integration
 
 - [ ] **PRT-11**: The shared two-pane `FormatterView` is generalized additively — an OPTIONAL `printWidth` control is added and the standalone `minify` toggle is replaced by a mutually-exclusive `[ Prettify | Minify ]` mode selector reused across all four formatter tools (JSON, XML, HTML, JS/TS), with `esbuild` wired as the Minify engine for the Prettier tools only (D-05). **Amended by D-05 (Phase 32):** the earlier "NO change to existing JSON/XML formatter behaviour" is superseded — JSON and XML were **retrofitted to the unified mode selector in Phase 32 (plan 32-03) and re-verified**, while their pure `src/lib/format/json.ts` / `xml.ts` transform logic (native `JSON.stringify` compact / XML whitespace-strip) and tests are **unchanged** (only the UI/control wiring changed — engines stay per-tool). `printWidth` (80/100/120, default 80) renders only in Prettify mode for tools that supply it; JSON/XML never expose it (D-06). Indent + printWidth are hidden in Minify mode (D-04).
-- [ ] **PRT-12**: Both tools register registry-only (the registry stays the single control plane — sidebar, ⌘K palette, and HashRouter all auto-derive), ship on the free tier (no entitlement gate), and meet WCAG-AA (visible focus, AA contrast, no opacity-only disabled state). *(HTML half DONE 2026-07-02, Phase 33: `htmlFormatterTool` registry-only, no `requiredEntitlements` (free), WCAG-AA covered by human sign-off; StatusBar overlap fixed. UNCHECKED — spans BOTH tools; the JS/TS half lands in Phase 34, reusing this registry/free-tier/WCAG-AA pattern.)*
+- [x] **PRT-12**: Both tools register registry-only (the registry stays the single control plane — sidebar, ⌘K palette, and HashRouter all auto-derive), ship on the free tier (no entitlement gate), and meet WCAG-AA (visible focus, AA contrast, no opacity-only disabled state). *(HTML half DONE 2026-07-02, Phase 33; JS/TS half DONE 2026-07-06, Phase 34: `jsFormatterTool` registry-only (Braces icon), no `requiredEntitlements` (free), sidebar/⌘K/HashRouter auto-derive, WCAG-AA via the reused FormatterView/StatusBar shell + human sign-off. Both tools complete → the "both tools" clause closed.)*
 
 ### Documentation & Wedge Integrity
 
@@ -80,10 +80,10 @@ Which phases cover which requirements. Populated during roadmap creation.
 | PRT-06 | Phase 32 | Complete (engine 32-04; lazy/code-split + offline proof 32-05) |
 | PRT-07 | Phase 33 | Complete (engine SC1/SC2 locks 33-02 + mounted prettify/minify tool 33-03 + real-WKWebView e2e 33-04; packaged Minify fixed via CSP wasm-unsafe-eval + attribute integrity; human APPROVED 2026-07-02) |
 | PRT-08 | Phase 33 | Complete (toolbar indent + printWidth 80/100/120 default 80 + Minify + in→out byte delta + focusable copy 33-03; paste-instant real-WKWebView proof 33-04; human APPROVED 2026-07-02) |
-| PRT-09 | Phase 34 | Pending |
-| PRT-10 | Phase 34 | Pending |
+| PRT-09 | Phase 34 | Complete (engine 34-01 + goldens 34-02 + tool 34-04 + four-dialect real-WKWebView e2e 34-05; human APPROVED 2026-07-06; minify made semantically safe via jsx:preserve + verbatimModuleSyntax) |
+| PRT-10 | Phase 34 | Complete (Semi/Single-quotes toggles 34-03 + tool 34-04 + real-WKWebView paste-instant/toggles/copy/byte-delta 34-05; human APPROVED 2026-07-06) |
 | PRT-11 | Phase 32 | Pending |
-| PRT-12 | Phase 33 | In progress (HTML half DONE 2026-07-02: registry-only sidebar/⌘K/HashRouter derive + free/no-entitlement + WCAG-AA via human sign-off, 33-03/33-04; JS/TS half pending Phase 34 — "both tools") |
+| PRT-12 | Phase 33/34 | Complete (HTML half 33-03/33-04 + JS/TS half 34-04/34-05: both tools registry-only + free + WCAG-AA; human APPROVED 2026-07-06 — "both tools" clause closed) |
 | PRT-13 | Phase 31 | Complete |
 
 **Coverage:**
