@@ -16,6 +16,7 @@ import { createStoreStub } from "@/lib/platform/stub";
 import { makeMemoryPlatform } from "@/shell/testStore";
 import { PREFERENCES_STORE_KEY } from "@/shell/preferences";
 import { FREE_SET, FULL_SET } from "@/lib/entitlements/entitlements";
+import { ENABLED_TOOLS } from "@/lib/tools/registry";
 import {
   getEntitlementsSnapshot,
   resetEntitlementsForTest,
@@ -210,11 +211,14 @@ describe("CommandPalette (⌘K fuzzy + recents + keyboard nav)", () => {
     const { findByPlaceholderText } = renderPalette();
     act(() => pressMetaK());
     const input = await findByPlaceholderText("Search tools…");
-    // Empty query → registry order: unix-time, base64, protobuf-decoder.
-    fireEvent.keyDown(input, { key: "ArrowDown" }); // highlight index 1 (base64)
+    // Empty query → registry order; derive the second row from the live
+    // registry so a reorder never silently breaks this navigation test.
+    fireEvent.keyDown(input, { key: "ArrowDown" }); // highlight index 1
     fireEvent.keyDown(input, { key: "Enter" });
     await waitFor(() =>
-      expect(navigateSpy).toHaveBeenCalledWith("/tools/base64"),
+      expect(navigateSpy).toHaveBeenCalledWith(
+        `/tools/${ENABLED_TOOLS[1].id}`,
+      ),
     );
   });
 

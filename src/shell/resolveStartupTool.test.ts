@@ -4,7 +4,7 @@
 // Signature: (target, defaultToolId, lastUsedId).
 import { describe, expect, it } from "vitest";
 import { resolveStartupTool, HERO_TOOL_ID } from "./resolveStartupTool";
-import { getToolById } from "@/lib/tools/registry";
+import { getToolById, ENABLED_TOOLS } from "@/lib/tools/registry";
 
 describe("resolveStartupTool", () => {
   it("HERO_TOOL_ID is the enabled protobuf-decoder hero (D-12)", () => {
@@ -43,6 +43,13 @@ describe("resolveStartupTool", () => {
   it("all absent (first run) → hero (D-12)", () => {
     expect(resolveStartupTool(undefined, null, null)).toBe(HERO_TOOL_ID);
     expect(resolveStartupTool(undefined, undefined, undefined)).toBe(HERO_TOOL_ID);
+  });
+
+  it("HERO_TOOL_ID stays aligned with the registry head (hero leads the default order)", () => {
+    // HERO_TOOL_ID is a deliberate product constant, not derived from the
+    // registry — this tripwire catches a reorder that forgets to keep the
+    // hero at the head (or a hero change that forgets the registry).
+    expect(HERO_TOOL_ID).toBe(ENABLED_TOOLS[0].id);
   });
 
   it("unknown/invalid target is ignored, falling through to last-used (V5/T-02-07)", () => {

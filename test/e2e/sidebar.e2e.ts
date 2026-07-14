@@ -28,11 +28,14 @@ import {
   assert,
   dispatchAltP,
   dispatchKey,
+  ensureFreeTier,
   ensureProTier,
   focusRow,
   navigateToTool,
   readOrder,
   readPinnedOrder,
+  readPrefsBlob,
+  resetPrefsBlob,
   saveScreenshot,
 } from "./helpers";
 
@@ -643,5 +646,212 @@ describe("Sidebar keyboard model (real WKWebView)", () => {
       timeout: 5_000,
       timeoutMsg: `failed to clean up the "${toPin}" pin after the fallback check`,
     });
+  });
+});
+
+// Registry head — Protobuf Decoder leads (real macOS WKWebView gate).
+//
+// The schema-less Protobuf decoder was moved to the HEAD of the TOOLS registry
+// (src/lib/tools/registry.ts). The sidebar, ⌘K palette, and router all derive from
+// that single array, so the DEFAULT (no-custom-order) sidebar order must now lead
+// with "Protobuf Decoder", and a fresh install (no stored prefs) must open on it
+// via the HERO_TOOL_ID fallback (resolveStartupTool). HERO_TOOL_ID was already
+// protobuf-decoder, so the startup landing is unchanged code — but the two must
+// stay ALIGNED (the registry head IS the hero), which only the real webview proves
+// against the rendered rows.
+//
+// Only the real WKWebView proves the load-bearing bits: (1) the reconciled
+// two-group overlay actually RENDERS the registry-head row first (the grip
+// aria-labels read back protobuf-first), and (2) a full webview reload with the
+// on-disk prefs wiped re-opens on the protobuf hero (the persistence/startup path
+// runs only in the packaged runtime).
+//
+// TIER NOTE: ordering/pinning is a pro.ordering feature, but the grip handles and
+// the [role=group][aria-label="Tools"] wrapper render in EVERY tier (Sidebar.tsx
+// renderRow is not tier-gated). Under FREE, partitionTools forces the pinned group
+// empty AND reverts any persisted custom toolOrder to the registry DEFAULT (D-26/
+// D-86) WITHOUT touching stored prefs — so establishing FREE is exactly what makes
+// the registry-default order (the thing under test) the one that renders,
+// regardless of a custom order/pins a prior spec in this shared session persisted.
+describe("Registry head — Protobuf Decoder leads (real WKWebView)", () => {
+  const HERO_NAME = "Protobuf Decoder";
+  const HERO_ROUTE = "tools/protobuf-decoder";
+
+  beforeEach(async () => {
+    // Land on a deterministic tool so the shell + sidebar are mounted.
+    await navigateToTool("protobuf-decoder");
+    const protoInput = await $("#protobuf-input");
+    await protoInput.waitForExist({ timeout: 15_000 });
+    const firstHandle = await $('button[aria-label^="Reorder "]');
+    await firstHandle.waitForExist({ timeout: 15_000 });
+    // Establish FREE so the registry-DEFAULT order renders: under FREE the pinned
+    // group is forced empty and any persisted custom toolOrder is dormant (D-86),
+    // so a reorder/pin left by an earlier block in this shared session can't skew
+    // "what leads the default order". This is the order the registry-head change
+    // is about.
+    await ensureFreeTier();
+  });
+
+  it("with prefs reset (fresh install), the sidebar leads with the Protobuf Decoder head and the app opens on it", async () => {
+    // GENUINE fresh install: wipe the on-disk prefs blob (no lastUsedId / custom
+    // order / pins / entitlement override), then reload so usePreferences re-reads
+    // the cleared store from disk (the in-memory snapshot is otherwise stale).
+    await resetPrefsBlob();
+    await browser.refresh();
+
+    // 1. THE APP OPENS ON THE PROTOBUF HERO — its input renders (summon.e2e style:
+    //    a blank/crashed startup would leave #protobuf-input absent).
+    const protoInput = await $("#protobuf-input");
+    await protoInput.waitForExist({ timeout: 15_000 });
+    assert(
+      await protoInput.isDisplayed(),
+      "the protobuf-decoder input did not render after a fresh-install reload — " +
+        "app may have opened on the wrong tool or launched blank",
+    );
+
+    // 2. THE STARTUP ROUTE landed on the protobuf-decoder tool (the registry head /
+    //    HERO_TOOL_ID fallback), not some other tool.
+    const startupHash = await browser.execute(() => window.location.hash);
+    assert(
+      startupHash.includes(HERO_ROUTE),
+      `expected the fresh-install startup route to land on ${HERO_ROUTE}, hash was "${startupHash}"`,
+    );
+
+    // 3. THE SIDEBAR DEFAULT ORDER LEADS WITH THE REGISTRY HEAD. Wait for the
+    //    overlay to render its grip handles, then read the full order.
+    const firstHandle = await $('button[aria-label^="Reorder "]');
+    await firstHandle.waitForExist({ timeout: 15_000 });
+    const order = await readOrder();
+    assert(
+      order.length >= 2,
+      `expected the sidebar to render >= 2 tool rows, got ${order.length}: ${JSON.stringify(order)}`,
+    );
+    assert(
+      order[0] === HERO_NAME,
+      `expected the FIRST sidebar tool row to be "${HERO_NAME}" (registry head), got ${JSON.stringify(order)}`,
+    );
+    // The first tool is genuinely the ungrouped list head, not a pin: a fresh
+    // install has no pinned group (dormant under FREE anyway).
+    assert(
+      (await readPinnedOrder()).length === 0,
+      `expected NO pinned group on a fresh install, got ${JSON.stringify(await readPinnedOrder())}`,
+    );
+
+    // 4. THE INDEX / STARTUP SEAM resolves to the head too: navigate to the bare
+    //    index route and assert resolveStartupTool sends the app to the protobuf
+    //    hero (StartupRedirect > resolveStartupTool). With no default-tool set this
+    //    is the registry head / last-used — both the protobuf hero.
+    await browser.execute(() => {
+      window.location.hash = "#/";
+    });
+    await browser.waitUntil(
+      async () => (await browser.execute(() => window.location.hash)).includes(HERO_ROUTE),
+      {
+        timeout: 5_000,
+        timeoutMsg: `expected the bare index route to resolve to ${HERO_ROUTE}, hash was "${await browser.execute(() => window.location.hash)}"`,
+      },
+    );
+
+    // 5. Screenshot the real WKWebView sidebar (the HRN-02 artifact for this spec).
+    await saveScreenshot("sidebar", "sidebar-registry-head-wkwebview.png", "registry-head");
+  });
+
+  it("an existing user on Base64 keeps Base64 — restored via the startup redirect (last-used) — while the default order still leads with Protobuf Decoder", async () => {
+    // The last-used precedence check (no prefs-seeding pattern exists in this
+    // harness — the only IPC seed is setDevLicenseState — so we DRIVE Base64 as the
+    // last-used tool rather than seeding lastUsedId at launch): an existing user on
+    // Base64 must NOT be hijacked to the new registry head, and the reorder must not
+    // disturb a tool that isn't the head.
+    //
+    // The EARLIER form of this test called browser.refresh() while the URL was still
+    // `#/tools/base64` — a concrete tool route that matches ToolRoute DIRECTLY, so
+    // StartupRedirect/resolveStartupTool never ran and a regression that stopped
+    // persisting or restoring lastUsedId would still have passed (Codex finding). We
+    // instead (1) assert the switch actually PERSISTED lastUsedId="base64" to the
+    // on-disk prefs blob, then (2) drive the BARE INDEX route `#/` so
+    // resolveStartupTool's lastUsedId precedence is exercised for real.
+    await navigateToTool("base64");
+    const b64Input = await $("#base64-pane-text");
+    await b64Input.waitForExist({ timeout: 15_000 });
+    assert(
+      await b64Input.isDisplayed(),
+      "the Base64 tool did not render after navigating to it",
+    );
+    const b64Hash = await browser.execute(() => window.location.hash);
+    assert(
+      b64Hash.includes("tools/base64"),
+      `expected the route to be on tools/base64, hash was "${b64Hash}"`,
+    );
+
+    // The registry-head reorder is a DEFAULT-order change, independent of the open
+    // tool: the sidebar still leads with the Protobuf Decoder head while the user
+    // works in Base64.
+    const order = await readOrder();
+    assert(
+      order[0] === HERO_NAME,
+      `expected the default sidebar order to still lead with "${HERO_NAME}" while on Base64, got ${JSON.stringify(order)}`,
+    );
+
+    // PERSISTED lastUsedId: navigating to Base64 fires useTrackActiveTool ->
+    // recordSwitch -> updatePreferences -> `void savePreferences` (fire-and-forget,
+    // then fsync'd via store.save()), so the on-disk write is async — POLL the SAME
+    // plugin-store seam resetPrefsBlob uses until the blob carries lastUsedId
+    // "base64". This is the value StartupRedirect will read; a regression that stops
+    // persisting last-used fails HERE (the earlier concrete-route reload could not
+    // see it).
+    await browser.waitUntil(
+      async () => (await readPrefsBlob())?.lastUsedId === "base64",
+      {
+        timeout: 5_000,
+        timeoutMsg: `expected the Base64 switch to persist lastUsedId="base64" to the prefs blob, got ${JSON.stringify(await readPrefsBlob())}`,
+      },
+    );
+
+    // Screenshot the painted Base64-user state (Protobuf Decoder still first in the
+    // sidebar). Captured HERE — before the reload below — because a screenshot taken
+    // immediately after browser.refresh() catches the WKWebView mid-reload white
+    // flash (the DOM element exists before the first paint lands).
+    await saveScreenshot("sidebar", "sidebar-base64-user-wkwebview.png", "base64-user");
+
+    // Full reload so usePreferences re-reads the persisted blob from DISK (its
+    // in-memory React snapshot is otherwise stale) — this proves the last-used value
+    // survives a genuine relaunch, not just an in-session write.
+    await browser.refresh();
+    const b64AfterReload = await $("#base64-pane-text");
+    await b64AfterReload.waitForExist({ timeout: 15_000 });
+
+    // NOW drive the BARE INDEX route: after the reload the URL is still
+    // `#/tools/base64` (matches ToolRoute directly, bypassing StartupRedirect), so
+    // navigate to `#/` to make StartupRedirect > resolveStartupTool run against the
+    // reloaded-from-disk lastUsedId. With no default-tool set, the last-used rung
+    // must send the app BACK to Base64 — the real restore path.
+    await browser.execute(() => {
+      window.location.hash = "#/";
+    });
+    await browser.waitUntil(
+      async () =>
+        (await browser.execute(() => window.location.hash)).includes("tools/base64"),
+      {
+        timeout: 5_000,
+        timeoutMsg: `expected the bare index route to restore the last-used Base64 tool via resolveStartupTool, hash was "${await browser.execute(() => window.location.hash)}"`,
+      },
+    );
+
+    // The redirect landed the Base64 VIEW, not just the hash — the tool actually
+    // mounted after the startup resolve.
+    const b64Restored = await $("#base64-pane-text");
+    await b64Restored.waitForExist({ timeout: 15_000 });
+    assert(
+      await b64Restored.isDisplayed(),
+      "the Base64 tool did not render after the startup redirect restored the last-used tool",
+    );
+
+    // And the DEFAULT order still leads with the registry head after the restore —
+    // the last-used restore repoints the OPEN tool, never the default order.
+    const orderAfter = await readOrder();
+    assert(
+      orderAfter[0] === HERO_NAME,
+      `expected the default sidebar order to still lead with "${HERO_NAME}" after the startup restore, got ${JSON.stringify(orderAfter)}`,
+    );
   });
 });

@@ -22,9 +22,9 @@ import { cronTool } from "@/tools/cron";
 // filters out any `enabled: false` entry. router.tsx still guards the empty case
 // and falls back to the bare App shell when no tools are enabled.
 export const TOOLS: ToolDefinition[] = [
+  protobufDecoderTool,
   unixTimeTool,
   base64Tool,
-  protobufDecoderTool,
   jwtTool,
   hashTool,
   uuidUlidTool,

@@ -338,6 +338,122 @@ export function setDevLicenseState(state: string | null): Promise<void> {
   });
 }
 
+// --- Fresh-install prefs reset (the registry-head / startup e2e seam) --------
+//
+// Wipe the persisted prefs blob back to a GENUINE fresh-install state — no
+// lastUsedId, no custom toolOrder, no pins, no entitlement override — by DELETING
+// the single `shell.preferences` key from the on-disk store through the SAME
+// @tauri-apps/plugin-store IPC the app's Store seam uses (prefs.json,
+// createTauriStore in src/lib/platform/tauri.ts). The e2e-spike preflight wipes
+// prefs.json ONCE at launch, but the WDIO session is SHARED and earlier specs
+// navigate / reorder / pin, so any spec that must observe the fresh-install
+// DEFAULT order or the first-run startup landing has to re-establish it here.
+//
+// Store IPC (plugin-store 2.4.3, byte-identical to its dist-js): `plugin:store|load`
+// loads/returns the store for the path and yields a resource id (rid);
+// `plugin:store|delete { rid, key }` removes the key; `plugin:store|save { rid }`
+// flushes it to disk. All three are granted by `store:default`
+// (capabilities/default.json). Reached via __TAURI_INTERNALS__.invoke — the SAME
+// IPC seam as setDevLicenseState — inside a browser.executeAsync callback so the
+// awaited Promise chain resolves before this returns.
+//
+// CALLERS MUST browser.refresh() AFTER this: it clears the ON-DISK blob, and
+// usePreferences only re-reads the store on a full webview reload (its in-memory
+// React snapshot is otherwise stale). Throws loud if the IPC is unavailable or
+// rejects, so a silent shape mismatch fails the gate instead of false-passing.
+export function resetPrefsBlob(): Promise<void> {
+  return browser
+    .executeAsync((done: (v: unknown) => void) => {
+      const internals = (
+        window as unknown as {
+          __TAURI_INTERNALS__?: {
+            invoke: (cmd: string, args: Record<string, unknown>) => Promise<unknown>;
+          };
+        }
+      ).__TAURI_INTERNALS__;
+      if (!internals) {
+        done({ error: "__TAURI_INTERNALS__ unavailable — not in the Tauri WKWebView" });
+        return;
+      }
+      const inv = internals.invoke;
+      inv("plugin:store|load", { path: "prefs.json", options: {} })
+        .then((rid) =>
+          inv("plugin:store|delete", { rid, key: "shell.preferences" }).then(() =>
+            inv("plugin:store|save", { rid }),
+          ),
+        )
+        .then(() => done(null))
+        .catch((err: unknown) => done({ error: String(err) }));
+    })
+    .then((result) => {
+      if (result && typeof result === "object" && "error" in result) {
+        throw new Error(
+          `resetPrefsBlob failed: ${(result as { error: string }).error}`,
+        );
+      }
+    });
+}
+
+// --- Read the persisted prefs blob (the startup-redirect / lastUsedId e2e seam) ---
+//
+// Read back the SAME on-disk `shell.preferences` blob that resetPrefsBlob wipes,
+// through the SAME @tauri-apps/plugin-store IPC the app's Store seam uses
+// (prefs.json, createTauriStore in src/lib/platform/tauri.ts). Used to PROVE that a
+// tool switch actually PERSISTED `lastUsedId` (useTrackActiveTool -> recordSwitch ->
+// updatePreferences -> `void savePreferences`, fire-and-forget then fsync'd via
+// store.save()) — which is precisely the value StartupRedirect/resolveStartupTool
+// reads to restore the last-used tool. A route that matches a concrete tool route
+// directly (`#/tools/<id>`) BYPASSES that seam, so asserting the persisted value +
+// driving the bare index route is what exercises the last-used precedence for real.
+//
+// Store IPC (plugin-store 2.4.3, byte-identical to its dist-js): `plugin:store|load
+// { path, options }` yields a resource id (rid); `plugin:store|get { rid, key }`
+// returns a `[value, exists]` tuple. Both granted by `store:default`
+// (capabilities/default.json — the default set includes allow-get). Reached via
+// __TAURI_INTERNALS__.invoke — the SAME seam as resetPrefsBlob — inside a
+// browser.executeAsync callback so the awaited Promise chain resolves before this
+// returns. Returns the parsed blob object, or null when the key is absent (a genuine
+// fresh install). Throws loud if the IPC is unavailable or rejects, so a silent
+// shape mismatch fails the gate instead of false-passing.
+export function readPrefsBlob(): Promise<Record<string, unknown> | null> {
+  return browser
+    .executeAsync((done: (v: unknown) => void) => {
+      const internals = (
+        window as unknown as {
+          __TAURI_INTERNALS__?: {
+            invoke: (cmd: string, args: Record<string, unknown>) => Promise<unknown>;
+          };
+        }
+      ).__TAURI_INTERNALS__;
+      if (!internals) {
+        done({ error: "__TAURI_INTERNALS__ unavailable — not in the Tauri WKWebView" });
+        return;
+      }
+      const inv = internals.invoke;
+      inv("plugin:store|load", { path: "prefs.json", options: {} })
+        .then((rid) => inv("plugin:store|get", { rid, key: "shell.preferences" }))
+        .then((tuple) => {
+          // plugin:store|get returns a [value, exists] tuple — mirror the dist-js
+          // and surface null when the key was never written (fresh install).
+          const [value, exists] = (Array.isArray(tuple) ? tuple : [undefined, false]) as [
+            unknown,
+            boolean,
+          ];
+          done({ blob: exists ? value : null });
+        })
+        .catch((err: unknown) => done({ error: String(err) }));
+    })
+    .then((result) => {
+      if (result && typeof result === "object" && "error" in result) {
+        throw new Error(
+          `readPrefsBlob failed: ${(result as { error: string }).error}`,
+        );
+      }
+      const blob = (result as { blob: unknown }).blob;
+      return blob && typeof blob === "object" ? (blob as Record<string, unknown>) : null;
+    });
+}
+
 // --- DEV-only tier control (post-D-85) --------------------------------------
 //
 // After the Phase 21 D-85 flip an unlicensed in-Tauri install resolves FREE, so
