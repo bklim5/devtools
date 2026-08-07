@@ -510,15 +510,30 @@ describe("Settings ▸ Updates pane (real WKWebView)", () => {
       );
       await saveScreenshot("settings", "settings-updates-pane.png", "updates-pane");
 
-      // (c) Clicking "Check for updates" surfaces an inline result. The real
-      // updater check() resolves null (no published newer version) → the up-to-date
-      // copy appears in the polite live region (WCAG-AA, never opacity-only).
+      // (c) Clicking "Check for updates" surfaces an inline result in the polite
+      // live region (WCAG-AA, never opacity-only). This proves the WIRING + the a11y
+      // surface — NOT a specific network outcome. The button drives the REAL updater
+      // check() against the live GitHub release endpoint (tauri.conf.json), so the
+      // outcome is environment-dependent: "You're up to date" when the endpoint
+      // serves a latest.json whose version is not newer (the release version is
+      // bump-locked to this build's version), or "Update check failed" when the
+      // endpoint is unreachable / has no published release (e.g. offline CI, or a
+      // repo with no release yet — the 2026-07-14 rot). BOTH are calm surfaced
+      // results and satisfy the contract; asserting only "up to date" baked in a
+      // live-network + published-release assumption the offline-by-design gate must
+      // not depend on. (Same "degrade calmly on the unavailable arm" discipline the
+      // gate uses for other seam-backed surfaces.) A detected-update outcome cannot
+      // occur here — the working tree's version is never behind its own published
+      // release.
       await clickCheckForUpdates();
       await browser.waitUntil(
-        async () => (await checkResultText()).includes("up to date"),
+        async () => {
+          const t = await checkResultText();
+          return t.includes("up to date") || t.includes("Update check failed");
+        },
         {
           timeout: 10_000,
-          timeoutMsg: `expected the Check button to surface an inline "up to date" result, got ${JSON.stringify(await checkResultText())}`,
+          timeoutMsg: `expected the Check button to surface an inline result ("up to date" or "Update check failed") in the polite live region, got ${JSON.stringify(await checkResultText())}`,
         },
       );
 
