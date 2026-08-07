@@ -18,6 +18,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 : "${DEPLOY_HOST:?Set DEPLOY_HOST=user@host (e.g. root@1.2.3.4)}"
+# NOTE: the live prod box does NOT use this default — it deploys to
+# /home/claude/devtools, so real invocations pass REMOTE_DIR explicitly
+# (RUNBOOK Step 10 -> "Where things actually live on the box").
 REMOTE_DIR="${REMOTE_DIR:-/opt/devtools}"
 MODE="${1:-up}"
 
@@ -28,8 +31,12 @@ echo "==> deploying to $DEPLOY_HOST:$REMOTE_DIR (mode: $MODE)"
 ssh "$DEPLOY_HOST" "mkdir -p '$REMOTE_DIR/infra/keygen' '$REMOTE_DIR/server/webhook'"
 
 # 2) Rsync infra/keygen/ (EXCLUDING .env + certs — secrets stay on the box).
+#    backup.env / gpg.pass are excluded as defense in depth only: the real ones
+#    live in ~/.config/devtools-backup/ precisely BECAUSE --delete would wipe
+#    anything secret kept in this directory (RUNBOOK Step 10).
 rsync -az --delete \
   --exclude '.env' --exclude '*.crt' \
+  --exclude 'backup.env' --exclude 'gpg.pass' \
   "$SCRIPT_DIR/" "$DEPLOY_HOST:$REMOTE_DIR/infra/keygen/"
 
 # 3) Rsync server/webhook/ source (EXCLUDING node_modules + .env + build junk).
