@@ -1,193 +1,117 @@
 #!/usr/bin/env bash
 # PROVE the offsite Keygen CE backup actually restores (quick/260807-ohd).
 #
-# WHY: a backup that has never been restored is not a backup. This script is the
-# proof, and it runs AUTOMATICALLY after every successful upload (chained from
-# backup.sh) as well as on demand as the monthly human drill. That is what keeps
-# the detection latency for a corrupt/undecryptable artifact at ~1 day instead of
-# ~1 month.
+# WHY: a backup that has never been restored is not a backup. This runs
+# AUTOMATICALLY after every successful upload (chained from backup.sh) as well
+# as on demand, which keeps the detection latency for a corrupt/undecryptable
+# artifact at ~1 day instead of ~1 month.
 #
 # WHAT IT PROVES: the newest (or a named) R2 object downloads, decrypts with the
 # passphrase this box holds, restores into a THROWAWAY postgres:17.5 container,
-# and reproduces the exact identity every already-shipped app has compiled in:
+# and reproduces the identity every already-shipped app has compiled in:
 #   account id      0d607683-026f-468b-9cf0-f5bfaf61a7a1  (KEYGEN_ACCOUNT_ID)
 #   ed25519 pubkey  huJdyRsBtd7KrPqWv5Z/8GVeLmiqfWTfQnEb090+jO4=  (KEYGEN_ED25519_PUBKEY_B64)
-# ...plus a matching Ed25519 PRIVATE-key md5 and matching row counts vs live.
-# If a restore does not reproduce those, it is worthless — this is THE assertion.
+# ...plus every value in the artifact's MANIFEST (row counts, private-key md5s,
+# plaintext + ciphertext sha256) — see RUNBOOK Step 10.
 #
-# HOW TO RUN (on the box, as the `claude` user):
-#   ~/devtools/infra/keygen/restore-test.sh                       # newest object
-#   ~/devtools/infra/keygen/restore-test.sh --object keygen-ce/keygen-<ts>.sql.gz.gpg
-#   ~/devtools/infra/keygen/restore-test.sh --keep                # leave the container up
+# IT NEVER TOUCHES THE LIVE DATABASE. Comparisons are against the manifest that
+# backup.sh wrote at dump time and against the compiled release constants, both
+# time-invariant. A license created after the dump can therefore never raise a
+# false alarm, and the drill still works when the live stack is down — which is
+# precisely the situation you run a restore drill in.
 #
-# HARD SAFETY RAIL: the dump is taken with `pg_dump --clean`, so it begins with
-# DROP statements. It must NEVER be piped at the live database. This script
-# therefore accepts NO target-database argument at all — it builds its own
-# throwaway container (fixed `keygen-restore-test-$$` name, random password, no
-# published ports, no network, no volume) and refuses any other target. Its only
-# contact with production is READ-ONLY SELECTs used for the comparison.
+# HOW TO RUN (on the box):
+#   ./restore-test.sh                        # newest object
+#   ./restore-test.sh --object keygen-ce/keygen-<ts>.sql.gz.gpg
+#   ./restore-test.sh --keep                 # leave the container up
 #
-# It NEVER invokes backup.sh (backup.sh chains this script; the reverse would
-# recurse).
+# HARD SAFETY RAIL: the dump is taken with `pg_dump --clean`, so it opens with
+# DROP statements and must NEVER be piped at a live database. This script
+# accepts NO target-database argument at all — it builds its own throwaway
+# container and only ever removes a container it started itself.
 #
-# SECRETS: same mode-600 ~/.config/devtools-backup/backup.env as backup.sh (the
-# env loader is duplicated on purpose so each script stays independently
-# runnable). HEALTHCHECK_RESTORE_PING_URL is REQUIRED — this script owns the
-# second dead-man check, and an unmonitored proof proves nothing.
+# It NEVER invokes backup.sh (backup.sh chains this; the reverse would recurse).
 set -Eeuo pipefail
 
-# Cron gives a near-empty environment; pin PATH so docker/rclone/gpg resolve.
-PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-export PATH
-
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./backup-lib.sh disable=SC1091
+source "$SCRIPT_DIR/backup-lib.sh"
 
 # The identity every shipped app has compiled in (src-tauri/src/license/config.rs).
 EXPECT_ACCOUNT_ID="0d607683-026f-468b-9cf0-f5bfaf61a7a1"
 EXPECT_ED25519_PUBKEY="huJdyRsBtd7KrPqWv5Z/8GVeLmiqfWTfQnEb090+jO4="
 
 RESTORE_IMAGE="postgres:17.5"
-LIVE_PG_CONTAINER="keygen-postgres-1"
+RESTORE_LABEL="devtools-restore-test=1"
 
 usage() {
   cat >&2 <<'USAGE'
 Usage: restore-test.sh [--object <remote-name>] [--keep] [--no-ping] [-h|--help]
 
-Downloads a backup object from R2, decrypts it, restores it into a THROWAWAY
-postgres container, and asserts the restored account id / ed25519 public key /
-ed25519 private-key md5 / row counts match both the compiled release constants
-and the LIVE database. Pings its own healthchecks.io dead-man check.
+Downloads a backup object + its manifest from R2, decrypts them, restores the
+dump into a THROWAWAY postgres container, and asserts the restored account id /
+ed25519 public key / private-key md5s / row counts match the manifest AND the
+compiled release constants. Pings its own healthchecks.io dead-man check.
 
   --object <name>   Remote object under the bucket (default: newest under the prefix).
   --keep            Do not tear down the throwaway container (inspection only).
   --no-ping         Skip the dead-man pings (local experimentation ONLY; cron and
-                    the chained run from backup.sh never pass this).
+                    the chained run from backup.sh never pass it).
   -h, --help        Show this help.
 
-It NEVER accepts a target database — it always builds its own throwaway one.
+It never accepts a target database and never reads the live database.
+Argument errors exit 2.
 USAGE
 }
 
-fatal() {
-  FAIL_REASON="$*"
-  echo "FATAL: $*" >&2
-  exit 1
-}
-
-now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
-
+# ---------------------------------------------------------------------------
+# Arguments — validated BEFORE anything else, so `--object` with no value exits
+# 2 with usage instead of tripping `set -e` unlogged.
+# ---------------------------------------------------------------------------
 OBJECT=""
 KEEP=0
 PING_ENABLED=1
-FAIL_REASON=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --object)  OBJECT="${2:-}"; shift 2 ;;
+    --object)
+      [[ $# -ge 2 && -n "${2:-}" && "${2#-}" == "$2" ]] \
+        || usage_error "--object needs a remote object name"
+      OBJECT="$2"; shift 2 ;;
     --keep)    KEEP=1; shift ;;
     --no-ping) PING_ENABLED=0; shift ;;
     -h|--help) usage; exit 0 ;;
-    *) echo "FATAL: unknown argument: $1" >&2; usage; exit 1 ;;
+    *)         usage_error "unknown argument: $1" ;;
   esac
 done
 
 # ---------------------------------------------------------------------------
-# Config + secrets. Fail CLOSED, exactly like backup.sh.
+# Config + secrets (fail closed; see backup-lib.sh)
 # ---------------------------------------------------------------------------
-BACKUP_ENV="${BACKUP_ENV:-${XDG_CONFIG_HOME:-$HOME/.config}/devtools-backup/backup.env}"
-
-require_mode_600() { # FILE LABEL
-  local file="$1" label="$2" mode
-  [[ -f "$file" ]] || fatal "$label not found: $file (copy infra/keygen/backup.env.example and fill it in ON THE BOX)"
-  mode="$(stat -c %a "$file")"
-  [[ "$mode" == "600" ]] || fatal "$label must be mode 600, found $mode: $file"
-}
-
-require_mode_600 "$BACKUP_ENV" "backup.env"
-
-set -a
-# shellcheck source=/dev/null
-source "$BACKUP_ENV"
-set +a
-
-: "${RCLONE_CONFIG_R2_ACCESS_KEY_ID:?set it in $BACKUP_ENV}"
-: "${RCLONE_CONFIG_R2_SECRET_ACCESS_KEY:?set it in $BACKUP_ENV}"
-: "${RCLONE_CONFIG_R2_ENDPOINT:?set it in $BACKUP_ENV}"
-: "${BACKUP_BUCKET:?set it in $BACKUP_ENV}"
-: "${BACKUP_GPG_PASSPHRASE_FILE:?set it in $BACKUP_ENV}"
+load_backup_env
 : "${HEALTHCHECK_RESTORE_PING_URL:?set it in $BACKUP_ENV — REQUIRED. This script owns the keygen-ce-restore-test dead-man check}"
 
-BACKUP_PREFIX="${BACKUP_PREFIX:-keygen-ce}"
-COMPOSE_FILE="${COMPOSE_FILE:-$SCRIPT_DIR/compose.yaml}"
 PG_READY_TIMEOUT="${PG_READY_TIMEOUT:-60}"
-
-require_mode_600 "$BACKUP_GPG_PASSPHRASE_FILE" "gpg passphrase file"
-[[ -f "$COMPOSE_FILE" ]] || fatal "compose file not found: $COMPOSE_FILE"
-
-# NO_HEAD mirrors backup.sh: R2 does not implement object versioning, so
-# rclone's post-PUT `HEAD <key>?versionId=<id>` read-back returns 501. This
-# script only downloads, but the flag is kept identical so both scripts describe
-# the same remote (see backup.sh for the full rationale).
-: "${RCLONE_CONFIG_R2_TYPE:=s3}"
-: "${RCLONE_CONFIG_R2_PROVIDER:=Cloudflare}"
-: "${RCLONE_CONFIG_R2_REGION:=auto}"
-: "${RCLONE_CONFIG_R2_NO_CHECK_BUCKET:=true}"
-: "${RCLONE_CONFIG_R2_NO_HEAD:=true}"
-: "${RCLONE_CONFIG_R2_ACL:=private}"
-export RCLONE_CONFIG_R2_TYPE RCLONE_CONFIG_R2_PROVIDER RCLONE_CONFIG_R2_REGION
-export RCLONE_CONFIG_R2_NO_CHECK_BUCKET RCLONE_CONFIG_R2_NO_HEAD RCLONE_CONFIG_R2_ACL
-
-STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/devtools-backup"
-mkdir -p "$STATE_DIR"
+STALE_SWEEP_AGE="${STALE_SWEEP_AGE:-3600}"
 LOG_FILE="$STATE_DIR/restore-test.log"
+
+PING_URL="$HEALTHCHECK_RESTORE_PING_URL"
+if (( PING_ENABLED == 0 )); then
+  PING_URL=""
+  # shellcheck disable=SC2034  # PING_NOTE is defined in backup-lib.sh
+  PING_NOTE="off"
+fi
 
 CNAME="keygen-restore-test-$$"
 WORK=""
 PASSED=0
-PING_NOTE="ok"
+CONTAINER_OWNED=0
 FAILED_CHECKS=""
 COUNTS_RESTORED=""
-# 0 until the restored-vs-live comparison has actually run. Without this, an
+# 0 until the restored-vs-manifest comparison has actually run. Without this an
 # early failure (missing object, failed decrypt) would still log account=MATCH,
 # claiming a comparison that never happened.
 ASSERTIONS_RAN=0
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-truncate_log() { # FILE — bounded WITHOUT replacing the inode (see backup.sh).
-  local file="$1" tmp
-  [[ -f "$file" ]] || return 0
-  tmp="$(mktemp "${file}.XXXXXX")"
-  if tail -n 2000 "$file" > "$tmp"; then
-    cat "$tmp" > "$file"
-  fi
-  rm -f "$tmp"
-}
-
-# Ping the RESTORE-TEST dead-man check (a different check from backup.sh's, on
-# purpose: "the backup did not run" and "the backup no longer restores" are
-# different alarms). The URL is a bearer capability, so curl's stderr is
-# discarded rather than risking it in a log.
-ping_hc() { # SUFFIX [BODY]
-  local suffix="${1:-}" body="${2:-}" url
-  (( PING_ENABLED == 1 )) || return 0
-  url="${HEALTHCHECK_RESTORE_PING_URL}${suffix}"
-  if [[ -n "$body" ]]; then
-    curl -fsS -m 10 -o /dev/null --data-raw "$body" "$url" 2>/dev/null || return 1
-  else
-    curl -fsS -m 10 -o /dev/null "$url" 2>/dev/null || return 1
-  fi
-}
-
-# All R2 access goes through here. RCLONE_CONFIG=/dev/null guarantees the remote
-# is built ONLY from the RCLONE_CONFIG_R2_* env vars (a stray rclone.conf can
-# never shadow them) and silences rclone's missing-config NOTICE. The outer
-# timeout keeps a hung transfer from eating the whole chained-run budget.
-rclone_r2() {
-  RCLONE_CONFIG=/dev/null timeout "${RCLONE_TIMEOUT:-600}" \
-    rclone --contimeout 30s --timeout 5m --retries 3 "$@"
-}
 
 on_exit() {
   local rc=$?
@@ -199,14 +123,11 @@ on_exit() {
     echo "        WARNING: $WORK holds the PLAINTEXT dump (Ed25519 private key)." >&2
     echo "        It is mode 700, but remove it by hand when you are done." >&2
   else
-    # -v is load-bearing: postgres:17.5 declares VOLUME /var/lib/postgresql/data,
-    # so every `docker run` without an explicit mount creates an ANONYMOUS volume
-    # (~46 MB once initdb has run). `--rm` would have reaped it, but this
-    # explicit `docker rm -f` wins the race and, without -v, orphans the volume —
-    # leaking ~46 MB per nightly run (~1.4 GB/month) onto the production box's
-    # 38 GB disk. Verified: with -v, `docker volume ls -qf dangling=true` stays
-    # empty across runs.
-    docker rm -f -v "$CNAME" >/dev/null 2>&1
+    # ONLY ever remove a container this run actually started (RUNBOOK: the
+    # collision guard must not delete a container someone else is using).
+    # -v is load-bearing: postgres:17.5 declares a VOLUME, so without it every
+    # run orphans ~46 MB.
+    (( CONTAINER_OWNED == 1 )) && docker rm -f -v "$CNAME" >/dev/null 2>&1
     [[ -n "$WORK" && -d "$WORK" ]] && rm -rf "$WORK"
   fi
 
@@ -217,52 +138,50 @@ on_exit() {
     [[ "$FAILED_CHECKS" != *"account id"* ]] || account="MISMATCH"
   fi
 
-  local line
-  line="$(printf 'ts=%s status=%s object=%s account=%s counts=%s failed=%s exit=%s reason=%s' \
-    "$(now)" "$status" "${OBJECT:--}" "$account" \
-    "\"${COUNTS_RESTORED:--}\"" "\"${FAILED_CHECKS:-none}\"" "$rc" "\"${FAIL_REASON:-}\"")"
-  printf '%s\n' "$line" >> "$LOG_FILE"
-
-  if [[ "$status" == "pass" ]]; then
-    ping_hc || PING_NOTE="err"
-  else
-    ping_hc /fail "$(tail -n 10 "$LOG_FILE" 2>/dev/null)" || PING_NOTE="err"
-  fi
-
-  printf '%s ping=%s\n' "$line" "$PING_NOTE" >&2
-  truncate_log "$LOG_FILE"
+  emit_exit_log "$rc" "$status" "$LOG_FILE" "$PING_URL" both \
+    "$(printf 'object=%s account=%s counts="%s" failed="%s" reason="%s"' \
+       "${OBJECT:--}" "$account" "${COUNTS_RESTORED:--}" "${FAILED_CHECKS:-none}" "${FAIL_REASON:-}")"
   exit "$rc"
-}
-
-# Read-only SELECT against the LIVE database. The SQL is passed as $0 to an
-# inner sh so the container's own POSTGRES_USER/POSTGRES_DB env expand there and
-# no credential is ever interpolated on this side.
-live_sql() { # SQL
-  docker compose -f "$COMPOSE_FILE" exec -T postgres \
-    sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "$0"' "$1"
 }
 
 # Query the THROWAWAY restored database. Never touches live.
 restored_sql() { # SQL
-  docker exec -i "$CNAME" psql -v ON_ERROR_STOP=1 -U postgres -d keygen -tAc "$1"
+  docker exec -i "$CNAME" psql -v ON_ERROR_STOP=1 -U postgres -d keygen -tA -F'|' -c "$1"
 }
 
-check() { # LABEL RESTORED LIVE EXPECTED SHOW
-  local label="$1" got="$2" live="$3" expected="${4:-}" show="${5:-}"
+check() { # LABEL GOT WANT [ABSOLUTE] [SHOW]
+  local label="$1" got="$2" want="$3" absolute="${4:-}" show="${5:-}"
   local state="MATCH"
   if [[ -z "$got" ]]; then
     state="EMPTY"
-  elif [[ "$got" != "$live" ]]; then
-    state="MISMATCH (restored != live)"
-  elif [[ -n "$expected" && "$got" != "$expected" ]]; then
+  elif [[ "$got" != "$want" ]]; then
+    state="MISMATCH (restored != manifest)"
+  elif [[ -n "$absolute" && "$got" != "$absolute" ]]; then
     state="MISMATCH (!= compiled release constant)"
   fi
   if [[ -n "$show" ]]; then
-    printf '  %-24s %s (%s)\n' "$label:" "$state" "$show"
+    printf '  %-24s %s (%s)\n' "$label:" "$state" "$got"
   else
     printf '  %-24s %s\n' "$label:" "$state"
   fi
   [[ "$state" == "MATCH" ]] || FAILED_CHECKS="${FAILED_CHECKS}${label}; "
+}
+
+# A container SIGKILLed mid-run (the -k path of `timeout`) cannot run its own
+# teardown, so sweep anything of ours left behind by a previous run. Only our
+# label, only older than an hour: it can never touch the live stack or a
+# concurrent drill.
+sweep_stale_containers() {
+  local id created age now_s
+  now_s="$(date +%s)"
+  while read -r id; do
+    [[ -n "$id" ]] || continue
+    created="$(docker inspect -f '{{.Created}}' "$id" 2>/dev/null)" || continue
+    age=$(( now_s - $(date -d "$created" +%s 2>/dev/null || echo "$now_s") ))
+    (( age > STALE_SWEEP_AGE )) || continue
+    echo "sweeping stale throwaway container $id (age ${age}s, killed run)" >&2
+    docker rm -f -v "$id" >/dev/null 2>&1 || true
+  done < <(docker ps -a --filter "label=$RESTORE_LABEL" --format '{{.ID}}' 2>/dev/null)
 }
 
 # ---------------------------------------------------------------------------
@@ -274,56 +193,74 @@ main() {
   trap 'exit 130' INT
   trap 'exit 143' TERM
 
-  ping_hc /start || PING_NOTE="err"
+  hc_ping "$PING_URL" /start || true
 
-  # Refuse anything that is not our own throwaway container. Structurally
-  # excludes the live compose postgres, belt-and-braces on top of the fact that
-  # this script accepts no target-database argument at all.
-  [[ "$CNAME" != "$LIVE_PG_CONTAINER" ]] \
-    || fatal "refusing to touch the LIVE postgres container ($LIVE_PG_CONTAINER)"
-  [[ "$CNAME" == keygen-restore-test-* ]] \
-    || fatal "refusing: throwaway container name must match keygen-restore-test-* (got $CNAME)"
+  sweep_stale_containers
+  sweep_stale_workdirs
+  # Refuse to reuse an existing container. CONTAINER_OWNED is still 0 here, so
+  # this path can never delete something we did not create.
   if docker ps -a --format '{{.Names}}' | grep -qxF -- "$CNAME"; then
-    fatal "refusing: a container named $CNAME already exists"
+    fatal "refusing: a container named $CNAME already exists (not started by this run)"
   fi
 
-  umask 077
   WORK="$(mktemp -d "${TMPDIR:-/tmp}/devtools-restore-test.XXXXXX")"
 
   if [[ -z "$OBJECT" ]]; then
+    local listing
+    # Capture rclone's exit status on its OWN: inside a pipeline feeding a
+    # command substitution, a `no such bucket`/auth failure would otherwise be
+    # swallowed and mis-diagnosed as "no objects under prefix".
+    listing="$(rclone_r2 lsjson "r2:${BACKUP_BUCKET}/${BACKUP_PREFIX}")" \
+      || fatal "could not list r2:${BACKUP_BUCKET}/${BACKUP_PREFIX} (bucket, credentials or network) — this is NOT 'no backups exist'"
     local newest
-    newest="$(rclone_r2 lsjson "r2:${BACKUP_BUCKET}/${BACKUP_PREFIX}" 2>/dev/null \
-      | jq -r '.[] | select(.IsDir == false) | .Path' | sort | tail -n1)"
-    [[ -n "$newest" ]] || fatal "no objects under r2:${BACKUP_BUCKET}/${BACKUP_PREFIX}"
+    newest="$(jq -r '.[] | select(.IsDir == false) | .Path | select(endswith(".sql.gz.gpg"))' <<<"$listing" | sort | tail -n1)"
+    [[ -n "$newest" ]] || fatal "no backup objects under r2:${BACKUP_BUCKET}/${BACKUP_PREFIX}"
     OBJECT="${BACKUP_PREFIX}/${newest}"
   fi
+  [[ "$OBJECT" == *.sql.gz.gpg ]] \
+    || fatal "not a backup artifact name (expected <...>.sql.gz.gpg): $OBJECT"
+  local manifest_object="${OBJECT%.sql.gz.gpg}.manifest.json.gz.gpg"
   echo "restore test target: r2:${BACKUP_BUCKET}/${OBJECT}" >&2
 
-  rclone_r2 copyto "r2:${BACKUP_BUCKET}/${OBJECT}" "$WORK/backup.gpg" \
-    || fatal "rclone download failed for $OBJECT"
+  download "$OBJECT" "$WORK/backup.gpg" \
+    "Check 'backup.sh --list'."
+  download "$manifest_object" "$WORK/manifest.gpg" \
+    "Every artifact written by backup.sh has one; an object without a manifest predates the manifest format and cannot be proven — take a fresh backup."
 
-  # `rclone copyto` exits 0 when the SOURCE does not exist ("nothing to copy"),
-  # so the check above cannot detect a missing object. Without this assertion the
-  # failure surfaces two steps later as "gpg decrypt failed ... NOT recoverable
-  # with this passphrase" — a wrong and alarming diagnosis for what is really a
-  # missing/pruned object (wrong prefix, an over-eager lifecycle rule, a typo in
-  # --object). Distinguish the two here, while we still can.
-  [[ -s "$WORK/backup.gpg" ]] \
-    || fatal "object not found (or empty) in R2: r2:${BACKUP_BUCKET}/${OBJECT} — nothing was downloaded; this is a MISSING OBJECT, not a decryption problem. Check 'backup.sh --list'."
+  local m_artifact_sha m_artifact_bytes m_plain_sha m_plain_bytes
+  local m_account m_pubkey m_priv m_pk m_sk m_counts manifest_json fields
+  manifest_json="$(gpg_decrypt "$WORK/manifest.gpg" | gunzip)" \
+    || fatal "could not decrypt the manifest for $OBJECT"
+  # Joined on '|' rather than @tsv: bash collapses runs of IFS whitespace, so a
+  # tab-separated line with an empty field would silently shift every value
+  # after it into the wrong variable.
+  fields="$(jq -er '
+      [.artifact_sha256, .artifact_bytes, .plaintext_sha256, .plaintext_bytes,
+       .account_id, .ed25519_public_key_b64, .ed25519_private_key_md5,
+       .private_key_md5, .secret_key_md5] | map(tostring) | join("|")' <<<"$manifest_json")" \
+    || fatal "the manifest for $OBJECT is not readable JSON"
+  IFS='|' read -r m_artifact_sha m_artifact_bytes m_plain_sha m_plain_bytes \
+                  m_account m_pubkey m_priv m_pk m_sk <<<"$fields"
+  m_counts="$(jq -er '.row_counts' <<<"$manifest_json")" \
+    || fatal "the manifest for $OBJECT has no row_counts"
+  [[ -n "$m_account" && "$m_account" != "null" ]] || fatal "the manifest for $OBJECT has no account_id"
 
-  gpg --batch --yes --no-tty --pinentry-mode loopback \
-      --passphrase-file "$BACKUP_GPG_PASSPHRASE_FILE" \
-      --decrypt "$WORK/backup.gpg" > "$WORK/dump.sql.gz" 2>/dev/null \
-    || fatal "gpg decrypt failed for $OBJECT — the artifact is NOT recoverable with this passphrase"
-  gunzip -c "$WORK/dump.sql.gz" > "$WORK/dump.sql" \
-    || fatal "gunzip failed for $OBJECT — the artifact is corrupt"
+  local artifact_sha artifact_bytes plain_sha plain_bytes
+  artifact_sha="$(sha256sum "$WORK/backup.gpg" | cut -d' ' -f1)"
+  artifact_bytes="$(stat -c %s "$WORK/backup.gpg")"
 
-  # Throwaway target: no published ports, no network, no volume, random
-  # password, auto-removed. --rm plus the EXIT trap means it cannot outlive us.
-  docker run -d --rm --name "$CNAME" --network none \
+  gpg_decrypt "$WORK/backup.gpg" | gunzip > "$WORK/dump.sql" \
+    || fatal "gpg decrypt/gunzip failed for $OBJECT — the artifact is NOT recoverable with this passphrase"
+  plain_sha="$(sha256sum "$WORK/dump.sql" | cut -d' ' -f1)"
+  plain_bytes="$(stat -c %s "$WORK/dump.sql")"
+
+  # Throwaway target: no published ports, no network, no volume mount, random
+  # password, labelled so a killed run can be swept later.
+  docker run -d --rm --name "$CNAME" --network none --label "$RESTORE_LABEL" \
     -e POSTGRES_PASSWORD="$(openssl rand -hex 16)" \
     "$RESTORE_IMAGE" >/dev/null \
     || fatal "could not start the throwaway $RESTORE_IMAGE container"
+  CONTAINER_OWNED=1
 
   local waited=0
   until docker exec "$CNAME" pg_isready -U postgres -q 2>/dev/null; do
@@ -338,56 +275,51 @@ main() {
     || fatal "could not create the throwaway keygen database"
 
   # --if-exists makes the dump's leading DROPs benign; ON_ERROR_STOP still
-  # aborts on a genuine error.
+  # aborts on a genuine error. psql's output can quote the offending ROW, i.e.
+  # the Ed25519 private key, so it is only ever surfaced through sanitize_pg_log.
   if ! docker exec -i "$CNAME" psql -v ON_ERROR_STOP=1 -U postgres -d keygen \
         < "$WORK/dump.sql" > "$WORK/restore.log" 2>&1; then
-    tail -n 20 "$WORK/restore.log" >&2
+    sanitize_pg_log "$WORK/restore.log" >&2
     fatal "psql restore of $OBJECT failed"
   fi
 
-  # --- Assertions: restored vs LIVE vs the compiled release constants ---------
-  local counts_sql
-  counts_sql="select 'accounts='||(select count(*) from accounts)"
-  counts_sql="$counts_sql||' licenses='||(select count(*) from licenses)"
-  counts_sql="$counts_sql||' machines='||(select count(*) from machines)"
-  counts_sql="$counts_sql||' policies='||(select count(*) from policies)"
-  counts_sql="$counts_sql||' products='||(select count(*) from products)"
-  counts_sql="$counts_sql||' users='||(select count(*) from users)"
-
-  local r_id l_id r_pub l_pub r_priv l_priv r_pk l_pk r_sk l_sk l_counts
-  r_id="$(restored_sql 'select id from accounts order by id')"
-  l_id="$(live_sql 'select id from accounts order by id')"
-  r_pub="$(restored_sql "select encode(decode(ed25519_public_key,'hex'),'base64') from accounts order by id")"
-  l_pub="$(live_sql "select encode(decode(ed25519_public_key,'hex'),'base64') from accounts order by id")"
-  # Private material is compared ONLY as an md5 — never printed, never logged.
-  r_priv="$(restored_sql "select md5(coalesce(ed25519_private_key::text,'')) from accounts order by id")"
-  l_priv="$(live_sql "select md5(coalesce(ed25519_private_key::text,'')) from accounts order by id")"
-  r_pk="$(restored_sql "select md5(coalesce(private_key::text,'')) from accounts order by id")"
-  l_pk="$(live_sql "select md5(coalesce(private_key::text,'')) from accounts order by id")"
-  r_sk="$(restored_sql "select md5(coalesce(secret_key::text,'')) from accounts order by id")"
-  l_sk="$(live_sql "select md5(coalesce(secret_key::text,'')) from accounts order by id")"
-  COUNTS_RESTORED="$(restored_sql "$counts_sql")"
-  l_counts="$(live_sql "$counts_sql")"
+  # --- Assertions: restored vs the MANIFEST vs the compiled release constants -
+  local identity r_id r_pub r_priv r_pk r_sk
+  identity="$(restored_sql "$ACCOUNT_IDENTITY_SQL")"
+  IFS='|' read -r r_id r_pub r_priv r_pk r_sk <<<"$identity"
+  COUNTS_RESTORED="$(restored_sql "$ROW_COUNTS_SQL")"
 
   ASSERTIONS_RAN=1
 
   echo "" >&2
   {
     echo "restored object:         r2:${BACKUP_BUCKET}/${OBJECT}"
-    check "account id"           "$r_id"    "$l_id"    "$EXPECT_ACCOUNT_ID"     "$r_id"
-    check "ed25519 pubkey"       "$r_pub"   "$l_pub"   "$EXPECT_ED25519_PUBKEY" "$r_pub"
-    check "ed25519 privkey md5"  "$r_priv"  "$l_priv"  ""                       ""
-    check "private_key md5"      "$r_pk"    "$l_pk"    ""                       ""
-    check "secret_key md5"       "$r_sk"    "$l_sk"    ""                       ""
-    check "row counts"           "$COUNTS_RESTORED" "$l_counts" ""              "$COUNTS_RESTORED"
+    check "artifact sha256"      "$artifact_sha"    "$m_artifact_sha"
+    check "artifact bytes"       "$artifact_bytes"  "$m_artifact_bytes"
+    check "plaintext sha256"     "$plain_sha"       "$m_plain_sha"
+    check "plaintext bytes"      "$plain_bytes"     "$m_plain_bytes"
+    check "account id"           "$r_id"    "$m_account" "$EXPECT_ACCOUNT_ID"     1
+    check "ed25519 pubkey"       "$r_pub"   "$m_pubkey"  "$EXPECT_ED25519_PUBKEY" 1
+    check "ed25519 privkey md5"  "$r_priv"  "$m_priv"
+    check "private_key md5"      "$r_pk"    "$m_pk"
+    check "secret_key md5"       "$r_sk"    "$m_sk"
+    check "row counts"           "$COUNTS_RESTORED" "$m_counts" "" 1
   } >&2
 
-  if [[ -n "$FAILED_CHECKS" ]]; then
-    fatal "restore test FAILED: $FAILED_CHECKS"
-  fi
+  [[ -z "$FAILED_CHECKS" ]] || fatal "restore test FAILED: $FAILED_CHECKS"
 
   PASSED=1
   echo "restore test PASSED" >&2
 }
 
-main "$@"
+# Download one object, distinguishing "missing" from "undecryptable": `rclone
+# copyto` exits 0 when the SOURCE does not exist ("nothing to copy"), so without
+# the emptiness assertion a pruned or typo'd object resurfaces two steps later
+# as an alarming (and wrong) "NOT recoverable with this passphrase".
+download() { # OBJECT DEST HINT
+  rclone_r2 copyto "r2:${BACKUP_BUCKET}/$1" "$2" || fatal "rclone download failed for $1"
+  [[ -s "$2" ]] \
+    || fatal "object not found (or empty) in R2: r2:${BACKUP_BUCKET}/$1 — this is a MISSING OBJECT, not a decryption problem. $3"
+}
+
+main
