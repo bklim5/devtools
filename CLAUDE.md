@@ -15,6 +15,12 @@ This file is the slim entry point. The full detail lives in the docs below — r
 | Verified code to port unchanged | `scaffold/src/lib/` (decoder + 19 tests, bytes, tool types/registry) |
 | Living project context | `.planning/PROJECT.md`, `.planning/ROADMAP.md`, `.planning/REQUIREMENTS.md` |
 
+## Model orchestration policy (binding, all sessions)
+
+When the main session runs on **Claude Fable/Mythos 5**: Fable is the ORCHESTRATOR ONLY — reasoning, triage, gate sequencing, small inline synthesis. ALL substantive subagent work (planners, executors, debuggers, reviewers, verifiers, simplify/cleanup agents) runs on **Opus** (`model: "opus"` — the newest Opus available, currently 4.8). Adversarial second opinions run on **Codex** (`/codex:adversarial-review` / codex agents). Never spawn a Fable-priced subagent for work Opus can do.
+
+This INCLUDES Workflow-backed runs (e.g. `/code-review xhigh`): workflow `agent()` calls inherit the session model (= Fable) unless overridden — before launching a named workflow from a Fable session, copy/edit its script so every `agent()` call passes `model: 'opus'` (or pass a custom script). A single un-overridden xhigh review workflow can burn ~1M Fable subagent tokens; two such runs hit the monthly spend cap on 2026-08-07.
+
 ## Build + verify harness (binding — never skip)
 
 **Per task, Definition of Done in this order:**
