@@ -517,14 +517,33 @@ impl<C: LicenseApi> LicenseManager<C> {
     /// `LicenseError::Offline`). `needs_refresh()` decides whether to even try;
     /// if offline, `refresh()` returns `Offline` and this swallows it.
     pub async fn refresh_if_needed(&mut self) -> LicenseStatusPayload {
-        if !self.needs_refresh() {
-            return self.resolve_status();
+        self.refresh_if_needed_at(Utc::now()).await
+    }
+
+    /// Clock-injectable `refresh_if_needed` (extends the D-73/codex-finding-4
+    /// seam): both the network gate (`needs_refresh_at`) and the returned status
+    /// (`resolve_status_at`) are computed against the SAME injected `now`, so the
+    /// D-76 swallow contract is provable wall-clock-independent (no rot as the
+    /// cached cert ages). The public `refresh_if_needed()` wraps this with
+    /// `Utc::now()`, exactly as `needs_refresh()` wraps `needs_refresh_at()`.
+    ///
+    /// Release-invariance: `resolve_status()`'s ONLY divergence from
+    /// `resolve_status_at(now, false)` is the `#[cfg(debug_assertions)]`
+    /// `dev_state_override` short-circuit, which is COMPILED OUT of release
+    /// builds — so release semantics are byte-identical to the prior body. In
+    /// debug builds the not-needed/error arms now consistently ignore the dev
+    /// override, matching `needs_refresh_at`'s pre-existing behavior (the network
+    /// gate already bypassed it). `refresh()` reads no clock (verify + checkout
+    /// only), so the success/error arms are unaffected by the injected `now`.
+    async fn refresh_if_needed_at(&mut self, now: DateTime<Utc>) -> LicenseStatusPayload {
+        if !self.needs_refresh_at(now) {
+            return self.resolve_status_at(now, false);
         }
         match self.refresh().await {
             Ok(fresh) => fresh,
             // Swallow EVERY error — offline / service down / no stored key /
             // verify failure all leave the current on-disk state intact.
-            Err(_) => self.resolve_status(),
+            Err(_) => self.resolve_status_at(now, false),
         }
     }
 
@@ -1753,12 +1772,15 @@ mod tests {
 
     #[test]
     fn refresh_if_needed_makes_no_network_call_when_not_needed() {
-        // A freshly-licensed cert far from expiry: needs_refresh()=false, so the
-        // scheduler must NOT touch the client. The NoNetwork client panics on any
-        // call, so reaching the assert proves zero network — and the returned
+        // A freshly-licensed cert far from expiry: needs_refresh_at()=false, so
+        // the scheduler must NOT touch the client. The NoNetwork client panics on
+        // any call, so reaching the assert proves zero network — and the returned
         // payload is the unchanged local Licensed status.
         let mut mgr = manager(Some(REAL_CERT), MockKeychain::Empty, REAL_FP);
-        let status = block_on(mgr.refresh_if_needed());
+        // Pin now inside the cert's validity window, well before the 2026-07-05
+        // renew-ahead window — needs_refresh_at()=false, so the NoNetwork client
+        // (panics on any call) is never touched. Wall-clock-independent.
+        let status = block_on(mgr.refresh_if_needed_at(at("2026-06-14T00:00:00Z")));
         assert!(
             matches!(status, LicenseStatusPayload::Licensed { .. }),
             "fresh cert must stay Licensed with no network attempt"
@@ -1767,25 +1789,24 @@ mod tests {
 
     #[test]
     fn refresh_if_needed_swallows_refresh_error_and_returns_prior_status() {
-        // needs_refresh()=true (no machine.lic but a stored key -> NotActivated
-        // is NOT a refresh trigger; use a near-expiry/grace path instead). Here:
-        // a stored key + a verified cert whose checkout errors. We force the
+        // needs_refresh_at()=true: a stored key + a verified cert whose checkout
+        // errors, with `now` pinned inside the renew-ahead window. We force the
         // checkout to fail and assert the prior local state is returned, no Err.
         let rec = Recorder::default();
         let client = ScriptedClient {
             checkout: Err(LicenseError::Offline),
             ..ScriptedClient::happy(&rec)
         };
-        // REAL_CERT is ~28 days from expiry today, so needs_refresh() is false by
-        // construction — to drive the error branch we must be inside the renew
-        // window. Build the manager and prove the contract via the swallow path
-        // directly: an erroring refresh leaves state untouched and never errs.
         let mut mgr = scripted_manager(Some(REAL_CERT), Some("STORED-KEY"), client, &rec);
         // Call refresh() (the inner primitive) to confirm it errs...
         assert_eq!(block_on(mgr.refresh()), Err(LicenseError::Offline));
-        // ...then refresh_if_needed() — even if it attempts, the error is
-        // swallowed and the unchanged Licensed status is returned, never an Err.
-        let status = block_on(mgr.refresh_if_needed());
+        // Now = 2026-07-08 is inside the 7-day renew-ahead window (opens
+        // 2026-07-05) yet before expiry (2026-07-12): the cert is Licensed AND
+        // needs_refresh_at() is true, so refresh_if_needed_at genuinely ATTEMPTS
+        // the (erroring) checkout, then SWALLOWS the error and returns the
+        // unchanged local status. This finally drives the intended in-renew-window
+        // branch the prior comment could not (it only proved refresh() alone errs).
+        let status = block_on(mgr.refresh_if_needed_at(at("2026-07-08T00:00:00Z")));
         assert!(
             matches!(
                 status,
