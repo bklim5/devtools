@@ -294,12 +294,21 @@ impl<C: LicenseApi> LicenseManager<C> {
     /// called from the user-initiated license ROUTE (a dedicated command), never
     /// at startup or on the footer/panel refresh.
     pub fn resolve_status(&mut self) -> LicenseStatusPayload {
-        // DEV-ONLY override short-circuit (the e2e seam) — compiled out of release.
+        self.resolve_status_or_override_at(Utc::now())
+    }
+
+    /// [`Self::resolve_status`] with an injectable clock: honors the debug-only
+    /// `dev_state_override` short-circuit (the e2e seam, compiled out of
+    /// release) before falling through to the clock-injected status core.
+    /// Shared by `resolve_status()` and `refresh_if_needed_with_clock`'s
+    /// non-success arms so the dev override behaves identically on both paths.
+    fn resolve_status_or_override_at(&mut self, now: DateTime<Utc>) -> LicenseStatusPayload {
+        // DEV-ONLY override short-circuit — compiled out of release.
         #[cfg(debug_assertions)]
         if let Some(state) = self.dev_state_override {
             return Self::synthetic_status(state);
         }
-        self.resolve_status_inner(false)
+        self.resolve_status_at(now, false)
     }
 
     /// ROUTE-ONLY status: identical to [`Self::resolve_status`] but additionally
@@ -400,16 +409,15 @@ impl<C: LicenseApi> LicenseManager<C> {
     /// RefreshNeeded arm.
     ///
     /// Plan 02 wires this: `refresh_if_needed` (the scheduler entry point) calls
-    /// it to gate the network.
-    pub fn needs_refresh(&mut self) -> bool {
-        self.needs_refresh_at(Utc::now())
-    }
-
-    /// Clock-injectable `needs_refresh` (the testable seam — codex finding 4):
-    /// both the status classification AND the renew-ahead window are computed
-    /// against the SAME injected `now`, so the test is wall-clock-independent
-    /// (no flake as the real date drifts into a fixture's renew-ahead window).
-    /// `resolve_status_at(now, false)` keeps the path Keychain-free.
+    /// it to gate the network — via `refresh_if_needed_with_clock`, which
+    /// injects the clock. Clock-injectable by design (the testable seam — codex
+    /// finding 4): both the status classification AND the renew-ahead window
+    /// are computed against the SAME injected `now`, so tests are
+    /// wall-clock-independent (no flake as the real date drifts into a
+    /// fixture's renew-ahead window). `resolve_status_at(now, false)` keeps the
+    /// path Keychain-free. (A `Utc::now()` pub wrapper existed until the sole
+    /// production caller moved to the injected-clock seam; it was removed
+    /// rather than kept as dead API.)
     fn needs_refresh_at(&mut self, now: DateTime<Utc>) -> bool {
         match self.resolve_status_at(now, false) {
             LicenseStatusPayload::OfflineGrace { .. }
@@ -503,7 +511,7 @@ impl<C: LicenseApi> LicenseManager<C> {
     /// state untouched and returns the unchanged local `resolve_status()`.
     ///
     /// Flow:
-    /// 1. `needs_refresh()` gates the network entirely — when the cert is fresh
+    /// 1. `needs_refresh_at()` gates the network entirely — when the cert is fresh
     ///    and far from expiry this returns `resolve_status()` with ZERO network
     ///    (the common connected-and-fresh case; the scheduler must not poll a
     ///    healthy seat).
@@ -514,36 +522,38 @@ impl<C: LicenseApi> LicenseManager<C> {
     ///
     /// Online detection: there is NO separate connectivity probe — the refresh
     /// network call's OWN offline result IS the connectivity signal (D-38
-    /// `LicenseError::Offline`). `needs_refresh()` decides whether to even try;
+    /// `LicenseError::Offline`). `needs_refresh_at()` decides whether to even try;
     /// if offline, `refresh()` returns `Offline` and this swallows it.
     pub async fn refresh_if_needed(&mut self) -> LicenseStatusPayload {
-        self.refresh_if_needed_at(Utc::now()).await
+        self.refresh_if_needed_with_clock(Utc::now).await
     }
 
     /// Clock-injectable `refresh_if_needed` (extends the D-73/codex-finding-4
-    /// seam): both the network gate (`needs_refresh_at`) and the returned status
-    /// (`resolve_status_at`) are computed against the SAME injected `now`, so the
-    /// D-76 swallow contract is provable wall-clock-independent (no rot as the
-    /// cached cert ages). The public `refresh_if_needed()` wraps this with
-    /// `Utc::now()`, exactly as `needs_refresh()` wraps `needs_refresh_at()`.
-    ///
-    /// Release-invariance: `resolve_status()`'s ONLY divergence from
-    /// `resolve_status_at(now, false)` is the `#[cfg(debug_assertions)]`
-    /// `dev_state_override` short-circuit, which is COMPILED OUT of release
-    /// builds — so release semantics are byte-identical to the prior body. In
-    /// debug builds the not-needed/error arms now consistently ignore the dev
-    /// override, matching `needs_refresh_at`'s pre-existing behavior (the network
-    /// gate already bypassed it). `refresh()` reads no clock (verify + checkout
-    /// only), so the success/error arms are unaffected by the injected `now`.
-    async fn refresh_if_needed_at(&mut self, now: DateTime<Utc>) -> LicenseStatusPayload {
-        if !self.needs_refresh_at(now) {
-            return self.resolve_status_at(now, false);
+    /// seam). Takes a clock FUNCTION rather than a fixed instant because an
+    /// `.await` (the network refresh attempt) sits between the gate read and
+    /// the non-success status reads: the previous body read `Utc::now()` fresh
+    /// for each, so a grace boundary crossed DURING an in-flight attempt (e.g.
+    /// a 60s timeout) must be reflected in the returned payload, not a stale
+    /// pre-await classification. Each non-success arm therefore calls
+    /// `now_fn()` again — and honors the debug-only dev override via
+    /// `resolve_status_or_override_at` exactly as `resolve_status()` does — so
+    /// release semantics are byte-identical to the previous
+    /// `needs_refresh()`/`resolve_status()` body. The public
+    /// `refresh_if_needed()` passes `Utc::now`; tests pass `|| at("...")`
+    /// (a constant clock — fully pinned, wall-clock-independent, no rot as the
+    /// cached cert fixture ages).
+    async fn refresh_if_needed_with_clock(
+        &mut self,
+        now_fn: impl Fn() -> DateTime<Utc>,
+    ) -> LicenseStatusPayload {
+        if !self.needs_refresh_at(now_fn()) {
+            return self.resolve_status_or_override_at(now_fn());
         }
         match self.refresh().await {
             Ok(fresh) => fresh,
             // Swallow EVERY error — offline / service down / no stored key /
             // verify failure all leave the current on-disk state intact.
-            Err(_) => self.resolve_status_at(now, false),
+            Err(_) => self.resolve_status_or_override_at(now_fn()),
         }
     }
 
@@ -1241,8 +1251,12 @@ mod tests {
 
     #[test]
     fn needs_refresh_false_for_not_activated_and_problem() {
-        assert!(!manager(None, MockKeychain::Empty, REAL_FP).needs_refresh());
-        assert!(!manager(Some("garbage"), MockKeychain::WithKey, REAL_FP).needs_refresh());
+        // NotActivated (no cert) and Problem (unverifiable cert) are never
+        // refresh triggers, independent of the clock (no verified expiry to
+        // classify) — any pinned `now` proves it; pinned for determinism.
+        let now = at("2026-06-14T00:00:00Z");
+        assert!(!manager(None, MockKeychain::Empty, REAL_FP).needs_refresh_at(now));
+        assert!(!manager(Some("garbage"), MockKeychain::WithKey, REAL_FP).needs_refresh_at(now));
     }
 
     #[test]
@@ -1779,8 +1793,9 @@ mod tests {
         let mut mgr = manager(Some(REAL_CERT), MockKeychain::Empty, REAL_FP);
         // Pin now inside the cert's validity window, well before the 2026-07-05
         // renew-ahead window — needs_refresh_at()=false, so the NoNetwork client
-        // (panics on any call) is never touched. Wall-clock-independent.
-        let status = block_on(mgr.refresh_if_needed_at(at("2026-06-14T00:00:00Z")));
+        // (panics on any call) is never touched. The constant closure is a fully
+        // pinned clock: every read returns the same instant. Wall-clock-independent.
+        let status = block_on(mgr.refresh_if_needed_with_clock(|| at("2026-06-14T00:00:00Z")));
         assert!(
             matches!(status, LicenseStatusPayload::Licensed { .. }),
             "fresh cert must stay Licensed with no network attempt"
@@ -1802,22 +1817,32 @@ mod tests {
         assert_eq!(block_on(mgr.refresh()), Err(LicenseError::Offline));
         // Now = 2026-07-08 is inside the 7-day renew-ahead window (opens
         // 2026-07-05) yet before expiry (2026-07-12): the cert is Licensed AND
-        // needs_refresh_at() is true, so refresh_if_needed_at genuinely ATTEMPTS
-        // the (erroring) checkout, then SWALLOWS the error and returns the
-        // unchanged local status. This finally drives the intended in-renew-window
-        // branch the prior comment could not (it only proved refresh() alone errs).
-        let status = block_on(mgr.refresh_if_needed_at(at("2026-07-08T00:00:00Z")));
+        // needs_refresh_at() is true, so refresh_if_needed_with_clock genuinely
+        // ATTEMPTS the (erroring) checkout, then SWALLOWS the error and returns
+        // the unchanged local status. This finally drives the intended
+        // in-renew-window branch the prior comment could not (it only proved
+        // refresh() alone errs).
+        let calls_before = rec.client_calls.lock().unwrap().len();
+        let status = block_on(mgr.refresh_if_needed_with_clock(|| at("2026-07-08T00:00:00Z")));
+        // The attempt must ACTUALLY happen — a wrongly-false needs_refresh_at
+        // would leave this test green without exercising the swallow arm. Count
+        // only calls AFTER the direct refresh() above (which also checks out).
         assert!(
-            matches!(
-                status,
-                LicenseStatusPayload::Licensed { .. } | LicenseStatusPayload::OfflineGrace { .. }
-            ),
+            rec.client_calls.lock().unwrap()[calls_before..]
+                .iter()
+                .any(|c| c.starts_with("checkout(")),
+            "refresh_if_needed_with_clock must attempt the checkout in the renew window"
+        );
+        // Pinned pre-expiry (2026-07-08 < 2026-07-12) the prior local state is
+        // exactly Licensed — never OfflineGrace, never an Err.
+        assert!(
+            matches!(status, LicenseStatusPayload::Licensed { .. }),
             "a swallowed refresh error must leave the prior local state intact (no Err propagated)"
         );
     }
 
     #[test]
-    fn refresh_if_needed_at_is_wall_clock_independent_far_future() {
+    fn refresh_if_needed_with_clock_is_wall_clock_independent_far_future() {
         // Regression lock: pin `now` years past the fixture's 2026-07-12 expiry.
         // The cert is Lapsed (past the 7-day grace) -> RefreshNeeded, so
         // needs_refresh_at()=true and refresh IS attempted. Use a SCRIPTED client
@@ -1831,11 +1856,44 @@ mod tests {
             ..ScriptedClient::happy(&rec)
         };
         let mut mgr = scripted_manager(Some(REAL_CERT), Some("STORED-KEY"), client, &rec);
-        let status = block_on(mgr.refresh_if_needed_at(at("2030-01-01T00:00:00Z")));
+        let status = block_on(mgr.refresh_if_needed_with_clock(|| at("2030-01-01T00:00:00Z")));
+        // The attempt must ACTUALLY happen — a wrongly-false needs_refresh_at
+        // would leave this green without exercising the swallow arm.
+        assert!(
+            rec.client_calls
+                .lock()
+                .unwrap()
+                .iter()
+                .any(|c| c.starts_with("checkout(")),
+            "a lapsed cert must drive an actual checkout attempt"
+        );
         assert!(
             matches!(status, LicenseStatusPayload::RefreshNeeded { .. }),
             "a far-future-pinned lapsed cert must swallow the refresh error and \
              return RefreshNeeded, never Err/panic"
+        );
+    }
+
+    #[test]
+    fn refresh_if_needed_public_wrapper_swallows_error_on_real_clock() {
+        // The public `Utc::now()` wrapper is the ONLY entry the lib.rs scheduler
+        // and commands.rs use, so it needs a direct test caller. This is the one
+        // DELIBERATE wall-clock test, safe forever BY MONOTONICITY: the real
+        // `now` is already past the fixture's grace end (2026-07-19) and only
+        // moves forward, so the cert classifies Lapsed -> RefreshNeeded for any
+        // future date this test runs. needs_refresh is therefore true, the
+        // scripted checkout errs, and the D-76 swallow returns the unchanged
+        // RefreshNeeded — never an Err/panic.
+        let rec = Recorder::default();
+        let client = ScriptedClient {
+            checkout: Err(LicenseError::Offline),
+            ..ScriptedClient::happy(&rec)
+        };
+        let mut mgr = scripted_manager(Some(REAL_CERT), Some("STORED-KEY"), client, &rec);
+        let status = block_on(mgr.refresh_if_needed());
+        assert!(
+            matches!(status, LicenseStatusPayload::RefreshNeeded { .. }),
+            "the public wrapper must classify on the real clock and swallow the refresh error"
         );
     }
 
