@@ -65,6 +65,7 @@ import {
   focusRow,
   navigateToTool,
   readOrder,
+  resetPrefsBlob,
   saveScreenshot,
   statusHeading,
   upsellModalOpen,
@@ -266,6 +267,27 @@ async function remountLicenseRoute(): Promise<void> {
 }
 
 describe("Ship-gate matrix — fixture-driven cases (real WKWebView)", () => {
+  // Clear any entitlements override LEAKED from an earlier spec in the shared WDIO
+  // session before each case. license.e2e ends its cleanup on ensureProTier(), which
+  // persists `entitlementsOverride: "full"` (the DEV Pro override). resolveEntitlements
+  // (resolve.ts) honors that "full" override ABOVE the live license_status, so while it
+  // is set a corrupt/foreign cert CANNOT drop entitlements to free — the Case 4/5
+  // locked-Alt+P proof would (correctly) see Pro and PIN instead of opening the upsell,
+  // masking the very fail-closed drop this matrix exists to prove. Wipe the on-disk
+  // prefs blob (clears the override) then reload so the usePreferences singleton
+  // re-hydrates from the cleared store: a disk-only clear leaves the stale in-memory
+  // "full" that a later drop-notice write would re-persist (prefs-blob-single-writer).
+  // With no override, the seeded cert ALONE governs the entitlement base, so the
+  // drop-to-free the Alt+P proof checks is genuinely the cert's doing. This is the
+  // setup-per-spec baseline discipline (license.e2e:320) — ship-gate owns its start.
+  beforeEach(async () => {
+    await resetPrefsBlob();
+    await browser.refresh();
+    await navigateToTool("protobuf-decoder");
+    const readyHandle = await $('button[aria-label^="Reorder "]');
+    await readyHandle.waitForExist({ timeout: 15_000 });
+  });
+
   // CASE 4 — a corrupted machine.dev.lic must FAIL CLOSED: the route shows the
   // calm "License needs attention" problem state, Pro management (Deactivate) is
   // NOT offered, the footer swaps to the attention affordance, and entitlements
