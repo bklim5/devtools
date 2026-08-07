@@ -66,6 +66,16 @@ infra/keygen/.env
 infra/keygen/*.crt
 !infra/keygen/.env.example
 
+# Offsite backup secrets + artifacts (quick/260807-ohd). The REAL secrets live on
+# the box at ~/.config/devtools-backup/ (outside deploy.sh's rsync --delete path);
+# these patterns only catch a stray copy landing in the repo. The .example TEMPLATE
+# is committed.
+infra/keygen/backup.env
+infra/keygen/gpg.pass
+infra/keygen/*.gpg
+infra/keygen/*.sql
+infra/keygen/*.sql.gz
+
 # Mac App Store provisioning profile (per-developer; do not commit)
 src-tauri/*.provisionprofile
 
