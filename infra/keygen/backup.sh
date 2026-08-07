@@ -125,13 +125,25 @@ require_mode_600 "$BACKUP_GPG_PASSPHRASE_FILE" "gpg passphrase file"
 # The rclone remote is defined ENTIRELY by environment variables, so no
 # rclone.conf (and therefore no second copy of the credentials) ever exists on
 # disk. Defaults are assign-if-unset so backup.env can override them.
+#
+# NO_HEAD is load-bearing, not a tuning knob: after a successful PUT, rclone
+# 1.60 re-reads the object with `HEAD <key>?versionId=<id>` (the version id from
+# the PUT response). R2 does not implement object versioning, so that read-back
+# returns 501 NotImplemented and rclone reports the transfer as failed even
+# though the bytes landed. Without this, every run logs ERRORs and only
+# "succeeds" on the retry, where rclone finds the object already present and
+# skips it — a green run resting on an accident. Integrity is not weakened: the
+# PUT carries Content-Md5 (R2 validates the body server-side), the upload is
+# still verified below by an independent `lsjson` size check, and restore-test.sh
+# then downloads, decrypts and restores the object end to end.
 : "${RCLONE_CONFIG_R2_TYPE:=s3}"
 : "${RCLONE_CONFIG_R2_PROVIDER:=Cloudflare}"
 : "${RCLONE_CONFIG_R2_REGION:=auto}"
 : "${RCLONE_CONFIG_R2_NO_CHECK_BUCKET:=true}"
+: "${RCLONE_CONFIG_R2_NO_HEAD:=true}"
 : "${RCLONE_CONFIG_R2_ACL:=private}"
 export RCLONE_CONFIG_R2_TYPE RCLONE_CONFIG_R2_PROVIDER RCLONE_CONFIG_R2_REGION
-export RCLONE_CONFIG_R2_NO_CHECK_BUCKET RCLONE_CONFIG_R2_ACL
+export RCLONE_CONFIG_R2_NO_CHECK_BUCKET RCLONE_CONFIG_R2_NO_HEAD RCLONE_CONFIG_R2_ACL
 
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/devtools-backup"
 mkdir -p "$STATE_DIR"

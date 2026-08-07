@@ -124,13 +124,18 @@ PG_READY_TIMEOUT="${PG_READY_TIMEOUT:-60}"
 require_mode_600 "$BACKUP_GPG_PASSPHRASE_FILE" "gpg passphrase file"
 [[ -f "$COMPOSE_FILE" ]] || fatal "compose file not found: $COMPOSE_FILE"
 
+# NO_HEAD mirrors backup.sh: R2 does not implement object versioning, so
+# rclone's post-PUT `HEAD <key>?versionId=<id>` read-back returns 501. This
+# script only downloads, but the flag is kept identical so both scripts describe
+# the same remote (see backup.sh for the full rationale).
 : "${RCLONE_CONFIG_R2_TYPE:=s3}"
 : "${RCLONE_CONFIG_R2_PROVIDER:=Cloudflare}"
 : "${RCLONE_CONFIG_R2_REGION:=auto}"
 : "${RCLONE_CONFIG_R2_NO_CHECK_BUCKET:=true}"
+: "${RCLONE_CONFIG_R2_NO_HEAD:=true}"
 : "${RCLONE_CONFIG_R2_ACL:=private}"
 export RCLONE_CONFIG_R2_TYPE RCLONE_CONFIG_R2_PROVIDER RCLONE_CONFIG_R2_REGION
-export RCLONE_CONFIG_R2_NO_CHECK_BUCKET RCLONE_CONFIG_R2_ACL
+export RCLONE_CONFIG_R2_NO_CHECK_BUCKET RCLONE_CONFIG_R2_NO_HEAD RCLONE_CONFIG_R2_ACL
 
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/devtools-backup"
 mkdir -p "$STATE_DIR"
@@ -142,6 +147,10 @@ PASSED=0
 PING_NOTE="ok"
 FAILED_CHECKS=""
 COUNTS_RESTORED=""
+# 0 until the restored-vs-live comparison has actually run. Without this, an
+# early failure (missing object, failed decrypt) would still log account=MATCH,
+# claiming a comparison that never happened.
+ASSERTIONS_RAN=0
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -194,9 +203,12 @@ on_exit() {
     [[ -n "$WORK" && -d "$WORK" ]] && rm -rf "$WORK"
   fi
 
-  local status="fail" account="MATCH"
+  local status="fail" account="-"
   (( PASSED == 1 )) && status="pass"
-  [[ "$FAILED_CHECKS" != *"account id"* ]] || account="MISMATCH"
+  if (( ASSERTIONS_RAN == 1 )); then
+    account="MATCH"
+    [[ "$FAILED_CHECKS" != *"account id"* ]] || account="MISMATCH"
+  fi
 
   local line
   line="$(printf 'ts=%s status=%s object=%s account=%s counts=%s failed=%s exit=%s reason=%s' \
@@ -283,6 +295,15 @@ main() {
   rclone_r2 copyto "r2:${BACKUP_BUCKET}/${OBJECT}" "$WORK/backup.gpg" \
     || fatal "rclone download failed for $OBJECT"
 
+  # `rclone copyto` exits 0 when the SOURCE does not exist ("nothing to copy"),
+  # so the check above cannot detect a missing object. Without this assertion the
+  # failure surfaces two steps later as "gpg decrypt failed ... NOT recoverable
+  # with this passphrase" — a wrong and alarming diagnosis for what is really a
+  # missing/pruned object (wrong prefix, an over-eager lifecycle rule, a typo in
+  # --object). Distinguish the two here, while we still can.
+  [[ -s "$WORK/backup.gpg" ]] \
+    || fatal "object not found (or empty) in R2: r2:${BACKUP_BUCKET}/${OBJECT} — nothing was downloaded; this is a MISSING OBJECT, not a decryption problem. Check 'backup.sh --list'."
+
   gpg --batch --yes --no-tty --pinentry-mode loopback \
       --passphrase-file "$BACKUP_GPG_PASSPHRASE_FILE" \
       --decrypt "$WORK/backup.gpg" > "$WORK/dump.sql.gz" 2>/dev/null \
@@ -340,6 +361,8 @@ main() {
   l_sk="$(live_sql "select md5(coalesce(secret_key::text,'')) from accounts order by id")"
   COUNTS_RESTORED="$(restored_sql "$counts_sql")"
   l_counts="$(live_sql "$counts_sql")"
+
+  ASSERTIONS_RAN=1
 
   echo "" >&2
   {
