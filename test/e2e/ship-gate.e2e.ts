@@ -62,12 +62,16 @@ import {
   assert,
   dispatchAltP,
   dispatchKey,
+  dropNoticeHeadingPresent,
   focusRow,
   navigateToTool,
   readOrder,
+  readPrefsBlob,
   resetPrefsBlob,
   saveScreenshot,
+  setDevLicenseState,
   statusHeading,
+  unlockProFooterPresent,
   upsellModalOpen,
 } from "./helpers";
 
@@ -266,28 +270,63 @@ async function remountLicenseRoute(): Promise<void> {
   });
 }
 
-describe("Ship-gate matrix — fixture-driven cases (real WKWebView)", () => {
-  // Clear any entitlements override LEAKED from an earlier spec in the shared WDIO
-  // session before each case. license.e2e ends its cleanup on ensureProTier(), which
-  // persists `entitlementsOverride: "full"` (the DEV Pro override). resolveEntitlements
-  // (resolve.ts) honors that "full" override ABOVE the live license_status, so while it
-  // is set a corrupt/foreign cert CANNOT drop entitlements to free — the Case 4/5
-  // locked-Alt+P proof would (correctly) see Pro and PIN instead of opening the upsell,
-  // masking the very fail-closed drop this matrix exists to prove. Wipe the on-disk
-  // prefs blob (clears the override) then reload so the usePreferences singleton
-  // re-hydrates from the cleared store: a disk-only clear leaves the stale in-memory
-  // "full" that a later drop-notice write would re-persist (prefs-blob-single-writer).
-  // With no override, the seeded cert ALONE governs the entitlement base, so the
-  // drop-to-free the Alt+P proof checks is genuinely the cert's doing. This is the
-  // setup-per-spec baseline discipline (license.e2e:320) — ship-gate owns its start.
-  beforeEach(async () => {
-    await resetPrefsBlob();
-    await browser.refresh();
-    await navigateToTool("protobuf-decoder");
-    const readyHandle = await $('button[aria-label^="Reorder "]');
-    await readyHandle.waitForExist({ timeout: 15_000 });
+// --- Live-Pro baseline (Cases 4/5 setup) -------------------------------------
+//
+// Each REAL case must start from a LIVE Pro whose Pro is derived from LICENSE
+// STATUS — never from the prefs `entitlementsOverride`. Two leaks this guards:
+//
+//  1. license.e2e ends its cleanup on ensureProTier(), persisting
+//     `entitlementsOverride: "full"` (the DEV Pro override). resolveEntitlements
+//     (resolve.ts) honors that override ABOVE the live license_status, so while it
+//     is set a corrupt/foreign cert CANNOT drop entitlements — the locked-Alt+P
+//     proof would (correctly) see Pro and PIN instead of opening the upsell,
+//     masking the very fail-closed drop this matrix exists to prove. So the blob
+//     is wiped and the override's absence is ASSERTED below.
+//  2. Pro must nonetheless be LIVE before the corrupt/foreign seed, so the case
+//     exercises the REAL revocation: refreshEntitlements' wasPro→free drop-diff
+//     (entitlements store.ts), which also latches the D-84 one-time drop notice.
+//     Override-Pro can never drop (see 1) — so Pro here comes from the debug-only
+//     `dev_set_license_state("licensed")` Rust seam, which makes license_status
+//     itself resolve Licensed. The boot refreshEntitlements then resolves Pro
+//     through the SAME baseFromLicense path a genuine cert uses.
+//
+// Sequence: wipe blob → set the Rust-side dev license override (process-local — it
+// SURVIVES the webview reload) → browser.refresh() so (a) the usePreferences
+// singleton re-hydrates from the CLEARED store (a disk-only wipe leaves a stale
+// in-memory "full" that the next whole-blob write would re-persist —
+// prefs-blob-single-writer) and (b) the boot refreshEntitlements resolves Pro from
+// the synthetic license status. Then two LOUD preconditions: the persisted blob
+// really has no entitlementsOverride (an in-flight fire-and-forget savePreferences
+// from the PREVIOUS spec can re-persist the stale blob after the wipe — fail loud,
+// never silently re-mask), and Pro is live (the free-only "Unlock Pro" footer row
+// is absent). Called by Cases 4/5 ONLY — the doc-only Cases 3&6 test asserts
+// nothing at runtime and must not pay the wipe+reload cost.
+async function establishLiveProBaseline(): Promise<void> {
+  await resetPrefsBlob();
+  await setDevLicenseState("licensed");
+  await browser.refresh();
+  await navigateToTool("protobuf-decoder");
+  const readyHandle = await $('button[aria-label^="Reorder "]');
+  await readyHandle.waitForExist({ timeout: 15_000 });
+  await browser.waitUntil(
+    async () => {
+      const blob = await readPrefsBlob();
+      return blob === null || blob.entitlementsOverride == null;
+    },
+    {
+      timeout: 10_000,
+      timeoutMsg:
+        "baseline precondition failed: entitlementsOverride is still present in the persisted prefs blob after the wipe+reload — a stale whole-blob save from a previous spec re-persisted it (prefs-blob-single-writer); the cert-drop proof would be masked, refusing to continue",
+    },
+  );
+  await browser.waitUntil(async () => !(await unlockProFooterPresent()), {
+    timeout: 10_000,
+    timeoutMsg:
+      'baseline precondition failed: Pro never went live from the dev "licensed" license state (the free-tier "Unlock Pro" footer row is still present) — the Case 4/5 Pro→free drop cannot be proven from a free start',
   });
+}
 
+describe("Ship-gate matrix — fixture-driven cases (real WKWebView)", () => {
   // CASE 4 — a corrupted machine.dev.lic must FAIL CLOSED: the route shows the
   // calm "License needs attention" problem state, Pro management (Deactivate) is
   // NOT offered, the footer swaps to the attention affordance, and entitlements
@@ -297,14 +336,20 @@ describe("Ship-gate matrix — fixture-driven cases (real WKWebView)", () => {
   // the real Rust Ed25519 fail-closed verify path — T-21-16 (never licensed on a
   // bad cert).
   it("Case 4 — a corrupted machine.lic fails closed to the calm problem state (LIC-06, T-21-16)", async () => {
-    await navigateToTool("protobuf-decoder");
-    const firstHandle = await $('button[aria-label^="Reorder "]');
-    await firstHandle.waitForExist({ timeout: 15_000 });
-
     let token: SeedBackup = { seeded: false, existed: false, backup: null };
     try {
-      // Garble the cert so Ed25519 verify fails → ProblemKind::Corrupt.
+      // LIVE license-status-derived Pro first (see establishLiveProBaseline) so
+      // the corrupt cert genuinely REVOKES it below — free-stays-free would prove
+      // nothing about the drop.
+      await establishLiveProBaseline();
+
+      // Garble the cert so Ed25519 verify fails → ProblemKind::Corrupt — then
+      // CLEAR the dev license override so the REAL (corrupt) machine.dev.lic
+      // governs license_status again. Entitlements are still the live Pro from
+      // the baseline at this point (nothing has re-resolved them yet): exactly
+      // the mid-session cert-goes-bad shape this case exists to prove.
       token = seedLic("not a valid machine certificate — corrupted for case 4");
+      await setDevLicenseState(null);
 
       await remountLicenseRoute();
       await browser.waitUntil(
@@ -330,9 +375,21 @@ describe("Ship-gate matrix — fixture-driven cases (real WKWebView)", () => {
 
       // The mid-session corrupt-cert seed only updated license_status; click
       // Refresh while the pane is open so its finally re-resolves ENTITLEMENTS
-      // from the problem state — dropping the prior spec's inherited Pro to free
-      // LIVE before the locked-Alt+P proof below.
+      // from the problem state — dropping the baseline's LIVE license-derived Pro
+      // to free through refreshEntitlements' wasPro→free drop-diff (entitlements
+      // store.ts) before the locked-Alt+P proof below.
       await refreshLicensePaneEntitlements();
+
+      // Direct proof the drop-diff actually fired: a live Pro→free drop latches
+      // the D-84 one-time notice (licenseDropNoticeAck=false), which renders the
+      // "Your Pro features turned off" card in the still-open pane. This is the
+      // ONE e2e exercise of the store.ts drop-diff/D-84 latch path — a free-start
+      // run could never reach it.
+      await browser.waitUntil(dropNoticeHeadingPresent, {
+        timeout: 10_000,
+        timeoutMsg:
+          "Case 4: the live Pro→free drop must latch the D-84 drop notice ('Your Pro features turned off') in the open pane — the entitlements drop-diff did not fire",
+      });
 
       // Entitlements actually dropped to FREE — proven the problem-state-correct
       // way (21-05): NOT the notActivated-only "Unlock Pro" footer (problem shows
@@ -366,10 +423,14 @@ describe("Ship-gate matrix — fixture-driven cases (real WKWebView)", () => {
       );
     } finally {
       try {
+        // Defensive: if the case failed BEFORE its mid-case override clear, the
+        // synthetic "licensed" dev state would leak into the next case/spec.
+        await setDevLicenseState(null);
         restoreLic(token);
         await remountLicenseRoute();
         // Phase 22.1 (D-22.1-6): the restored free state shows the inline upsell
-        // pitch heading (no "Free" status card now).
+        // pitch heading (no "Free" status card now; statusHeading skips the D-84
+        // drop notice this case deliberately latched).
         await browser.waitUntil(
           async () => (await statusHeading()) === "Thank you for using TinkerDev ❤️",
           {
@@ -395,10 +456,6 @@ describe("Ship-gate matrix — fixture-driven cases (real WKWebView)", () => {
   // ForeignMachine fail-closed branch for a foreign cert). T-21-16: a foreign
   // cert must land on free/problem, NEVER licensed.
   it("Case 5 — a copied machine.lic fails closed on a foreign fingerprint (LIC-06, T-21-16)", async () => {
-    await navigateToTool("protobuf-decoder");
-    const firstHandle = await $('button[aria-label^="Reorder "]');
-    await firstHandle.waitForExist({ timeout: 15_000 });
-
     assert(
       existsSync(FOREIGN_FP_FIXTURE),
       `Case 5: the committed CE fixture is missing at ${FOREIGN_FP_FIXTURE}`,
@@ -406,9 +463,16 @@ describe("Ship-gate matrix — fixture-driven cases (real WKWebView)", () => {
 
     let token: SeedBackup = { seeded: false, existed: false, backup: null };
     try {
+      // LIVE license-status-derived Pro first (see establishLiveProBaseline) so
+      // the foreign cert genuinely REVOKES it below.
+      await establishLiveProBaseline();
+
       // Seed the byte-verbatim real-CE cert — it verifies (good signature) but its
-      // embedded fingerprint is foreign to this machine → ForeignMachine.
+      // embedded fingerprint is foreign to this machine → ForeignMachine — then
+      // CLEAR the dev license override so the real (foreign) cert governs
+      // license_status again while entitlements still hold the baseline's live Pro.
       token = seedLic(readFileSync(FOREIGN_FP_FIXTURE));
+      await setDevLicenseState(null);
 
       await remountLicenseRoute();
       await browser.waitUntil(
@@ -432,9 +496,18 @@ describe("Ship-gate matrix — fixture-driven cases (real WKWebView)", () => {
       );
 
       // Re-resolve ENTITLEMENTS from the problem state (see Case 4) — the foreign
-      // cert seed only updated license_status; this drops the inherited Pro to
-      // free LIVE before the locked-Alt+P proof.
+      // cert seed only updated license_status; this drops the baseline's LIVE
+      // license-derived Pro to free through the wasPro→free drop-diff before the
+      // locked-Alt+P proof.
       await refreshLicensePaneEntitlements();
+
+      // Drop-diff proof (see Case 4): the live Pro→free drop latches the D-84
+      // notice in the still-open pane.
+      await browser.waitUntil(dropNoticeHeadingPresent, {
+        timeout: 10_000,
+        timeoutMsg:
+          "Case 5: the live Pro→free drop must latch the D-84 drop notice ('Your Pro features turned off') in the open pane — the entitlements drop-diff did not fire",
+      });
 
       // Entitlements dropped to FREE (the case-3/5 fail-closed contract) — proven
       // the problem-state-correct way (21-05): the footer attention affordance
@@ -467,10 +540,13 @@ describe("Ship-gate matrix — fixture-driven cases (real WKWebView)", () => {
       );
     } finally {
       try {
+        // Defensive: never leak the synthetic "licensed" dev state (see Case 4).
+        await setDevLicenseState(null);
         restoreLic(token);
         await remountLicenseRoute();
         // Phase 22.1 (D-22.1-6): the restored free state shows the inline upsell
-        // pitch heading (no "Free" status card now).
+        // pitch heading (no "Free" status card now; statusHeading skips the D-84
+        // drop notice this case deliberately latched).
         await browser.waitUntil(
           async () => (await statusHeading()) === "Thank you for using TinkerDev ❤️",
           {

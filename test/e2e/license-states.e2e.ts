@@ -36,6 +36,7 @@
 
 import {
   assert,
+  dropNoticeHeadingPresent,
   navigateToTool,
   saveScreenshot,
   setDevLicenseState,
@@ -264,6 +265,32 @@ describe("License-pane states via the dev override (real WKWebView)", () => {
       "license-states",
       "license-states-licensed-confirm.png",
       "licensed-deactivate-confirm",
+    );
+
+    // D-84 drop-notice ABSENCE for a validly Licensed pane. statusHeading()
+    // deliberately SKIPS the drop-notice heading, so without this explicit probe
+    // no spec would catch the notice regressing into a state where nothing is
+    // pending acknowledgement. Earlier specs in the shared WDIO session latch
+    // `licenseDropNoticeAck=false` (any live Pro→free drop — e.g. appearance.e2e's
+    // free-baseline cleanup), so a pending notice may legitimately render here
+    // first: dismiss it through the REAL "Got it" ack, then remount the licensed
+    // pane and assert the heading is GONE — a Licensed user with nothing pending
+    // must never see "Your Pro features turned off".
+    if (await dropNoticeHeadingPresent()) {
+      await clickPaneButton("Got it");
+      await browser.waitUntil(async () => !(await dropNoticeHeadingPresent()), {
+        timeout: 5_000,
+        timeoutMsg: 'expected the "Got it" ack to dismiss the D-84 drop notice',
+      });
+    }
+    await openPaneInState("licensed"); // remount — the ack must have stuck
+    await browser.waitUntil(async () => (await statusHeading()) === "Licensed", {
+      timeout: 10_000,
+      timeoutMsg: `expected the "Licensed" status heading on the post-ack remount, got ${JSON.stringify(await statusHeading())}`,
+    });
+    assert(
+      !(await dropNoticeHeadingPresent()),
+      "a validly Licensed pane must NOT render the D-84 drop notice once nothing is pending acknowledgement",
     );
   });
 

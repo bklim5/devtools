@@ -142,6 +142,11 @@ If `codesign -dvvv` still shows `flags=…adhoc` or there's no embedded profile,
 
 ## STEP 2 — Open the spike block
 
+> **Historical note (Phase 28-05):** the `data-testid="iap-spike"` block below was
+> REMOVED in Phase 28-05 (`b0d7bb28`, IapSpikeBlock removal) — superseded by the real
+> StoreLicenseSettings purchase flow. Steps 2–5 no longer apply to current builds; this
+> walkthrough is kept as the Phase-26 record only.
+
 1. Open **Settings ▸ License** (the gear, or the `#/settings/license` deep link).
 2. Locate the temporary **"StoreKit IAP spike (temporary)"** block (subtitle: "Phase 26 dev
    scaffolding — drives the native purchase sheet. Removed in Phase 28.";

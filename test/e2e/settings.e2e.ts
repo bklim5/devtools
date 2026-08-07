@@ -23,7 +23,46 @@
 // The e2e-spike preflight resets prefs.json + machine.dev.lic to a deterministic
 // baseline, so this spec starts from a known free/notActivated state.
 
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { assert, navigateToTool, saveScreenshot } from "./helpers";
+
+/** Runner-side (Node) probe of the REAL updater endpoint from tauri.conf.json —
+ *  the disambiguator for the "Check for updates" outcome below. The spec runs in
+ *  the WDIO Node worker, so this fetch is independent of the app's own network
+ *  path: reachable-from-runner + app-reports-failure = a LOCAL updater wiring
+ *  regression (plugin unregistered, capability dropped, endpoint typo) that must
+ *  FAIL the gate; unreachable-from-runner = external state (offline CI, repo with
+ *  no published release) the offline-by-design gate must tolerate. Reading the
+ *  endpoint FROM tauri.conf.json (not a copy) means a config typo probes the same
+ *  wrong URL the app uses — both sides fail together, which still fails the gate
+ *  via the reachability of the INTENDED url being false only when truly external.
+ *
+ *  PREREQUISITE for the strict arm: the harness must run the DIRECT-channel
+ *  capability overlay. `updater:default` lives in src-tauri/tauri.direct.conf.json,
+ *  NOT in capabilities/default.json (kept out so the appstore build's capability
+ *  codegen doesn't fail on a plugin it compiles out). scripts/e2e-spike.sh
+ *  (`pnpm tauri:dev:e2e`) therefore passes `--config src-tauri/tauri.direct.conf.json`;
+ *  without it every `plugin:updater|*` invoke is ACL-DENIED and the pane can only
+ *  ever report "Update check failed" — an ACL no shipped channel uses, which is
+ *  exactly what made this assertion untrustworthy before. If this assert fires
+ *  with a reachable endpoint, check that overlay first. */
+async function updaterEndpointReachable(): Promise<boolean> {
+  try {
+    const conf = JSON.parse(
+      readFileSync(resolve(process.cwd(), "src-tauri/tauri.conf.json"), "utf8"),
+    ) as { plugins?: { updater?: { endpoints?: string[] } } };
+    const url = conf.plugins?.updater?.endpoints?.[0];
+    if (!url) return false;
+    const res = await fetch(url, {
+      redirect: "follow",
+      signal: AbortSignal.timeout(8_000),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
 
 /** Open the Settings modal on the License pane via the #/settings/license
  *  deep-link (D-S6). */
@@ -511,31 +550,50 @@ describe("Settings ▸ Updates pane (real WKWebView)", () => {
       await saveScreenshot("settings", "settings-updates-pane.png", "updates-pane");
 
       // (c) Clicking "Check for updates" surfaces an inline result in the polite
-      // live region (WCAG-AA, never opacity-only). This proves the WIRING + the a11y
-      // surface — NOT a specific network outcome. The button drives the REAL updater
-      // check() against the live GitHub release endpoint (tauri.conf.json), so the
-      // outcome is environment-dependent: "You're up to date" when the endpoint
-      // serves a latest.json whose version is not newer (the release version is
-      // bump-locked to this build's version), or "Update check failed" when the
-      // endpoint is unreachable / has no published release (e.g. offline CI, or a
-      // repo with no release yet — the 2026-07-14 rot). BOTH are calm surfaced
-      // results and satisfy the contract; asserting only "up to date" baked in a
-      // live-network + published-release assumption the offline-by-design gate must
-      // not depend on. (Same "degrade calmly on the unavailable arm" discipline the
-      // gate uses for other seam-backed surfaces.) A detected-update outcome cannot
-      // occur here — the working tree's version is never behind its own published
-      // release.
+      // live region (WCAG-AA, never opacity-only) — this is the ONE e2e proof of a
+      // real check() round-trip through the seam (plugin registered, capability
+      // granted, endpoint wired). The button drives the REAL updater check()
+      // against the live GitHub release endpoint (tauri.conf.json), so the outcome
+      // is environment-dependent. ALL THREE real outcomes (UpdatesSettings
+      // resultLine) are accepted:
+      //   • "You're up to date"        — endpoint serves latest.json, not newer;
+      //   • "Version X.Y.Z available"  — local version BEHIND the latest published
+      //     release (e.g. any branch cut pre-release — a legitimate dev state);
+      //   • "Update check failed"      — tolerated ONLY when the endpoint is also
+      //     unreachable from the TEST RUNNER (external state: offline CI, repo with
+      //     no published release — the 2026-07-14 rot). If the runner CAN reach it
+      //     but the app can't, that is a LOCAL wiring regression and FAILS below —
+      //     the regression power the old "up to date"-only assert provided, kept,
+      //     without the live-network + published-release assumption.
+      const endpointReachable = await updaterEndpointReachable();
       await clickCheckForUpdates();
-      await browser.waitUntil(
-        async () => {
-          const t = await checkResultText();
-          return t.includes("up to date") || t.includes("Update check failed");
-        },
-        {
-          timeout: 10_000,
-          timeoutMsg: `expected the Check button to surface an inline result ("up to date" or "Update check failed") in the polite live region, got ${JSON.stringify(await checkResultText())}`,
-        },
-      );
+      // F5: capture the last-seen readout in the predicate's closure — an `await`
+      // inside the timeoutMsg template would evaluate EAGERLY at options-build
+      // time and report the pre-poll snapshot, not what timed out on screen.
+      let lastResult = "";
+      try {
+        await browser.waitUntil(
+          async () => {
+            lastResult = await checkResultText();
+            return (
+              lastResult.includes("up to date") ||
+              lastResult.includes("Update check failed") ||
+              /^Version .+ available$/.test(lastResult)
+            );
+          },
+          { timeout: 10_000 },
+        );
+      } catch {
+        throw new Error(
+          `expected the Check button to surface an inline result ("You're up to date", "Version X.Y.Z available", or "Update check failed") in the polite live region, got ${JSON.stringify(lastResult)}`,
+        );
+      }
+      if (lastResult.includes("Update check failed")) {
+        assert(
+          !endpointReachable,
+          'the app reported "Update check failed" while the updater endpoint IS reachable from the test runner — a LOCAL updater wiring regression (plugin unregistered / capability dropped / endpoint typo), not external state',
+        );
+      }
 
       // (d) The auto-check toggle is keyboard-reachable + operable: focus it +
       // activate → aria-checked flips on (it started off on the fresh state). The

@@ -266,20 +266,53 @@ export function statusHeading(): Promise<string | null> {
     if (!dialog) return null;
     // Skip the D-84 one-time license-DROP notice heading ("Your Pro features
     // turned off", LicenseSettings.tsx). That card is an <h4> rendered ABOVE the
-    // status card whenever `licenseDropNoticeAck === false` — a flag the FIRST
-    // Pro→free transition in the SHARED WDIO session latches (appearance.e2e's
-    // ensureFreeTier cleanup → entitlements store.ts drop-diff) and which then
-    // persists for the rest of the run. This probe reports the license STATUS
-    // heading (the state-adaptive "Licensed"/"License needs attention"/free pitch),
-    // NOT the drop notice, so it must exclude that one known heading — otherwise it
-    // reads the notice first and every downstream status assertion sees "Your Pro
-    // features turned off". (The drop notice showing is correct product behavior,
-    // D-84; only THIS helper's "first h4" heuristic needed the carve-out.)
-    const DROP_NOTICE_HEADING = "Your Pro features turned off";
+    // status card whenever `licenseDropNoticeAck === false` — a flag ANY live
+    // Pro→free transition in the SHARED WDIO session latches (entitlements
+    // store.ts drop-diff, e.g. appearance.e2e's free-baseline cleanup) and which
+    // then persists for the rest of the run. This probe reports the license
+    // STATUS heading (the state-adaptive "Licensed"/"License needs attention"/
+    // free pitch), NOT the drop notice — otherwise it reads the notice first and
+    // every downstream status assertion sees "Your Pro features turned off". (The
+    // drop notice showing is correct product behavior, D-84; only THIS helper's
+    // "first h4" heuristic needed the carve-out. Specs that want the notice
+    // itself use dropNoticeHeadingPresent below.)
+    //
+    // Matching is a whitespace-NORMALIZED, case-insensitive substring — an exact
+    // `!==` on trimmed textContent would silently stop filtering on any internal
+    // whitespace or minor copy drift (the "…"-suffixed variant already appears in
+    // preferences.ts's doc-comment), re-creating the 2026-07-14 rot. NOTE: this
+    // function is SERIALIZED over WebDriver, so the matcher cannot be a shared
+    // outer closure — dropNoticeHeadingPresent() inlines the same regex; keep the
+    // two in sync.
+    const isDropNotice = (t: string) =>
+      /pro features turned off/i.test(t.replace(/\s+/g, " "));
     const h4s = Array.from(dialog.querySelectorAll("h4"))
       .map((h) => (h.textContent ?? "").trim())
-      .filter((t) => t.length > 0 && t !== DROP_NOTICE_HEADING);
+      .filter((t) => t.length > 0);
+    const status = h4s.filter((t) => !isDropNotice(t));
+    if (status.length > 0) return status[0];
+    // Degenerate fallback: when the drop notice is the ONLY h4 on screen, return
+    // IT (not null) so a timing-out caller's "got …" message shows the real
+    // on-screen heading instead of null. No spec equality-compares against the
+    // notice text (or against null), so predicates behave identically.
     return h4s.length > 0 ? h4s[0] : null;
+  });
+}
+
+/** Whether the D-84 one-time license-drop notice card ("Your Pro features turned
+ *  off") is rendered inside the open Settings dialog. The EXPLICIT notice probe —
+ *  the counterpart of statusHeading()'s carve-out — for specs that assert the
+ *  notice's presence (a live Pro→free drop latched it) or its ABSENCE (a validly
+ *  Licensed pane with nothing pending acknowledgement). Same whitespace-normalized
+ *  case-insensitive matcher as statusHeading()'s filter (inlined — the executed
+ *  function is serialized over WebDriver and cannot share an outer closure). */
+export function dropNoticeHeadingPresent(): Promise<boolean> {
+  return browser.execute(() => {
+    const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
+    if (!dialog) return false;
+    return Array.from(dialog.querySelectorAll("h4")).some((h) =>
+      /pro features turned off/i.test((h.textContent ?? "").replace(/\s+/g, " ")),
+    );
   });
 }
 
