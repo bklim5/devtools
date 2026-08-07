@@ -260,10 +260,11 @@ Installed (idempotently) by `backup.sh --install-cron` in the crontab of user
 `pg_dump` (read-only, live DB never mutated) → **sanity-gate the plaintext**
 (min size + `CREATE TABLE public.accounts` + `COPY public.accounts` present) →
 `gzip -9 | gpg --symmetric` **AES-256** (S2K mode 3 / SHA512 / 65011712) →
-**local decrypt + `gunzip -t` round-trip** → build the **manifest** → `rclone
-copyto` both to R2 → **verify the remote size of each** → 40-day retention
-backstop → ping the backup dead-man check → **chained `restore-test.sh` against
-the object it just uploaded**.
+**local decrypt + `gunzip -t` round-trip** → **freshness check against the
+previous manifest** → build the **manifest** → `rclone copyto` both to R2 →
+**verify the remote size of each** → 40-day retention backstop → **retention-window
+health check** → ping the backup dead-man check → **chained `restore-test.sh`
+against the object it just uploaded**.
 
 Each run lands TWO objects:
 
@@ -272,11 +273,14 @@ r2:tinkerdev-backups/keygen-ce/keygen-<UTC-timestamp>.sql.gz.gpg
 r2:tinkerdev-backups/keygen-ce/keygen-<UTC-timestamp>.manifest.json.gz.gpg
 ```
 
-The **manifest** records what that artifact should restore to — row counts (read
-out of the dump itself), the account id / ed25519 public key / private-key md5s
-(read live in the same run; those columns never change), and the sha256 + size of
-both the plaintext and the ciphertext. It is gzipped and encrypted exactly like
-the artifact, because it fingerprints private material. Read one with:
+The **manifest** (schema 2) records what that artifact should restore to — row
+counts and the licenses count + newest `licenses.created_at` (all read out of the
+dump itself), the account id / ed25519 public key / private-key md5s (read live in
+the same run; those columns never change), the sha256 + size of both the plaintext
+and the ciphertext, and the **provenance** of the dump: when it started/finished,
+how long it took, and the compose project + container id it was actually read
+from. It is gzipped and encrypted exactly like the artifact, because it
+fingerprints private material. Read one with:
 
 ```bash
 ssh tinkerdev-box '~/devtools/infra/keygen/backup.sh --fetch \
@@ -344,6 +348,78 @@ is a hard stop — never a degraded run.
 - The prune also refuses to run unless the object *just uploaded* appears in the
   very listing it is about to act on — that is what proves the prefix is the live
   one and not a typo under which every object looks old enough to delete.
+
+### Freshness — is the dump of the CURRENT database?
+
+The manifest is **self-attested**: it proves the artifact is internally
+consistent, not that it describes production *as of tonight*. A stale checkout, a
+wrong `COMPOSE_FILE`, or a second postgres project on the box all produce a
+perfectly valid manifest of an **older** database, and every downstream check
+(sha256, row counts, restore drill) would still pass.
+
+So each run compares itself to the **previous run's manifest** before it uploads
+anything, on the two quantities that only ever go up here (licenses are never
+deleted):
+
+- `licenses_count` — the number of rows in the dump's `COPY public.licenses` block
+- `licenses_max_created_at` — the newest `created_at` in that same block
+
+Either one going **down** is fatal, with `reason="FRESHNESS REGRESSION: ..."`,
+and **nothing is uploaded**. That ordering is deliberate: a regressed artifact
+must not become the newest object, or tomorrow's run would compare itself against
+the bad manifest and pass.
+
+On the very first run under a prefix there is no previous manifest — the run logs
+`notice: no previous manifest ... first run` and proceeds. Manifests written
+before schema 2 have no `licenses_max_created_at`; that half of the comparison
+logs a notice and is skipped (the count still compares, via the older
+`row_counts` string).
+
+Legitimate reasons for a regression: someone deliberately deleted licenses, or the
+database was restored from an older backup. Both are events you want to be told
+about at 3am. Re-point the prefix or take a fresh baseline once you have decided
+the current state is correct.
+
+### Retention-window health (checked every run, before the green ping)
+
+The prune and the lifecycle rule are both DELETE machinery pointed at the only
+place the backups live. After the prune, `backup.sh` lists the prefix **once** and
+asserts:
+
+| Assertion | Catches |
+|---|---|
+| every artifact has its manifest and vice versa (orphans logged; **>2 orphans is fatal**) | a half-completed upload, or a prune eating one side of a pair |
+| artifact count **>= min(days since the oldest object, 25)** | mass deletion. The floor tracks the window's own age so a freshly warmed-up prefix passes, and caps at 25 (< the 30-day lifecycle rule) so the steady state never trips it |
+| oldest artifact age **<= `BACKUP_RETENTION_BACKSTOP_DAYS` + 3** | a prune that stopped running (the window growing without bound) |
+
+Artifacts whose **name stamp sorts before the earliest manifest** are exempt from
+the pairing rule: they predate the manifest format (see below), and the exemption
+ages itself out with them. Anything from the manifest era onwards must be paired.
+The comparison is on the `keygen-<ts>` stamp both halves of a pair share, *not* on
+`ModTime` — a pair is uploaded a second or two apart, so a ModTime test would
+accidentally exempt each prefix's oldest artifact.
+
+A failed assertion **fails the run** — `/fail` ping, red check,
+`reason="retention: ..."`. The artifact that run produced is nonetheless
+**uploaded and usable**; the log line says so explicitly with
+`artifact=uploaded-usable` (vs `artifact=none` when the failure was earlier).
+
+> **The R2 lifecycle rule cannot be checked from the box.** `rclone` has no way to
+> read a bucket's lifecycle configuration, so nothing above can tell you the
+> primary retention control is still in place — a deleted or widened rule is
+> invisible here until objects start disappearing (or stop). **Eyeball it
+> quarterly** in the Cloudflare dashboard: R2 → `tinkerdev-backups` → Settings →
+> Object lifecycle rules → "delete 30 days after creation" still present and
+> enabled. It is in the maintenance table below.
+
+### Recurring maintenance (nothing else will remind you)
+
+| Every | Do | Why |
+|---|---|---|
+| Quarterly | Cloudflare → R2 → `tinkerdev-backups` → Settings → **Object lifecycle rules**: confirm "delete 30 days after creation" is present and enabled | The primary retention control. It is not queryable via `rclone`, so no script can assert it. A deleted rule means unbounded storage growth; a widened/narrowed one can race the 40-day backstop |
+| Quarterly | healthchecks.io: both checks still exist, still have an email channel, still `period 1 day` | A deleted or muted check turns the whole dead-man design into a no-op silently |
+| On any R2 token rotation | re-run `backup.sh` by hand once and confirm green | The token is the single credential the whole pipeline depends on |
+| On any `infra/keygen/` script change | rsync **all three** scripts together and bump `BACKUP_PIPELINE_VERSION` | See "Implementation notes" — a partial rsync is now fatal rather than silent |
 
 ### Monitoring is load-bearing, not optional
 
@@ -467,6 +543,11 @@ why. All three logs are truncated in place to their last 2000 lines each run
 | `reason=... MISSING OBJECT ...` | `backup.sh --list` | The object (or its manifest) is gone (over-eager lifecycle rule, wrong `BACKUP_PREFIX`, typo in `--object`). This is explicitly *not* a decryption problem. |
 | `reason=gpg decrypt failed` | check `gpg.pass` against the password manager | The passphrase on the box no longer matches the artifact. |
 | `BACKUP_RETENTION_BACKSTOP_DAYS must be ...` | fix the one line in `backup.env` | Refused before any R2 call — nothing was uploaded, nothing was deleted. |
+| `reason="FRESHNESS REGRESSION: ..."` | `backup.sh --fetch <the named previous manifest> /dev/stdout`, then `docker compose -f ~/devtools/infra/keygen/compose.yaml ps` | The dump has FEWER licenses (or an older newest `created_at`) than the previous run. Stale checkout, wrong `COMPOSE_FILE`, a second postgres project on the box, or the DB was restored from an older backup. **Nothing was uploaded** — the last good artifact is still the newest object. |
+| `reason="retention: ... orphaned objects ..."` | `backup.sh --list` | Artifacts and manifests are written as a pair, so >2 unpaired objects means a broken upload path or a prune eating one side. The run's own artifact **is** uploaded and usable (`artifact=uploaded-usable`). |
+| `reason="retention: only N artifacts ..."` | `backup.sh --list`, then Cloudflare → R2 → bucket → Settings → lifecycle rules | Objects were deleted en masse: the lifecycle rule was widened, someone deleted by hand, or `BACKUP_PREFIX` changed. |
+| `reason="retention: the oldest artifact ... older than ..."` | `backup.sh --list` | The prune is not running (or `--min-age` was widened), so the window is growing without bound. Storage cost, not data loss. |
+| `pipeline version mismatch — ... PARTIAL DEPLOY` | re-rsync **all three** scripts (see "Updating the backup scripts on the box") | `backup.sh`, `restore-test.sh` and `backup-lib.sh` are at different versions. Fatal before any work: nothing ran, nothing was uploaded, nothing was deleted. |
 | `status=skip reason=locked` | `ps aux \| grep backup.sh` | A previous run is still holding the `flock` (or wedged). Expected if you ran it by hand at 03:17. |
 | `ping=err` in a log line | `curl -sS -o /dev/null -w '%{http_code}' https://hc-ping.com/` | The run itself was fine; only the ping failed (network blip). A ping failure never changes the run's real exit status. |
 | Both checks red at once | is the box up at all? | Box/network/disk-level failure — exactly the case the dead-man design exists for. |
@@ -494,6 +575,30 @@ the loader, the pings, the rclone wrapper and — most importantly — the **sin
 exit logger** is what keeps the two log lines from drifting apart again. The exit
 logger pings FIRST and composes the line AFTER, so a failed `/fail` ping is
 visible as `ping=err` in both logs rather than being recorded as `ping=ok`.
+
+**`BACKUP_PIPELINE_VERSION` pins the three scripts to each other.** They are
+deployed by `rsync`, and a partial/interrupted rsync leaves them at different
+versions silently sourcing one another — exactly the failure a backup pipeline
+must not have. The string is defined **once** in `backup-lib.sh`; `backup.sh` and
+`restore-test.sh` each carry their own `EXPECT_PIPELINE_VERSION` and assert it as
+their first action, before argument parsing, config, docker or R2. **Bump
+discipline:** any change that spans the three files bumps all three constants in
+the same commit; a same-file-only change does not need a bump (a mismatch is
+fatal, so over-bumping is safe and under-bumping is what you must avoid).
+
+**The manifest is self-attested, so freshness is checked separately.** See
+"Freshness" above: `licenses_count` and `licenses_max_created_at` are read out of
+the dump itself and compared to the previous run's manifest, and the comparison
+runs *before* the upload so a regressed artifact never becomes the baseline the
+next run trusts. The manifest also records the compose project + container id the
+dump actually came from, so an artifact can be traced rather than merely trusted.
+
+**The retention window is checked as a whole, once per run**, after the prune and
+before the green ping — pairing, a mass-deletion floor and a runaway-prune
+ceiling. It runs before the ping so a failure is a red check; the artifact is
+still uploaded, which is why the log line carries `artifact=uploaded-usable`.
+The one thing it cannot see is the R2 lifecycle rule itself (not exposed via
+`rclone`) — hence the quarterly eyeball in the maintenance table.
 
 **R2 does not implement object versioning.** `rclone` 1.60 follows a successful
 `PUT` with a read-back `HEAD <key>?versionId=<id>`; R2 returns **501 Not
