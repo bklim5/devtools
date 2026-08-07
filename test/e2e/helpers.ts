@@ -264,9 +264,21 @@ export function statusHeading(): Promise<string | null> {
   return browser.execute(() => {
     const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
     if (!dialog) return null;
+    // Skip the D-84 one-time license-DROP notice heading ("Your Pro features
+    // turned off", LicenseSettings.tsx). That card is an <h4> rendered ABOVE the
+    // status card whenever `licenseDropNoticeAck === false` — a flag the FIRST
+    // Pro→free transition in the SHARED WDIO session latches (appearance.e2e's
+    // ensureFreeTier cleanup → entitlements store.ts drop-diff) and which then
+    // persists for the rest of the run. This probe reports the license STATUS
+    // heading (the state-adaptive "Licensed"/"License needs attention"/free pitch),
+    // NOT the drop notice, so it must exclude that one known heading — otherwise it
+    // reads the notice first and every downstream status assertion sees "Your Pro
+    // features turned off". (The drop notice showing is correct product behavior,
+    // D-84; only THIS helper's "first h4" heuristic needed the carve-out.)
+    const DROP_NOTICE_HEADING = "Your Pro features turned off";
     const h4s = Array.from(dialog.querySelectorAll("h4"))
       .map((h) => (h.textContent ?? "").trim())
-      .filter((t) => t.length > 0);
+      .filter((t) => t.length > 0 && t !== DROP_NOTICE_HEADING);
     return h4s.length > 0 ? h4s[0] : null;
   });
 }
