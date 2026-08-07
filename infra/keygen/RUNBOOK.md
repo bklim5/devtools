@@ -259,21 +259,43 @@ Installed (idempotently) by `backup.sh --install-cron` in the crontab of user
 
 `pg_dump` (read-only, live DB never mutated) → **sanity-gate the plaintext**
 (min size + `CREATE TABLE public.accounts` + `COPY public.accounts` present) →
-`gzip -9` → `gpg --symmetric` **AES-256** (S2K mode 3 / SHA512 / 65011712) →
-**local decrypt + `gunzip -t` round-trip** → `rclone copyto` to R2 → **verify the
-remote size matches** → 40-day retention backstop → ping the backup dead-man
-check → **chained `restore-test.sh` against the object it just uploaded**.
+`gzip -9 | gpg --symmetric` **AES-256** (S2K mode 3 / SHA512 / 65011712) →
+**local decrypt + `gunzip -t` round-trip** → build the **manifest** → `rclone
+copyto` both to R2 → **verify the remote size of each** → 40-day retention
+backstop → ping the backup dead-man check → **chained `restore-test.sh` against
+the object it just uploaded**.
 
-Artifact lands at:
+Each run lands TWO objects:
 
 ```
 r2:tinkerdev-backups/keygen-ce/keygen-<UTC-timestamp>.sql.gz.gpg
+r2:tinkerdev-backups/keygen-ce/keygen-<UTC-timestamp>.manifest.json.gz.gpg
+```
+
+The **manifest** records what that artifact should restore to — row counts (read
+out of the dump itself), the account id / ed25519 public key / private-key md5s
+(read live in the same run; those columns never change), and the sha256 + size of
+both the plaintext and the ciphertext. It is gzipped and encrypted exactly like
+the artifact, because it fingerprints private material. Read one with:
+
+```bash
+ssh tinkerdev-box '~/devtools/infra/keygen/backup.sh --fetch \
+  keygen-ce/keygen-<ts>.manifest.json.gz.gpg /dev/stdout'
 ```
 
 Typical run: **~6 seconds**, ~42 KB encrypted (the DB is 13 MB, but it is mostly
 empty index/page overhead — six rows of real data compress hard). Do not read
 the *encrypted* size as the health signal; the meaningful gates are the
 plaintext sanity gate and the restore test's row-count comparison against live.
+
+### Where things actually live on the box
+
+| Path | What |
+|---|---|
+| `/home/claude/devtools` | the deploy root **on the live box** (user `claude`). `deploy.sh`'s built-in `REMOTE_DIR` default is `/opt/devtools` and is NOT what production uses — pass `REMOTE_DIR=/home/claude/devtools` (or use the plain `rsync` in "Updating the backup scripts" below). |
+| `~/devtools/infra/keygen/` | `backup.sh`, `restore-test.sh`, `backup-lib.sh` (shared, sourced by both), `compose.yaml`, the live `.env` |
+| `~/.config/devtools-backup/` | the backup secrets, mode 700 |
+| `~/.local/state/devtools-backup/` | `backup.log`, `restore-test.log`, `cron.log`, `backup.lock` (all 0600) |
 
 ### Where the secrets live (and why NOT in `infra/keygen/`)
 
@@ -283,11 +305,22 @@ plaintext sanity gate and the restore test's row-count comparison against live.
 | `~/.config/devtools-backup/gpg.pass` | 600 | the symmetric passphrase, and nothing else |
 
 **These are deliberately OUTSIDE `infra/keygen/`.** `deploy.sh` rsyncs that
-directory with `--delete` and excludes only `.env` and `*.crt`, so anything new
-placed there is wiped by the next deploy. If you ever refactor `deploy.sh`, do
-not "helpfully" move these back in. The committed template is
+directory with `--delete`, so anything new placed there is wiped by the next
+deploy. If you ever refactor `deploy.sh`, do not "helpfully" move these back in.
+(`deploy.sh` also `--exclude`s `backup.env` and `gpg.pass` as belt-and-braces,
+so a stray copy is never *shipped* either — but the exclusion is not the
+protection; the location is.) The committed template is
 `infra/keygen/backup.env.example` (placeholders only); `.gitignore` catches a
 stray copy landing in the repo.
+
+**Updating the backup scripts on the box** without touching the running stack
+(`deploy.sh` rebuilds and restarts containers — do not use it for a script edit):
+
+```bash
+rsync -az infra/keygen/backup.sh infra/keygen/restore-test.sh \
+          infra/keygen/backup-lib.sh infra/keygen/backup.env.example \
+  tinkerdev-box:/home/claude/devtools/infra/keygen/
+```
 
 Both scripts **fail closed**: a missing env file, or one that is not mode 600,
 is a hard stop — never a degraded run.
@@ -304,6 +337,13 @@ is a hard stop — never a degraded run.
 - **Backstop: `rclone delete --min-age 40d`** at the end of each run, inside the
   script. Deliberately *wider* than 30 days so the two never race and the script
   can never eat a backup the lifecycle rule still considers current.
+- `BACKUP_RETENTION_BACKSTOP_DAYS` is validated **before any rclone call**: it
+  must be a whole number **>= 35**, or `backup.sh` refuses to start. The value is
+  a `--min-age` argument to a DELETE; an empty or typo'd one must never reach it,
+  and anything below 35 would start racing the 30-day lifecycle rule.
+- The prune also refuses to run unless the object *just uploaded* appears in the
+  very listing it is about to act on — that is what proves the prefix is the live
+  one and not a typo under which every object looks old enough to delete.
 
 ### Monitoring is load-bearing, not optional
 
@@ -339,19 +379,28 @@ hand to confirm the new check goes green. Delete the old check afterwards.
 ### The automated restore validation (the primary corruption detector)
 
 `restore-test.sh` runs **chained after every successful upload**, not just as a
-monthly drill. It downloads the object that was just uploaded, decrypts it with
-the passphrase this box actually holds, restores it into a **throwaway
-`postgres:17.5` container** (random password, no ports, `--network none`, no
-volume, auto-removed), and asserts the restored data against **both** the
-compiled release constants **and** the live database:
+monthly drill. It downloads the object that was just uploaded **and its
+manifest**, decrypts both with the passphrase this box actually holds, restores
+the dump into a **throwaway `postgres:17.5` container** (random password, no
+ports, `--network none`, no volume, auto-removed), and asserts:
 
-- account id == `0d607683-026f-468b-9cf0-f5bfaf61a7a1`
-- ed25519 public key == `huJdyRsBtd7KrPqWv5Z/8GVeLmiqfWTfQnEb090+jO4=`
-  (these two are `KEYGEN_ACCOUNT_ID` / `KEYGEN_ED25519_PUBKEY_B64` compiled into
+- ciphertext + plaintext **sha256 and size** == the manifest (byte-for-byte proof
+  that what came back out of R2 is exactly what was dumped)
+- account id == the manifest **and** == `0d607683-026f-468b-9cf0-f5bfaf61a7a1`
+- ed25519 public key == the manifest **and** ==
+  `huJdyRsBtd7KrPqWv5Z/8GVeLmiqfWTfQnEb090+jO4=`
+  (those two are `KEYGEN_ACCOUNT_ID` / `KEYGEN_ED25519_PUBKEY_B64` compiled into
   every shipped app — if a restore does not reproduce them it is worthless)
-- ed25519 **private**-key md5, `private_key` md5, `secret_key` md5 vs live
+- ed25519 **private**-key md5, `private_key` md5, `secret_key` md5 == the manifest
   (compared as md5 only; private material is never printed or logged)
-- row counts vs live for accounts/licenses/machines/policies/products/users
+- row counts == the manifest, for accounts/licenses/machines/policies/products/users
+
+**It does not read the live database at all.** Every comparison is against the
+manifest (written at dump time) or against the compiled release constants — both
+time-invariant. That kills two failure modes the earlier restored-vs-live design
+had: a license created between the nightly dump and the drill showed up as a
+false `row counts MISMATCH`, and the drill could not run at all while the live
+stack was down — which is exactly when you want to run a restore drill.
 
 So a silently-corrupt or undecryptable artifact surfaces within **one day**
 instead of at the next manual drill. The manual drill remains as
@@ -364,9 +413,13 @@ ssh tinkerdev-box '~/devtools/infra/keygen/restore-test.sh'
 Expected output (verbatim from the 2026-08-07 run):
 
 ```
-restore test target: r2:tinkerdev-backups/keygen-ce/keygen-20260807T215301Z.sql.gz.gpg
+restore test target: r2:tinkerdev-backups/keygen-ce/keygen-20260807T225327Z.sql.gz.gpg
 
-restored object:         r2:tinkerdev-backups/keygen-ce/keygen-20260807T215301Z.sql.gz.gpg
+restored object:         r2:tinkerdev-backups/keygen-ce/keygen-20260807T225327Z.sql.gz.gpg
+  artifact sha256:         MATCH
+  artifact bytes:          MATCH
+  plaintext sha256:        MATCH
+  plaintext bytes:         MATCH
   account id:              MATCH (0d607683-026f-468b-9cf0-f5bfaf61a7a1)
   ed25519 pubkey:          MATCH (huJdyRsBtd7KrPqWv5Z/8GVeLmiqfWTfQnEb090+jO4=)
   ed25519 privkey md5:     MATCH
@@ -378,9 +431,9 @@ restore test PASSED
 
 `restore-test.sh` accepts **no target-database argument at all** — the dump is
 taken with `pg_dump --clean`, so it opens with `DROP` statements and must never
-be piped at the live database. It builds its own container and refuses any name
-matching the live compose postgres. Its only contact with production is
-read-only `SELECT`s for the comparison.
+be piped at a live database. It builds its own throwaway container, and it only
+ever removes a container **this run started**: if one with the same name already
+exists it refuses and exits, without deleting anything.
 
 ### Diagnostics
 
@@ -389,6 +442,10 @@ ssh tinkerdev-box '~/devtools/infra/keygen/backup.sh --list'            # what i
 ssh tinkerdev-box 'tail -n 5  ~/.local/state/devtools-backup/backup.log'
 ssh tinkerdev-box 'tail -n 5  ~/.local/state/devtools-backup/restore-test.log'
 ssh tinkerdev-box 'tail -n 20 ~/.local/state/devtools-backup/cron.log'
+
+# pull one object back down, decrypted (dump or manifest); /dev/stdout works
+ssh tinkerdev-box '~/devtools/infra/keygen/backup.sh --fetch \
+  keygen-ce/keygen-<ts>.manifest.json.gz.gpg /dev/stdout'
 ```
 
 `--list` reuses the credentials already on the box, so you never re-export
@@ -404,29 +461,90 @@ why. All three logs are truncated in place to their last 2000 lines each run
 | `keygen-ce-backup` red, **no** email body | `ssh tinkerdev-box 'tail -20 ~/.local/state/devtools-backup/cron.log'` | The script could not even start (missing/chmod-ed `backup.env`, box down, disk full) so it never reached a `/fail` ping. The grace period is what caught it. |
 | `keygen-ce-backup` red **with** a `/fail` body | read the `reason="..."` in the body | `pg_dump` failed, the plaintext sanity gate rejected the dump, gpg failed, or the R2 upload/verify failed. The reason string names which. |
 | `keygen-ce-restore-test` red, backup green | `ssh tinkerdev-box 'tail -3 ~/.local/state/devtools-backup/restore-test.log'` | The upload worked but the artifact does not restore — **treat as urgent**: the offsite copy is not usable. |
-| `reason=... MISSING OBJECT ...` | `backup.sh --list` | The object is gone (over-eager lifecycle rule, wrong `BACKUP_PREFIX`, typo in `--object`). This is explicitly *not* a decryption problem. |
+| `failed="artifact sha256; ..."` or `plaintext sha256` | `backup.sh --list`, then re-run `backup.sh` | What came back from R2 is not what was uploaded: truncated/corrupted object, or the object was replaced. |
+| `failed="row counts; ..."` | `--fetch` the manifest and compare | The dump restored, but not completely — a psql restore error, or a truncated artifact. Counts come from the dump itself, so this can NOT be caused by writes to live after the dump. |
+| `failed="account id"` / `ed25519 pubkey` | stop and read: the restored DB is not this account | Either the artifact is from a different account, or someone re-ran `setup.sh` and minted a new keypair. Every shipped app is compiled against the old one. |
+| `reason=... MISSING OBJECT ...` | `backup.sh --list` | The object (or its manifest) is gone (over-eager lifecycle rule, wrong `BACKUP_PREFIX`, typo in `--object`). This is explicitly *not* a decryption problem. |
 | `reason=gpg decrypt failed` | check `gpg.pass` against the password manager | The passphrase on the box no longer matches the artifact. |
+| `BACKUP_RETENTION_BACKSTOP_DAYS must be ...` | fix the one line in `backup.env` | Refused before any R2 call — nothing was uploaded, nothing was deleted. |
 | `status=skip reason=locked` | `ps aux \| grep backup.sh` | A previous run is still holding the `flock` (or wedged). Expected if you ran it by hand at 03:17. |
 | `ping=err` in a log line | `curl -sS -o /dev/null -w '%{http_code}' https://hc-ping.com/` | The run itself was fine; only the ping failed (network blip). A ping failure never changes the run's real exit status. |
 | Both checks red at once | is the box up at all? | Box/network/disk-level failure — exactly the case the dead-man design exists for. |
 
-**Deliberate failure tests send real alert emails.** The 2026-08-07 bring-up ran
-the failure paths on purpose (bad bucket; missing object), so two alert emails
-from that date are **expected, not an incident**. Both checks were returned to
-green by a final good run.
+**Deliberate failure tests send real alert emails.** The 2026-08-07 bring-up and
+its follow-up hardening pass both ran the failure paths on purpose (bad bucket,
+missing object, refused prune, unreadable crontab), so several alert emails from
+that date are **expected, not an incident**. Both checks were returned to green
+by a final good run each time.
 
-### Known gotcha: R2 does not implement object versioning
+**Objects written before 2026-08-07 22:47 UTC have no manifest** (the format
+predates it). `restore-test.sh` will refuse them with an explicit
+"predates the manifest format — take a fresh backup" message. The nightly always
+drills the object it just wrote, so this only ever affects a hand-picked
+`--object`, and the R2 lifecycle rule removes the last of them within 30 days.
 
-`rclone` 1.60 follows a successful `PUT` with a read-back
-`HEAD <key>?versionId=<id>`. R2 has no versioning, so that returns **501 Not
-Implemented** and rclone reports the transfer as failed *even though the bytes
-landed*. Both scripts therefore set `RCLONE_CONFIG_R2_NO_HEAD=true`. Do not
-remove it: without it every run logs ERRORs and only "succeeds" on the retry,
-where rclone finds the object already present and skips it — a green run resting
-on an accident. Integrity is not weakened, because the `PUT` carries
-`Content-Md5` (R2 validates the body server-side), `backup.sh` independently
-verifies the remote object size, and `restore-test.sh` then downloads and
-restores it end to end.
+### Implementation notes (why the scripts look like this)
+
+The scripts carry one-line pointers back here instead of repeating these. Do not
+"clean up" any of them without reading the reason first.
+
+**`backup-lib.sh` is sourced by both scripts.** They already hard-depend on each
+other and on `compose.yaml`, so "independently runnable" was never true. Sharing
+the loader, the pings, the rclone wrapper and — most importantly — the **single
+exit logger** is what keeps the two log lines from drifting apart again. The exit
+logger pings FIRST and composes the line AFTER, so a failed `/fail` ping is
+visible as `ping=err` in both logs rather than being recorded as `ping=ok`.
+
+**R2 does not implement object versioning.** `rclone` 1.60 follows a successful
+`PUT` with a read-back `HEAD <key>?versionId=<id>`; R2 returns **501 Not
+Implemented**, so rclone reports the transfer as failed *even though the bytes
+landed*. Hence `RCLONE_CONFIG_R2_NO_HEAD=true`. Without it every run logs ERRORs
+and only "succeeds" on the retry, where rclone finds the object already present
+and skips it — a green run resting on an accident. Integrity is not weakened: the
+`PUT` carries `Content-Md5` (R2 validates server-side), `backup.sh` verifies the
+remote size independently, and `restore-test.sh` checks the downloaded object's
+sha256 against the manifest before restoring it.
+
+**The R2 credentials are never in the process environment.** `backup.env` is
+sourced *without* `set -a`, and the six `RCLONE_CONFIG_R2_*` values are passed to
+rclone as a per-command assignment prefix. `gpg`, `docker`, `psql` and `curl`
+children therefore cannot inherit the secret.
+
+**`rclone copyto` exits 0 when the SOURCE does not exist** ("nothing to copy"),
+so every download asserts the file is non-empty and names the real cause. Without
+that, a pruned or typo'd object resurfaced two steps later as "NOT recoverable
+with this passphrase" — a wrong and alarming diagnosis at 3am.
+
+**`docker rm -f -v`, not `docker rm -f`.** `postgres:17.5` declares
+`VOLUME /var/lib/postgresql/data`, so each throwaway run creates an anonymous
+volume (~46 MB). `--rm` would reap it, but the explicit teardown wins the race
+and without `-v` orphaned it every night (~1.4 GB/month on a 38 GB disk).
+
+**Only ever remove a container this run started.** Teardown is gated on a flag
+set immediately after `docker run` succeeds, so the "a container with that name
+already exists" guard exits without deleting someone else's container. A run
+SIGKILLed by `timeout -k` cannot tear itself down at all, so the next run sweeps
+any container carrying the `devtools-restore-test` label that is older than an
+hour.
+
+**Every `timeout` uses `-k 30`** (TERM, then KILL 30 s later). The signal goes to
+the CHILD, never to the script, so the script's own EXIT trap still runs, still
+logs and still pings even when a wedged child had to be killed.
+
+**The flock fd is not inherited.** `backup.sh` holds the lock on fd 9; every
+child invocation closes it with `9>&-`. Otherwise a wedged `rclone`/`docker`
+could survive the script and hold the lock, and every later run would exit
+`status=skip reason=locked` with only the dead-man grace period noticing.
+
+**Logs are truncated in place**, never `mv`-rotated: cron holds an append-mode fd
+on `cron.log` for the whole run, and replacing the inode would send the rest of
+that run's output — the diagnostic a red check needs — to an unlinked file. All
+state files are 0600 (the scripts set `umask 077` and re-assert the mode on
+`cron.log`, which cron itself creates under umask 022).
+
+**psql output is never tailed raw.** A failing restore quotes the offending ROW,
+which for `public.accounts` is the Ed25519 private key. Only sanitized
+`ERROR/FATAL` lines, with the COPY context stripped and clipped, reach stderr.
 
 ---
 
@@ -481,26 +599,45 @@ backup cannot be opened at all.
 (`git clone` or rsync). Restore `infra/keygen/.env` and `server/webhook/.env`
 from the password manager and verify them against the table above.
 
+Install what the backup/restore scripts need — a fresh Ubuntu box has none of
+`rclone`, `gpg` or `jq`, and the restore below stops dead without them:
+
+```bash
+sudo apt-get update
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -y rclone gnupg jq curl cron
+# docker + docker-compose-plugin come from the normal Docker install (Step 4);
+# flock/timeout/openssl/gzip are in the base image.
+```
+
+Then put `backup.sh`, `restore-test.sh` and `backup-lib.sh` in place (all three —
+the first two source the third) and restore `~/.config/devtools-backup/`
+(`backup.env` + `gpg.pass`, mode 600) from the password manager.
+
 ### 2. Bring up postgres ONLY, and restore into it
 
 ```bash
+set -euo pipefail
 cd ~/devtools/infra/keygen
 docker compose -f compose.yaml up -d postgres
 
-# fetch + decrypt the chosen object (needs the R2 creds + gpg.pass restored first)
-export RCLONE_CONFIG_R2_TYPE=s3 RCLONE_CONFIG_R2_PROVIDER=Cloudflare \
-       RCLONE_CONFIG_R2_REGION=auto RCLONE_CONFIG_R2_NO_CHECK_BUCKET=true \
-       RCLONE_CONFIG_R2_NO_HEAD=true
-set -a; . ~/.config/devtools-backup/backup.env; set +a
+# Which object? (needs the R2 creds restored first)
+./backup.sh --list
+
+# Download + decrypt + gunzip it. ONE command, from the same script that wrote
+# the object, so this cannot drift from the real format:
 umask 077; W=$(mktemp -d)
-rclone copyto "r2:$BACKUP_BUCKET/keygen-ce/keygen-<ts>.sql.gz.gpg" "$W/b.gpg"
-gpg --batch --no-tty --pinentry-mode loopback \
-    --passphrase-file "$BACKUP_GPG_PASSPHRASE_FILE" --decrypt "$W/b.gpg" \
-  | gunzip > "$W/dump.sql"
+./backup.sh --fetch keygen-ce/keygen-<ts>.sql.gz.gpg "$W/dump.sql"
 
 docker compose -f compose.yaml exec -T postgres \
   psql -v ON_ERROR_STOP=1 -U keygen -d keygen < "$W/dump.sql"
 rm -rf "$W"     # the plaintext holds the Ed25519 private key — do not leave it around
+```
+
+If you want to know what that object *should* restore to before you restore it,
+read its manifest (same command, `/dev/stdout`):
+
+```bash
+./backup.sh --fetch keygen-ce/keygen-<ts>.manifest.json.gz.gpg /dev/stdout
 ```
 
 > **Do NOT run `docker compose run --rm setup` or `./setup.sh`.** They mint a
