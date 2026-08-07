@@ -1817,6 +1817,29 @@ mod tests {
     }
 
     #[test]
+    fn refresh_if_needed_at_is_wall_clock_independent_far_future() {
+        // Regression lock: pin `now` years past the fixture's 2026-07-12 expiry.
+        // The cert is Lapsed (past the 7-day grace) -> RefreshNeeded, so
+        // needs_refresh_at()=true and refresh IS attempted. Use a SCRIPTED client
+        // whose checkout errors (NOT NoNetwork, which would panic on the attempt):
+        // the D-76 contract swallows the error and returns the unchanged local
+        // RefreshNeeded status, never an Err/panic — proving the seam holds for
+        // any future date this fixture reaches.
+        let rec = Recorder::default();
+        let client = ScriptedClient {
+            checkout: Err(LicenseError::Offline),
+            ..ScriptedClient::happy(&rec)
+        };
+        let mut mgr = scripted_manager(Some(REAL_CERT), Some("STORED-KEY"), client, &rec);
+        let status = block_on(mgr.refresh_if_needed_at(at("2030-01-01T00:00:00Z")));
+        assert!(
+            matches!(status, LicenseStatusPayload::RefreshNeeded { .. }),
+            "a far-future-pinned lapsed cert must swallow the refresh error and \
+             return RefreshNeeded, never Err/panic"
+        );
+    }
+
+    #[test]
     fn refresh_if_needed_returns_fresh_payload_on_successful_refresh() {
         // When a refresh succeeds it swaps in the fresh checkout cert. Drive the
         // happy path: a verified cert + stored key + a successful checkout.
