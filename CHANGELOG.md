@@ -13,6 +13,10 @@ release body (falling back to the bare tag when a section is absent).
 
 - _Nothing yet._
 
+## [1.0.2] - 2026-08-07
+
+- _Nothing yet._
+
 ## [1.0.1] - 2026-08-07
 
 - _Nothing yet._
