@@ -27,16 +27,83 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { assert, navigateToTool, saveScreenshot } from "./helpers";
 
-/** Runner-side (Node) probe of the REAL updater endpoint from tauri.conf.json —
- *  the disambiguator for the "Check for updates" outcome below. The spec runs in
- *  the WDIO Node worker, so this fetch is independent of the app's own network
- *  path: reachable-from-runner + app-reports-failure = a LOCAL updater wiring
- *  regression (plugin unregistered, capability dropped, endpoint typo) that must
- *  FAIL the gate; unreachable-from-runner = external state (offline CI, repo with
- *  no published release) the offline-by-design gate must tolerate. Reading the
- *  endpoint FROM tauri.conf.json (not a copy) means a config typo probes the same
- *  wrong URL the app uses — both sides fail together, which still fails the gate
- *  via the reachability of the INTENDED url being false only when truly external.
+/** Runner-side (Node) probe verdict for the REAL updater endpoint.
+ *
+ *  A plain boolean "reachable" was NOT safe: it collapsed config regressions
+ *  (missing/typo'd endpoint URL, deleted release asset → 404, schema-broken
+ *  latest.json) into the same `false` as a genuine offline runner, so the spec
+ *  below would TOLERATE "Update check failed" for exactly the class of bug the
+ *  probe exists to catch. Three verdicts instead:
+ *    • "healthy"       — HTTP 2xx AND the body parses as an updater latest.json
+ *                        (a `version` field). The app must NOT fail its check.
+ *    • "misconfigured" — the endpoint is wrong or its artifact is broken:
+ *                        missing/empty/malformed URL in tauri.conf.json, any
+ *                        non-2xx response (404 = the release asset is gone), a
+ *                        non-JSON body, or JSON without `version`. This is a
+ *                        wiring/config REGRESSION → the gate must FAIL, never
+ *                        tolerate "Update check failed".
+ *    • "unreachable"   — the runner itself has no network path: DNS failure
+ *                        (ENOTFOUND/EAI_AGAIN), connection refused/reset, or a
+ *                        timeout. The ONLY "offline CI / external outage" case,
+ *                        and the ONLY one that tolerates "Update check failed". */
+type UpdaterProbe = {
+  verdict: "healthy" | "misconfigured" | "unreachable";
+  detail: string;
+};
+
+/** Node/undici error codes that mean "this machine could not reach the network",
+ *  as opposed to "the server answered and the answer was wrong". */
+const NETWORK_UNAVAILABLE_CODES = new Set([
+  "ENOTFOUND",
+  "EAI_AGAIN",
+  "EAI_NODATA",
+  "ECONNREFUSED",
+  "ECONNRESET",
+  "ETIMEDOUT",
+  "EHOSTUNREACH",
+  "ENETUNREACH",
+  "ENETDOWN",
+  "EPIPE",
+  "UND_ERR_CONNECT_TIMEOUT",
+  "UND_ERR_HEADERS_TIMEOUT",
+  "UND_ERR_SOCKET",
+]);
+
+/** The network-unavailable reason for a thrown fetch error, or null when the
+ *  failure was not a transport failure. Node hangs the syscall code on the error
+ *  `cause` chain (fetch wraps it in a bare TypeError), and AbortSignal.timeout
+ *  surfaces as a TimeoutError/AbortError DOMException — both are "offline". The
+ *  walk must also descend AggregateError.errors: a connection refusal on a
+ *  dual-stack host arrives as `TypeError: fetch failed` → cause AggregateError →
+ *  errors[] each carrying ECONNREFUSED, so a cause-only walk would misfile a
+ *  genuinely offline runner as "misconfigured". */
+function networkUnavailableReason(err: unknown): string | null {
+  const queue: unknown[] = [err];
+  for (let i = 0; i < queue.length && i < 16; i += 1) {
+    const node = queue[i];
+    if (node === null || typeof node !== "object") continue;
+    const e = node as {
+      name?: unknown;
+      code?: unknown;
+      cause?: unknown;
+      errors?: unknown;
+    };
+    if (typeof e.code === "string" && NETWORK_UNAVAILABLE_CODES.has(e.code)) return e.code;
+    if (e.name === "TimeoutError" || e.name === "AbortError") return String(e.name);
+    if (e.cause !== undefined) queue.push(e.cause);
+    if (Array.isArray(e.errors)) queue.push(...e.errors);
+  }
+  return null;
+}
+
+/** Probe the REAL updater endpoint from tauri.conf.json — the disambiguator for
+ *  the "Check for updates" outcome below. The spec runs in the WDIO Node worker,
+ *  so this fetch is independent of the app's own network path: healthy-from-runner
+ *  + app-reports-failure = a LOCAL updater wiring regression (plugin unregistered,
+ *  capability dropped) that must FAIL the gate. Reading the endpoint FROM
+ *  tauri.conf.json (not a copy) means a config typo probes the same wrong URL the
+ *  app uses — which is precisely why a typo must classify as "misconfigured"
+ *  (both sides fail together) rather than as an external outage.
  *
  *  PREREQUISITE for the strict arm: the harness must run the DIRECT-channel
  *  capability overlay. `updater:default` lives in src-tauri/tauri.direct.conf.json,
@@ -46,22 +113,86 @@ import { assert, navigateToTool, saveScreenshot } from "./helpers";
  *  without it every `plugin:updater|*` invoke is ACL-DENIED and the pane can only
  *  ever report "Update check failed" — an ACL no shipped channel uses, which is
  *  exactly what made this assertion untrustworthy before. If this assert fires
- *  with a reachable endpoint, check that overlay first. */
-async function updaterEndpointReachable(): Promise<boolean> {
+ *  with a healthy endpoint, check that overlay first. */
+async function probeUpdaterEndpoint(): Promise<UpdaterProbe> {
+  let url: string | undefined;
   try {
     const conf = JSON.parse(
       readFileSync(resolve(process.cwd(), "src-tauri/tauri.conf.json"), "utf8"),
     ) as { plugins?: { updater?: { endpoints?: string[] } } };
-    const url = conf.plugins?.updater?.endpoints?.[0];
-    if (!url) return false;
+    url = conf.plugins?.updater?.endpoints?.[0];
+  } catch (err) {
+    return {
+      verdict: "misconfigured",
+      detail: `src-tauri/tauri.conf.json could not be read/parsed: ${String(err)}`,
+    };
+  }
+  if (typeof url !== "string" || url.trim() === "") {
+    return {
+      verdict: "misconfigured",
+      detail:
+        "plugins.updater.endpoints[0] is missing or empty in src-tauri/tauri.conf.json",
+    };
+  }
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+      throw new Error(`unsupported protocol ${parsed.protocol}`);
+    }
+  } catch (err) {
+    return {
+      verdict: "misconfigured",
+      detail: `plugins.updater.endpoints[0] is not a usable http(s) URL (${JSON.stringify(url)}): ${String(err)}`,
+    };
+  }
+
+  let answer: { status: number; body: string };
+  try {
     const res = await fetch(url, {
       redirect: "follow",
       signal: AbortSignal.timeout(8_000),
     });
-    return res.ok;
-  } catch {
-    return false;
+    answer = { status: res.status, body: await res.text() };
+  } catch (err) {
+    const offline = networkUnavailableReason(err);
+    if (offline !== null) {
+      return {
+        verdict: "unreachable",
+        detail: `${url} — no network path from the test runner (${offline})`,
+      };
+    }
+    return {
+      verdict: "misconfigured",
+      detail: `${url} — request failed for a non-transport reason: ${String(err)}`,
+    };
   }
+
+  if (answer.status < 200 || answer.status > 299) {
+    return {
+      verdict: "misconfigured",
+      detail: `${url} — HTTP ${answer.status} (the server ANSWERED, so this is not an outage; e.g. a 404 means the release asset is gone — a release/config regression)`,
+    };
+  }
+  let manifest: unknown;
+  try {
+    manifest = JSON.parse(answer.body);
+  } catch {
+    return {
+      verdict: "misconfigured",
+      detail: `${url} — HTTP ${answer.status} but the body is not JSON (first 120 chars: ${JSON.stringify(answer.body.slice(0, 120))})`,
+    };
+  }
+  const version = (manifest as { version?: unknown } | null)?.version;
+  if (typeof version !== "string" || version.trim() === "") {
+    return {
+      verdict: "misconfigured",
+      detail: `${url} — HTTP ${answer.status} but the body has no "version" field, so it is not an updater latest.json`,
+    };
+  }
+  return {
+    verdict: "healthy",
+    detail: `${url} — HTTP ${answer.status}, latest.json version ${version}`,
+  };
 }
 
 /** Open the Settings modal on the License pane via the #/settings/license
@@ -559,13 +690,17 @@ describe("Settings ▸ Updates pane (real WKWebView)", () => {
       //   • "You're up to date"        — endpoint serves latest.json, not newer;
       //   • "Version X.Y.Z available"  — local version BEHIND the latest published
       //     release (e.g. any branch cut pre-release — a legitimate dev state);
-      //   • "Update check failed"      — tolerated ONLY when the endpoint is also
-      //     unreachable from the TEST RUNNER (external state: offline CI, repo with
-      //     no published release — the 2026-07-14 rot). If the runner CAN reach it
-      //     but the app can't, that is a LOCAL wiring regression and FAILS below —
-      //     the regression power the old "up to date"-only assert provided, kept,
-      //     without the live-network + published-release assumption.
-      const endpointReachable = await updaterEndpointReachable();
+      //   • "Update check failed"      — tolerated ONLY when the runner-side probe
+      //     classifies the endpoint as "unreachable", i.e. the TEST RUNNER itself
+      //     has no network path (DNS failure, connection refused/reset, timeout —
+      //     offline CI / a real external outage). Every other probe verdict FAILS
+      //     the gate: "healthy" means a LOCAL updater wiring regression (plugin
+      //     unregistered / capability dropped), and "misconfigured" (missing or
+      //     malformed endpoint URL, non-2xx such as a 404 from a deleted release
+      //     asset, or a latest.json that isn't the updater schema) is a
+      //     config/release regression — exactly the class a boolean "reachable"
+      //     used to launder into a tolerated false-green.
+      const probe = await probeUpdaterEndpoint();
       await clickCheckForUpdates();
       // F5: capture the last-seen readout in the predicate's closure — an `await`
       // inside the timeoutMsg template would evaluate EAGERLY at options-build
@@ -590,8 +725,12 @@ describe("Settings ▸ Updates pane (real WKWebView)", () => {
       }
       if (lastResult.includes("Update check failed")) {
         assert(
-          !endpointReachable,
-          'the app reported "Update check failed" while the updater endpoint IS reachable from the test runner — a LOCAL updater wiring regression (plugin unregistered / capability dropped / endpoint typo), not external state',
+          probe.verdict === "unreachable",
+          `the app reported "Update check failed", which is tolerated ONLY when the test runner itself has no network path. Runner probe verdict: ${probe.verdict} — ${probe.detail}. ${
+            probe.verdict === "healthy"
+              ? "The endpoint serves a valid latest.json from this machine, so the app failing is a LOCAL updater wiring regression (plugin unregistered / capability dropped / direct-channel overlay missing)."
+              : "The endpoint itself is broken (bad URL, non-2xx / deleted release asset, or a body that is not an updater latest.json) — a config/release REGRESSION, not an external outage."
+          }`,
         );
       }
 
