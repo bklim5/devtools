@@ -22,7 +22,7 @@
     "format:check": "prettier --check .",
     "prepare": "lefthook install",
     "e2e": "wdio run wdio.conf.ts",
-    "tauri:dev:e2e": "tauri dev --features webdriver"
+    "tauri:dev:e2e": "VITE_CHANNEL=direct tauri dev --features webdriver --config src-tauri/tauri.direct.conf.json"
   },
   "dependencies": {
     "@fontsource/ibm-plex-sans": "5.2.8",

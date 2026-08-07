@@ -178,9 +178,25 @@ fi
 
 # The WebDriver server only exists when the `webdriver` Cargo feature is enabled
 # (the plugin is an optional dep — see src-tauri/Cargo.toml). `pnpm tauri:dev:e2e`
-# is `tauri dev --features webdriver`. A plain `pnpm tauri dev` (and every
-# `pnpm tauri build`) excludes the plugin, so :4445 never binds outside this gate.
-echo "[spike] starting 'pnpm tauri:dev:e2e' (tauri dev --features webdriver; logs → $DEV_LOG)…"
+# is `tauri dev --features webdriver --config src-tauri/tauri.direct.conf.json`.
+# A plain `pnpm tauri dev` (and every `pnpm tauri build`) excludes the plugin, so
+# :4445 never binds outside this gate.
+#
+# The `--config src-tauri/tauri.direct.conf.json` overlay is LOAD-BEARING for the
+# gate's fidelity, not cosmetic: the direct channel's `updater:default` /
+# `process:allow-restart` / `autostart:*` ACL grants live ONLY in that overlay
+# (they are deliberately kept OUT of capabilities/default.json so the appstore
+# build's capability codegen, which globs+validates every capabilities/*.json
+# regardless of Cargo features, does not fail on plugins compiled out of that
+# build — see the overlay's own note). Without it the harness ran an ACL that no
+# shipped channel uses: the updater plugin was compiled IN but every
+# `plugin:updater|*` invoke was DENIED, so the Updates pane could only ever
+# report "Update check failed" and the settings e2e could never prove a real
+# check() round-trip. Running the direct overlay makes the gate exercise the
+# ACTUAL shipped direct-channel capability set (settings.e2e's updater assertion
+# depends on it). VITE_CHANNEL=direct is set alongside it so the frontend channel
+# constant matches the native one instead of relying on the unset-env default.
+echo "[spike] starting 'pnpm tauri:dev:e2e' (tauri dev --features webdriver, direct-channel config; logs → $DEV_LOG)…"
 # `setsid` puts tauri dev in its own process group so the trap can reap the whole
 # tree (vite + Rust app). Fall back to a plain background start if setsid is absent.
 if command -v setsid >/dev/null 2>&1; then
