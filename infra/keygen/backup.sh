@@ -34,6 +34,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=./backup-lib.sh disable=SC1091
 source "$SCRIPT_DIR/backup-lib.sh"
 
+# Asserted BEFORE argument parsing, config or any R2/docker call: a half-rsynced
+# infra/keygen/ must fail loudly, not run a mixed set of scripts. Bump in lockstep
+# with BACKUP_PIPELINE_VERSION in backup-lib.sh.
+EXPECT_PIPELINE_VERSION="2026-08-08.1"
+require_pipeline_version "$EXPECT_PIPELINE_VERSION" "backup.sh"
+
 CRON_BEGIN="# >>> devtools keygen-ce offsite backup (managed by infra/keygen/backup.sh) >>>"
 CRON_END="# <<< devtools keygen-ce offsite backup <<<"
 
@@ -131,19 +137,22 @@ list_objects() {
 # The disaster-recovery download path, as ONE command that cannot drift from the
 # script that wrote the object (RUNBOOK Step 10 / "Restore the license box"
 # both call this instead of re-spelling the rclone+gpg+gunzip pipeline).
+# `rclone copyto` exits 0 when the SOURCE does not exist ("nothing to copy"), so
+# a missing object must be caught here or it resurfaces as a bogus "decryption
+# failed" two steps later.
+download_object() { # OBJECT DEST HINT
+  rclone_r2 copyto "r2:${BACKUP_BUCKET}/$1" "$2" || fatal "rclone download failed for $1"
+  [[ -s "$2" ]] \
+    || fatal "object not found (or empty) in R2: r2:${BACKUP_BUCKET}/$1 — this is a MISSING OBJECT, not a decryption problem. $3"
+}
+
 fetch_object() { # OBJECT DEST
   local obj="$1" dest="$2" work
   work="$(mktemp -d "${TMPDIR:-/tmp}/devtools-fetch.XXXXXX")"
   # shellcheck disable=SC2064  # expand $work now, not at trap time
   trap "rm -rf '$work'" EXIT INT TERM
 
-  rclone_r2 copyto "r2:${BACKUP_BUCKET}/${obj}" "$work/artifact.gpg" \
-    || fatal "rclone download failed for $obj"
-  # `rclone copyto` exits 0 when the SOURCE does not exist ("nothing to copy"),
-  # so a missing object must be caught here or it resurfaces as a bogus
-  # "decryption failed" two steps later.
-  [[ -s "$work/artifact.gpg" ]] \
-    || fatal "object not found (or empty) in R2: r2:${BACKUP_BUCKET}/${obj} — this is a MISSING OBJECT, not a decryption problem. Check 'backup.sh --list'."
+  download_object "$obj" "$work/artifact.gpg" "Check 'backup.sh --list'."
 
   # umask 077 (backup-lib) means <dest> is created 0600 — it is PLAINTEXT and
   # holds the Ed25519 private key.
@@ -203,6 +212,10 @@ RESTORE_RESULT="skipped"
 OBJECT=""
 BYTES=0
 SHA=""
+# "none" until the artifact + manifest are in R2 and size-verified. A retention
+# failure fails the RUN but leaves a perfectly usable artifact behind, and the
+# 3am reader must be able to tell those two apart from the log line alone.
+ARTIFACT_STATE="none"
 
 on_exit() {
   local rc=$?
@@ -217,8 +230,8 @@ on_exit() {
   # upload verified, so a downstream restore failure cannot mis-report the
   # backup itself as broken. restore-test.sh owns the other check.
   emit_exit_log "$rc" "$status" "$LOG_FILE" "$HEALTHCHECK_PING_URL" fail \
-    "$(printf 'bytes=%s sha256=%s object=%s restore=%s reason="%s"' \
-       "$BYTES" "${SHA:--}" "${OBJECT:--}" "$RESTORE_RESULT" "${FAIL_REASON:-}")"
+    "$(printf 'bytes=%s sha256=%s object=%s artifact=%s restore=%s reason="%s"' \
+       "$BYTES" "${SHA:--}" "${OBJECT:--}" "$ARTIFACT_STATE" "$RESTORE_RESULT" "${FAIL_REASON:-}")"
   truncate_log "$CRON_LOG"
   exit "$rc"
 }
@@ -254,6 +267,162 @@ dump_row_counts() { # DUMP_FILE -> "accounts=1 licenses=3 ..."
     }
   ' "$1"
 }
+
+# The FRESHNESS pair, also read out of the DUMP ITSELF: how many licenses it
+# holds and the newest licenses.created_at in it. Both are monotonically
+# non-decreasing in normal operation (licenses are never deleted here), which is
+# what makes them usable as a staleness/wrong-database detector — see
+# check_no_regression below. Emitted as "<count>|<max-created-at>".
+dump_licenses_stats() { # DUMP_FILE
+  awk '
+    idx == "" && /^COPY public\.licenses \(/ {
+      line = $0
+      sub(/^COPY public\.licenses \(/, "", line)
+      sub(/\) FROM stdin;[[:space:]]*$/, "", line)
+      gsub(/[" ]/, "", line)
+      n = split(line, cols, ",")
+      idx = 0
+      for (i = 1; i <= n; i++) if (cols[i] == "created_at") idx = i
+      inblk = 1
+      next
+    }
+    inblk {
+      if ($0 == "\\.") { inblk = 0; next }
+      c++
+      if (idx > 0) {
+        split($0, f, "\t")
+        v = f[idx]
+        # concatenating "" forces a STRING comparison: awk would otherwise try to
+        # compare two timestamp-looking fields numerically.
+        if (v != "\\N" && (v "") > (mx "")) mx = v
+      }
+    }
+    END { printf "%d|%s\n", c + 0, mx }
+  ' "$1"
+}
+
+# FRESHNESS / AUTHENTICITY. The manifest is self-attested — it proves the
+# artifact is internally consistent, not that it is a dump of the CURRENT
+# production database. A stale checkout, a wrong COMPOSE_FILE or a restored-but-
+# not-caught-up postgres all produce a perfectly valid manifest describing an
+# OLDER database. Compare against the PREVIOUS run's manifest and refuse to
+# publish anything that went BACKWARDS. Runs BEFORE the upload on purpose: a
+# regressed artifact must not become the newest object, or tomorrow's run would
+# happily compare itself against the bad manifest and pass.
+check_no_regression() { # LICENSES_COUNT MAX_CREATED_AT
+  local counts_now="$1" max_now="$2"
+  local listing prev prev_json prev_counts prev_max
+
+  listing="$(rclone_r2 lsf "r2:${BACKUP_BUCKET}/${BACKUP_PREFIX}")" \
+    || fatal "could not list r2:${BACKUP_BUCKET}/${BACKUP_PREFIX} for the freshness check"
+  prev="$(grep -E '\.manifest\.json\.gz\.gpg$' <<<"$listing" | sort | tail -n1 || true)"
+  if [[ -z "$prev" ]]; then
+    echo "notice: no previous manifest under ${BACKUP_PREFIX} — first run, nothing to compare against (freshness check starts with the NEXT run)" >&2
+    return 0
+  fi
+
+  download_object "${BACKUP_PREFIX}/${prev}" "$WORK/prev-manifest.gpg" \
+    "It was listed a moment ago, so this is a race with the lifecycle rule or an R2 fault."
+  prev_json="$(gpg_decrypt "$WORK/prev-manifest.gpg" | gunzip)" \
+    || fatal "could not decrypt the previous manifest ${prev} for the freshness check"
+
+  # licenses_count only exists from manifest schema 2; fall back to the schema-1
+  # row_counts string so the check works against manifests already in the bucket.
+  prev_counts="$(jq -r '.licenses_count // (.row_counts // "" | capture("licenses=(?<n>[0-9]+)").n) // ""' <<<"$prev_json")" \
+    || fatal "the previous manifest ${prev} is not readable JSON"
+  prev_max="$(jq -r '.licenses_max_created_at // ""' <<<"$prev_json")"
+
+  if [[ -z "$prev_counts" ]]; then
+    echo "notice: previous manifest ${prev} carries no licenses count — skipping the count comparison" >&2
+  elif (( counts_now < prev_counts )); then
+    fatal "FRESHNESS REGRESSION: this dump has ${counts_now} licenses, the previous manifest (${prev}) had ${prev_counts}. Licenses are never deleted here, so this dump is STALE or came from the WRONG database. Refusing to upload it. Check COMPOSE_FILE, the checkout on the box, and which postgres container is running."
+  fi
+
+  if [[ -z "$prev_max" || "$prev_max" == "null" ]]; then
+    echo "notice: previous manifest ${prev} predates licenses_max_created_at — skipping that comparison" >&2
+  elif [[ -n "$max_now" && "$max_now" < "$prev_max" ]]; then
+    fatal "FRESHNESS REGRESSION: newest licenses.created_at in this dump is '${max_now}', the previous manifest (${prev}) had '${prev_max}'. This dump is STALE or came from the WRONG database. Refusing to upload it."
+  fi
+
+  echo "freshness ok: licenses ${prev_counts:-?} -> ${counts_now}, newest created_at ${prev_max:-?} -> ${max_now:-?} (vs ${prev})" >&2
+}
+
+# RETENTION-WINDOW HEALTH, after the prune and BEFORE the green ping. The prune
+# and R2's lifecycle rule are both DELETE machinery aimed at the one place the
+# backups live; nothing else looks at the window as a whole. One listing, three
+# assertions. The R2 lifecycle rule itself cannot be inspected through rclone —
+# see RUNBOOK "the lifecycle rule must be eyeballed quarterly".
+check_retention_health() {
+  local listing health n_art n_man n_legacy oldest n_orph orph_list age_days expect_min max_age
+  listing="$(rclone_r2 lsjson "r2:${BACKUP_BUCKET}/${BACKUP_PREFIX}")" \
+    || retention_fatal "could not list r2:${BACKUP_BUCKET}/${BACKUP_PREFIX}"
+
+  # An artifact whose name stamp sorts BEFORE the earliest manifest predates the
+  # manifest format (RUNBOOK: "objects written before 2026-08-07 22:47 UTC have no
+  # manifest") and is not a broken pair. Everything from the manifest era onwards
+  # must be paired, so a half-completed upload is still caught, and the exemption
+  # ages itself out. The comparison is on the NAME stamp both halves of a pair
+  # share, not on ModTime: a pair is uploaded a second or two apart, so a ModTime
+  # test would exempt each prefix's oldest artifact by accident.
+  health="$(jq -r '
+      def ts: sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601;
+      [ .[] | select(.IsDir == false) | {p: .Path, t: (.ModTime | ts)} ] as $all
+      | [ $all[] | select(.p | endswith(".sql.gz.gpg")) ] as $art
+      | [ $all[] | select(.p | endswith(".manifest.json.gz.gpg")) ] as $man
+      | [ $art[] | .p | rtrimstr(".sql.gz.gpg") ] as $ab
+      | ([ $man[] | .p | rtrimstr(".manifest.json.gz.gpg") ] | sort) as $mb
+      | (if ($mb | length) > 0 then $mb[0] else null end) as $firstman
+      | [ $art[] | . as $o | {o: $o, b: ($o.p | rtrimstr(".sql.gz.gpg"))} ] as $arts
+      | { artifacts: ($art | length),
+          manifests: ($man | length),
+          legacy: ([ $arts[] | select($firstman != null and .b < $firstman) ] | length),
+          oldest: (if ($art | length) > 0 then ([$art[].t] | min) else 0 end),
+          orphans: ( [ $arts[]
+                       | . as $x
+                       | select($firstman == null or $x.b >= $firstman)
+                       | select(($mb | index($x.b)) == null)
+                       | "artifact-without-manifest:" + $x.o.p ]
+                   + [ $man[]
+                       | . as $o | ($o.p | rtrimstr(".manifest.json.gz.gpg")) as $b
+                       | select(($ab | index($b)) == null)
+                       | "manifest-without-artifact:" + $o.p ] ) }
+      | "\(.artifacts)|\(.manifests)|\(.legacy)|\(.oldest)|\(.orphans | length)|\(.orphans | join(" "))"
+    ' <<<"$listing")" \
+    || retention_fatal "could not parse the R2 listing for ${BACKUP_PREFIX}"
+
+  IFS='|' read -r n_art n_man n_legacy oldest n_orph orph_list <<<"$health"
+
+  # (a) pairing
+  if (( n_orph > 0 )); then
+    echo "retention: ${n_orph} orphan object(s) under ${BACKUP_PREFIX}: ${orph_list}" >&2
+  fi
+  (( n_orph <= 2 )) \
+    || retention_fatal "${n_orph} orphaned objects under ${BACKUP_PREFIX} (>2) — artifacts and manifests are written as a pair, so this is a broken upload path or a prune eating one side: ${orph_list}"
+
+  (( n_art > 0 )) || retention_fatal "no *.sql.gz.gpg artifacts under ${BACKUP_PREFIX} at all"
+
+  # (b) mass-deletion floor. One artifact per night, so the count must keep up
+  # with the age of the window. Capped at 25 (< the 30-day lifecycle rule) so a
+  # steady state never trips it, and floored by the window's own age so a
+  # freshly-warmed-up prefix is not punished for being new.
+  age_days=$(( ( $(date +%s) - oldest ) / 86400 ))
+  (( age_days >= 0 )) || age_days=0
+  expect_min=$(( age_days < 25 ? age_days : 25 ))
+  (( n_art >= expect_min )) \
+    || retention_fatal "only ${n_art} artifacts under ${BACKUP_PREFIX} but the oldest is ${age_days} days old — expected at least ${expect_min}. Objects have been deleted en masse (lifecycle rule widened, manual delete, or the wrong prefix)."
+
+  # (c) runaway prune in the other direction: the window must not be older than
+  # the backstop it is pruned with (+3 days of slack for clock/lifecycle lag).
+  max_age=$(( BACKUP_RETENTION_BACKSTOP_DAYS + 3 ))
+  (( age_days <= max_age )) \
+    || retention_fatal "the oldest artifact under ${BACKUP_PREFIX} is ${age_days} days old, older than BACKUP_RETENTION_BACKSTOP_DAYS+3 (${max_age}) — the prune is not running."
+
+  echo "retention ok: ${n_art} artifacts / ${n_man} manifests (${n_legacy} pre-manifest legacy), oldest ${age_days}d, floor ${expect_min}, cap ${max_age}d" >&2
+}
+
+# A retention failure means the RUN failed (red check, /fail ping) even though the
+# artifact itself uploaded and verified — the log line says so via artifact=.
+retention_fatal() { fatal "retention: $*"; }
 
 run_backup() {
   # Only the backup cycle talks to the live stack. --list / --fetch /
@@ -294,12 +463,27 @@ run_backup() {
   # postgres. The timeout bounds a wedged docker/pg_dump under cron (-k: TERM,
   # then KILL 30s later; only the CHILD is signalled, so this script's own EXIT
   # trap still logs and pings).
+  local dump_started_at dump_finished_at dump_started_s dump_seconds
+  dump_started_at="$(now)"; dump_started_s="$(date +%s)"
   # shellcheck disable=SC2016  # $POSTGRES_* must expand INSIDE the container
   timeout -k 30 "$PG_DUMP_TIMEOUT" \
     docker compose -f "$COMPOSE_FILE" exec -T postgres \
       sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists --no-owner --no-acl' \
       > "$WORK/dump.sql" 9>&- \
     || fatal "pg_dump failed or timed out (${PG_DUMP_TIMEOUT}s) against the live stack"
+  dump_finished_at="$(now)"; dump_seconds=$(( $(date +%s) - dump_started_s ))
+
+  # WHICH database did that actually read? `docker compose exec` resolves the
+  # service through COMPOSE_FILE + the project name, and a stale checkout or a
+  # second project on the box would silently resolve to a DIFFERENT postgres.
+  # Recorded in the manifest so an artifact can be traced to the container that
+  # produced it instead of merely being self-consistent.
+  local container_id compose_project
+  container_id="$(docker compose -f "$COMPOSE_FILE" ps -q postgres 2>/dev/null | head -n1)" || true
+  [[ -n "$container_id" ]] \
+    || fatal "pg_dump succeeded but 'docker compose ps -q postgres' names no container — refusing to publish an artifact whose source database cannot be identified"
+  compose_project="$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project"}}' "$container_id" 2>/dev/null)" || true
+  [[ -n "$compose_project" ]] || compose_project="unknown"
 
   # Sanity-gate the PLAINTEXT before it becomes an opaque blob. A silently empty
   # dump uploaded nightly is the classic backup failure.
@@ -317,6 +501,13 @@ run_backup() {
   plain_sha="$(sha256sum "$WORK/dump.sql" | cut -d' ' -f1)"
   counts="$(dump_row_counts "$WORK/dump.sql")"
   [[ "$counts" != *MISSING* ]] || fatal "dump is missing a COPY block for one of the core tables: $counts"
+
+  local lic_stats lic_count lic_max
+  lic_stats="$(dump_licenses_stats "$WORK/dump.sql")"
+  IFS='|' read -r lic_count lic_max <<<"$lic_stats"
+
+  # Refuse to publish a dump that went backwards vs the previous manifest.
+  check_no_regression "$lic_count" "$lic_max"
 
   # The account identity, read live in the same run. These columns are IMMUTABLE
   # (the Ed25519 keypair is minted once by setup.sh and never rotates), so
@@ -344,12 +535,16 @@ run_backup() {
   # after the dump. Encrypted like the artifact (it fingerprints private
   # material), and gzipped so `--fetch` reads it with the same one-liner.
   jq -n \
-    --arg schema 1 --arg created_at "$(now)" --arg object "$OBJECT" \
+    --arg schema 2 --arg created_at "$(now)" --arg object "$OBJECT" \
+    --arg dump_started_at "$dump_started_at" --arg dump_finished_at "$dump_finished_at" \
+    --arg dump_seconds "$dump_seconds" \
+    --arg compose_project "$compose_project" --arg container_id "$container_id" \
     --arg artifact_sha256 "$SHA" --arg artifact_bytes "$BYTES" \
     --arg plaintext_sha256 "$plain_sha" --arg plaintext_bytes "$plain_bytes" \
     --arg account_id "$account_id" --arg ed25519_public_key_b64 "$pubkey" \
     --arg ed25519_private_key_md5 "$priv_md5" --arg private_key_md5 "$pk_md5" \
     --arg secret_key_md5 "$sk_md5" --arg row_counts "$counts" \
+    --arg licenses_count "$lic_count" --arg licenses_max_created_at "$lic_max" \
     '$ARGS.named' > "$WORK/manifest.json" \
     || fatal "could not build the manifest"
   gzip -9 -c "$WORK/manifest.json" | gpg_encrypt_stdin "$WORK/manifest.gpg" \
@@ -357,15 +552,20 @@ run_backup() {
 
   upload_and_verify "$WORK/backup.gpg" "$OBJECT"
   upload_and_verify "$WORK/manifest.gpg" "$manifest_object"
+  ARTIFACT_STATE="uploaded-usable"
 
   prune_old_objects "$OBJECT"
+  # Health of the whole retention window, AFTER the prune and BEFORE the green
+  # ping: a failure here fails the run (red check) even though the artifact above
+  # is uploaded and usable — the log line's artifact= field says which it is.
+  check_retention_health
 
   # The backup genuinely succeeded here. Ping it green NOW so a downstream
   # restore failure cannot mis-report the backup as broken.
   UPLOAD_OK=1
   hc_ping "$HEALTHCHECK_PING_URL" || true
   echo "uploaded r2:${BACKUP_BUCKET}/${OBJECT} (${BYTES} bytes, sha256 ${SHA})" >&2
-  echo "         + manifest ${manifest_object} (${counts})" >&2
+  echo "         + manifest ${manifest_object} (${counts}, dumped from ${compose_project}/${container_id:0:12} in ${dump_seconds}s)" >&2
 
   if (( RUN_RESTORE_TEST == 1 )); then
     # Chained proof — the primary corruption detector. restore-test.sh pings its

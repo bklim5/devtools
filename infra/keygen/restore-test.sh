@@ -37,6 +37,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=./backup-lib.sh disable=SC1091
 source "$SCRIPT_DIR/backup-lib.sh"
 
+# Asserted BEFORE argument parsing, config, R2 or docker: a half-rsynced
+# infra/keygen/ must fail loudly, not run a mixed set of scripts. Bump in lockstep
+# with BACKUP_PIPELINE_VERSION in backup-lib.sh.
+EXPECT_PIPELINE_VERSION="2026-08-08.1"
+require_pipeline_version "$EXPECT_PIPELINE_VERSION" "restore-test.sh"
+
 # The identity every shipped app has compiled in (src-tauri/src/license/config.rs).
 EXPECT_ACCOUNT_ID="0d607683-026f-468b-9cf0-f5bfaf61a7a1"
 EXPECT_ED25519_PUBKEY="huJdyRsBtd7KrPqWv5Z/8GVeLmiqfWTfQnEb090+jO4="

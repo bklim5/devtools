@@ -15,6 +15,11 @@
 [[ -n "${BACKUP_LIB_SOURCED:-}" ]] && return 0
 BACKUP_LIB_SOURCED=1
 
+# BUMP DISCIPLINE: change this string in the SAME commit as any cross-file change
+# to backup.sh / restore-test.sh / backup-lib.sh, and update EXPECT_PIPELINE_VERSION
+# in BOTH scripts. A partial rsync then fails loudly instead of running a mixed set.
+BACKUP_PIPELINE_VERSION="2026-08-08.1"
+
 # Cron gives a near-empty environment; pin PATH so docker/rclone/gpg resolve.
 PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 export PATH
@@ -42,6 +47,16 @@ usage_error() { # MESSAGE
 }
 
 now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
+
+# A partial `rsync` can leave backup.sh, restore-test.sh and backup-lib.sh at
+# different versions, silently sourcing each other. Each script asserts its own
+# expected value at startup, BEFORE any work (RUNBOOK: "Implementation notes").
+require_pipeline_version() { # EXPECTED CALLER
+  [[ "${BACKUP_PIPELINE_VERSION:-<none>}" == "$1" ]] && return 0
+  echo "FATAL: pipeline version mismatch — $2 expects '$1', backup-lib.sh is '${BACKUP_PIPELINE_VERSION:-<none>}'" >&2
+  echo "       PARTIAL DEPLOY — re-rsync infra/keygen/ (backup.sh, restore-test.sh and backup-lib.sh together, as a set)." >&2
+  exit 1
+}
 
 require_mode_600() { # FILE LABEL
   local file="$1" label="$2" mode
