@@ -199,7 +199,14 @@ on_exit() {
     echo "        WARNING: $WORK holds the PLAINTEXT dump (Ed25519 private key)." >&2
     echo "        It is mode 700, but remove it by hand when you are done." >&2
   else
-    docker rm -f "$CNAME" >/dev/null 2>&1
+    # -v is load-bearing: postgres:17.5 declares VOLUME /var/lib/postgresql/data,
+    # so every `docker run` without an explicit mount creates an ANONYMOUS volume
+    # (~46 MB once initdb has run). `--rm` would have reaped it, but this
+    # explicit `docker rm -f` wins the race and, without -v, orphans the volume —
+    # leaking ~46 MB per nightly run (~1.4 GB/month) onto the production box's
+    # 38 GB disk. Verified: with -v, `docker volume ls -qf dangling=true` stays
+    # empty across runs.
+    docker rm -f -v "$CNAME" >/dev/null 2>&1
     [[ -n "$WORK" && -d "$WORK" ]] && rm -rf "$WORK"
   fi
 
