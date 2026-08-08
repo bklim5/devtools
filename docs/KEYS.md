@@ -27,6 +27,35 @@ of `docs/` and `CHANGELOG.md` for PEM headers, nontrivial `*KEY|SECRET|TOKEN|PAS
 assignments, long base64/hex runs, and provider-specific prefixes. A hit is a hard fail.
 There is no path allowlist.
 
+### 1a. Known history exposure — A1 passphrase (open)
+
+The rule above states the *intent*, not the current state of git history. It is not
+retroactive, and this repository is **not** clean:
+
+- **What:** the A1 minisign passphrase (`TAURI_SIGNING_PRIVATE_KEY_PASSWORD`) was written
+  out as a literal value in `docs/architecture-review-2026-07-06.md:28` — the review quoted
+  the gitignored `.env` line verbatim while documenting the risk.
+- **Introduced by:** commit `5b90a60a` ("docs: add 2026-07-06 architecture review"),
+  2026-07-06.
+- **Redacted in the working tree by:** commit `1a92f2fd` (quick/260808-kfs remediation,
+  2026-08-08). The value is replaced with `<redacted — see password manager>`; the finding
+  text around it is unchanged.
+- **Still exposed:** **git history retains the value at `5b90a60a`** and in every commit
+  between it and the redaction. A working-tree redaction does not remove it. Anyone with a
+  clone — or with read access to the origin remote — can still recover it.
+- **Blast radius:** the passphrase alone is not sufficient; it protects `~/.tauri/devtools.key`,
+  which has never been committed. An attacker needs *both*. But treat the passphrase as
+  compromised-in-principle from 2026-07-06 onward.
+- **Open decision (owner):** either (a) change the passphrase on the existing minisign key
+  (`minisign -C` re-encrypts the *same* keypair under a new passphrase — this does **not**
+  strand the fleet, because the public key is unchanged; see §4 for why regenerating the
+  *keypair* would), and/or (b) rewrite history (`git filter-repo`) plus a force-push, which
+  invalidates every existing clone. Neither has been done. Until one is, this row stays open.
+
+Do not delete this note when the decision lands — record the outcome and its date here
+instead. A trust-anchor document that quietly forgets a past exposure is the same failure
+mode as the one it is meant to prevent.
+
 ## 2. Anchor inventory
 
 | # | Anchor | Secret half lives | Public / pinned half | Backup status |
