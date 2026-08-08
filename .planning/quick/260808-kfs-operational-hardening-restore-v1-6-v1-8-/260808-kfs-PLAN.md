@@ -8,7 +8,8 @@ files_modified:
   - .planning/milestones/v1.6-phases/**   # restored from 9fcbbd9d^ (66 files)
   - .planning/milestones/v1.7-phases/**   # restored from 9fcbbd9d^ (74 files)
   - .planning/milestones/v1.8-phases/**   # restored from 9fcbbd9d^ (65 files)
-  - scripts/check-planning-archive.sh     # NEW — pre-commit archive-not-delete guard
+  - scripts/check-planning-archive.sh     # NEW — pre-commit archive guard (blob-identity)
+  - scripts/check-doc-secrets.sh          # NEW — staged-diff secret scan (Tasks 2 + 3 gate)
   - lefthook.yml
   - CLAUDE.md
   - eslint.config.js
@@ -24,8 +25,10 @@ requirements: [QUICK-OPS-HARDENING]
 must_haves:
   truths:
     - "A future agent asking 'what is D-52 / T-20-01 / D-04?' finds the answer in the working tree (.planning/milestones/v1.6-phases/ .. v1.8-phases/), not only in git history"
-    - "A commit that DELETES a .planning/phases/<dir> without a matching archive add under .planning/milestones/ FAILS pre-commit — the v1.9-close deletion cannot silently repeat"
-    - "A static `import ... from \"@tauri-apps/*\"` outside src/lib/platform/** FAILS `pnpm lint` (and therefore the lefthook pre-commit gate); importing BrowserRouter from react-router-dom fails everywhere. Both rules PASS on the current tree unmodified"
+    - "The restored archive is BYTE-IDENTICAL to 9fcbbd9d^: for all 15 phase dirs the (relpath, blob-hash) set staged under .planning/milestones/v1.{6,7,8}-phases/ EQUALS the set at 9fcbbd9d^ under .planning/phases/ — proven by a git ls-tree/ls-files hash comparison (205 rows, empty diff), not by file counts plus a spot-grep"
+    - "A commit that DELETES a file under .planning/phases/<dir>/ without a staged ADD at .planning/milestones/*-phases/<dir>/<same relpath> carrying the SAME blob hash FAILS pre-commit — an 'archive' made of placeholder, truncated or rewritten files fails exactly as hard as a bare delete"
+    - "Each of the five seam/router bypass classes FAILS `pnpm lint` and is demonstrated firing once: static `import ... from \"@tauri-apps/*\"`, dynamic `import(\"@tauri-apps/...\")`, `require(\"@tauri-apps/...\")` outside src/lib/platform/**, a `BrowserRouter` import, and a namespace member access (`RR.BrowserRouter`) — i.e. `BrowserRouter`/`createBrowserRouter`/`createBrowserHistory` are unreachable regardless of import style. All rules PASS on the current tree unmodified"
+    - "Every docs commit passes an AUTOMATED staged-diff secret scan (PEM headers, *KEY|SECRET|TOKEN|PASSWORD*= with a nontrivial value, >40-char base64/hex runs, provider-specific prefixes); a hit HARD-FAILS the task gate — human review is the SECONDARY control, not the primary one"
     - "docs/KEYS.md inventories every trust anchor with its location, expiry, loss consequence, and rotation procedure — and contains ZERO secret values"
     - "docs/KEYS.md states plainly that regenerating the minisign keypair STRANDS every installed direct-channel app forever, and gives the only safe migration (a transitional release signed with the OLD key carrying the NEW pubkey)"
     - "docs/RELEASE.md describes the REAL pipeline (`pnpm release:bump` -> `pnpm release:publish` over scripts/bump-and-tag.mjs + scripts/build-and-publish.mjs), not the superseded hand-authored-latest.json flow; the old fleet-stranding regeneration advice at old lines 56-58 is gone"
@@ -46,11 +49,14 @@ must_haves:
       provides: "Phases 26..30 planning artifacts (MAS milestone; D-03/D-04/D-09, T-28/T-29 series)"
       contains: "30-pkg-build-asc-submission"
     - path: "scripts/check-planning-archive.sh"
-      provides: "Pre-commit guard: phase-dir deletion requires a matching milestones/ archive add"
+      provides: "Pre-commit guard: every staged phase-file deletion needs a SAME-BLOB-HASH archive add"
       contains: "ALLOW_PHASE_DELETE"
+    - path: "scripts/check-doc-secrets.sh"
+      provides: "Staged-diff secret scanner gating the Task 2 and Task 3 doc commits"
+      contains: "BEGIN"
     - path: "eslint.config.js"
-      provides: "Mechanical seam + HashRouter invariants"
-      contains: "no-restricted-imports"
+      provides: "Mechanical seam + HashRouter invariants, incl. the dynamic-import/require/member-access bypasses"
+      contains: "no-restricted-syntax"
     - path: "docs/KEYS.md"
       provides: "Trust-anchor inventory, loss consequences, rotation procedures, expiry calendar"
       contains: "strand"
@@ -91,6 +97,10 @@ must_haves:
       to: "scripts/verify-appstore-bundle.sh invariants index"
       via: "the matrix's 'enforced by' column cites the assert_* function names"
       pattern: "verify-appstore-bundle"
+    - from: "Task 2 + Task 3 docs commits"
+      to: "scripts/check-doc-secrets.sh"
+      via: "each task's <verify> stages the docs and runs the scanner before the commit lands"
+      pattern: "check-doc-secrets"
 ---
 
 <objective>
@@ -110,8 +120,9 @@ deleted decision ledger and make the deletion mechanically impossible to repeat,
 four missing reference docs and fix the actively-dangerous one, (c) turn the two most
 load-bearing prose invariants into pre-commit failures.
 
-Output: 205 restored planning files under `.planning/milestones/v1.{6,7,8}-phases/`, a
-pre-commit archive guard, an ESLint `no-restricted-imports` rule, three NEW docs
+Output: 205 restored planning files under `.planning/milestones/v1.{6,7,8}-phases/` (proven
+byte-identical to `9fcbbd9d^`), a blob-identity pre-commit archive guard, a staged-diff secret
+scanner, ESLint `no-restricted-imports` + `no-restricted-syntax` rules, three NEW docs
 (`KEYS.md`, `RELEASE-MACHINE.md`, `CHANNELS.md`), a rewritten `RELEASE.md`, a backfilled
 `CHANGELOG.md`, and an invariants index on `verify-appstore-bundle.sh`.
 
@@ -342,6 +353,42 @@ milestone archive per the membership table in `<verified_facts>` (v1.6: 18,19,20
 Do NOT edit the restored files' contents — they are the historical record. Do NOT touch
 `v1.0-phases` .. `v1.5-phases`, `v1.9-phases`, or `v1.8-research`.
 
+**Prove the restore by BLOB IDENTITY, not by file count.** A count match plus a `D-52` grep would
+pass on a truncated, re-flowed or placeholder tree — which is precisely the failure this restore
+exists to prevent. The proof: for each of the 15 dirs, the set of `(relpath, blob-hash)` pairs
+STAGED under `.planning/milestones/<m>-phases/<dir>/` must EQUAL the set at `9fcbbd9d^` under
+`.planning/phases/<dir>/`. Both `git checkout <commit> -- <path>` and `git mv` stage
+automatically, so read the right-hand side from the INDEX (`git ls-files -s`), not the worktree:
+
+```bash
+# 15-entry milestone:dir list. `set --` plus a BARE `for e` on purpose: this must behave
+# identically in bash and zsh, and zsh does NOT word-split an unquoted $VAR — a `for e in $MAP`
+# would silently iterate ONCE over the whole string and leave both sides empty (verified
+# 2026-08-08 on this machine's zsh). Keep the <verify> one-liner in the same form.
+set -- v1.6:18-entitlements-seam-central-gate v1.6:19-license-activation-offline-verification \
+       v1.6:20-purchase-pipeline v1.6:21-license-lifecycle-ship-gate v1.7:22-settings-modal-shell \
+       v1.7:22.1-settings-followups v1.7:22.2-cmdk-pro-upsell-modal v1.7:23-appearance-pane \
+       v1.7:24-hotkeys-general-panes v1.7:25-updates-pane-milestone-ship v1.8:26-storekit-bridge-spike \
+       v1.8:27-build-variant-seam v1.8:28-entitlement-source-swap \
+       v1.8:29-sandbox-safe-native-features v1.8:30-pkg-build-asc-submission
+L=/tmp/kfs-old.txt; R=/tmp/kfs-new.txt; : >"$L"; : >"$R"
+for e; do m=${e%%:*}; d=${e#*:}
+  git ls-tree -r --format='%(objectname) %(path)' '9fcbbd9d^' -- ".planning/phases/$d" \
+    | sed 's| \.planning/phases/| |' >>"$L"
+  git ls-files -s -- ".planning/milestones/$m-phases/$d" \
+    | awk '{print $2" "$4}' | sed "s| \.planning/milestones/$m-phases/| |" >>"$R"
+done
+sort -o "$L" "$L"; sort -o "$R" "$R"
+test "$(awk 'END{print NR}' "$L")" -eq 205   # a typo'd dir name would leave BOTH sides empty.
+                                             # 205 rows across 15 dirs VERIFIED at 9fcbbd9d^
+                                             # on 2026-08-08. awk, not `wc -l`: wc pads its
+                                             # output with spaces and `test -eq` chokes on it.
+diff -u "$L" "$R"                            # MUST be empty
+```
+
+The per-milestone counts (66/74/65) survive only as a cheap smoke test; the hash diff is the proof.
+If the diff is non-empty, do NOT edit files to make it match — re-run the restore.
+
 Then add a short "Archived phase directories" note to `.planning/STATE.md` (manual edit — per
 project memory `gsd-tools-custom-state-format`, the gsd state/roadmap helpers no-op on this
 repo's narrative format, so DO NOT try `gsd-tools state ...`): one paragraph recording that the
@@ -356,18 +403,45 @@ in-repo gate instead.
 
 Create `scripts/check-planning-archive.sh` (bash, `set -euo pipefail`, executable). Behaviour:
 
+The guard matches **per FILE and per BLOB HASH** — not per directory, not by file count. A
+directory-level check would happily accept an "archive" of empty or placeholder files, which is
+the same knowledge loss as the bare delete, just harder to notice.
+
 1. If `ALLOW_PHASE_DELETE` is set to a non-empty value, print a one-line notice and exit 0.
-2. Collect the set of top-level phase directories that the STAGED diff deletes:
-   `git diff --cached --name-only --diff-filter=D -- .planning/phases/` -> map each path to its
-   first path segment under `.planning/phases/` -> unique.
-3. If that set is empty, exit 0 (the common case — near-zero cost on every commit).
-4. Otherwise collect the staged ADDS under `.planning/milestones/`:
-   `git diff --cached --name-only --diff-filter=A -- .planning/milestones/`.
-5. For each deleted phase dir `<d>`, PASS only if some added path matches
-   `.planning/milestones/*-phases/<d>/`. If any `<d>` has no matching archive add, FAIL
-   (exit 1) listing the offending dirs and printing the correct remedy:
-   `gsd-tools milestone complete --archive-phases` / `/gsd-cleanup`, or
-   `ALLOW_PHASE_DELETE=1 git commit ...` for a deliberate backlog-dir removal.
+2. Read the staged DELETIONS with their pre-image blob hashes:
+   `git diff --cached --raw --abbrev=40 --no-renames --diff-filter=D -- .planning/phases/`
+   Each line is `:<srcmode> <dstmode> <srcsha> <dstsha> D<TAB><path>` — take `<srcsha>` (the blob
+   being removed) and `<path>`.
+   **`--no-renames` is load-bearing:** rename detection is ON by default, so a `git mv` into
+   `.planning/milestones/` is reported as ONE `R100` line with no `D` line at all — without the
+   flag the guard sees zero deletions and passes vacuously, never checking the destination.
+   **`--abbrev=40` is likewise required:** `--raw` abbreviates hashes to 7 chars by default.
+   (Verified locally on git 2.50.1: default raw shows `R100 <src> <dst>`; with `--no-renames
+   --abbrev=40` it shows a full-hash `A` line and a full-hash `D` line.)
+3. If there are no such deletions, exit 0 — the common case, one `git diff` plumbing call, no
+   filesystem I/O, near-zero cost on every commit.
+4. Read the staged ADDS with their post-image blob hashes:
+   `git diff --cached --raw --abbrev=40 --no-renames --diff-filter=A -- .planning/milestones/`
+   -> take `<dstsha>` and `<path>`. Index them by the path with the
+   `.planning/milestones/<anything>-phases/` prefix stripped: key = `<dir>/<relpath>`, value =
+   the SET of added blob hashes at that key (a set, because two milestone archives could in
+   principle add the same relpath).
+5. For each deleted `.planning/phases/<dir>/<relpath>` with blob `S`: PASS only if the index holds
+   key `<dir>/<relpath>` AND that key's hash set CONTAINS `S`. Report the two failure kinds
+   distinctly:
+   - **NO ARCHIVE** — nothing staged at `.planning/milestones/*-phases/<dir>/<relpath>`.
+   - **CONTENT MISMATCH** — an add exists at the right path but its blob hash differs: the
+     "archive" is not the file that was deleted (placeholder, truncated, rewritten, re-flowed).
+     Print both hashes.
+6. On any failure exit 1, listing every offending path grouped by failure kind, and print the
+   remedy: `gsd-tools milestone complete --archive-phases` / `/gsd-cleanup` (both `git mv`, so
+   hashes match by construction), or `ALLOW_PHASE_DELETE=1 git commit ...` for a deliberate
+   backlog-dir removal.
+
+The guard is content-preserving BY DESIGN: it demands the archived bytes BE the deleted bytes, so
+editing a phase file in the same commit that archives it is rejected. Archive first, edit after
+(or use the escape hatch) — that is the correct behaviour for a historical record. Say so in the
+header comment.
 
 Header comment must state WHY it exists (commit `9fcbbd9d` deleted 205 files of decision ledger
 at v1.9 start; the D-xx/T-xx identifiers the code cites everywhere lived only in git history for
@@ -439,35 +513,94 @@ stricter and desired behaviour. `scaffold/` is already in `ignores` so its `reac
 imports are irrelevant. Factor the shared BrowserRouter entry into a `const` above the export
 to avoid a copy-paste drift between the two blocks.
 
-**Prove the rule FIRES** with a throwaway probe file (do NOT edit real source):
+**`no-restricted-imports` alone is a POROUS gate** — it only sees static `import` / `export ... from`
+declarations. Three bypasses walk straight through it: `await import("@tauri-apps/api/window")`,
+`require("@tauri-apps/api")`, and reaching a router through a namespace
+(`import * as RR from "react-router-dom"; RR.BrowserRouter`) or a re-export. KEEP
+`no-restricted-imports` and ADD a `no-restricted-syntax` block alongside it, in BOTH config
+blocks:
 
-```bash
-cat > src/__lint-probe.ts <<'EOF'
-import { getVersion } from "@tauri-apps/api/app";
-import { BrowserRouter } from "react-router-dom";
-export const probe = [getVersion, BrowserRouter];
-EOF
-pnpm lint 2>&1 | tee /tmp/lint-probe.txt; grep -c "no-restricted-imports" /tmp/lint-probe.txt   # MUST be >= 2
-rm src/__lint-probe.ts
+```js
+  // defined ONCE above the export, shared by both blocks:
+  const ROUTER_SELECTORS = [
+    {
+      selector: "Identifier[name=/^(BrowserRouter|createBrowserRouter|createBrowserHistory)$/]",
+      message:
+        "HashRouter only — CLAUDE.md. BrowserRouter/createBrowserRouter/createBrowserHistory 404 on reload from static files. Use createHashRouter (src/router.tsx), or MemoryRouter in tests.",
+    },
+    { selector: "JSXIdentifier[name='BrowserRouter']", message: /* same message */ },
+  ];
+  const TAURI_SELECTORS = [
+    {
+      selector: "ImportExpression[source.value=/^@tauri-apps\\//]",
+      message:
+        "Reach Tauri through the platform seam (src/lib/platform/) — a dynamic import() is not an exemption.",
+    },
+    {
+      selector: "CallExpression[callee.name='require'] > Literal[value=/^@tauri-apps\\//]",
+      message:
+        "Reach Tauri through the platform seam (src/lib/platform/) — require() is not an exemption.",
+    },
+  ];
+  // general block: "no-restricted-syntax": ["error", ...TAURI_SELECTORS, ...ROUTER_SELECTORS]
+  // seam block:    "no-restricted-syntax": ["error", ...ROUTER_SELECTORS]
 ```
 
-If the probe produces fewer than 2 `no-restricted-imports` errors, the rule is mis-scoped — fix
-the config, not the probe. Delete the probe file before committing (`git status` must be clean
-of it).
+Why an `Identifier` selector rather than an import-shaped one: it fires on the NAME wherever it
+appears — named import, namespace member access (`RR.BrowserRouter`), re-export, or a local alias
+— which is exactly the "regardless of import style, member access included" requirement. It costs
+nothing on the current tree (AUDITED 2026-08-08): `BrowserRouter` appears repo-wide only inside
+COMMENTS (`src/router.tsx:8`, `src/shell/summon.ts:42`) and comments are not AST nodes;
+`createBrowserRouter` / `createBrowserHistory` appear nowhere; there is no dynamic `import()` or
+`require()` of `@tauri-apps` anywhere. `JSXIdentifier` is a distinct node type from `Identifier`,
+hence the second router selector.
+
+Carve-outs are UNCHANGED: `scaffold/` stays ignored, and the selectors target
+`ImportExpression` / `require` CALL nodes and identifiers only — never arbitrary strings — so
+`vi.doMock("@tauri-apps/...")` in `src/lib/platform/tauri.test.ts` remains legal exactly as today.
+
+**Prove EVERY bypass class fires — one probe per class** (do NOT edit real source). Five classes;
+each must produce >= 1 error naming the expected rule, then be deleted:
+
+```bash
+probe() {  # $1 = TS body, $2 = expected rule id, $3 = probe path (default src/)
+  f="${3:-src/__lint-probe.ts}"; printf '%s\n' "$1" > "$f"
+  npx eslint "$f" 2>&1 | tee /tmp/lint-probe.txt
+  grep -q "$2" /tmp/lint-probe.txt || { echo "PROBE FAILED ($2): $1"; rm -f "$f"; exit 1; }
+  rm -f "$f"
+}
+# 1. static @tauri-apps import
+probe 'import { getVersion } from "@tauri-apps/api/app"; export const p = getVersion;' no-restricted-imports
+# 2. static BrowserRouter import
+probe 'import { BrowserRouter } from "react-router-dom"; export const p = BrowserRouter;' no-restricted-imports
+# 3. dynamic import — invisible to no-restricted-imports
+probe 'export const p = () => import("@tauri-apps/api/window");' no-restricted-syntax
+# 4. require — invisible to no-restricted-imports
+probe 'declare const require: (s: string) => unknown; export const p = require("@tauri-apps/api");' no-restricted-syntax
+# 5. namespace member access — invisible to no-restricted-imports
+probe 'import * as RR from "react-router-dom"; export const p = RR.BrowserRouter;' no-restricted-syntax
+```
+
+Then re-run classes 3, 4 and 5 with the probe placed INSIDE the seam
+(`src/lib/platform/__lint-probe.ts`) to confirm the carve-out is scoped as intended: the ROUTER
+selector (5) must STILL fire there; the `@tauri-apps` selectors (3, 4) must NOT. If any probe
+fails to fire — or a seam probe fires on `@tauri-apps` — the config is mis-scoped: fix the
+config, not the probe. `git status` must be clean of every probe file before committing.
 
 Finally run the full gate on the UNMODIFIED tree: `pnpm lint` (exit 0), `pnpm tsc --noEmit`,
 `pnpm tsc --noEmit -p server/webhook/tsconfig.json`, `pnpm vitest run`. If `pnpm lint` reports a
-`no-restricted-imports` error on any REAL file, do NOT edit that file — report it; the audit in
+`no-restricted-imports` OR `no-restricted-syntax` error on any REAL file, do NOT edit that file —
+report it; the audit in
 `<verified_facts>` says the tree is clean, so a hit means the rule is too broad.
   </action>
   <verify>
-    <automated>test $(find .planning/milestones/v1.6-phases -type f | wc -l) -eq 66 && test $(find .planning/milestones/v1.7-phases -type f | wc -l) -eq 74 && test $(find .planning/milestones/v1.8-phases -type f | wc -l) -eq 65 && test $(ls -1 .planning/phases/ | grep -vc '^999\.') -eq 0 && test -n "$(grep -rl 'D-52' .planning/milestones/v1.6-phases/)" && bash -n scripts/check-planning-archive.sh && bash scripts/check-planning-archive.sh && pnpm lint && pnpm tsc --noEmit && pnpm tsc --noEmit -p server/webhook/tsconfig.json && pnpm vitest run</automated>
+    <automated>set -- v1.6:18-entitlements-seam-central-gate v1.6:19-license-activation-offline-verification v1.6:20-purchase-pipeline v1.6:21-license-lifecycle-ship-gate v1.7:22-settings-modal-shell v1.7:22.1-settings-followups v1.7:22.2-cmdk-pro-upsell-modal v1.7:23-appearance-pane v1.7:24-hotkeys-general-panes v1.7:25-updates-pane-milestone-ship v1.8:26-storekit-bridge-spike v1.8:27-build-variant-seam v1.8:28-entitlement-source-swap v1.8:29-sandbox-safe-native-features v1.8:30-pkg-build-asc-submission; L=/tmp/kfs-old.txt; R=/tmp/kfs-new.txt; : >"$L"; : >"$R"; for e; do m=${e%%:*}; d=${e#*:}; git ls-tree -r --format='%(objectname) %(path)' '9fcbbd9d^' -- ".planning/phases/$d" | sed 's| \.planning/phases/| |' >>"$L"; git ls-files -s -- ".planning/milestones/$m-phases/$d" | awk '{print $2" "$4}' | sed "s| \.planning/milestones/$m-phases/| |" >>"$R"; done; sort -o "$L" "$L"; sort -o "$R" "$R"; test "$(awk 'END{print NR}' "$L")" -eq 205 && test "$(awk 'END{print NR}' "$R")" -eq 205 && diff -u "$L" "$R" && test $(find .planning/milestones/v1.6-phases -type f | wc -l) -eq 66 && test $(find .planning/milestones/v1.7-phases -type f | wc -l) -eq 74 && test $(find .planning/milestones/v1.8-phases -type f | wc -l) -eq 65 && test $(ls -1 .planning/phases/ | grep -vc '^999\.') -eq 0 && test -n "$(grep -rl 'D-52' .planning/milestones/v1.6-phases/)" && bash -n scripts/check-planning-archive.sh && bash scripts/check-planning-archive.sh && pnpm lint && pnpm tsc --noEmit && pnpm tsc --noEmit -p server/webhook/tsconfig.json && pnpm vitest run</automated>
   </verify>
   <done>
-    - `.planning/milestones/v1.{6,7,8}-phases/` hold 66/74/65 files respectively; `.planning/phases/` holds only the seven `999.*` dirs; `grep -rl "D-52" .planning/milestones/v1.6-phases/` is non-empty.
-    - `scripts/check-planning-archive.sh` exits 0 on the current staged state; a synthetic staged phase-dir deletion WITHOUT a milestones/ add makes it exit 1 (demonstrate once, then reset the index); `ALLOW_PHASE_DELETE=1` bypasses it.
+    - BLOB-IDENTITY PROOF: the staged `(relpath, blob-hash)` set under `.planning/milestones/v1.{6,7,8}-phases/` EQUALS the `9fcbbd9d^` set under `.planning/phases/` for all 15 dirs — 205 rows each side, `diff -u` empty. File counts (66/74/65) agree but are a smoke test only, not the proof. `.planning/phases/` holds only the seven `999.*` dirs; `grep -rl "D-52" .planning/milestones/v1.6-phases/` is non-empty.
+    - `scripts/check-planning-archive.sh` exits 0 on the current staged state, and THREE live-fire cases were demonstrated (each followed by `git reset` of the synthetic staging): (i) a staged phase-file deletion with NO milestones/ add -> exit 1 "NO ARCHIVE"; (ii) a staged deletion PLUS an add at the correct archive path whose CONTENT differs (placeholder file) -> exit 1 "CONTENT MISMATCH"; (iii) a real `git mv` of the same file -> exit 0. `ALLOW_PHASE_DELETE=1` bypasses all three.
     - `lefthook.yml` runs the guard pre-commit; CLAUDE.md states the archive-not-delete rule and the override.
-    - The throwaway lint probe produced >= 2 `no-restricted-imports` errors and has been deleted; `pnpm lint` on the real tree exits 0.
+    - All five lint probes fired (static `@tauri-apps` import; static `BrowserRouter` import; dynamic `import("@tauri-apps/…")`; `require("@tauri-apps/…")`; namespace member access `RR.BrowserRouter`), the seam-scoped re-runs behaved as designed (router selector still fires inside `src/lib/platform/`, `@tauri-apps` selectors do not), and every probe file is deleted; `pnpm lint` on the real tree exits 0.
     - tsc (root + server) and `pnpm vitest run` are green; ZERO files under `src/`, `src-tauri/src/`, `server/`, `test/`, `infra/` were modified.
   </done>
 </task>
@@ -475,6 +608,7 @@ Finally run the full gate on the UNMODIFIED tree: `pnpm lint` (exit 0), `pnpm ts
 <task type="auto">
   <name>Task 2: Write docs/KEYS.md, docs/RELEASE-MACHINE.md and docs/CHANNELS.md, and add the invariants index to verify-appstore-bundle.sh</name>
   <files>
+    scripts/check-doc-secrets.sh (new),
     docs/KEYS.md (new),
     docs/RELEASE-MACHINE.md (new),
     docs/CHANNELS.md (new),
@@ -482,7 +616,50 @@ Finally run the full gate on the UNMODIFIED tree: `pnpm lint` (exit 0), `pnpm ts
   </files>
   <action>
 Three new reference docs plus one comment-only script header. They share ONE evidence sweep — do
-the sweep first, once, and write from it.
+the sweep first, once, and write from it. But FIRST of all, write the secret-scan gate (2e): it
+must exist before a single line of doc prose is staged.
+
+**(2e) `scripts/check-doc-secrets.sh` — the automated secret-scan gate. WRITE THIS FIRST.**
+
+The HARD CONSTRAINT in (2a) is otherwise enforced only by human review, which is the wrong PRIMARY
+control for an irreversible failure (a secret committed into a permanent git history). Make it
+mechanical.
+
+Create `scripts/check-doc-secrets.sh` (bash, `set -euo pipefail`, executable). It scans the ADDED
+lines of the STAGED diff for the paths given as arguments (default `docs/ CHANGELOG.md`):
+`git diff --cached -U0 -- "$@" | grep '^+' | grep -v '^+++'`, tracking the current `+++ b/<path>`
+so it can report `file:line`. Every rule below is a HARD FAIL (exit 1) printing the offending
+location and the rule name — no warnings, no severity tiers, no default allowlist:
+
+| Rule | Pattern |
+|---|---|
+| `pem-header` | `-----BEGIN` (any PEM / OpenSSH / key-block header) |
+| `env-assignment` | `[A-Z0-9_]*(KEY\|SECRET\|TOKEN\|PASSWORD\|PASSPHRASE\|CREDENTIAL)[A-Z0-9_]*=` followed by a NONTRIVIAL value — >= 8 chars that is not a placeholder (`<...>`, `...`, `xxx…`, `YOUR_…`, `CHANGEME`, `redacted`, or empty) |
+| `long-b64` | a run of `[A-Za-z0-9+/=]{41,}` — the >40-char rule; this is what catches a pasted minisign / Ed25519 key or a `.p8` body |
+| `long-hex` | a run of `[0-9a-f]{41,}` — catches a pasted sha256 fingerprint table; KEYS.md must CROSS-LINK the RUNBOOK table, never duplicate it, so a hit here is a real finding |
+| `apple-p8` | `MIG[A-Za-z0-9+/]{20,}` — the DER prefix of an Apple `.p8`. **Anchored to a >=20-char base64 tail on purpose:** a bare `MIG` prefix would fire on the word "MIGRATION", which these docs legitimately use a lot (host migration, transitional release) |
+| `github-token` | `gh[pousr]_` or `github_pat_` |
+| `resend-key` | `re_[A-Za-z0-9]{8,}` |
+| `minisign` | `untrusted comment:` or `RWS[A-Za-z0-9+/]{20,}` |
+| `healthcheck` | `hc-ping.com/` followed by anything — the ping URL IS the credential |
+| `r2-endpoint` | `[0-9a-f]{20,}\.r2\.cloudflarestorage\.com` — a full endpoint URL embeds the account id |
+
+**Precedent, deliberately narrow:** `infra/keygen/RUNBOOK.md` already discusses the R2 bucket name
+and "the R2 endpoint" in established, reviewed prose. The new docs MAY name the bucket and refer
+to the endpoint in prose; they MUST NOT contain a full account-id-bearing endpoint URL or any
+`hc-ping.com` URL. If a rule misfires on legitimate prose, NARROW THE PATTERN and record why in
+the script header — never add a path exception, and never delete a rule to make a finding go away.
+The right fix for a finding is almost always to abstract the prose.
+
+Self-test it once: stage a scratch `docs/__secret-probe.md` with one line per rule (fake values —
+`-----BEGIN PRIVATE KEY-----`, `RESEND_API_KEY=re_abc123def456`, 41 `A`s, 41 `f`s,
+`ghp_0123456789abcdef0123`, `MIGTAgEAMBMGByqGSM49AgEGCC…`, an `hc-ping.com/…` URL, an
+`<40hex>.r2.cloudflarestorage.com` URL), confirm the script exits 1 and names EVERY rule, then
+delete the probe, `git reset` the index and confirm exit 0. Also confirm it does NOT fire on the
+word "migration" or on a short commit sha like `9fcbbd9d`.
+
+Run it immediately before EVERY docs commit in this task and in Task 3. A finding HARD-FAILS the
+task gate; the line-by-line human `git diff` review in `<done>` stays, but as the SECONDARY control.
 
 **Evidence sweep (do this before writing a word).** Read/grep, and keep a note of the
 file:line for every claim you will make:
@@ -621,10 +798,11 @@ Leave the existing (a)-(j) prose header in place below the index — it carries 
 code, no strings, no flags, no whitespace inside any function.
   </action>
   <verify>
-    <automated>test -f docs/KEYS.md && test -f docs/RELEASE-MACHINE.md && test -f docs/CHANNELS.md && grep -qi "strand" docs/KEYS.md && grep -q "2027-02-01" docs/KEYS.md && grep -q "RUNBOOK.md" docs/KEYS.md && grep -q "embedded.provisionprofile" docs/RELEASE-MACHINE.md && grep -q -- "--no-default-features" docs/CHANNELS.md && grep -q "INVARIANT INDEX" scripts/verify-appstore-bundle.sh && bash -n scripts/verify-appstore-bundle.sh && test -z "$(git diff -U0 -- scripts/verify-appstore-bundle.sh | grep -E '^[+-]' | grep -vE '^(\+\+\+|---)' | grep -vE '^[+-][[:space:]]*#')" && pnpm lint && pnpm vitest run</automated>
+    <automated>test -x scripts/check-doc-secrets.sh && bash -n scripts/check-doc-secrets.sh && git add -A docs scripts && bash scripts/check-doc-secrets.sh docs/ && test -f docs/KEYS.md && test -f docs/RELEASE-MACHINE.md && test -f docs/CHANNELS.md && grep -qi "strand" docs/KEYS.md && grep -q "2027-02-01" docs/KEYS.md && grep -q "RUNBOOK.md" docs/KEYS.md && grep -q "embedded.provisionprofile" docs/RELEASE-MACHINE.md && grep -q -- "--no-default-features" docs/CHANNELS.md && grep -q "INVARIANT INDEX" scripts/verify-appstore-bundle.sh && bash -n scripts/verify-appstore-bundle.sh && test -z "$(git diff -U0 -- scripts/verify-appstore-bundle.sh | grep -E '^[+-]' | grep -vE '^(\+\+\+|---)' | grep -vE '^[+-][[:space:]]*#')" && pnpm lint && pnpm vitest run</automated>
   </verify>
   <done>
-    - `docs/KEYS.md` exists with all seven sections, names every anchor from the inventory table, states the minisign no-rotation-without-stranding rule explicitly, carries the real cert expiries, cross-links the RUNBOOK fingerprint table, and contains ZERO secret values (prove: `git diff` reviewed line-by-line for anything key/token/password-shaped; no base64 blob > 40 chars that is not an already-committed public key reference).
+    - `scripts/check-doc-secrets.sh` exists, is executable, tripped EVERY rule against its probe file, does not fire on "migration" or a short commit sha, and exits 0 on the staged docs diff — run immediately before the commit. Findings are a HARD FAIL; no path allowlist was added.
+    - `docs/KEYS.md` exists with all seven sections, names every anchor from the inventory table, states the minisign no-rotation-without-stranding rule explicitly, carries the real cert expiries, cross-links the RUNBOOK fingerprint table, and contains ZERO secret values (PRIMARY proof: the automated scan above; SECONDARY: `git diff` reviewed line-by-line for anything key/token/password-shaped; no base64 blob > 40 chars that is not an already-committed public key reference).
     - `docs/RELEASE-MACHINE.md` lists toolchain, files, keychain identities, auth sessions, and a dry-run smoke test; flags `src-tauri/embedded.provisionprofile` as unbacked.
     - `docs/CHANNELS.md` has the dimension x channel x enforcing-artifact table plus the three call-outs (capability silent-drop, `--no-default-features`, e2e-on-direct).
     - `scripts/verify-appstore-bundle.sh` diff contains ONLY comment lines (asserted by the verify command), `bash -n` passes, and every `assert_*` function appears in the index.
@@ -744,9 +922,16 @@ breaks release notes.
 **Cross-link contract:** `docs/RELEASE.md` must link `docs/KEYS.md` (rotation) and
 `docs/CHANNELS.md` (channel split), both created in Task 2, and `docs/KEYS.md`'s reference to
 RELEASE.md must still resolve after the rewrite (the path is unchanged).
+
+**Secret-scan gate (mandatory, identical to Task 2).** Immediately before committing, stage both
+files and run `bash scripts/check-doc-secrets.sh docs/RELEASE.md CHANGELOG.md` (the scanner built
+in Task 2 — this task depends on it existing). RELEASE.md is the highest-risk doc in this plan for
+a slip: it discusses `.env`, signing keys, `gh` auth and the compiled-in update endpoint. A finding
+HARD-FAILS this task — fix the PROSE, never the scanner's patterns and never by adding a path
+exception. Env keys stay NAME-only, exactly as `.env.example` already commits them.
   </action>
   <verify>
-    <automated>grep -q "release:publish" docs/RELEASE.md && grep -q "release:bump" docs/RELEASE.md && grep -q "KEYS.md" docs/RELEASE.md && grep -q "CHANNELS.md" docs/RELEASE.md && grep -qi "rollback" docs/RELEASE.md && grep -qi "transitional" docs/RELEASE.md && ! grep -q "both are currently" docs/RELEASE.md && ! grep -q "deferred to the CI phase" docs/RELEASE.md && grep -q "^## \\[1.0.1\\] - 2026-08-07" CHANGELOG.md && npx tsx -e "import{readFileSync}from('node:fs');import{extractChangelogSection}from('./src/lib/release/changelog.ts');const t=readFileSync('CHANGELOG.md','utf8');for(const v of ['1.0.1','1.0.2']){const s=extractChangelogSection(t,v);if(!s||s.includes('Nothing yet'))throw new Error('CHANGELOG section still empty/placeholder for '+v);console.log(v,'OK');}" && pnpm lint && pnpm vitest run</automated>
+    <automated>git add -A docs/RELEASE.md CHANGELOG.md && bash scripts/check-doc-secrets.sh docs/RELEASE.md CHANGELOG.md && grep -q "release:publish" docs/RELEASE.md && grep -q "release:bump" docs/RELEASE.md && grep -q "KEYS.md" docs/RELEASE.md && grep -q "CHANNELS.md" docs/RELEASE.md && grep -qi "rollback" docs/RELEASE.md && grep -qi "transitional" docs/RELEASE.md && ( ! grep -q "both are currently" docs/RELEASE.md ) && ( ! grep -q "deferred to the CI phase" docs/RELEASE.md ) && grep -q "^## \\[1.0.1\\] - 2026-08-07" CHANGELOG.md && npx tsx -e "import{readFileSync}from'node:fs';import{extractChangelogSection}from'./src/lib/release/changelog.ts';const t=readFileSync('CHANGELOG.md','utf8');for(const v of ['1.0.1','1.0.2']){const s=extractChangelogSection(t,v);if(!s||s.includes('Nothing yet'))throw new Error('CHANGELOG section still empty/placeholder for '+v);console.log(v,'OK');}" && pnpm lint && pnpm vitest run</automated>
   </verify>
   <done>
     - `docs/RELEASE.md` leads with the real three-command flow, documents both drivers' ordered pipelines, the `.env`/`CARGO_TARGET_DIR`/lefthook preflight reality, rollback, update-host migration, and the two tag schemes; the old fleet-stranding regeneration text is GONE and replaced by a `docs/KEYS.md` pointer; the manual flow survives only as a fenced recovery appendix; the per-arch/CI-deferred and "0.2.0" staleness is deleted.
@@ -771,23 +956,26 @@ RELEASE.md must still resolve after the rewrite (the path is unchanged).
 
 | Threat ID | Category | Component | Disposition | Mitigation Plan |
 |-----------|----------|-----------|-------------|-----------------|
-| T-KFS-01 | Information disclosure | `docs/KEYS.md`, `docs/RELEASE-MACHINE.md` | mitigate | HARD CONSTRAINT stated in the task: inventory/locations/expiries/procedures ONLY, zero values. Task 2 `<done>` requires a line-by-line `git diff` review for key/token/password-shaped strings before commit; the RUNBOOK's sha256 fingerprint table is CROSS-LINKED, never duplicated |
+| T-KFS-01 | Information disclosure | `docs/KEYS.md`, `docs/RELEASE-MACHINE.md`, `docs/RELEASE.md` | mitigate | AUTOMATED: `scripts/check-doc-secrets.sh` scans the STAGED diff before EVERY docs commit in Tasks 2 and 3 (PEM headers; `*KEY\|SECRET\|TOKEN\|PASSWORD*=` with a nontrivial RHS; >40-char base64/hex runs; `gh?_`/`github_pat_`/`re_`/`RWS…`/`MIG…`/`hc-ping.com`/account-id-bearing r2 endpoints) and a hit HARD-FAILS the task. Self-tested against a probe that must trip every rule. The HARD CONSTRAINT prose and the line-by-line human `git diff` review remain as SECONDARY controls; the RUNBOOK's sha256 fingerprint table is CROSS-LINKED, never duplicated — the `long-hex` rule enforces that mechanically |
 | T-KFS-02 | Tampering | `.planning/phases/999.*` | mitigate | Task 1a restores by an EXPLICIT 15-dir list and forbids a wholesale `git checkout 9fcbbd9d^ -- .planning/phases/`; verify asserts `.planning/phases/` still contains exactly the seven `999.*` dirs and nothing else |
-| T-KFS-03 | Tampering | restored planning artifacts | mitigate | Restored files are the historical record — the task forbids editing their contents; per-milestone file counts (66/74/65) are asserted in `<verify>` against the counts measured at `9fcbbd9d^` |
+| T-KFS-03 | Tampering | restored planning artifacts | mitigate | Restored files are the historical record — the task forbids editing their contents, and `<verify>` asserts BLOB IDENTITY: the staged `(relpath, blob-hash)` set equals the `9fcbbd9d^` set for all 15 dirs (205 rows, `diff -u` empty). File counts (66/74/65) are a smoke test only — a count match cannot detect a truncated, re-flowed or rewritten file |
 | T-KFS-04 | Denial of service | `lefthook.yml` pre-commit | mitigate | The archive guard exits 0 immediately when no `.planning/phases/` deletion is staged (pure `git diff --cached` plumbing, no I/O); an `ALLOW_PHASE_DELETE=1` escape hatch exists and is documented in CLAUDE.md and the script header |
 | T-KFS-05 | Denial of service | `eslint.config.js` | mitigate | The rule was audited to pass on the CURRENT tree unmodified (single legal `@tauri-apps` importer; `BrowserRouter` imported nowhere); Task 1 runs the full `lint`+`tsc`+`vitest` suite and explicitly forbids "fixing" real source to satisfy the rule |
-| T-KFS-06 | Spoofing (false GREEN) | `eslint.config.js` | mitigate | A throwaway probe file with both violations must produce >= 2 `no-restricted-imports` errors before the rule is accepted; the probe is deleted before commit |
+| T-KFS-06 | Spoofing (false GREEN) | `eslint.config.js` | mitigate | The gate is `no-restricted-imports` PLUS `no-restricted-syntax` (dynamic `import()`, `require()`, and `BrowserRouter`/`createBrowserRouter`/`createBrowserHistory` identifiers incl. member access), and EACH of the five bypass classes must be demonstrated firing with its own throwaway probe — a static-import-only probe would have accepted a config that three real bypasses walk straight through. Seam-scoped re-runs confirm the carve-out. All probes deleted before commit |
 | T-KFS-07 | Tampering | `scripts/verify-appstore-bundle.sh` | mitigate | Comment-only change enforced mechanically: `<verify>` asserts the entire diff contains no non-comment `+`/`-` line, plus `bash -n` |
 | T-KFS-08 | Repudiation | `CHANGELOG.md` / git tags | accept | The shipped `v1.0.1`/`v1.0.2` tag annotations and GitHub release bodies already say `_Nothing yet._`. Rewriting published tags would break the fleet's release history; the plan records the fact in the CHANGELOG as a historical note instead |
-| T-KFS-09 | Information disclosure | `docs/RELEASE.md` env section | mitigate | Env keys are listed by NAME only (from `.env.example`, which is already committed and value-free); no `.env` contents are read into the doc |
+| T-KFS-09 | Information disclosure | `docs/RELEASE.md` env section | mitigate | Env keys are listed by NAME only (from `.env.example`, which is already committed and value-free); no `.env` contents are read into the doc; `check-doc-secrets.sh` (T-KFS-01) is the mechanical backstop |
+| T-KFS-10 | Tampering (false GREEN) | `scripts/check-planning-archive.sh` | mitigate | The guard matches per-FILE and per-BLOB-HASH, so an "archive" of placeholder or truncated files fails as hard as a bare delete; `--no-renames` is MANDATED because default rename detection collapses a `git mv` into a single `R100` line with no `D` line, making a dir-level guard pass vacuously. Live-fired on all three cases (no archive / content mismatch / real `git mv`) |
+| T-KFS-11 | Elevation of privilege (guard bypass) | `scripts/check-doc-secrets.sh` | mitigate | The scanner has NO path allowlist — a misfire must be fixed by narrowing the pattern with a recorded reason, or by rewriting the prose; never by exempting a file or deleting a rule. The `MIG…` rule is anchored to a >=20-char base64 tail so the docs' legitimate "migration" prose cannot be used to argue the rule loose |
 </threat_model>
 
 <verification>
 Whole-plan gates, in the harness order. Note which harness steps are N/A and WHY — do not
 silently skip them, and do not defer an agent-runnable step to the human.
 
-1. **`/simplify`** over the working-tree diff — quality-only cleanup of the two new scripts/config
-   (`scripts/check-planning-archive.sh`, `eslint.config.js`) and de-duplication across the four
+1. **`/simplify`** over the working-tree diff — quality-only cleanup of the three new/changed
+   mechanical artifacts (`scripts/check-planning-archive.sh`, `scripts/check-doc-secrets.sh`,
+   `eslint.config.js`) and de-duplication across the four
    docs (a fact should live in exactly ONE doc, cross-linked from the others; the RUNBOOK's
    fingerprint table in particular must not be duplicated into KEYS.md).
 2. **`/code-review xhigh`** over the diff. Spawn its agents on Opus per CLAUDE.md's model
@@ -814,10 +1002,20 @@ silently skip them, and do not defer an agent-runnable step to the human.
    command output that proves it. Any claim that cannot be evidenced must be deleted or
    explicitly marked as an open question. Re-run the `security find-certificate` expiry reads at
    this point so the committed dates are the ones actually on the machine.
-7. **Guard live-fire:** stage a synthetic `.planning/phases/999.x` deletion, confirm
-   `scripts/check-planning-archive.sh` exits 1 with the remedy text, confirm
-   `ALLOW_PHASE_DELETE=1` makes it exit 0, then `git reset` the synthetic staging. Confirm a
-   normal commit is unaffected.
+7. **Archive-guard live-fire (three cases, `git reset` after each):** (i) stage a synthetic
+   `.planning/phases/999.x/<file>` deletion with NO archive add -> exit 1, "NO ARCHIVE" + remedy
+   text; (ii) stage that deletion PLUS an add at
+   `.planning/milestones/v9.9-phases/999.x/<file>` whose CONTENT differs -> exit 1,
+   "CONTENT MISMATCH" with both hashes (this is the case a dir-level or count-based guard would
+   have passed); (iii) `git mv` the same file into the archive -> exit 0. Confirm
+   `ALLOW_PHASE_DELETE=1` bypasses (i) and (ii), and that a normal commit is unaffected.
+8. **Secret-scanner live-fire:** `scripts/check-doc-secrets.sh` must trip EVERY rule against its
+   probe file, must NOT fire on the word "migration" or a short commit sha, and must have exited 0
+   on the staged diff immediately before each docs commit in Tasks 2 and 3. Record the probe
+   output and both pre-commit exit statuses in the SUMMARY.
+9. **Lint bypass-class live-fire:** all five probes (static `@tauri-apps` import, static
+   `BrowserRouter` import, dynamic `import()`, `require()`, namespace member access) fired, and
+   the seam-scoped re-runs of classes 3-5 behaved as designed. Record each probe's rule id.
 </verification>
 
 <success_criteria>
@@ -825,11 +1023,16 @@ silently skip them, and do not defer an agent-runnable step to the human.
   (2) `docs/KEYS.md`, (3) `docs/RELEASE.md` rewritten + CHANGELOG backfilled, (4) ESLint
   `no-restricted-imports`, (5) `docs/CHANNELS.md`, (6) `docs/RELEASE-MACHINE.md`,
   (7) invariants index on `verify-appstore-bundle.sh`.
-- `.planning/milestones/v1.{6,7,8}-phases/` hold 66/74/65 files; `grep -r "D-52"` and
-  `grep -r "T-20-01"` both resolve inside the working tree.
-- A commit that deletes a phase dir without archiving it FAILS pre-commit (demonstrated).
-- A `@tauri-apps/*` import outside `src/lib/platform/**` and a `BrowserRouter` import anywhere
-  both FAIL `pnpm lint` (demonstrated with a throwaway probe); the unmodified tree passes.
+- `.planning/milestones/v1.{6,7,8}-phases/` are BYTE-IDENTICAL to `9fcbbd9d^`: the 205-row
+  `(relpath, blob-hash)` diff is empty (counts 66/74/65 agree, as a smoke test); `grep -r "D-52"`
+  and `grep -r "T-20-01"` both resolve inside the working tree.
+- A commit that deletes a phase FILE without a SAME-BLOB archive add FAILS pre-commit — both the
+  no-archive and the placeholder-content cases demonstrated, and a real `git mv` passes.
+- All five seam/router bypass classes (static `@tauri-apps` import, dynamic `import()`,
+  `require()`, `BrowserRouter` import, namespace member access) FAIL `pnpm lint`, each
+  demonstrated with its own throwaway probe; the unmodified tree passes.
+- `scripts/check-doc-secrets.sh` tripped every rule on its probe and exited 0 on the staged diff
+  before EVERY docs commit; no path allowlist was added to silence a finding.
 - `docs/KEYS.md` contains zero secret values and states the minisign stranding rule in plain
   words; `docs/RELEASE.md` no longer contains the old regeneration advice.
 - `extractChangelogSection(CHANGELOG.md, "1.0.1")` and `..."1.0.2"` both return non-empty.
@@ -844,8 +1047,11 @@ silently skip them, and do not defer an agent-runnable step to the human.
 After completion, create
 `.planning/quick/260808-kfs-operational-hardening-restore-v1-6-v1-8-/260808-kfs-SUMMARY.md`.
 
-It must record: the restored file counts per milestone archive; the guard's live-fire result;
-the lint-probe error count; the per-doc fact-verification evidence lists (step 6); the explicit
+It must record: the blob-identity diff result (plus the restored file counts as a smoke test);
+the archive guard's THREE live-fire outcomes (no-archive / content-mismatch / real `git mv`); the
+per-class lint-probe results (all five classes plus the seam-scoped re-runs, each with its rule
+id); the `check-doc-secrets.sh` probe output and its exit status before each docs commit; the
+per-doc fact-verification evidence lists (step 6); the explicit
 N/A justification for the UI gate with the `git diff --name-only` proof; and the outcomes of
 `/simplify`, `/code-review xhigh` and `/codex:adversarial-review`.
 
