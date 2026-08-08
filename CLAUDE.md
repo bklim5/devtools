@@ -36,6 +36,8 @@ This INCLUDES Workflow-backed runs (e.g. `/code-review xhigh`): workflow `agent(
 
 **Per phase boundary:** the agent auto-runs `pnpm tauri build` at the human-verify checkpoint (its final non-zero exit is only the absent updater-signing key — confirm via the `.app`/`.dmg` under `src-tauri/target/release/bundle/macos/`, not the exit code), then hands off the built-app path so the human only launches/tests/approves; sign-off requires that walkthrough + a passing `gsd-ui-review` WCAG-AA audit. **Rebuild as the LAST step, after every source change has landed** — in a multi-plan phase an earlier checkpoint plan can build before later plans land webview changes; verify the bundle binary mtime is newer than the last source commit before any walkthrough (never hand off a stale `.app`).
 
+**Milestone close ARCHIVES, never deletes:** phase directories move to `.planning/milestones/vX.Y-phases/` (via `gsd-tools milestone complete --archive-phases` or `/gsd-cleanup`, both `git mv`) — a `scripts/check-planning-archive.sh` pre-commit guard rejects any staged `.planning/phases/` file deletion without a same-blob-hash archive add; override a deliberate removal with `ALLOW_PHASE_DELETE=1`.
+
 **Plans may run in parallel, but no plan advances past these gates — no skipping ahead.** macOS only for now (Windows/Linux deferred).
 
 ## Critical constraints (full list in PROJECT.md → Constraints)

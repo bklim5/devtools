@@ -13,6 +13,11 @@
 #   • /codex:review  — disable-model-invocation; must be invoked by the agent
 #   • real-webview UI verification — needs the running app (tauri dev / WKWebView)
 # Do NOT try to wire those into lefthook.
+#
+# The `archive-guard` command below is REPO HYGIENE, not part of the three-gate
+# harness: it only refuses commits that would delete planning history without
+# archiving it byte-for-byte (see scripts/check-planning-archive.sh). It exits
+# immediately on any commit that touches nothing under .planning/phases/.
 pre-commit:
   parallel: true
   commands:
@@ -25,6 +30,8 @@ pre-commit:
       run: pnpm vitest run
     lint:
       run: pnpm lint
+    archive-guard:
+      run: bash scripts/check-planning-archive.sh
 
 # Rust licensing-core gate (Phase 19, research Open Question 2 decision):
 # `cargo test` runs on pre-PUSH, not pre-commit, to keep commit latency sane
