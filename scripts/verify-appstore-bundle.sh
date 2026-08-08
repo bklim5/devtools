@@ -1,4 +1,53 @@
 #!/usr/bin/env bash
+# ===== INVARIANT INDEX (one line per asserted invariant) =====================
+# Scannable map of WHAT this script guarantees. The prose header below keeps the
+# WHY; this block exists so a reader can answer "is X checked, and by what?" in
+# one screen. Identifiers are taken from that prose — `[-]` means the prose names
+# none. Comment-only; adding a check here without implementing it is a lie.
+#
+#  I-01  updater/autostart/process plugins ABSENT from the appstore cargo tree,
+#        resolved with the REAL build flags (--no-default-features --features
+#        appstore)                                    -- assert_plugins_absent      [MAS-BUILD-06, D-09]
+#  I-02  keyring (macOS Keychain crate) ABSENT from the appstore cargo tree
+#                                                     -- assert_plugins_absent      [MAS-NATIVE-03, D-09]
+#  I-03  app-sandbox + network.client entitlements PRESENT on the SIGNED .app
+#                                                     -- assert_entitlements_present [Criterion 2]
+#  I-04  NO keychain-access-groups entitlement on the signed bundle
+#                                                     -- assert_entitlements_present [T-29-08]
+#  I-05  LSMinimumSystemVersion == 13.0 proven AT THE ARTIFACT (built Info.plist,
+#        not the config overlay)                      -- assert_min_system_version  [Finding 3]
+#  I-06  NONE of the four Keygen COPY markers (CE host, buy link, price, Keygen-
+#        specific key-field copy) appear in the appstore-build dist/
+#                                                     -- assert_no_keygen_strings   [MAS-BUILD-04, D-03]
+#  I-07  licenseUi module NOT folded into any shipped chunk (chunk-module
+#        inventory sentinel, licenseUiInChunks:false)  -- assert_no_license_ui_module [D-04]
+#  I-08  updater UI subtree ABSENT from the store chunks (updaterInChunks:false;
+#        NOT a package-absence test — plugin-updater rides along inert)
+#                                                     -- assert_no_license_ui_module [MAS-NATIVE-02/04, D-09]
+#  I-09  heavy prettify/minify engines NOT initially-reachable from an entry
+#        chunk (heavyEngineInitiallyReachable:false; lazy dynamic import only)
+#                                                     -- assert_no_heavy_engine_in_entry [PRT-02]
+#  I-10  signed binary is NEWER than the last source commit (no stale .app)
+#                                                     -- assert_dist_freshness      [harness no-stale-build rule]
+#  I-11  dist/ exists, is non-empty, carries the sentinel, is itself fresh, and is
+#        not newer than the signed binary (a stale clean dist/ cannot mask a dirty
+#        .app)                                        -- assert_dist_freshness      [OPTION A, 28-05]
+#  I-12  signed binary is UNIVERSAL (lipo -archs has both x86_64 and arm64)
+#                                                     -- assert_binary_integrity    [-]
+#  I-13  an embedded provisioning profile is present on the signed .app
+#                                                     -- assert_binary_integrity    [-]
+#  I-14  the .app carries a VALID deep signature      -- assert_binary_integrity    [-]
+#
+#  Self-tests (prove the markers above are load-bearing, not decorative):
+#  S-01  each forbidden-plugin / entitlement / floor marker FAILS when violated and
+#        is free of false-RED                         -- selftest_forbidden_gate    [--selftest]
+#  S-02  the freshness/linkage matrix (stale binary, missing/empty/sentinel-less
+#        dist, stale dist, dist-newer-than-binary)    -- selftest_dist_freshness    [--selftest]
+#  S-03  D-04 + the updater-chunk guard on a REAL fold-in build, importing the
+#        EXACT shared guard module                    -- selftest_foldin_realbuild  [--selftest-realbuild]
+#
+#  Channel matrix (what differs between direct and appstore, and why): docs/CHANNELS.md
+# ============================================================================
 # Phase 27 (MAS-BUILD-06, D-09): assert the App Store bundle is compliant at the
 # Phase 27 gate.
 #   (a) forbidden plugins ABSENT — updater + autostart (+ process, the third
