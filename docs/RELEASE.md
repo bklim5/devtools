@@ -1,11 +1,6 @@
 # DevTools — Release Runbook (direct channel, macOS)
 
-> **Rewritten 2026-08-08** (quick/260808-kfs) to close architecture-review findings
-> **F3 / F4 / F8 / KG-3**. The previous version of this file documented a hand-authored
-> `latest.json` flow that the `release:publish` driver replaced, claimed both manifests were
-> "currently 0.2.0", and advised regenerating the minisign keypair and committing the new
-> public key — advice that would have **permanently stranded every installed app**. All of
-> that is gone. Everything below was verified against the live tree on 2026-08-08.
+> Verified against the live tree on **2026-08-08**.
 
 **This runbook covers the DIRECT channel only** — the notarised DMG published to the public
 `bklim5/devtools-releases` repo, with the self-updater. For the Mac App Store path see
@@ -39,7 +34,14 @@ inserts a fresh empty `[Unreleased]` above it (`promoteUnreleased` in
 `src/lib/release/changelog.ts`). The tag message and the GitHub release body come from
 `resolveReleaseNotes`, which **falls back to the bare tag when the section is empty**. So an
 unfilled `[Unreleased]` silently ships a release with no notes — which is exactly what
-happened to `v1.0.1` and `v1.0.2` (see §8).
+happened to `v1.0.1` and `v1.0.2` (see §7).
+
+`[Unreleased]`'s empty state is the literal bullet `- _Nothing yet._`
+(`UNRELEASED_PLACEHOLDER`). That string is **load-bearing, not decoration**:
+`appendUnreleasedEntry` replaces it with the first real entry only when it is the section's
+*sole* body, and `promoteUnreleased` re-emits it into the fresh section. Leave a paragraph
+of prose there instead and the next `release:changelog` entry is *appended after it* — so
+the prose ships as the release notes.
 
 ### What you produce per release
 
@@ -157,11 +159,52 @@ The six `.env` keys, **by name only** (see the committed, value-free `.env.examp
 `APPLE_API_ISSUER`, `APPLE_SIGNING_IDENTITY`. Where the values live, and what happens if
 they are lost: `docs/KEYS.md`.
 
-**Per-channel build trees.** Each channel builds into its own absolute `CARGO_TARGET_DIR`
-(`src-tauri/target/{direct,appstore,appstore-pkg}`) so the three artifacts coexist. A **set**
-`CARGO_TARGET_DIR` **must be absolute** — both drivers throw on a relative path, because
-Tauri runs cargo with `CWD=src-tauri/`, which would split the build output from where the
-lipo/sig/dmg globs look.
+### Verify the key pairing BEFORE you build
+
+The signing env being *present* proves nothing about it being the *right* key. If
+`~/.tauri/devtools.key` is not the private half of the `plugins.updater.pubkey` compiled
+into the build, `release:publish` still succeeds end to end — and every installed updater
+rejects the result. Nothing in the pipeline catches that; the §4 round-trip gate catches it
+only *after* a full universal build, notarisation and a published release.
+
+So prove the pairing first. It costs seconds:
+
+```bash
+set -a; . ./.env; set +a                  # exports the signing env; never printed
+echo pairing-check > /tmp/devtools-pairing.txt
+rm -f /tmp/devtools-pairing.txt.sig
+pnpm tauri signer sign /tmp/devtools-pairing.txt   # key + passphrase come from the env
+
+node -e '
+  const fs = require("fs");
+  const conf = require("./src-tauri/tauri.conf.json");
+  const b64 = s => Buffer.from(s, "base64");
+  // Both the .pub and the .sig are minisign text files that tauri stores base64d
+  // AGAIN (the conf value, the .sig on disk). Inside, the payload lines are
+  // <2-byte alg><8-byte key id><rest>. Line 0 is the untrusted comment; the .pub
+  // payload is line 1, and so is the .sig signature (line 2/3 are the trusted
+  // comment and its global signature).
+  const payload = (text, i) => b64(text.trim().split("\n")[i].trim());
+  const pubId = payload(b64(conf.plugins.updater.pubkey).toString("utf8"), 1).subarray(2, 10);
+  const sigId = payload(b64(fs.readFileSync("/tmp/devtools-pairing.txt.sig", "utf8")).toString("utf8"), 1).subarray(2, 10);
+  const ok = pubId.equals(sigId);
+  console.log("compiled-in pubkey key id:", pubId.toString("hex"));
+  console.log("scratch signature key id :", sigId.toString("hex"));
+  console.log(ok ? "PAIRED" : "MISMATCH — DO NOT RELEASE");
+  process.exit(ok ? 0 : 1);
+'
+rm -f /tmp/devtools-pairing.txt /tmp/devtools-pairing.txt.sig
+```
+
+Key IDs are public (the committed pubkey's own comment line carries it), so this prints
+nothing secret. A **MISMATCH means stop** — see `docs/KEYS.md` § 4 before touching
+anything, because the fix is never "regenerate and commit the new pubkey".
+
+**Per-channel build trees.** Each channel builds into its own tree so the three artifacts
+coexist (the per-channel values are a row in `docs/CHANNELS.md`'s matrix). The rule that
+belongs here: a **set** `CARGO_TARGET_DIR` **must be absolute**. Both drivers throw on a
+relative path, because Tauri runs cargo with `CWD=src-tauri/` — a relative value would
+resolve to a different tree for cargo than for the lipo/sig/dmg globs.
 
 **Git hooks are part of the pipeline.** `lefthook.yml` runs `tsc` (root + `server/webhook`),
 `vitest`, `eslint` and the planning-archive guard on **pre-commit**, and
@@ -291,21 +334,36 @@ Verified on 2026-08-08 with `git tag` and `git ls-remote --tags origin`:
 stops interleaving two unrelated schemes and a `vX.Y` can never be mistaken for a shippable
 release. Do not rename the existing ones; `v1.0`–`v1.9` are local and harmless.
 
+### The `v1.0.1` / `v1.0.2` empty-notes incident (2026-08-07)
+
+Both tags shipped with the bare `- _Nothing yet._` placeholder as their annotated-tag
+message *and* as their published GitHub release body — 284 commits of work (all of
+milestones v1.6–v1.9, including the licensing system, the Settings modal and two new tools)
+went out to direct-channel users described as nothing.
+
+Cause: `[Unreleased]` was never filled before `release:bump` promoted it, and
+`resolveReleaseNotes` falls back to the bare tag rather than failing (§1). The fallback is
+deliberate — a release must not be blocked by a missing section — so the only real control
+is the maintainer writing the notes first.
+
+The tags and the published release bodies are **history and are deliberately not
+rewritten**: republishing them would change what existing installs have already recorded,
+for no user benefit. The `[1.0.1]` / `[1.0.2]` CHANGELOG sections were backfilled from the
+milestone roadmaps on 2026-08-08 and are the corrected record. `CHANGELOG.md` itself carries
+no commentary about this — it is a changelog, not a post-mortem.
+
 ---
 
-## 8. Key regeneration — read `docs/KEYS.md`, do not improvise
+## 8. Anything key-related — read `docs/KEYS.md`
 
-The advice that used to live here — "if the keypair is ever regenerated, re-paste the new
-`devtools.key.pub` into `pubkey` and commit" — was **wrong and dangerous**, and is deleted.
+This file used to carry its own key-regeneration advice ("re-paste the new
+`devtools.key.pub` into `pubkey` and commit"). It was wrong, it would have stranded the
+installed base, and it is deleted.
 
-**Regenerating the minisign keypair strands every existing install, permanently.** The public
-key is compiled into the binary on each user's disk; their updater will reject every future
-release, and no server-side change can fix it. It is not a recovery path. The only safe
-migration is a transitional release signed with the OLD key that carries the NEW public key,
-followed by a multi-week adoption wait.
-
-The full procedure, the loss consequences of every other anchor, and the certificate expiry
-calendar live in **`docs/KEYS.md`**. Nothing about keys should ever be restated here.
+`docs/KEYS.md` is the **single owner** of rotation procedures, loss consequences and the
+certificate expiry calendar — including why the minisign keypair cannot be rotated without
+a transitional release (§ 4). Nothing about keys is restated here, deliberately: a second
+copy is how the dangerous version survived for a year.
 
 ---
 
@@ -316,10 +374,28 @@ calendar live in **`docs/KEYS.md`**. Nothing about keys should ever be restated 
 > already-published guard, no served-version verification, no asset-ordering guarantee. If
 > you use it, you are the gate.
 
-1. **Build.** `pnpm tauri build --target universal-apple-darwin` (with the signing env
-   exported). Artifacts land under
-   `$CARGO_TARGET_DIR/universal-apple-darwin/release/bundle/` — `dmg/*.dmg`,
-   `macos/*.app.tar.gz`, `macos/*.app.tar.gz.sig`.
+1. **Build.** With the signing env exported, run the driver's *exact* build command —
+   `build-and-publish.mjs` pins **both** halves of the channel and dropping either one
+   silently ships a wrong binary:
+
+   ```bash
+   VITE_CHANNEL=direct pnpm tauri build \
+     --target universal-apple-darwin \
+     --config src-tauri/tauri.direct.conf.json
+   ```
+
+   - `--config src-tauri/tauri.direct.conf.json` re-grants the direct-only
+     `updater:default`, `process:allow-restart` and `autostart:*` capability
+     permissions. Omit it and the release **links** the updater and autostart plugins
+     while the webview lacks permission to call them — it builds, signs, notarises and
+     publishes, and Check for Updates is simply dead. See the silent-drop trap in
+     `docs/CHANNELS.md`.
+   - `VITE_CHANNEL=direct` pins the *frontend* half. An ambient `VITE_CHANNEL=appstore`
+     left over from a store build compiles `IS_APPSTORE=true` into the DMG — App Store
+     upsell copy, no updater pane — on an otherwise correct native binary.
+
+   Artifacts land under `$CARGO_TARGET_DIR/universal-apple-darwin/release/bundle/` —
+   `dmg/*.dmg`, `macos/*.app.tar.gz`, `macos/*.app.tar.gz.sig`.
 2. **Create the release, assets first.**
    ```bash
    gh release create vX.Y.Z \

@@ -1,12 +1,10 @@
 # RELEASE-MACHINE.md — rebuild the release laptop
 
-> Written 2026-08-08 (quick/260808-kfs) to close architecture-review finding **F2**: the
-> entire release + support pipeline runs on one macOS machine with no CI. This is the
-> checklist for reconstituting that machine — after a loss, a replacement, or simply to
-> know how much of it is recoverable.
->
-> Everything below was verified against the live tree on 2026-08-08.
-> **Expiry dates live in `docs/KEYS.md` § 5 and are not restated here.**
+> Verified against the live tree on **2026-08-08**.
+
+The entire release + support pipeline runs on one macOS machine with no CI. This is the
+checklist for reconstituting it — after a loss, a replacement, or simply to know how much
+of it is recoverable. **Expiry dates live in `docs/KEYS.md` § 5 and are not restated here.**
 
 ## 0. What "the release machine" has to be able to do
 
@@ -59,16 +57,16 @@ None of these are in the repository. All but the last are in the password manage
 ## 3. Login keychain — the four signing identities
 
 Import each from its password-manager `.p12`, then confirm with `security find-identity -v`
-(expect four valid identities):
+(expect four valid identities). **The exact common names are listed once, in `docs/KEYS.md`
+§ 5** — the build scripts auto-detect by name (`SIGN_ID` in `build-appstore-bundle.sh` and
+`build-appstore-pkg.sh`, `INSTALLER_ID` in the latter), so a typo'd CN fails the build;
+keep one copy of the strings. Their roles:
 
-- [ ] `Developer ID Application: Boon Khai Lim (FK4HQK83WX)` — direct DMG signing + notarisation
-- [ ] `Apple Distribution: Boon Khai Lim (FK4HQK83WX)` — the store `.app` inside the `.pkg`
-- [ ] `3rd Party Mac Developer Installer: Boon Khai Lim (FK4HQK83WX)` — signs the `.pkg` itself
-- [ ] `Apple Development: Boon Khai Lim (9HGDC8C599)` — the dev-signed store build used for
-      the local sandbox / StoreKit walkthrough
-
-`scripts/build-appstore-bundle.sh:45` and `scripts/build-appstore-pkg.sh:93,104`
-auto-detect these by name, so the certificate common names matter.
+- [ ] **Developer ID Application** — direct DMG signing + notarisation
+- [ ] **Apple Distribution** — the store `.app` inside the `.pkg`
+- [ ] **3rd Party Mac Developer Installer** — signs the `.pkg` itself
+- [ ] **Apple Development** — the dev-signed store build used for the local sandbox /
+      StoreKit walkthrough
 
 ## 4. Auth sessions and remote access
 
@@ -109,10 +107,9 @@ out a whole class of missing material.
 5. Optionally **`scripts/build.sh appstore-pkg`** — proves the Apple Distribution +
    Installer identities and `embedded.provisionprofile`.
 
-Each channel builds into its own absolute `CARGO_TARGET_DIR`
-(`src-tauri/target/{direct,appstore,appstore-pkg}`), so the three artifacts coexist
-(`scripts/build.sh:64-76`). A **set** `CARGO_TARGET_DIR` must be absolute — the drivers
-throw on a relative one, because Tauri runs cargo with `CWD=src-tauri/`.
+The three channels build into separate trees so their artifacts coexist — see
+`docs/RELEASE.md` § 3 ("Per-channel build trees") for the `CARGO_TARGET_DIR` rule and why a
+set value must be absolute.
 
 ## 6. What is *not* on this machine
 

@@ -9,21 +9,9 @@ The maintainer edits the section for the next version BEFORE running
 section's body into the annotated tag, the in-app updater banner, and the GitHub
 release body (falling back to the bare tag when a section is absent).
 
-> **Historical note (2026-08-08).** The `v1.0.1` and `v1.0.2` annotated tags, and
-> the GitHub release bodies published with them, went out with an empty
-> placeholder as their notes — the `[Unreleased]` section had not been filled
-> before `release:bump` promoted it. Those tags and release bodies are history and
-> are deliberately **not** rewritten; the `[1.0.1]` / `[1.0.2]` sections below were
-> backfilled from the milestone roadmaps and are the corrected record. See
-> `docs/RELEASE.md` § 1 for why the notes must be written *before* the bump.
-
 ## [Unreleased]
 
-- No user-facing changes yet. Work since 1.0.2 has been operational only:
-  nightly offsite encrypted database backups with an automated restore check,
-  and a documentation/tooling hardening pass (`docs/KEYS.md`,
-  `docs/RELEASE-MACHINE.md`, `docs/CHANNELS.md`, a rewritten release runbook,
-  and two new pre-commit guards).
+- _Nothing yet._
 
 ## [1.0.2] - 2026-08-07
 

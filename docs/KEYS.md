@@ -1,9 +1,7 @@
 # KEYS.md — trust anchors, loss consequences, rotation
 
-> Written 2026-08-08 (quick/260808-kfs) to close architecture-review finding **F1 /
-> KG-2**. Every claim below was verified against the live tree and the live login
-> keychain on that date; where a fact came from a file, the `path:line` is cited so a
-> future reader can re-check it in seconds.
+> Verified against the live tree and the live login keychain on **2026-08-08**. Where a
+> fact came from a file, the `path:line` is cited so it can be re-checked in seconds.
 
 ## 1. Purpose, and the one rule
 

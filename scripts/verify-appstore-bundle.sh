@@ -48,81 +48,44 @@
 #
 #  Channel matrix (what differs between direct and appstore, and why): docs/CHANNELS.md
 # ============================================================================
-# Phase 27 (MAS-BUILD-06, D-09): assert the App Store bundle is compliant at the
-# Phase 27 gate.
-#   (a) forbidden plugins ABSENT — updater + autostart (+ process, the third
-#       direct-only plugin) compiled out of the appstore dependency graph (the
-#       EXACT flags the real build uses: --no-default-features --features appstore,
-#       Plan 27-01);
-#   (b) required entitlements PRESENT — app-sandbox + network.client on the
-#       SIGNED .app (Criterion 2);
-#   (c) the 13.0 floor PROVEN AT THE ARTIFACT — LSMinimumSystemVersion == 13.0 on
-#       the built Info.plist (Finding 3; not just the overlay grep, which a bad
-#       merge could pass while shipping the wrong floor).
-# Phase 28 (MAS-BUILD-04, D-03/D-04) EXTENDS this script once the Keygen surface is
-# compiled out by the static IS_APPSTORE switch.
+# WHY (the index above is the WHAT — it is the single enumeration of the
+# invariants; do not restate it here or in docs/CHANNELS.md).
 #
-# OPTION A — where the D-03/D-04 CONTENT proof lives (Plan 28-05 Rule-4 decision,
-# 2026-06-23). The planner's <interfaces> premise that the appstore `.app` bundles
-# `dist/` under `$APP/Contents/Resources/` was FALSE for this Tauri 2 build: Tauri
-# brotli-EMBEDS the frontend into the Rust binary (Contents/MacOS/<bin>), so
-# Contents/Resources/ holds ONLY icon.icns — NO frontend JS, NO sentinel. Grepping
-# Resources for the copy markers passes VACUOUSLY (no frontend there) and the
-# sentinel read FAILS (no sentinel there); the real asset bytes are brotli-compressed
-# inside the binary, invisible to `strings`/`grep`. So the D-03 copy grep + the D-04
-# sentinel read are asserted on the appstore-build `dist/` — the AUTHORITATIVE
-# pre-compression bytes Tauri embeds VERBATIM into the binary in the SAME
-# `tauri build` invocation (beforeBuildCommand `pnpm build` emits dist/ → Tauri
-# compresses it in). A FATAL freshness/linkage check (assert_dist_freshness) binds the
-# inspected `dist/` to the signed binary so a STALE clean dist/ cannot mask a
-# dirty/stale signed .app. The binary-level checks (universal archs, app-sandbox +
-# network.client, plugins absent, 13.0 floor, embedded provisionprofile, valid deep
-# signature) stay on the signed .app.
-#   (d) NO Keygen COPY markers — all four D-03 markers (the CE host, the buy link,
-#       the $9 price, the Keygen-SPECIFIC key-field copy) are grep-FATAL on the
-#       appstore-build dist/ (assert_no_keygen_strings); the bare verb 'Activate' is
-#       NOT a marker (AppearancePreviewStrip ships an inert 'Activate' preview button).
-#   (e) NO licenseUi module fold-in — assert_no_license_ui_module reads the
-#       licenseui-inventory.json sentinel emitted INTO dist/ by the appstore-only
-#       generateBundle guard (scripts/licenseUiFoldInGuard.mjs, gated on
-#       VITE_CHANNEL=appstore in vite.config.ts) and asserts licenseUiInChunks:false
-#       (D-04, the false-GREEN the copy-string grep can't catch — licenseUi carries
-#       none of those literals).
-#   (f) FRESHNESS/LINKAGE — assert_dist_freshness proves (1) the signed binary is
-#       NEWER than the last source commit (no stale .app handed off — harness rule);
-#       (2) dist/ exists, is non-empty, and carries the sentinel (a missing/empty/
-#       sentinel-less dist FAILS, never SKIPs); (3) dist/ is itself fresh (its
-#       newest asset is NEWER than the last source commit) AND consistent with the
-#       binary (dist/ not newer than the signed binary — it is built FIRST, then
-#       embedded). A stale clean dist/ next to a fresh binary therefore FAILS.
-# Phase 29 (MAS-NATIVE-02/03/04, D-09) EXTENDS this script with three additive FATAL checks:
-#   (g) keyring (macOS Keychain crate) ABSENT from the appstore cargo tree
-#       (assert_plugins_absent) — 29-01 made it optional under `direct`; a surviving
-#       link re-introduces the Keychain FFI (MAS-NATIVE-03).
-#   (h) NO `keychain-access-groups` entitlement on the signed bundle
-#       (assert_entitlements_present) — the store build uses no Keychain (T-29-08).
-#   (i) NO updater UI subtree in the store chunks (assert_no_license_ui_module reads the
-#       SAME licenseui-inventory.json sentinel and asserts updaterInChunks:false). The
-#       29-02 IS_APPSTORE lazy import tree-shakes the WHOLE updater overlay (UpdaterOverlay
-#       → useUpdater → shell/update → UpdateBanner) out; the shared chunk-module guard
-#       records its absence. NOTE: this is deliberately NOT a `@tauri-apps/plugin-updater`
-#       PACKAGE-absence test — plugin-updater rides along INERT via the shared tauri.ts seam
-#       (D-05, exactly like plugin-autostart); its safety is the 29-02 runtime
-#       updater.check===0 no-invoke proof, NOT bundle exclusion (a string/package grep is a
-#       false signal per keygen-compileout-d04-proof).
-# Phase 32 (PRT-02) EXTENDS this script with ONE additive FATAL check (both channels):
-#   (j) NO heavy engine INITIALLY-REACHABLE — assert_no_heavy_engine_in_entry reads the
-#       prettier-chunk-inventory.json sentinel emitted by the UNGATED prettierChunkGuard
-#       (scripts/prettierChunkGuard.mjs in vite.config.ts) and FATALs on
-#       heavyEngineInitiallyReachable:true. The prettier + esbuild-wasm engines MAY ship
-#       but ONLY from a dynamic-import() chunk (never on the initial page-load path — the
-#       cold-start/offline lazy-load requirement). Same EXACT-root sentinel read +
-#       duplicate rejection + missing/malformed FAIL discipline as the licenseUi guard,
-#       bound by the same assert_dist_freshness.
+# Scope grew by phase: Phase 27 (MAS-BUILD-06, D-09) added I-01..I-05, Phase 28
+# (MAS-BUILD-04, D-03/D-04) added I-06/I-07 and the freshness pair I-10/I-11,
+# Phase 29 (MAS-NATIVE-02/03/04, D-09) added I-02/I-04/I-08, Phase 32 (PRT-02)
+# added I-09.
 #
-# --selftest proves each marker is load-bearing + free of false-RED; --selftest-realbuild
-# proves the D-04 + Phase-29 updater guard on a REAL fold-in build (importing the EXACT
-# shared guard).
+# Four design decisions that the index cannot express:
+#
+# 1. WHERE the CONTENT proofs run (OPTION A, Plan 28-05 Rule-4 decision,
+#    2026-06-23). Tauri 2 brotli-EMBEDS the frontend INTO the Rust binary
+#    (Contents/MacOS/<bin>); Contents/Resources/ holds ONLY icon.icns. So
+#    grepping the .app's Resources for copy markers passes VACUOUSLY and the
+#    sentinel read FAILS — the real bytes are compressed inside the binary,
+#    invisible to strings/grep. The D-03 copy grep and the D-04/updater sentinel
+#    reads therefore run against the appstore build's `dist/`, the authoritative
+#    pre-compression bytes Tauri embeds VERBATIM in the SAME `tauri build`
+#    invocation, with assert_dist_freshness binding that dist/ to the signed
+#    binary so a stale clean dist/ cannot mask a dirty .app. Binary-level checks
+#    (archs, entitlements, plugins, 13.0 floor, profile, deep signature) stay on
+#    the signed .app.
+#
+# 2. WHY the plugin check re-resolves the cargo tree with the REAL build flags
+#    (--no-default-features --features appstore, Plan 27-01): resolving any other
+#    way verifies a different graph than the one shipped — a false GREEN.
+#
+# 3. WHY updater absence is a CHUNK-MODULE proof, not a package-absence test.
+#    @tauri-apps/plugin-updater rides along INERT through the shared tauri.ts seam
+#    (D-05, exactly like plugin-autostart), so a package/string grep is a false
+#    signal (project memory keygen-compileout-d04-proof). Safety comes from the
+#    29-02 runtime updater.check===0 no-invoke proof plus updaterInChunks:false.
+#    Likewise the bare verb 'Activate' is NOT a Keygen marker —
+#    AppearancePreviewStrip ships an inert 'Activate' preview button.
+#
+# 4. WHY the 13.0 floor is asserted on the built Info.plist, not the config
+#    overlay (Finding 3): a bad merge can pass the overlay grep while shipping
+#    the wrong floor.
 #
 # GREEN at the Phase 27 boundary. When a bundle IS present, any failure is FATAL
 # (non-zero exit) — Finding 2. The no-bundle local case SKIPs the bundle-level
