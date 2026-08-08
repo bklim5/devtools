@@ -9,17 +9,47 @@ The maintainer edits the section for the next version BEFORE running
 section's body into the annotated tag, the in-app updater banner, and the GitHub
 release body (falling back to the bare tag when a section is absent).
 
+> **Historical note (2026-08-08).** The `v1.0.1` and `v1.0.2` annotated tags, and
+> the GitHub release bodies published with them, went out with an empty
+> placeholder as their notes — the `[Unreleased]` section had not been filled
+> before `release:bump` promoted it. Those tags and release bodies are history and
+> are deliberately **not** rewritten; the `[1.0.1]` / `[1.0.2]` sections below were
+> backfilled from the milestone roadmaps and are the corrected record. See
+> `docs/RELEASE.md` § 1 for why the notes must be written *before* the bump.
+
 ## [Unreleased]
 
-- _Nothing yet._
+- No user-facing changes yet. Work since 1.0.2 has been operational only:
+  nightly offsite encrypted database backups with an automated restore check,
+  and a documentation/tooling hardening pass (`docs/KEYS.md`,
+  `docs/RELEASE-MACHINE.md`, `docs/CHANNELS.md`, a rewritten release runbook,
+  and two new pre-commit guards).
 
 ## [1.0.2] - 2026-08-07
 
-- _Nothing yet._
+- Internal: pinned time in the license-refresh tests via an injectable clock
+  seam, so a dated test fixture can no longer fail the release gate. No
+  user-facing change.
 
 ## [1.0.1] - 2026-08-07
 
-- _Nothing yet._
+- **Two new tools, taking the set to 13** — an **HTML** formatter and a combined
+  **JS/TS/JSX/TSX** formatter (one tool, no language picker). Each does both
+  **Prettify** (Prettier-identical output) and **Minify**, entirely offline.
+- The JS/TS tool adds **Semicolons** and **Single quotes** toggles in Prettify mode.
+- The **JSON and XML** formatters gained the same **Prettify | Minify** mode
+  selector and a **line-width** control.
+- The **Protobuf Decoder now leads the tool list** — sidebar, command palette and
+  the default landing tool all put the hero first. Your saved order and last-used
+  tool are unaffected.
+- Fixed: the sidebar tool list now scrolls at short window heights instead of
+  clipping.
+- Fixed: the native window titlebar follows the in-app theme, so light mode no
+  longer leaves a dark, hard-to-read titlebar.
+- **A Mac App Store edition of TinkerDev shipped** *(App Store edition)* — Pro is
+  unlocked there by a one-time in-app purchase instead of a licence key. The
+  direct download is unchanged and keeps its licence-key activation and
+  self-updater.
 
 ## [0.4.1] - 2026-06-21
 

@@ -1,281 +1,371 @@
-# DevTools — Release Runbook (macOS)
+# DevTools — Release Runbook (direct channel, macOS)
 
-A concrete, copy-pasteable runbook for cutting a signed DevTools release with a working
-auto-updater round-trip. This is the **manual** process (D-16); CI automation is deferred to a
-later phase.
+> **Rewritten 2026-08-08** (quick/260808-kfs) to close architecture-review findings
+> **F3 / F4 / F8 / KG-3**. The previous version of this file documented a hand-authored
+> `latest.json` flow that the `release:publish` driver replaced, claimed both manifests were
+> "currently 0.2.0", and advised regenerating the minisign keypair and committing the new
+> public key — advice that would have **permanently stranded every installed app**. All of
+> that is gone. Everything below was verified against the live tree on 2026-08-08.
 
-> **What you produce per release:** a DMG (first-install only) **and** a `.app.tar.gz` +
-> `.app.tar.gz.sig` (the updater payload), published on a GitHub Release together with a
-> `latest.json` manifest. The updater consumes the **`.app.tar.gz`**, never the DMG.
-
-> **Two independent signatures — do not conflate them:**
-> - **minisign** signs the *update payload* (`.app.tar.gz`). Mandatory, on by default, cannot be
->   disabled. This is the DST-02 "verify before apply" backstop.
-> - **Apple Developer-ID + notarisation** signs the *app identity* for Gatekeeper (DST-01). **LIVE
->   since 2026-06-21** (Apple enrolment done, D-02 resolved): release builds are Developer-ID-signed +
->   notarised + stapled when the `APPLE_*` env is set (Team ID `FK4HQK83WX`). Without that env (dev
->   builds), signing stays ad-hoc (`signingIdentity: "-"`) — fast, but no Gatekeeper guarantee.
+**This runbook covers the DIRECT channel only** — the notarised DMG published to the public
+`bklim5/devtools-releases` repo, with the self-updater. For the Mac App Store path see
+`docs/CHANNELS.md` and `docs/appstore/`. For anything key-related — rotation, loss,
+expiry — see **`docs/KEYS.md`**; this file never restates it.
 
 ---
 
-## 0. PRE-RELEASE (one-time, before the FIRST release)
+## 1. TL;DR — the whole release in three commands
 
-The updater endpoint and every `latest.json` `url` must point at a **public** GitHub repo. To keep
-the source closed, releases use a **split-repo** layout: the **source** repo `bklim5/devtools`
-stays **private**, and a dedicated **public** repo `bklim5/devtools-releases` holds *only* the
-release artifacts + `latest.json`. The updater downloads unauthenticated, so the artifacts must be
-public — but the source does not.
+```bash
+# 1. Write the notes FIRST. They become the tag message, the GitHub release body,
+#    and the in-app updater banner.
+$EDITOR CHANGELOG.md                    # fill the [Unreleased] section
+#    ...or append one line non-interactively:
+pnpm release:changelog "Fix the thing"  # add --commit to commit CHANGELOG.md alone
 
-1. **Source repo (private)** — `git@github.com:bklim5/devtools.git` is `origin`; keep it private.
+# 2. Bump + tag + push.
+pnpm release:bump patch                 # patch | minor | major  [--dry-run]
+
+# 3. Build, notarise, publish.
+pnpm release:publish
+```
+
+That is the procedure. **The manual `gh release create` / hand-written `latest.json` flow in
+§9 is a RECOVERY APPENDIX**, only for when `build-and-publish.mjs` is unusable. Using it
+routinely skips every safety rail the driver exists to enforce.
+
+**Order matters.** `release:bump` renames `## [Unreleased]` to `## [<version>] - <date>` and
+inserts a fresh empty `[Unreleased]` above it (`promoteUnreleased` in
+`src/lib/release/changelog.ts`). The tag message and the GitHub release body come from
+`resolveReleaseNotes`, which **falls back to the bare tag when the section is empty**. So an
+unfilled `[Unreleased]` silently ships a release with no notes — which is exactly what
+happened to `v1.0.1` and `v1.0.2` (see §8).
+
+### What you produce per release
+
+| Artifact | Purpose |
+|---|---|
+| `*.dmg` | first install (new users) |
+| `*.app.tar.gz` | the updater payload — the updater consumes **this**, never the DMG |
+| `*.app.tar.gz.sig` | its minisign signature; its contents go into `latest.json` |
+| `latest.json` | the manifest the app polls; uploaded **last** |
+
+### Two independent signatures — do not conflate them
+
+- **minisign** signs the *update payload*. Mandatory, cannot be disabled. This is the DST-02
+  "verify before apply" backstop. The public half is compiled into every shipped build
+  (`src-tauri/tauri.conf.json:52`).
+- **Apple Developer ID + notarisation** signs the *app identity* for Gatekeeper (DST-01).
+  Live since 2026-06-21; Team `FK4HQK83WX` (`tauri.conf.json:44`). Release builds are
+  Developer-ID-signed, notarised and stapled when the `APPLE_*` env is present. Dev builds
+  keep `signingIdentity: "-"` (ad-hoc, fast, Gatekeeper friction expected).
+
+### Why a split repo
+
+The updater downloads **unauthenticated**, so the artifacts must be public — but the source
+is not. `origin` is the private source repo `git@github.com:bklim5/devtools.git`; releases
+go to the **public** `bklim5/devtools-releases`, which is **not a git remote** at all
+(`git remote -v` shows only `origin`). Every `gh` call in the driver passes `--repo`
+(`scripts/build-and-publish.mjs:76`).
+
+---
+
+## 2. What each command actually does
+
+Both drivers are thin I/O shells over unit-tested pure cores in `src/lib/release/`
+(`bumpPlan.ts`, `publishPlan.ts`, `manifest.ts`, `changelog.ts`). The authoritative
+description of each pipeline is the header comment of its script — read it before changing
+anything.
+
+### `pnpm release:bump <patch|minor|major> [--dry-run]`
+
+→ `tsx scripts/bump-and-tag.mjs`. Arg grammar is exactly `patch|minor|major [--dry-run]`
+(`parseBumpArgs`); a version string, a duplicate level, or any other flag is a usage error.
+
+Ordered pipeline (`scripts/bump-and-tag.mjs:11-24`):
+
+1. parse args → read current version → build the plan (one computed version, used everywhere)
+2. **read-only preflights**: clean tree, branch is `master`, the tag is absent both locally
+   and on the remote, and the `vitest` + `tsc` + `eslint` gate passes
+3. `--dry-run` **short-circuits here — zero writes**
+4. write the 3 manifests (`package.json`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml`)
+5. regenerate + stage the lockfiles (`pnpm-lock.yaml`, `src-tauri/Cargo.lock`)
+6. **allowlist diff** — refuses to tag if anything outside `ALLOWED_PATHS` changed, and
+   refuses if any of the 3 required manifests did *not* change (`bumpPlan.ts:167-205`)
+7. commit → annotated tag, **message = the CHANGELOG section**
+8. assert the tree is clean → print the push plan → **y/N** → push the commit, then the tag
+
+Safety invariants worth knowing: every subprocess call uses `execFileSync` with an argv
+array (no shell-injection surface); the script **never** runs `git reset` or `git tag -d` —
+on decline or failure it only *prints* the recovery commands; a non-TTY run declines the
+push (default NO) and keeps the local work.
+
+### `pnpm release:publish [--dry-run | --build-only]`
+
+→ `tsx scripts/build-and-publish.mjs`. The two flags are mutually exclusive.
+`pnpm release:build-only` is the same driver with `--build-only` (build, no publish) — that
+is what `scripts/build.sh direct` calls.
+
+Ordered pipeline (`scripts/build-and-publish.mjs:13-29`):
+
+1. parse args → read version → build the plan view
+2. **read-only preflights**: signing env present, Apple notary env presence, `rustup` has
+   both targets, `gh` is authenticated **with write/admin on the public releases repo**, and
+   the release is not already published
+3. `--dry-run` **short-circuits here — no build, no writes, no network mutation**
+4. `rustup target add` (idempotent) → clear any stale `.sig` → **universal** `tauri build`
+5. `lipo` assert: the binary carries **both** `x86_64` and `arm64`
+6. glob exactly **one fresh** `.sig` (0 or >1 is a hard failure)
+7. notarise + staple the DMG, then `spctl` assert
+8. write `latest.json` (generated, never `git add`-ed)
+9. `gh release create` with the **assets first**
+10. `gh release upload latest.json` **last**
+11. `curl` the served endpoint and verify the version it reports
+12. print the manual round-trip gate (§4)
+
+The assets-before-manifest ordering in 9/10 is deliberate: if the run dies between them, the
+old `latest.json` is still the newest one users see, so nobody is offered a manifest whose
+assets do not exist.
+
+### `pnpm release:changelog "<entry>" [--commit]`
+
+→ `tsx scripts/changelog.mjs`. Appends one bullet to `[Unreleased]`. Default is edit-only;
+`--commit` commits `CHANGELOG.md` **alone** (pathspec-scoped) so the bump's clean-tree
+preflight still passes.
+
+---
+
+## 3. Environment and preflight expectations
+
+**Secrets are never typed by hand.** `scripts/build.sh` sources the gitignored root `.env`
+into its own shell (`set -a; . ./.env; set +a`) and never prints it
+(`scripts/build.sh:44-52`). A **standalone** `pnpm release:publish` does *not* do that — it
+reads `process.env`, so either run it through `scripts/build.sh direct` (build-only) or
+export the same env yourself first. A bare `pnpm release:publish --dry-run` in a fresh shell
+aborts at the first preflight with:
+
+```
+publish aborted: signing env missing (TAURI_SIGNING_PRIVATE_KEY[_PATH] +
+TAURI_SIGNING_PRIVATE_KEY_PASSWORD). The .sig cannot be produced.
+```
+
+That is the gate working (verified 2026-08-08), not a bug.
+
+The six `.env` keys, **by name only** (see the committed, value-free `.env.example`):
+`TAURI_SIGNING_PRIVATE_KEY` (or `TAURI_SIGNING_PRIVATE_KEY_PATH`),
+`TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, `APPLE_API_KEY_PATH`, `APPLE_API_KEY`,
+`APPLE_API_ISSUER`, `APPLE_SIGNING_IDENTITY`. Where the values live, and what happens if
+they are lost: `docs/KEYS.md`.
+
+**Per-channel build trees.** Each channel builds into its own absolute `CARGO_TARGET_DIR`
+(`src-tauri/target/{direct,appstore,appstore-pkg}`) so the three artifacts coexist. A **set**
+`CARGO_TARGET_DIR` **must be absolute** — both drivers throw on a relative path, because
+Tauri runs cargo with `CWD=src-tauri/`, which would split the build output from where the
+lipo/sig/dmg globs look.
+
+**Git hooks are part of the pipeline.** `lefthook.yml` runs `tsc` (root + `server/webhook`),
+`vitest`, `eslint` and the planning-archive guard on **pre-commit**, and
+`cargo test --manifest-path src-tauri/Cargo.toml` on **pre-push**. So `release:bump`'s push
+step pays a cargo build — budget for it; it is not a hang.
+
+**DMG flake mitigation** (still real — project memory `tauri-dmg-bundle-flake`): the
+`bundle_dmg.sh` `hdiutil`/AppleScript step fails when other DMGs are mounted.
+
+```bash
+hdiutil info                 # list mounted images
+hdiutil detach /dev/diskN    # unmount each stray volume
+```
+
+Then re-run.
+
+---
+
+## 4. The manual round-trip gate (DST-02)
+
+`release:publish` prints this at the end, and it is the load-bearing human proof:
+
+1. Install and run an **older** build.
+2. Let it detect this release, or trigger **Check for Updates** explicitly.
+3. Confirm minisign verifies the `.sig` against the compiled-in public key.
+4. Confirm it downloads, applies, and **relaunches into the new version**.
+5. If possible, repeat on both an Apple Silicon and an Intel machine — that is what proves
+   the universal artifact serves both `darwin-aarch64` and `darwin-x86_64`.
+
+**A signature mismatch MUST refuse to install.** That refusal is DST-02 working.
+
+This gate is also, today, the only end-to-end check that the direct channel's capability
+overlay is intact — see the silent-drop trap in `docs/CHANNELS.md`. Run it after any change
+to `src-tauri/tauri.direct.conf.json`.
+
+*CSP note:* the updater's download runs Rust-side and may bypass the webview CSP entirely.
+`https://github.com` and `https://objects.githubusercontent.com` are in `connect-src`
+defensively (`tauri.conf.json:27`) so the round-trip is covered either way. This gate is the
+authoritative confirmation.
+
+---
+
+## 5. Rollback — revert by republishing
+
+**Never delete or re-point a published release.** Installed apps poll
+`releases/latest/download/latest.json`; deleting the newest release silently changes what
+"latest" means for everyone, and an app that already downloaded the payload is unaffected
+anyway. There is no rollback in the update protocol — only rolling *forward*.
+
+To undo a bad release:
+
+1. Revert the offending code on `master`.
+2. `pnpm release:bump patch` — a **new, higher** version.
+3. `pnpm release:publish`.
+
+Users on the bad version update forward to the fix. Users who have not updated yet skip the
+bad version entirely.
+
+**If a run dies partway** (this is what the driver prints as recovery, from
+`renderPublishRecovery`):
+
+```bash
+gh release view <tag> --repo bklim5/devtools-releases
+gh release list --repo bklim5/devtools-releases
+# to replace bad assets:
+gh release delete-asset <tag> <asset> --repo bklim5/devtools-releases
+pnpm release:publish
+```
+
+Nothing is auto-rolled-back. The script is idempotent up to the publish step and aborts if
+the release already exists.
+
+**Assets landed but `latest.json` did not** — the safe failure, by construction (§2 step
+9/10). No user is offered the new version, because the manifest they poll still describes
+the previous release. Re-run `release:publish`, or upload just the manifest:
+`gh release upload <tag> latest.json --repo bklim5/devtools-releases`.
+
+**`latest.json` landed but points at a broken payload** — the dangerous case. Fix forward
+immediately with a new version; do not attempt to "unpublish".
+
+---
+
+## 6. Moving the update host
+
+The updater endpoint is **compiled into every shipped binary**
+(`src-tauri/tauri.conf.json:53-55`). An installed app polls the URL that was baked in when
+*it* was built. Changing the URL in the repo therefore does **nothing** for existing
+installs.
+
+Moving the host is the same shape as a minisign key migration — a **transitional release**:
+
+1. Publish version *N* **through the OLD endpoint**, with `plugins.updater.endpoints`
+   already pointing at the NEW host. Existing installs fetch it from the old host, apply it,
+   and are now pointed at the new host.
+2. **Keep the old host serving** until the installed base has adopted *N*. Weeks, not hours.
+   There is no telemetry; adoption is inferred from asset download counts.
+3. Only then retire the old host.
+
+Anyone who skips version *N* is stranded on a dead endpoint and must reinstall by hand.
+
+Both the `endpoints` URL **and** every `url` inside `latest.json` change (the manifest URLs
+are built from the releases repo by `buildAssetUrl`). Cross-reference `docs/KEYS.md` § 4 —
+the minisign migration has the same constraint and, if you need both, they should be the
+same transitional release.
+
+---
+
+## 7. Version and tag schemes (two of them, and they collide)
+
+| Scheme | Shape | Created by | Pushed? |
+|---|---|---|---|
+| **Release tags** | `vX.Y.Z` (three-part) | `pnpm release:bump`; tag message = the CHANGELOG section | **Yes**, to `origin` |
+| **Milestone tags** | `vX.Y` (two-part) | hand-made at milestone close | **No — local only** (project memory `milestone-tags-local-only`) |
+
+Verified on 2026-08-08 with `git tag` and `git ls-remote --tags origin`:
+
+- Release tags, all present on `origin`: `v0.2.2 v0.3.0 v0.3.1 v0.3.3 v0.4.0 v0.4.1 v1.0.1
+  v1.0.2`. (`v0.3.2` exists **locally only** — it was never pushed.)
+- Milestone tags, all local only: `v1.0 v1.1 v1.2 v1.3 v1.4 v1.5 v1.6 v1.7 v1.8 v1.9`.
+- **There is no `v1.0.0` release tag.** `package.json` and `src-tauri/tauri.conf.json` are
+  both at `1.0.2`; the jump to 1.0.0 was made for the App Store submission and the first
+  direct release at that major was `v1.0.1`.
+- Direct-channel users therefore went **0.4.1 → 1.0.1**, across 284 commits (all of
+  milestones v1.6–v1.9).
+
+**Recommendation:** prefix future milestone tags — `milestone/v2.0` — so `git tag | sort -V`
+stops interleaving two unrelated schemes and a `vX.Y` can never be mistaken for a shippable
+release. Do not rename the existing ones; `v1.0`–`v1.9` are local and harmless.
+
+---
+
+## 8. Key regeneration — read `docs/KEYS.md`, do not improvise
+
+The advice that used to live here — "if the keypair is ever regenerated, re-paste the new
+`devtools.key.pub` into `pubkey` and commit" — was **wrong and dangerous**, and is deleted.
+
+**Regenerating the minisign keypair strands every existing install, permanently.** The public
+key is compiled into the binary on each user's disk; their updater will reject every future
+release, and no server-side change can fix it. It is not a recovery path. The only safe
+migration is a transitional release signed with the OLD key that carries the NEW public key,
+followed by a multi-week adoption wait.
+
+The full procedure, the loss consequences of every other anchor, and the certificate expiry
+calendar live in **`docs/KEYS.md`**. Nothing about keys should ever be restated here.
+
+---
+
+## 9. Recovery appendix — the manual flow
+
+> **Only when `scripts/build-and-publish.mjs` is unusable.** This path has none of the
+> driver's safety rails: no lipo both-arch assert, no single-fresh-`.sig` check, no
+> already-published guard, no served-version verification, no asset-ordering guarantee. If
+> you use it, you are the gate.
+
+1. **Build.** `pnpm tauri build --target universal-apple-darwin` (with the signing env
+   exported). Artifacts land under
+   `$CARGO_TARGET_DIR/universal-apple-darwin/release/bundle/` — `dmg/*.dmg`,
+   `macos/*.app.tar.gz`, `macos/*.app.tar.gz.sig`.
+2. **Create the release, assets first.**
    ```bash
-   git remote -v
-   # origin  git@github.com:bklim5/devtools.git   (private — source)
+   gh release create vX.Y.Z \
+     --repo bklim5/devtools-releases \
+     "<path>/dmg/"*.dmg \
+     "<path>/macos/"*.app.tar.gz \
+     --title "vX.Y.Z" --notes "<the CHANGELOG section for X.Y.Z>"
    ```
-
-2. **Create the public releases repo (one-time).** Create `bklim5/devtools-releases` as **public**.
-   It needs no source — only GitHub Releases (assets + `latest.json`) live here. Private repos do
-   not serve `releases/latest/download/...` to unauthenticated updater clients, which is why this
-   one must be public.
-
-3. **Confirm the updater endpoint matches the RELEASES repo.** `src-tauri/tauri.conf.json` has:
-   ```jsonc
-   "plugins": {
-     "updater": {
-       "pubkey": "...",
-       "endpoints": [
-         "https://github.com/bklim5/devtools-releases/releases/latest/download/latest.json"
-       ]
+3. **Write `latest.json` by hand.**
+   ```json
+   {
+     "version": "X.Y.Z",
+     "notes": "...",
+     "pub_date": "2026-01-01T12:00:00Z",
+     "platforms": {
+       "darwin-aarch64": {
+         "signature": "<contents of the FRESH .app.tar.gz.sig from THIS build>",
+         "url": "https://github.com/bklim5/devtools-releases/releases/download/vX.Y.Z/<name>.app.tar.gz"
+       },
+       "darwin-x86_64": { "signature": "<same>", "url": "<same>" }
      }
    }
    ```
-   This is pinned to the **public releases** repo `bklim5/devtools-releases` (NOT the private source
-   repo, NOT the historical `boonkhailim/devtools` placeholder). If you ever move it, update **both**
-   this `endpoints` URL **and** every `url` in `latest.json` to the new `owner/repo`.
-
-4. **Confirm the committed pubkey matches your private key.** The `plugins.updater.pubkey` in
-   `tauri.conf.json` is the public half of the minisign keypair at `~/.tauri/devtools.key`. If the
-   keypair is ever regenerated, re-paste the new `~/.tauri/devtools.key.pub` contents into
-   `pubkey` and commit — otherwise every update will fail signature verification (Pitfall 2).
-
----
-
-## 1. Bump the version (lockstep — D-16)
-
-Bump the **same** version in BOTH files (they must stay in sync; both are currently `0.2.0`):
-
-- `src-tauri/tauri.conf.json` → `"version": "X.Y.Z"`
-- `package.json` → `"version": "X.Y.Z"`
-
-```bash
-# Sanity-check they match before building:
-grep '"version"' package.json
-grep '"version"' src-tauri/tauri.conf.json
-```
-
-The updater compares `latest.json.version` against the running app's `tauri.conf.json` version, so
-this bump is what makes an older install detect the new release.
-
----
-
-## 2. Export the signing env (gitignored — NEVER committed, D-05)
-
-The minisign keypair is **password-protected**. Signed builds require BOTH the private key AND its
-password:
-
-```bash
-# Option A — pass the key CONTENTS inline (recommended; version-agnostic):
-export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.tauri/devtools.key)"
-
-# Option B — pass the key by path. `pnpm release:publish` reads this file into the
-# CONTENT form for you (shouldMaterializeSigningKey), so it works there regardless
-# of bundler version. NOTE: a raw `pnpm tauri build` OUTSIDE the script still needs
-# Option A — the bundler itself reads ONLY TAURI_SIGNING_PRIVATE_KEY:
-export TAURI_SIGNING_PRIVATE_KEY_PATH="$HOME/.tauri/devtools.key"
-
-# REQUIRED in both cases — the password you chose at key generation:
-export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="<the password for ~/.tauri/devtools.key>"
-```
-
-- The private key lives at `~/.tauri/devtools.key` — **OUTSIDE the repo**. Never copy it in, never
-  commit it. The `.gitignore` already blocks `.env`, `.env.*`, `.envrc`, `*.key`, `*.p8` (Plan 01),
-  but the safest practice is to keep the key in `~/.tauri/` and only export from there.
-- Only the **public** key (`devtools.key.pub`) belongs in the repo, and it is already committed into
-  `tauri.conf.json`'s `plugins.updater.pubkey`.
-- If `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` is wrong or unset, `tauri build` fails to produce the
-  `.sig` (password-protected key cannot be decrypted) — that is the gate working, not a bug.
-
-> **Apple Developer-ID + notarisation is LIVE — see § "Post-enrolment notarisation flip" below.**
-> Set the `APPLE_*` notary env for release builds to produce a Gatekeeper-clean, notarised DMG.
-> Omit it for dev builds (ad-hoc, fast).
-
----
-
-## 3. Build the signed bundle + updater artifacts
-
-```bash
-pnpm tauri build
-```
-
-With `bundle.createUpdaterArtifacts: true` (already set in `tauri.conf.json`), this produces THREE
-outputs under `src-tauri/target/release/bundle/`:
-
-| Artifact | Path (under `src-tauri/target/release/bundle/`) | Purpose |
-|----------|--------------------------------------------------|---------|
-| DMG | `dmg/*.dmg` | **First-install only** (uploaded to the Release for new users) |
-| Updater payload | `macos/*.app.tar.gz` | What the updater downloads + applies |
-| Payload signature | `macos/*.app.tar.gz.sig` | minisign signature; its contents go into `latest.json` |
-
-```bash
-ls -1 src-tauri/target/release/bundle/dmg/*.dmg
-ls -1 src-tauri/target/release/bundle/macos/*.app.tar.gz
-ls -1 src-tauri/target/release/bundle/macos/*.app.tar.gz.sig
-```
-
-### DMG flake mitigation (Pitfall 5 — repo-specific)
-
-`bundle_dmg.sh`'s `hdiutil`/AppleScript step **fails when other DMGs are already mounted**. If the
-build fails at the DMG step:
-
-```bash
-hdiutil info                 # list mounted images; note each /dev/diskN node
-hdiutil detach /dev/diskN    # unmount each stray DMG (repeat per stray volume)
-pnpm tauri build             # retry clean
-```
-
-(See also MEMORY: `tauri-dmg-bundle-flake`.)
-
----
-
-## 4. Create the GitHub Release
-
-1. Tag the release `vX.Y.Z` (matching the version from step 1).
-2. Create a GitHub Release on the **public** `bklim5/devtools-releases` repo for that tag.
-   (You run `gh` from the private source checkout, so pass `--repo` to target the releases repo.)
-3. Upload the **DMG** and the **`.app.tar.gz`** as release assets.
-
-```bash
-# Example with the gh CLI (--repo targets the PUBLIC releases repo):
-gh release create vX.Y.Z \
-  --repo bklim5/devtools-releases \
-  src-tauri/target/release/bundle/dmg/*.dmg \
-  src-tauri/target/release/bundle/macos/*.app.tar.gz \
-  --title "vX.Y.Z" --notes "What changed in this release."
-```
-
----
-
-## 5. Build `latest.json` (D-07/D-08)
-
-Create a `latest.json` describing this release. **Schema** (static manifest listing each platform):
-
-```json
-{
-  "version": "X.Y.Z",
-  "notes": "What changed in this release.",
-  "pub_date": "2026-06-01T12:00:00Z",
-  "platforms": {
-    "darwin-aarch64": {
-      "signature": "<contents of the FRESH *.app.tar.gz.sig for THIS build>",
-      "url": "https://github.com/bklim5/devtools-releases/releases/download/vX.Y.Z/<name>.app.tar.gz"
-    }
-  }
-}
-```
-
-- **`signature`** — paste the **contents** of the freshly-built `*.app.tar.gz.sig`:
-  ```bash
-  cat src-tauri/target/release/bundle/macos/*.app.tar.gz.sig
-  ```
-  **NEVER reuse a stale `.sig` from a previous build** — the signature is per-payload; a mismatch
-  makes the updater (correctly) refuse to install (Pitfall 2 / `InvalidSignature`). Always copy the
-  `.sig` produced by THIS build's `pnpm tauri build`.
-- **`url`** — the `releases/download/vX.Y.Z/...` URL of the uploaded `.app.tar.gz` asset (point at
-  the **`.app.tar.gz`**, NOT the DMG — Pitfall 1).
-- **Platform key** — this build host is **Apple Silicon (arm64)**, so the key is **`darwin-aarch64`**.
-  (An Intel build host would emit `darwin-x86_64`.) The plugin reads `platforms.<key>` and picks the
-  matching arch itself — do **not** put `{{target}}`/`{{arch}}` templating in the endpoint URL with a
-  static `latest.json`; that produces a 404 (Pitfall 4).
-- Set `version` (must equal step 1), `pub_date` (ISO-8601 UTC), and `notes`.
-
----
-
-## 6. Upload `latest.json` to the same Release
-
-Upload `latest.json` as an asset of the same `vX.Y.Z` Release so the stable redirect resolves:
-
-```bash
-gh release upload vX.Y.Z latest.json --repo bklim5/devtools-releases
-
-# Confirm the endpoint the app polls actually resolves to THIS manifest:
-curl -L https://github.com/bklim5/devtools-releases/releases/latest/download/latest.json
-```
-
-`releases/latest/download/latest.json` is a stable GitHub redirect to the newest release's
-`latest.json` — exactly the endpoint pinned in `tauri.conf.json`.
-
----
-
-## 7. Verify the round-trip (the load-bearing proof — DST-02)
-
-1. Install and run an **OLD** version (a build with a lower version than this release).
-2. Trigger **"Check for Updates…"** (tray menu) — or relaunch if you opted in to auto-checks.
-3. Confirm: the banner shows "vX.Y.Z available" → **Install** → the updater downloads,
-   **verifies the minisign signature**, and **relaunches into the new version**.
-4. A signature **mismatch MUST refuse to install** — that refusal is DST-02 working, not a failure.
-
-> **CSP round-trip note (A2):** the updater's download runs **Rust-side** and may bypass the webview
-> CSP entirely. The two GitHub hosts (`https://github.com`, `https://objects.githubusercontent.com`)
-> were added to `connect-src` **defensively** so that, whether or not the fetch traverses the
-> webview CSP, the round-trip is covered. Step 7 IS the authoritative confirmation that the real
-> download verifies and applies — if it works, the CSP scope is correct.
-
----
-
-## Callout: Per-arch caveat (Pitfall 7 / A4)
-
-A **local Apple-Silicon build serves only `darwin-aarch64`.** Intel (`darwin-x86_64`) users are **not
-served** an update until an `x86_64` (or a universal `tauri build --target universal-apple-darwin`)
-build is also published and added to `latest.json`'s `platforms`. Universal-binary updater
-platform-key matching is a known rough edge. For this local-build milestone (D-14) we ship the build
-host's arch and document the gap here; both-arch / universal coverage is **deferred to the CI phase**.
-
----
-
-## Callout: Post-enrolment notarisation flip (D-02/D-03) — ✅ DONE 2026-06-21
-
-DST-01's Gatekeeper-clean / Developer-ID notarisation is **LIVE**. Apple Developer enrolment is done,
-the **Developer ID Application** cert is installed (Team `FK4HQK83WX`), the notary API key is
-validated, and `providerShortName` is committed. The flip was **credentials + one config line** — no
-structural change (hardened runtime + entitlements were already committed). The standing procedure:
-
-1. Export the App Store Connect API key notary env (`.p8`, gitignored — D-03/D-05):
+   - **NEVER reuse a stale `.sig`.** The signature is per-payload; a mismatch makes the
+     updater correctly refuse to install. Copy the `.sig` produced by *this* build.
+   - The `url` must point at the **`.app.tar.gz`**, never the DMG.
+   - A universal build serves both platform keys from the same artifact. Do **not** put
+     `{{target}}` / `{{arch}}` templating in the endpoint URL with a static manifest — it
+     404s.
+4. **Upload the manifest LAST**, then verify what the endpoint actually serves:
    ```bash
-   export APPLE_API_KEY="<key-id>"
-   export APPLE_API_ISSUER="<issuer-id>"
-   export APPLE_API_KEY_PATH="$HOME/.appstoreconnect/AuthKey_<key-id>.p8"
-   export APPLE_SIGNING_IDENTITY="Developer ID Application: <Name> (<TeamID>)"
+   gh release upload vX.Y.Z latest.json --repo bklim5/devtools-releases
+   curl -L https://github.com/bklim5/devtools-releases/releases/latest/download/latest.json
    ```
-2. `"providerShortName": "FK4HQK83WX"` is committed in `bundle.macOS` (`tauri.conf.json`).
-   `signingIdentity` stays `"-"` so dev builds remain ad-hoc/fast; `APPLE_SIGNING_IDENTITY` overrides
-   it for release builds.
-3. Rebuild: `pnpm tauri build`. **Tauri notarises automatically when the `APPLE_*` env is present.**
-4. **THEN re-verify Gatekeeper-clean install** on a clean machine (no right-click→Open needed).
-
-A **dev** build (no `APPLE_*` env) is still ad-hoc and shows Gatekeeper friction (right-click → Open);
-that is expected for local builds. **Release** builds (env set) are notarised + Gatekeeper-clean.
+5. Run the §4 round-trip gate. It is not optional on this path.
 
 ---
 
-## Callout: Secrets reminder (D-05)
+## 10. Channel note, and what is deferred
 
-The minisign **private key + password** and the Apple notary creds (`.p8`, key-id, issuer-id) are
-**local, gitignored env only** — never committed. The `.gitignore` already ignores `.env`,
-`.env.*`, `.envrc`, `*.key`, `*.p8` (Plan 01). Only the **public** minisign key is in the repo
-(in `tauri.conf.json`'s `pubkey`). A leaked private key alone is insufficient to forge an update
-**only because** the key is password-protected — keep the password out of the repo and out of shell
-history where practical.
+This runbook is the **direct** channel. The Mac App Store build is a different binary with
+different features, entitlements, capabilities and Pro-entitlement source — see
+`docs/CHANNELS.md` for the full matrix and `docs/appstore/SUBMISSION-RUNBOOK.md` for the
+submission path.
 
----
-
-*Runbook owner: manual release (D-16). CI release-automation (sign + notarise + publish + update
-`latest.json` from GitHub Actions secrets) is a deferred future phase.*
+CI release automation is backlog **999.2**. Before it starts, the key-custody decision in
+`docs/KEYS.md` § 7 must be made: a CI runner needs the minisign private key and its
+passphrase, and a leaked one cannot be revoked without a multi-week transitional release.
+`docs/RELEASE-MACHINE.md` documents everything the current single-laptop pipeline depends on.
