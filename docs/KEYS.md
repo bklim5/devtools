@@ -20,14 +20,39 @@ Public halves that are *already* compiled into shipped binaries are referenced *
 `path:line`** rather than pasted — a pointer is enough, and pasting them trains the wrong
 habit.
 
-This rule is enforced mechanically, on **every commit**: `scripts/check-doc-secrets.sh`
-runs from `lefthook.yml`'s `pre-commit` hook and scans the staged diff of `docs/`,
-`CHANGELOG.md`, `README.md` and `infra/` for PEM headers, nontrivial
+The rule is the RULE — it covers the whole repository, every path and every commit
+message. `scripts/check-doc-secrets.sh` is **partial mechanical support** for it, not a
+proof of it; review is still the backstop. Be exact about what the machine actually does,
+because a control people overestimate is worse than one they know the edges of:
+
+**What the scanner covers.** It runs from `lefthook.yml`'s `pre-commit` hook and scans the
+**added lines of the staged diff**, under the pathspec `docs/`, `CHANGELOG.md`,
+`README.md`, `infra/`, `scripts/`, for PEM private-key delimiters, nontrivial
 `*KEY|SECRET|TOKEN|PASSWORD*=` assignments, long base64 runs, provider-specific prefixes
-and unscannable binary additions. A hit is a hard fail; any git or grep error is a fatal
-exit rather than a clean pass. There is no path allowlist — the two exemptions (a value
-labelled as a digest or a public key, and a run that is really a filesystem path) are
-shape rules that apply everywhere, documented in the script's header.
+(`ghp_`, `re_`, `RWS…`, `MIG…`, `hc-ping.com`, account-id-bearing R2 endpoints) and
+unscannable binary additions. A hit is a hard fail; any git or grep error is a fatal exit
+rather than a clean pass. Rename detection is suppressed, so a tracked file *moved* into a
+scanned path is re-scanned in full rather than passing as a content-free rename. There is
+no path allowlist — the exemptions (a 64-char hex digest labelled `sha256`/`fingerprint`,
+a value labelled a public key, a run that is really a filesystem path, a right-hand side
+that is code rather than a value) are structural rules that apply everywhere, documented
+in the script's header.
+
+**What it does not cover — accepted residual risk:**
+
+1. **Commit and tag messages.** They are never diff content. A secret pasted into
+   `git commit -m` reaches history completely unscanned.
+2. **Client-hook bypass.** It is a local pre-commit hook. `git commit --no-verify` skips
+   it, and so does any clone where `pnpm lefthook install` was never run. There is no
+   server-side enforcement, and this repo's remote is release-only, so nothing re-checks.
+3. **Every path outside the pathspec** — `src/`, `src-tauri/`, `server/`, `test/`,
+   `.planning/`, dotfiles.
+4. **History.** The scanner is not retroactive; see § 1a.
+5. **Shape, not semantics.** It catches values that *look* like secrets. A short,
+   low-entropy secret (a 6-character PIN, a memorable passphrase) matches nothing.
+
+Treat a green `doc-secrets` as "no obvious secret was added to the prose surface on this
+machine", never as "this commit is clean".
 
 ### 1a. Known history exposure — A1 passphrase (open)
 
@@ -249,9 +274,10 @@ the commands above are the source.
   recovery-critical secrets that are NOT in the dump" (line 664) holds the sha256 + key-name
   table for `infra/keygen/.env` (17 keys) and `server/webhook/.env` (9 keys).
   **Do not duplicate those hashes here** — a stale second copy is worse than none. (The
-  RUNBOOK's own table survives `scripts/check-doc-secrets.sh` because each digest sits
-  under a `sha256` column header, which is the scanner's published-value exemption; a
-  digest pasted into unrelated prose here would not.)
+  RUNBOOK's own table survives `scripts/check-doc-secrets.sh` on two structural counts:
+  each value is a 64-char hex digest, and it sits in a markdown table whose header column
+  says `sha256`. A digest pasted into unrelated prose here would fail, and so would a
+  non-digest value in a table.)
 - **Known gap — A9.** `src-tauri/embedded.provisionprofile` exists only in the working tree.
   It is gitignored, it is in no backup, and it is required to build the App Store `.pkg`.
   It *is* regenerable from the developer portal, so this is an inconvenience rather than a

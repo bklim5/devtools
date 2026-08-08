@@ -19,12 +19,14 @@
 #   • archive-guard refuses commits that would delete planning history without
 #     archiving it byte-for-byte (scripts/check-planning-archive.sh). It exits
 #     immediately on any commit that touches nothing under .planning/phases/.
-#   • doc-secrets refuses commits that add a secret VALUE to the prose surface
-#     — docs/, CHANGELOG.md, README.md, infra/ (scripts/check-doc-secrets.sh).
-#     It exits immediately when nothing is staged under those paths. This is
-#     what makes docs/KEYS.md's "enforced mechanically" claim true; a secret in
+#   • doc-secrets refuses commits that add a secret VALUE under docs/,
+#     CHANGELOG.md, README.md, infra/ or scripts/ (scripts/check-doc-secrets.sh).
+#     It exits immediately when nothing is staged under those paths. A secret in
 #     git history is permanent, so author care + review is the wrong PRIMARY
-#     control.
+#     control. It is PARTIAL support for docs/KEYS.md's rule, not proof of it:
+#     being a client-side hook it is skipped by `--no-verify` and by any clone
+#     without `pnpm lefthook install`, and it never sees commit or tag messages
+#     or any path outside that pathspec. KEYS.md § 1 lists the same limits.
 # Both take their own pathspecs and read the INDEX, so they deliberately do NOT
 # use lefthook's `files:`/`{staged_files}` templating — a guard that only sees a
 # filtered file list cannot reason about deletions or about the diff.

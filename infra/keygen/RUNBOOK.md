@@ -769,7 +769,7 @@ curl https://license.tinkerdev.io/v1/health          # 204, over REAL TLS, no -k
 
 docker compose -f compose.yaml exec -T postgres psql -U keygen -d keygen -tAc \
   "select id, encode(decode(ed25519_public_key,'hex'),'base64') from accounts"
-# MUST print:
+# MUST print — account id | ed25519 public key:
 # 0d607683-026f-468b-9cf0-f5bfaf61a7a1|huJdyRsBtd7KrPqWv5Z/8GVeLmiqfWTfQnEb090+jO4=
 # == KEYGEN_ACCOUNT_ID / KEYGEN_ED25519_PUBKEY_B64 in src-tauri/src/license/config.rs
 ```
