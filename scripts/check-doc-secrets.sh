@@ -55,9 +55,17 @@ index="$tmpdir/index"       # same row count: "<path>:<lineno>"
 : >"$content"
 : >"$index"
 
-# Split the staged unified diff into parallel content/location files. -U0 means
-# there are no context lines, so every '+' row (bar the '+++' header) is an
-# added line.
+# Split the staged unified diff into parallel content/location files.
+#
+# --output-indicator-new/old/context re-label the per-line markers so DIFF
+# CONTENT can never be mistaken for DIFF STRUCTURE. With the default '+' marker,
+# an added line whose text begins with "++ " is emitted as "+++ ..." — identical
+# to a file header — so the parser would silently re-point `path` and SKIP every
+# following added line. That is a scan hole, not a cosmetic bug (verified against
+# this script on 2026-08-08: a secret placed after a line reading "++ /dev/null"
+# passed). With the markers below, an added line is ALWAYS ">"-prefixed and a
+# real header always starts with "+++ ", so the two are disjoint.
+# -U0 means there are no context lines.
 path=""
 lineno=0
 while IFS= read -r line; do
@@ -73,15 +81,18 @@ while IFS= read -r line; do
       hunk=${hunk%% *}
       lineno=${hunk%%,*}
       ;;
-    "+"*)
+    ">"*)
       [ -n "$path" ] || continue
-      printf '%s\n' "${line#+}" >>"$content"
+      printf '%s\n' "${line#>}" >>"$content"
       printf '%s:%s\n' "$path" "$lineno" >>"$index"
       lineno=$((lineno + 1))
       ;;
     *) ;;
   esac
-done < <(git diff --cached -U0 -- "$@")
+done < <(git diff --cached -U0 \
+           --output-indicator-new='>' \
+           --output-indicator-old='<' \
+           --output-indicator-context='=' -- "$@")
 
 if [ ! -s "$content" ]; then
   echo "check-doc-secrets: no staged additions under: $* — nothing to scan."
