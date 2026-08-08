@@ -19,30 +19,63 @@ import globals from "globals";
 // each is additionally covered by a `no-restricted-syntax` selector below.
 // ---------------------------------------------------------------------------
 
-// Shared by both blocks so the two copies cannot drift apart.
-const BROWSER_ROUTER_IMPORT = {
-  name: "react-router-dom",
-  importNames: ["BrowserRouter"],
-  message:
-    "HashRouter only — CLAUDE.md. BrowserRouter 404s on reload from static files. Use createHashRouter (src/router.tsx), or MemoryRouter in tests.",
-};
-
 const ROUTER_MESSAGE =
   "HashRouter only — CLAUDE.md. BrowserRouter/createBrowserRouter/createBrowserHistory 404 on reload from static files. Use createHashRouter (src/router.tsx), or MemoryRouter in tests.";
 
-// An Identifier selector (rather than an import-shaped one) fires on the NAME
-// wherever it appears — named import, namespace member access, re-export or a
-// local alias — i.e. regardless of import style. JSXIdentifier is a distinct
-// node type, hence the second selector. Costs nothing on the current tree:
-// `BrowserRouter` appears repo-wide only inside comments (src/router.tsx,
-// src/shell/summon.ts) and comments are not AST nodes.
+// ONE OWNER PER BYPASS CLASS.
+//
+// Acquisition by static import / export-from is owned ENTIRELY by
+// no-restricted-imports (below): it sees the module AND the imported names, and
+// it already covers ImportSpecifier, ImportDefaultSpecifier and
+// `export … from`. Shared by both config blocks so the two cannot drift apart.
+//
+// One overlap is unavoidable and is NOT a duplicate: `import * as RR from
+// "react-router-dom"` is reported by no-restricted-imports (ESLint cannot prove
+// a namespace will not reach a restricted name), and `RR.BrowserRouter` is
+// separately reported by the MemberExpression selector. Two different nodes,
+// two different facts — acquisition and use.
+const ROUTER_IMPORT_NAMES = [
+  "BrowserRouter",
+  "createBrowserRouter",
+  "createBrowserHistory",
+];
+const ROUTER_IMPORT_PATHS = [
+  { name: "react-router-dom", importNames: ROUTER_IMPORT_NAMES, message: ROUTER_MESSAGE },
+  { name: "react-router", importNames: ROUTER_IMPORT_NAMES, message: ROUTER_MESSAGE },
+  { name: "history", importNames: ["createBrowserHistory"], message: ROUTER_MESSAGE },
+];
+
+// no-restricted-syntax owns only what no-restricted-imports CANNOT see: the
+// value being reached at RUNTIME.
+//
+// These are deliberately NOT a bare `Identifier[name=/…/]`. That selector fired
+// on any occurrence of the name anywhere in the AST — a local `const
+// BrowserRouter = …`, a function parameter, an object KEY in a `vi.mock`
+// factory — none of which route anything. It also triple-reported a single
+// `import { BrowserRouter }` line (ImportSpecifier.imported +
+// ImportSpecifier.local, plus no-restricted-imports). Scoped to real usage:
+//   • MemberExpression  — namespace access (`RR.BrowserRouter`) and re-exports,
+//     dotted and computed;
+//   • JSXIdentifier     — `<BrowserRouter>`, a distinct node type;
+//   • CallExpression    — a bare factory call from a value obtained any other
+//     way (dynamic-import destructure, require destructure, a global).
 const ROUTER_SELECTORS = [
   {
     selector:
-      "Identifier[name=/^(BrowserRouter|createBrowserRouter|createBrowserHistory)$/]",
+      "MemberExpression[property.name=/^(BrowserRouter|createBrowserRouter|createBrowserHistory)$/]",
+    message: ROUTER_MESSAGE,
+  },
+  {
+    selector:
+      "MemberExpression[computed=true] > Literal[value=/^(BrowserRouter|createBrowserRouter|createBrowserHistory)$/]",
     message: ROUTER_MESSAGE,
   },
   { selector: "JSXIdentifier[name='BrowserRouter']", message: ROUTER_MESSAGE },
+  {
+    selector:
+      "CallExpression[callee.name=/^(createBrowserRouter|createBrowserHistory)$/]",
+    message: ROUTER_MESSAGE,
+  },
 ];
 
 // These target ImportExpression / require CALL nodes only — never arbitrary
@@ -123,7 +156,7 @@ export default tseslint.config(
                 "Reach Tauri through the platform seam (src/lib/platform/), never @tauri-apps/* directly — CLAUDE.md. src/lib/platform/tauri.ts is the ONLY legal importer; add the capability to the seam interface instead.",
             },
           ],
-          paths: [BROWSER_ROUTER_IMPORT],
+          paths: ROUTER_IMPORT_PATHS,
         },
       ],
       "no-restricted-syntax": ["error", ...TAURI_SELECTORS, ...ROUTER_SELECTORS],
@@ -135,7 +168,7 @@ export default tseslint.config(
     // inside the seam.
     files: ["src/lib/platform/**"],
     rules: {
-      "no-restricted-imports": ["error", { paths: [BROWSER_ROUTER_IMPORT] }],
+      "no-restricted-imports": ["error", { paths: ROUTER_IMPORT_PATHS }],
       "no-restricted-syntax": ["error", ...ROUTER_SELECTORS],
     },
   },
