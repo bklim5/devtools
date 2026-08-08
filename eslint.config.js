@@ -5,6 +5,62 @@ import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
 import globals from "globals";
 
+// ---------------------------------------------------------------------------
+// F5 (architecture-review 2026-07-06): the two most load-bearing prose
+// invariants in CLAUDE.md — "tools import src/lib/platform/, never @tauri-apps/*
+// directly" and "HashRouter only" — made mechanical. lefthook already runs
+// `pnpm lint` pre-commit, so a violation now FAILS the commit instead of relying
+// on agent discipline plus review.
+//
+// `no-restricted-imports` alone is a POROUS gate: it only sees static import /
+// export-from declarations. Three bypasses walk straight through it — a dynamic
+// `import("@tauri-apps/…")`, a `require("@tauri-apps/…")`, and reaching a router
+// through a namespace (`import * as RR …; RR.BrowserRouter`) or a re-export — so
+// each is additionally covered by a `no-restricted-syntax` selector below.
+// ---------------------------------------------------------------------------
+
+// Shared by both blocks so the two copies cannot drift apart.
+const BROWSER_ROUTER_IMPORT = {
+  name: "react-router-dom",
+  importNames: ["BrowserRouter"],
+  message:
+    "HashRouter only — CLAUDE.md. BrowserRouter 404s on reload from static files. Use createHashRouter (src/router.tsx), or MemoryRouter in tests.",
+};
+
+const ROUTER_MESSAGE =
+  "HashRouter only — CLAUDE.md. BrowserRouter/createBrowserRouter/createBrowserHistory 404 on reload from static files. Use createHashRouter (src/router.tsx), or MemoryRouter in tests.";
+
+// An Identifier selector (rather than an import-shaped one) fires on the NAME
+// wherever it appears — named import, namespace member access, re-export or a
+// local alias — i.e. regardless of import style. JSXIdentifier is a distinct
+// node type, hence the second selector. Costs nothing on the current tree:
+// `BrowserRouter` appears repo-wide only inside comments (src/router.tsx,
+// src/shell/summon.ts) and comments are not AST nodes.
+const ROUTER_SELECTORS = [
+  {
+    selector:
+      "Identifier[name=/^(BrowserRouter|createBrowserRouter|createBrowserHistory)$/]",
+    message: ROUTER_MESSAGE,
+  },
+  { selector: "JSXIdentifier[name='BrowserRouter']", message: ROUTER_MESSAGE },
+];
+
+// These target ImportExpression / require CALL nodes only — never arbitrary
+// strings — so `vi.doMock("@tauri-apps/…")` in src/lib/platform/tauri.test.ts
+// stays legal exactly as today.
+const TAURI_SELECTORS = [
+  {
+    selector: "ImportExpression[source.value=/^@tauri-apps\\//]",
+    message:
+      "Reach Tauri through the platform seam (src/lib/platform/) — a dynamic import() is not an exemption.",
+  },
+  {
+    selector: "CallExpression[callee.name='require'] > Literal[value=/^@tauri-apps\\//]",
+    message:
+      "Reach Tauri through the platform seam (src/lib/platform/) — require() is not an exemption.",
+  },
+];
+
 export default tseslint.config(
   {
     // Don't lint build output, deps, vendored scaffold reference, Rust target, or
@@ -46,6 +102,41 @@ export default tseslint.config(
     },
     rules: {
       "react-refresh/only-export-components": "off",
+    },
+  },
+  {
+    // F5 — the general rule: nobody imports @tauri-apps/* or BrowserRouter.
+    // Uses the BASE no-restricted-imports (not the typescript-eslint variant)
+    // because the base rule flags `import type` declarations too, which is the
+    // stricter and desired behaviour.
+    files: ["**/*.{ts,tsx,mts,cts,js,mjs,cjs}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              // Both globs are needed: @tauri-apps/* matches "@tauri-apps/api",
+              // @tauri-apps/*/** matches "@tauri-apps/api/window".
+              group: ["@tauri-apps/*", "@tauri-apps/*/**"],
+              message:
+                "Reach Tauri through the platform seam (src/lib/platform/), never @tauri-apps/* directly — CLAUDE.md. src/lib/platform/tauri.ts is the ONLY legal importer; add the capability to the seam interface instead.",
+            },
+          ],
+          paths: [BROWSER_ROUTER_IMPORT],
+        },
+      ],
+      "no-restricted-syntax": ["error", ...TAURI_SELECTORS, ...ROUTER_SELECTORS],
+    },
+  },
+  {
+    // The seam IS the legal @tauri-apps importer — and the only one. The rules
+    // are RE-DECLARED (not switched off) so the router restrictions still apply
+    // inside the seam.
+    files: ["src/lib/platform/**"],
+    rules: {
+      "no-restricted-imports": ["error", { paths: [BROWSER_ROUTER_IMPORT] }],
+      "no-restricted-syntax": ["error", ...ROUTER_SELECTORS],
     },
   },
 );
