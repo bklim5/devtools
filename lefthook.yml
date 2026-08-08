@@ -14,10 +14,20 @@
 #   • real-webview UI verification — needs the running app (tauri dev / WKWebView)
 # Do NOT try to wire those into lefthook.
 #
-# The `archive-guard` command below is REPO HYGIENE, not part of the three-gate
-# harness: it only refuses commits that would delete planning history without
-# archiving it byte-for-byte (see scripts/check-planning-archive.sh). It exits
-# immediately on any commit that touches nothing under .planning/phases/.
+# The `archive-guard` and `doc-secrets` commands below are REPO HYGIENE, not
+# part of the three-gate harness:
+#   • archive-guard refuses commits that would delete planning history without
+#     archiving it byte-for-byte (scripts/check-planning-archive.sh). It exits
+#     immediately on any commit that touches nothing under .planning/phases/.
+#   • doc-secrets refuses commits that add a secret VALUE to the prose surface
+#     — docs/, CHANGELOG.md, README.md, infra/ (scripts/check-doc-secrets.sh).
+#     It exits immediately when nothing is staged under those paths. This is
+#     what makes docs/KEYS.md's "enforced mechanically" claim true; a secret in
+#     git history is permanent, so author care + review is the wrong PRIMARY
+#     control.
+# Both take their own pathspecs and read the INDEX, so they deliberately do NOT
+# use lefthook's `files:`/`{staged_files}` templating — a guard that only sees a
+# filtered file list cannot reason about deletions or about the diff.
 pre-commit:
   parallel: true
   commands:
@@ -32,6 +42,8 @@ pre-commit:
       run: pnpm lint
     archive-guard:
       run: bash scripts/check-planning-archive.sh
+    doc-secrets:
+      run: bash scripts/check-doc-secrets.sh
 
 # Rust licensing-core gate (Phase 19, research Open Question 2 decision):
 # `cargo test` runs on pre-PUSH, not pre-commit, to keep commit latency sane

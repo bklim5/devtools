@@ -22,10 +22,14 @@ Public halves that are *already* compiled into shipped binaries are referenced *
 `path:line`** rather than pasted — a pointer is enough, and pasting them trains the wrong
 habit.
 
-This rule is enforced mechanically: `scripts/check-doc-secrets.sh` scans the staged diff
-of `docs/` and `CHANGELOG.md` for PEM headers, nontrivial `*KEY|SECRET|TOKEN|PASSWORD*=`
-assignments, long base64/hex runs, and provider-specific prefixes. A hit is a hard fail.
-There is no path allowlist.
+This rule is enforced mechanically, on **every commit**: `scripts/check-doc-secrets.sh`
+runs from `lefthook.yml`'s `pre-commit` hook and scans the staged diff of `docs/`,
+`CHANGELOG.md`, `README.md` and `infra/` for PEM headers, nontrivial
+`*KEY|SECRET|TOKEN|PASSWORD*=` assignments, long base64 runs, provider-specific prefixes
+and unscannable binary additions. A hit is a hard fail; any git or grep error is a fatal
+exit rather than a clean pass. There is no path allowlist — the two exemptions (a value
+labelled as a digest or a public key, and a run that is really a filesystem path) are
+shape rules that apply everywhere, documented in the script's header.
 
 ### 1a. Known history exposure — A1 passphrase (open)
 
@@ -37,9 +41,10 @@ retroactive, and this repository is **not** clean:
   the gitignored `.env` line verbatim while documenting the risk.
 - **Introduced by:** commit `5b90a60a` ("docs: add 2026-07-06 architecture review"),
   2026-07-06.
-- **Redacted in the working tree by:** commit `1a92f2fd` (quick/260808-kfs remediation,
-  2026-08-08). The value is replaced with `<redacted — see password manager>`; the finding
-  text around it is unchanged.
+- **Redacted in the working tree by:** commit `42e141dd` (quick/260808-kfs remediation,
+  2026-08-08; `git log --oneline --follow docs/architecture-review-2026-07-06.md` if the
+  hash ever drifts). The value is replaced with `<redacted — see password manager>`; the
+  finding text around it is unchanged.
 - **Still exposed:** **git history retains the value at `5b90a60a`** and in every commit
   between it and the redaction. A working-tree redaction does not remove it. Anyone with a
   clone — or with read access to the origin remote — can still recover it.
@@ -245,8 +250,10 @@ the commands above are the source.
 - **Authoritative fingerprint record:** `infra/keygen/RUNBOOK.md` § "0. FIRST: the
   recovery-critical secrets that are NOT in the dump" (line 664) holds the sha256 + key-name
   table for `infra/keygen/.env` (17 keys) and `server/webhook/.env` (9 keys).
-  **Do not duplicate those hashes here** — a stale second copy is worse than none, and the
-  `long-hex` rule in `scripts/check-doc-secrets.sh` will reject an attempt to paste them.
+  **Do not duplicate those hashes here** — a stale second copy is worse than none. (The
+  RUNBOOK's own table survives `scripts/check-doc-secrets.sh` because each digest sits
+  under a `sha256` column header, which is the scanner's published-value exemption; a
+  digest pasted into unrelated prose here would not.)
 - **Known gap — A9.** `src-tauri/embedded.provisionprofile` exists only in the working tree.
   It is gitignored, it is in no backup, and it is required to build the App Store `.pkg`.
   It *is* regenerable from the developer portal, so this is an inconvenience rather than a
