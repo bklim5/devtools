@@ -157,6 +157,14 @@ export function useToolSuccess(toolId: string, ok: boolean, identityInput: strin
     // render-phase ref write would violate React purity / the compiler lint).
     const t = setTimeout(() => {
       const identity = successIdentity(toolId, identityInput); // hashed HERE, once
+      // DELIBERATE (not a limitation): re-settling the SAME (tool, input) does
+      // NOT count again — until the input changes, or this component remounts.
+      // The metric is "UNIQUE successful inputs", not "keystroke episodes", so
+      // re-running the same paste, toggling a view, or leaving a result on screen
+      // can never march the counter toward a boundary. Under-asking is the safe
+      // direction: Apple 5.6.1 forbids nagging, and the OS caps real prompts at 3
+      // per 365 days regardless — so a missed ask costs nothing, while an extra
+      // one spends a scarce, non-renewable prompt on a user who did no new work.
       if (identity === lastNotified.current) return; // same work re-settled = one episode
       lastNotified.current = identity;
       notifySettledSuccess();
