@@ -41,10 +41,15 @@
 // for users who already reviewed, and macOS caps real prompts at 3 per 365 days
 // however often we ask. Our gap is a floor on top of that cap, not a substitute.
 //
-// STAMP-AFTER-SUCCESS. `lastReviewRequestAt` is persisted ONLY after the native
-// request RESOLVES. A native failure (run_on_main_thread failure, Swift
+// STAMP-AFTER-SUCCESS, DURABLY. `lastReviewRequestAt` is persisted ONLY after the
+// native request RESOLVES. A native failure (run_on_main_thread failure, Swift
 // `Unavailable`, no window/anchor) means the OS was never asked, so stamping
-// would burn a whole 7-day window on a request that never happened.
+// would burn a whole 7-day window on a request that never happened. The stamp
+// write is also AWAITED to durability (updatePreferencesDurable): a quit — or a
+// store rejection — in the moments right after the OS was asked must not lose it,
+// or the app re-asks at the next boundary and the 7-day floor means nothing.
+// This is the ONLY prefs write in the app that awaits durability; the counter
+// increments deliberately do not (see the `persist` note at the increment).
 //
 // CONCURRENCY. Same-instance callers are deduped by the promise-chain queue
 // below (it IS this instance's pending claim — a concurrent caller cannot reach
@@ -61,6 +66,7 @@ import {
   getPreferencesLoadOk,
   getSharedPreferences,
   updatePreferences,
+  updatePreferencesDurable,
   whenPreferencesLoaded,
 } from "./usePreferences";
 
@@ -165,8 +171,12 @@ async function runOnce(): Promise<void> {
   // number nothing reads until a boundary. Boundary counts persist immediately —
   // those are the ones a restart must not lose, since they gate the request —
   // and a deferred count also lands on any other prefs write or at window-hide
-  // (usePreferences.flushPreferences). The accepted cost is ≤2 lost sub-boundary
-  // counts on a hard kill, i.e. at worst one boundary arrives a little late.
+  // (usePreferences.flushPreferences). ACCEPTED BY DESIGN: a HARD kill (SIGKILL,
+  // crash) between two boundaries can still lose ≤2 sub-boundary counts — no
+  // webview API can make an async write survive that — so at worst ONE boundary
+  // arrives a little late. Under-asking is the safe direction here (Apple 5.6.1),
+  // and the boundary counts themselves persist immediately, so a lost count can
+  // never make the app ask EARLY.
   updatePreferences(
     { toolSuccessCount: next },
     { persist: boundary ? "now" : "deferred" },
@@ -203,14 +213,35 @@ async function runOnce(): Promise<void> {
   // concurrent instance may have stamped while we were awaiting the OS, and the
   // loser must skip rather than write a second stamp.
   if (!gapElapsed(getSharedPreferences().lastReviewRequestAt)) return; // loser skips
-  updatePreferences({ lastReviewRequestAt: now() }); // stamped after success only
+
+  // (h) DURABLE stamp. This is the one write in this module whose loss changes
+  // behaviour: the OS has just been asked, and a fire-and-forget write that the
+  // process outlives by only a few ms (a quit right after the sheet, a rejected
+  // store write) would leave `lastReviewRequestAt` null on disk — so the next
+  // boundary would ask AGAIN, days early, exactly what the 7-day floor exists to
+  // prevent. `updatePreferencesDurable` applies the merge synchronously (the
+  // in-session gap gate is correct either way) and resolves only once the blob
+  // has reached the store; it never rejects, and a failure is logged in dev.
+  //
+  // The timeout mirrors the native call's: this await sits ON the serialization
+  // queue, so a store write that never settles would stop every later settled
+  // success from being counted. Nothing is retried here — the in-memory stamp
+  // still holds for this session, and `unsavedChanges` keeps the blob flushable.
+  const durable = await withTimeout(
+    updatePreferencesDurable({ lastReviewRequestAt: now() }),
+    REQUEST_TIMEOUT_MS,
+  ).catch(() => false);
+  if (!durable && isTestOrDev()) {
+    console.warn("[up5] review stamp not durably persisted — a later boundary may re-ask");
+  }
 }
 
 /** Record ONE settled successful tool output (UP5-01). Increments the lifetime
  *  counter and, at every SUCCESS_INTERVAL boundary that clears the 7-day gap,
  *  asks the OS for a review. Never throws. Serialized: the returned promise
  *  resolves when THIS call's read-modify-write (and any request it triggered)
- *  has completed. */
+ *  has completed — and, when a request was made, only after its stamp has been
+ *  DURABLY persisted (or the write has definitively failed/timed out). */
 export function recordSettledSuccess(): Promise<void> {
   // Both arms are runOnce so a rejection can never poison the chain.
   queue = queue.then(runOnce, runOnce);

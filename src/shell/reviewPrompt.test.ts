@@ -428,12 +428,12 @@ describe("reviewPrompt — the recurring 3rd-success boundary (UP5-01/UP5-02)", 
     expect(writtenBlobs(set)).toHaveLength(0);
 
     // The window-hide / pagehide path (and any other prefs write) lands it.
-    flushPreferences();
+    await flushPreferences();
     await flush();
     expect(writtenBlobs(set).map((b) => b.toolSuccessCount)).toEqual([2]);
 
     // A second flush with nothing outstanding is a no-op, not a rewrite.
-    flushPreferences();
+    await flushPreferences();
     await flush();
     expect(writtenBlobs(set)).toHaveLength(1);
   });
@@ -503,6 +503,93 @@ describe("reviewPrompt — the recurring 3rd-success boundary (UP5-01/UP5-02)", 
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("Test 19: the stamp is DURABLE — the call does not resolve until the write lands", async () => {
+    // Fire-and-forget would resolve here with the stamp still only in memory, so
+    // a quit in the next few ms loses it and the app re-asks at the very next
+    // boundary — the 7-day floor silently stops meaning anything.
+    const map = new Map<string, unknown>();
+    map.set(PREFERENCES_STORE_KEY, { ...DEFAULT_PREFERENCES });
+    /** Resolvers for the writes that CARRY the stamp (the count write is not gated). */
+    const gatedWrites: Array<() => void> = [];
+    const set: SetSpy = vi.fn(async (key: string, value: unknown) => {
+      if ((value as Preferences).lastReviewRequestAt !== null) {
+        await new Promise<void>((resolve) => gatedWrites.push(resolve));
+      }
+      map.set(key, value);
+    });
+    const request = vi.fn<() => Promise<void>>(async () => {});
+    setPlatformForTest({
+      ...makeMemoryPlatform({ get: async (key: string) => map.get(key), set }),
+      review: { request },
+    });
+
+    await recordSettledSuccess();
+    await recordSettledSuccess();
+
+    let resolved = false;
+    const third = recordSettledSuccess().then(() => {
+      resolved = true;
+    });
+    await flush();
+
+    // The OS has been asked and the stamp is live IN MEMORY (the in-session gap
+    // gate is correct immediately)...
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(getSharedPreferences().lastReviewRequestAt).toBe(T0);
+    // ...the write is in flight, nothing is on "disk" yet...
+    expect(gatedWrites).toHaveLength(1);
+    expect((map.get(PREFERENCES_STORE_KEY) as Preferences).lastReviewRequestAt).toBeNull();
+    // ...and the call has NOT resolved: durability is part of its contract.
+    expect(resolved).toBe(false);
+
+    gatedWrites[0]!();
+    await third;
+
+    expect(resolved).toBe(true);
+    expect((map.get(PREFERENCES_STORE_KEY) as Preferences).lastReviewRequestAt).toBe(T0);
+  });
+
+  it("Test 20: a REJECTED stamp write does not wedge the queue, and stays flushable", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const map = new Map<string, unknown>();
+    map.set(PREFERENCES_STORE_KEY, { ...DEFAULT_PREFERENCES });
+    let failStampWrite = true;
+    const set: SetSpy = vi.fn(async (key: string, value: unknown) => {
+      if (failStampWrite && (value as Preferences).lastReviewRequestAt !== null) {
+        throw new Error("store write failed");
+      }
+      map.set(key, value);
+    });
+    const request = vi.fn<() => Promise<void>>(async () => {});
+    setPlatformForTest({
+      ...makeMemoryPlatform({ get: async (key: string) => map.get(key), set }),
+      review: { request },
+    });
+
+    // The boundary call still RESOLVES (never rejects, never hangs) …
+    await expect(drive(3)).resolves.toBeUndefined();
+    expect(request).toHaveBeenCalledTimes(1);
+    // … the stamp is live in memory …
+    expect(getSharedPreferences().lastReviewRequestAt).toBe(T0);
+    // … the failure was logged (dev/test only) …
+    expect(warn).toHaveBeenCalled();
+    // … and nothing reached disk.
+    expect((map.get(PREFERENCES_STORE_KEY) as Preferences).lastReviewRequestAt).toBeNull();
+
+    // The QUEUE is still functional: later successes keep counting, and the
+    // in-memory stamp correctly suppresses the next boundary.
+    await drive(3); // counts 4, 5, 6
+    expect(getSharedPreferences().toolSuccessCount).toBe(6);
+    expect(request).toHaveBeenCalledTimes(1);
+
+    // The failed write was NOT dropped: it is still outstanding, so a flush
+    // (pagehide / window-hide) retries it once the store recovers.
+    failStampWrite = false;
+    await flushPreferences();
+    expect((map.get(PREFERENCES_STORE_KEY) as Preferences).lastReviewRequestAt).toBe(T0);
+    expect((map.get(PREFERENCES_STORE_KEY) as Preferences).toolSuccessCount).toBe(6);
   });
 
   it("Test 15: the injection seam defaults to the real clock, and the reset restores it", async () => {
