@@ -268,21 +268,15 @@ export default function RegexTool() {
   const isError = "error" in view;
   const matches = "matches" in view ? view.matches : [];
 
-  // Shared success seam (UP5-01) — one call, no counting logic here. A success
-  // is a completed worker run: not empty, not a bad pattern, and not the
-  // watchdog's timedOut state (a terminated catastrophic regex produced no
-  // output at all). The output is the rendered match view plus, when the
-  // Replace field is in use, the replaced result.
+  // UP5-01. A success is a completed worker run: not empty, not a bad pattern,
+  // and not the watchdog's timedOut state (a terminated catastrophic regex
+  // produced no result at all). The identity is the SUBMITTED PAIR — pattern +
+  // sample text — never the match list: joining every match on every render
+  // allocated a whole copy of the highlighted text per keystroke, and a flag
+  // toggle re-runs the SAME pattern over the SAME text, which is one episode.
   const ranOk = "matches" in view && !isError;
-  const replaced = "replaced" in view ? view.replaced : undefined;
-  const successOutput = ranOk
-    ? [
-        `${matches.length} matches`,
-        ...matches.map((m) => `${m.index}:${m.full}`),
-        ...(replaced === undefined ? [] : [`=>${replaced}`]),
-      ].join("\n")
-    : "";
-  useToolSuccess("regex", ranOk, successOutput);
+  const identityInput = useMemo(() => `${pattern}\n${text}`, [pattern, text]);
+  useToolSuccess("regex", ranOk, identityInput);
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">

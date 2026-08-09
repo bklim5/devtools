@@ -72,6 +72,13 @@ export default function HashTool() {
     null,
   );
   const [timingMs, setTimingMs] = useState<number | undefined>(undefined);
+  // A REJECTED subtle.digest (an unavailable/blocked WebCrypto, an OOM on a huge
+  // paste) used to be swallowed silently: the four SHA rows simply stayed blank
+  // forever while the tool still reported "ok". Tagged with the bytes it belongs
+  // to, exactly like shaResult, so a stale failure cannot outlive its input.
+  const [shaError, setShaError] = useState<{ src: Uint8Array; message: string } | null>(
+    null,
+  );
 
   // Input is ALWAYS text (G-04-1). UTF-8 of any string never throws, so `bytes` is never null
   // and there is no error path. Memoized so the digest effect keys on a stable result.
@@ -96,37 +103,49 @@ export default function HashTool() {
     if (isEmpty) return;
     let live = true;
     const start = performance.now();
-    void Promise.all(SHA_ALGOS.map((algo) => shaHex(algo, bytes))).then((hexes) => {
-      if (!live) return;
-      setShaResult({
-        src: bytes,
-        rows: SHA_ALGOS.map((algo, i) => ({ algo, hex: hexes[i] })),
+    void Promise.all(SHA_ALGOS.map((algo) => shaHex(algo, bytes)))
+      .then((hexes) => {
+        if (!live) return;
+        setShaResult({
+          src: bytes,
+          rows: SHA_ALGOS.map((algo, i) => ({ algo, hex: hexes[i] })),
+        });
+        setTimingMs(performance.now() - start);
+      })
+      .catch((e: unknown) => {
+        // Surface it as a real error state (StatusBar) instead of leaving four
+        // permanently blank rows under an "ok" status.
+        if (!live) return;
+        setShaError({
+          src: bytes,
+          message: e instanceof Error ? e.message : "SHA digest failed",
+        });
       });
-      setTimingMs(performance.now() - start);
-    });
     return () => {
       live = false;
     };
   }, [bytes, isEmpty]);
 
-  const parseState: ParseState = isEmpty ? "empty" : "ok";
-  // Only trust the SHA rows when they belong to the CURRENT bytes (Pitfall 3); otherwise the
-  // rows are blank placeholders until the in-flight digest for these bytes resolves.
+  // Only trust the SHA rows/error when they belong to the CURRENT bytes (Pitfall 3);
+  // otherwise the rows are blank placeholders until the in-flight digest for these
+  // bytes resolves.
   const shaRows = shaResult && shaResult.src === bytes ? shaResult.rows : [];
+  const digestError = shaError && shaError.src === bytes ? shaError.message : null;
   // A STABLE list of all five rows every render (G-04-2): MD5 (sync) + the four SHA (each ""
   // until its async resolve). hex = "" when empty or not-yet-resolved.
   const orderedRows: DigestRow[] = ALL_ALGOS.map((algo) => {
     if (algo === "MD5") return { algo, hex: md5Hex5 };
     return shaRows.find((r) => r.algo === algo) ?? { algo, hex: "" };
   });
+  const parseState: ParseState = isEmpty ? "empty" : digestError ? "error" : "ok";
 
-  // Shared success seam (UP5-01) — one call, no counting logic here. The output
-  // is the five rendered digest rows. There is no explicit `pending` flag: the
-  // four async SHA rows are "" until they resolve, so the output CHANGES on
-  // resolve and the quiet window simply restarts — an in-flight digest can never
-  // settle as a finished result.
-  const digestsText = orderedRows.map((r) => `${r.algo} ${r.hex}`).join("\n");
-  useToolSuccess("hash", parseState === "ok", digestsText);
+  // UP5-01: the identity is the pasted text. There is no `pending` flag on this
+  // tool, so `ok` carries the "finished" half explicitly — EVERY row must have
+  // resolved to a non-blank digest. Without that, the four async SHA rows sitting
+  // at "" (still in flight, or permanently failed) would have settled as a
+  // finished success, since the input alone stops changing immediately.
+  const allDigestsResolved = orderedRows.every((r) => r.hex !== "");
+  useToolSuccess("hash", parseState === "ok" && allDigestsResolved, raw);
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">
@@ -179,7 +198,7 @@ export default function HashTool() {
           </div>
         </section>
       </div>
-      <StatusBar parseState={parseState} timingMs={timingMs} />
+      <StatusBar parseState={parseState} error={digestError} timingMs={timingMs} />
     </div>
   );
 }

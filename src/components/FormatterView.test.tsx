@@ -20,7 +20,17 @@ import type { IndentMode } from "@/lib/format/types";
 
 let writeText: ReturnType<typeof vi.fn<(text: string) => Promise<void>>>;
 
+// The shared success seam (UP5-01) is mocked to a spy: this file asserts the
+// WIRING (id / ok / identity input), not the seam's own settle + counting logic.
+const useToolSuccessMock = vi.hoisted(() =>
+  vi.fn<(id: string, ok: boolean, identityInput: string) => void>(),
+);
+vi.mock("@/shell/useToolSuccess", () => ({
+  useToolSuccess: useToolSuccessMock,
+}));
+
 beforeEach(() => {
+  useToolSuccessMock.mockClear();
   writeText = vi.fn<(text: string) => Promise<void>>(async () => {});
   const p: Platform = {
     ...makeMemoryPlatform(),
@@ -320,5 +330,58 @@ describe("FormatterView StatusBar wiring", () => {
       status: { parseState: "ok", byteCount: 12, pending: true },
     });
     expect(getByLabelText("formatting").textContent).toContain("Formatting");
+  });
+});
+
+describe("FormatterView success seam (UP5-01)", () => {
+  const lastCall = () => {
+    const calls = useToolSuccessMock.mock.calls;
+    return calls[calls.length - 1];
+  };
+
+  it("reports the tool id, ok, and the INPUT as the success identity", () => {
+    renderView({
+      input: '{"a":1}',
+      output: '{\n  "a": 1\n}',
+      status: { parseState: "ok", byteCount: 7 },
+    });
+    expect(lastCall()[0]).toBe("json-formatter");
+    expect(lastCall()[1]).toBe(true);
+    expect(lastCall()[2]).toBe('{"a":1}');
+  });
+
+  it("an option toggle does NOT change the success identity (same source, new view)", () => {
+    // Same INPUT, four different rendered OUTPUTs — indent 2 vs tab, sorted vs
+    // not. Keying on the output made each of these a fresh success episode.
+    const src = '{"b":1,"a":2}';
+    const identities = new Set<string>();
+    for (const o of [
+      { indent: "2" as IndentMode, sortKeys: false, output: '{\n  "b": 1,\n  "a": 2\n}' },
+      { indent: "4" as IndentMode, sortKeys: false, output: '{\n    "b": 1,\n    "a": 2\n}' },
+      { indent: "tab" as IndentMode, sortKeys: false, output: '{\n\t"b": 1,\n\t"a": 2\n}' },
+      { indent: "2" as IndentMode, sortKeys: true, output: '{\n  "a": 2,\n  "b": 1\n}' },
+    ]) {
+      cleanup();
+      useToolSuccessMock.mockClear();
+      renderView({
+        input: src,
+        output: o.output,
+        indent: o.indent,
+        sortKeys: o.sortKeys,
+        status: { parseState: "ok", byteCount: src.length },
+      });
+      expect(lastCall()[1]).toBe(true);
+      identities.add(lastCall()[2]);
+    }
+    expect(identities).toEqual(new Set([src]));
+  });
+
+  it("reports ok=false while an async format is pending (a stale result is not settled)", () => {
+    renderView({
+      input: "<a/>",
+      output: "<a />",
+      status: { parseState: "ok", byteCount: 4, pending: true },
+    });
+    expect(lastCall()[1]).toBe(false);
   });
 });

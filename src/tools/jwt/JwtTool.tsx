@@ -121,12 +121,10 @@ export default function JwtTool() {
   const parseState: ParseState =
     decoded.kind === "error" ? "error" : decoded.kind === "empty" ? "empty" : "ok";
 
-  // The decoded payload block, in the SAME serialization the Payload OutputBlock
-  // renders and copies (never a second, invented one).
-  const payloadText =
-    decoded.kind === "ok" ? JSON.stringify(decoded.payload, null, 2) : "";
-  // Shared success seam (UP5-01) — one call, no counting logic here.
-  useToolSuccess("jwt", parseState === "ok", payloadText);
+  // UP5-01: the identity is the pasted token itself. (The previous
+  // JSON.stringify of the payload also re-allocated a full copy of the decoded
+  // claims on EVERY render, including the once-a-second `nowMs` tick.)
+  useToolSuccess("jwt", parseState === "ok", raw);
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">
@@ -182,7 +180,7 @@ export default function JwtTool() {
             <OutputBlock
               blockId="jwt-payload"
               label="Payload"
-              value={payloadText}
+              value={JSON.stringify(decoded.payload, null, 2)}
             />
             <OutputBlock
               blockId="jwt-signature"

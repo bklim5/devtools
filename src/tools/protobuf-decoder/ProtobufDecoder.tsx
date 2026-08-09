@@ -41,8 +41,7 @@ export default function ProtobufDecoder() {
 
   const result = useMemo(() => decodeInput(raw, override), [raw, override]);
   // Memoized so the empty-fallback is a STABLE reference: a fresh `[]` on every
-  // render would re-run the outputJson memo below (and churn FieldTree's props)
-  // whenever the decode has no fields.
+  // render would churn FieldTree's props whenever the decode has no fields.
   const fields = useMemo(() => result.fields ?? [], [result.fields]);
 
   // Selection + collapsed are keyed by STRUCTURAL path ("0", "0.1", …). A new
@@ -66,16 +65,13 @@ export default function ProtobufDecoder() {
       ? "empty"
       : "ok";
 
-  // The tool's OUTPUT text, in the exact serialization the copy-all action
-  // already produces (never a second, invented one). Memoized so the seam and
-  // Copy-all-as-JSON share ONE computation per decode/selection.
-  const outputJson = useMemo(
-    () => fieldsToJson(fields, selection),
-    [fields, selection],
-  );
-
-  // Shared success seam (UP5-01) — one call, no counting logic here.
-  useToolSuccess("protobuf-decoder", parseState === "ok", outputJson);
+  // UP5-01: the episode identity is the PASTED SOURCE, not the rendered tree.
+  // Deliberately excludes `override` and the per-node LEN-chip `selection`:
+  // those re-INTERPRET one decode, they do not produce a new one, so clicking
+  // chips must never manufacture success episodes. Serializing to JSON stays
+  // COPY-TIME-ONLY (below) — the hero tool's paste path must not carry a
+  // whole-tree serialization it does not render.
+  useToolSuccess("protobuf-decoder", parseState === "ok", raw);
 
   function selectChip(path: string, chipId: string) {
     setSelection((prev) => new Map(prev).set(path, chipId));
@@ -93,7 +89,8 @@ export default function ProtobufDecoder() {
   }
   const [copiedAll, confirmCopiedAll] = useCopyFeedback();
   function copyAllAsJson() {
-    void platform.clipboard.writeText(outputJson);
+    // Serialized ON CLICK only — never on the render/paste path.
+    void platform.clipboard.writeText(fieldsToJson(fields, selection));
     confirmCopiedAll();
   }
 

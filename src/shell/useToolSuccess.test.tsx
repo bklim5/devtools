@@ -40,16 +40,18 @@ async function loadHook(isAppstore: boolean): Promise<HookModule> {
 interface HarnessProps {
   toolId: string;
   ok: boolean;
-  output: string;
-  /** An unrelated sibling value (timingMs/byteCount stand-in) — changing it
-   *  re-renders WITHOUT touching the seam's inputs. */
+  /** The SUBMITTED SOURCE — the seam keys episodes on the input, never on the
+   *  rendered output (so a view/option change is not a new episode). */
+  identityInput: string;
+  /** An unrelated sibling value (timingMs/byteCount/view-option stand-in) —
+   *  changing it re-renders WITHOUT touching the seam's inputs. */
   sibling?: number;
 }
 
 /** Build a test component bound to a specific fresh hook module instance. */
 function harnessFor(mod: HookModule) {
-  return function Harness({ toolId, ok, output, sibling }: HarnessProps) {
-    mod.useToolSuccess(toolId, ok, output);
+  return function Harness({ toolId, ok, identityInput, sibling }: HarnessProps) {
+    mod.useToolSuccess(toolId, ok, identityInput);
     return <div data-sibling={sibling ?? 0} />;
   };
 }
@@ -73,7 +75,7 @@ describe("useToolSuccess — appstore channel", () => {
     vi.useFakeTimers();
     const mod = await loadHook(true);
     const Harness = harnessFor(mod);
-    render(<Harness toolId="json-formatter" ok output='{"a":1}' />);
+    render(<Harness toolId="json-formatter" ok identityInput='{"a":1}' />);
 
     await advance(mod.SETTLE_MS - 1);
     expect(recordSettledSuccess).toHaveBeenCalledTimes(0);
@@ -86,12 +88,12 @@ describe("useToolSuccess — appstore channel", () => {
     vi.useFakeTimers();
     const mod = await loadHook(true);
     const Harness = harnessFor(mod);
-    const { rerender } = render(<Harness toolId="json-formatter" ok output="v0" />);
+    const { rerender } = render(<Harness toolId="json-formatter" ok identityInput="v0" />);
 
     // A keystroke every 500 ms for 10 s — the window never completes.
     for (let i = 1; i <= 20; i++) {
       await advance(500);
-      rerender(<Harness toolId="json-formatter" ok output={`v${i}`} />);
+      rerender(<Harness toolId="json-formatter" ok identityInput={`v${i}`} />);
     }
     expect(recordSettledSuccess).toHaveBeenCalledTimes(0);
 
@@ -103,12 +105,12 @@ describe("useToolSuccess — appstore channel", () => {
     vi.useFakeTimers();
     const mod = await loadHook(true);
     const Harness = harnessFor(mod);
-    const { rerender } = render(<Harness toolId="base64" ok output="first" />);
+    const { rerender } = render(<Harness toolId="base64" ok identityInput="first" />);
 
     await advance(mod.SETTLE_MS + 1);
     expect(recordSettledSuccess).toHaveBeenCalledTimes(1);
 
-    rerender(<Harness toolId="base64" ok output="second" />);
+    rerender(<Harness toolId="base64" ok identityInput="second" />);
     await advance(mod.SETTLE_MS + 1);
     expect(recordSettledSuccess).toHaveBeenCalledTimes(2);
   });
@@ -119,7 +121,7 @@ describe("useToolSuccess — appstore channel", () => {
     const Harness = harnessFor(mod);
     const same = "the same settled output";
     const { rerender } = render(
-      <Harness toolId="hash" ok output={same} sibling={0} />,
+      <Harness toolId="hash" ok identityInput={same} sibling={0} />,
     );
 
     await advance(mod.SETTLE_MS + 1);
@@ -128,7 +130,7 @@ describe("useToolSuccess — appstore channel", () => {
     // 20+ re-renders across TWO further settle windows, changing only a sibling
     // value (a timingMs/byteCount churn stand-in) — never the seam's inputs.
     for (let i = 1; i <= 24; i++) {
-      rerender(<Harness toolId="hash" ok output={same} sibling={i} />);
+      rerender(<Harness toolId="hash" ok identityInput={same} sibling={i} />);
       await advance(300);
     }
     await advance(mod.SETTLE_MS * 2);
@@ -142,9 +144,9 @@ describe("useToolSuccess — appstore channel", () => {
     const Harness = harnessFor(mod);
 
     // (i) the short pair.
-    const { rerender } = render(<Harness toolId="url" ok output="abcd" />);
+    const { rerender } = render(<Harness toolId="url" ok identityInput="abcd" />);
     await advance(mod.SETTLE_MS + 1);
-    rerender(<Harness toolId="url" ok output="wxyz" />);
+    rerender(<Harness toolId="url" ok identityInput="wxyz" />);
     await advance(mod.SETTLE_MS + 1);
     expect(recordSettledSuccess).toHaveBeenCalledTimes(2);
     expect(mod.successIdentity("url", "abcd")).not.toBe(
@@ -169,9 +171,9 @@ describe("useToolSuccess — appstore channel", () => {
       mod.successIdentity("json-formatter", bigB),
     );
 
-    rerender(<Harness toolId="json-formatter" ok output={bigA} />);
+    rerender(<Harness toolId="json-formatter" ok identityInput={bigA} />);
     await advance(mod.SETTLE_MS + 1);
-    rerender(<Harness toolId="json-formatter" ok output={bigB} />);
+    rerender(<Harness toolId="json-formatter" ok identityInput={bigB} />);
     await advance(mod.SETTLE_MS + 1);
     expect(recordSettledSuccess).toHaveBeenCalledTimes(4);
   });
@@ -182,9 +184,9 @@ describe("useToolSuccess — appstore channel", () => {
     const Harness = harnessFor(mod);
     const shared = "deadbeef";
 
-    const { rerender } = render(<Harness toolId="base64" ok output={shared} />);
+    const { rerender } = render(<Harness toolId="base64" ok identityInput={shared} />);
     await advance(mod.SETTLE_MS + 1);
-    rerender(<Harness toolId="hash" ok output={shared} />);
+    rerender(<Harness toolId="hash" ok identityInput={shared} />);
     await advance(mod.SETTLE_MS + 1);
 
     expect(recordSettledSuccess).toHaveBeenCalledTimes(2);
@@ -199,20 +201,72 @@ describe("useToolSuccess — appstore channel", () => {
     const Harness = harnessFor(mod);
 
     const { rerender } = render(
-      <Harness toolId="jwt" ok={false} output="stale payload text" />,
+      <Harness toolId="jwt" ok={false} identityInput="stale payload text" />,
     );
     await advance(10_000);
-    rerender(<Harness toolId="jwt" ok={false} output="" />);
+    rerender(<Harness toolId="jwt" ok={false} identityInput="" />);
     await advance(10_000);
 
     expect(recordSettledSuccess).toHaveBeenCalledTimes(0);
+  });
+
+  it("Test 8a: re-pasting the IDENTICAL source is still ONE episode, even across an ok flap", async () => {
+    vi.useFakeTimers();
+    const mod = await loadHook(true);
+    const Harness = harnessFor(mod);
+    const src = "089601";
+
+    const { rerender } = render(
+      <Harness toolId="protobuf-decoder" ok identityInput={src} />,
+    );
+    await advance(mod.SETTLE_MS + 1);
+    expect(recordSettledSuccess).toHaveBeenCalledTimes(1);
+
+    // Clear the field (ok=false), then paste EXACTLY the same thing again. The
+    // user accomplished one thing, not two.
+    rerender(<Harness toolId="protobuf-decoder" ok={false} identityInput="" />);
+    await advance(mod.SETTLE_MS + 1);
+    rerender(<Harness toolId="protobuf-decoder" ok identityInput={src} />);
+    await advance(mod.SETTLE_MS + 1);
+
+    expect(recordSettledSuccess).toHaveBeenCalledTimes(1);
+  });
+
+  it("Test 8b: a VIEW/OPTION change (same source) is not an episode; a new source is", async () => {
+    vi.useFakeTimers();
+    const mod = await loadHook(true);
+    const Harness = harnessFor(mod);
+    const src = '{"a":1}';
+
+    // The tool settles one success on this source.
+    const { rerender } = render(
+      <Harness toolId="json-formatter" ok identityInput={src} sibling={0} />,
+    );
+    await advance(mod.SETTLE_MS + 1);
+    expect(recordSettledSuccess).toHaveBeenCalledTimes(1);
+
+    // Now toggle view options (indent 2→4→tab, sort-keys, a LEN chip, a regex
+    // flag …). Each re-renders the tool and changes what is DISPLAYED — the
+    // seam's `identityInput` is unchanged because none of them is input.
+    for (const option of [1, 2, 3, 4]) {
+      rerender(
+        <Harness toolId="json-formatter" ok identityInput={src} sibling={option} />,
+      );
+      await advance(mod.SETTLE_MS + 1);
+    }
+    expect(recordSettledSuccess).toHaveBeenCalledTimes(1);
+
+    // A genuinely different SOURCE is a second episode.
+    rerender(<Harness toolId="json-formatter" ok identityInput='{"a":2}' />);
+    await advance(mod.SETTLE_MS + 1);
+    expect(recordSettledSuccess).toHaveBeenCalledTimes(2);
   });
 
   it("Test 8: unmounting before the window elapses cancels the episode", async () => {
     vi.useFakeTimers();
     const mod = await loadHook(true);
     const Harness = harnessFor(mod);
-    const { unmount } = render(<Harness toolId="cron" ok output="0 9 * * 1-5" />);
+    const { unmount } = render(<Harness toolId="cron" ok identityInput="0 9 * * 1-5" />);
 
     await advance(mod.SETTLE_MS - 500);
     unmount();
@@ -247,11 +301,11 @@ describe("useToolSuccess — direct channel (runtime no-invoke proof)", () => {
 
     const mod = await loadHook(false);
     const Harness = harnessFor(mod);
-    const { rerender } = render(<Harness toolId="base64" ok output="one" />);
+    const { rerender } = render(<Harness toolId="base64" ok identityInput="one" />);
     await advance(mod.SETTLE_MS + 1);
-    rerender(<Harness toolId="base64" ok output="two" />);
+    rerender(<Harness toolId="base64" ok identityInput="two" />);
     await advance(mod.SETTLE_MS + 1);
-    rerender(<Harness toolId="base64" ok output="three" />);
+    rerender(<Harness toolId="base64" ok identityInput="three" />);
     await advance(mod.SETTLE_MS + 1);
 
     expect(recordSettledSuccess).toHaveBeenCalledTimes(0);
@@ -286,6 +340,36 @@ describe("fnv1a32", () => {
   });
 });
 
+describe("SETTLE_MS dev/e2e override", () => {
+  it("Test 12: __setSettleMsForTest shortens the quiet window and restores it", async () => {
+    vi.useFakeTimers();
+    const mod = await loadHook(true);
+    const Harness = harnessFor(mod);
+    try {
+      mod.__setSettleMsForTest(200);
+      expect(mod.currentSettleMs()).toBe(200);
+
+      const { rerender } = render(<Harness toolId="base64" ok identityInput="a" />);
+      await advance(199);
+      expect(recordSettledSuccess).toHaveBeenCalledTimes(0);
+      await advance(2);
+      expect(recordSettledSuccess).toHaveBeenCalledTimes(1);
+
+      // Restoring puts the SHIPPED window back — a shortened window can never
+      // outlive the override.
+      mod.__setSettleMsForTest();
+      expect(mod.currentSettleMs()).toBe(mod.SETTLE_MS);
+      rerender(<Harness toolId="base64" ok identityInput="b" />);
+      await advance(mod.SETTLE_MS - 1);
+      expect(recordSettledSuccess).toHaveBeenCalledTimes(1);
+      await advance(2);
+      expect(recordSettledSuccess).toHaveBeenCalledTimes(2);
+    } finally {
+      mod.__setSettleMsForTest();
+    }
+  });
+});
+
 describe("useToolSuccess — render path", () => {
   it("Test 11: 50 re-renders of a 2 MB output hash ZERO times until settle, then once", async () => {
     vi.useFakeTimers();
@@ -296,10 +380,10 @@ describe("useToolSuccess — render path", () => {
     expect(mod.__hashCallCountForTest()).toBe(0);
 
     const { rerender } = render(
-      <Harness toolId="json-formatter" ok output={twoMb} sibling={0} />,
+      <Harness toolId="json-formatter" ok identityInput={twoMb} sibling={0} />,
     );
     for (let i = 1; i <= 50; i++) {
-      rerender(<Harness toolId="json-formatter" ok output={twoMb} sibling={i} />);
+      rerender(<Harness toolId="json-formatter" ok identityInput={twoMb} sibling={i} />);
     }
     // Still inside the SAME quiet window: nothing has been hashed.
     await advance(mod.SETTLE_MS - 1);

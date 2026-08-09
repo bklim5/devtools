@@ -41,17 +41,14 @@ export default function CronTool() {
 
   const isError = result.kind === "error";
 
-  // Shared success seam (UP5-01) — one call, no counting logic here. A success
-  // is any expression the core could describe (scheduled / never / reboot); the
-  // rendered description + run labels are the output. `now` is frozen per
-  // [expr, zone] compute, so the labels are stable across unrelated re-renders.
-  const successOutput =
-    result.kind === "scheduled"
-      ? `${result.description}\n${result.runs.map((r) => r.label).join("\n")}`
-      : result.kind === "never" || result.kind === "reboot"
-        ? result.description
-        : "";
-  useToolSuccess("cron", successOutput !== "", successOutput);
+  // UP5-01: a success is any expression the core could describe (scheduled /
+  // never / reboot); the identity is the expression the user typed, so the
+  // per-render run labels (which embed a frozen `now`) stay out of it entirely.
+  const describedOk =
+    result.kind === "scheduled" ||
+    result.kind === "never" ||
+    result.kind === "reboot";
+  useToolSuccess("cron", describedOk, expr);
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">

@@ -39,17 +39,6 @@ function Value({ value }: { value: string }) {
   );
 }
 
-/**
- * Shared success seam (UP5-01) — one call, no counting logic here. This tool's
- * output lives inside its two MODE components, so both render this null-rendering
- * reporter instead of calling the seam themselves; the file keeps exactly ONE
- * `useToolSuccess` call and neither mode needs its state lifted.
- */
-function UrlSuccess({ ok, output }: { ok: boolean; output: string }) {
-  useToolSuccess("url", ok, output);
-  return null;
-}
-
 const READOUT_LABELS = [
   "scheme",
   "host",
@@ -62,24 +51,16 @@ const READOUT_LABELS = [
   "password",
 ] as const;
 
-function ParseMode() {
-  const [input, setInput] = useState("");
-  const result = useMemo(() => parseUrl(input), [input]);
+interface ParseModeProps {
+  input: string;
+  onInput: (next: string) => void;
+  result: ReturnType<typeof parseUrl>;
+}
 
-  // The parsed output as the user sees it: the readout rows plus the decoded
-  // query table. Empty input and a relative/scheme-less URL are not successes.
-  const parsedOk = !("empty" in result) && !("error" in result);
-  const parsedOutput =
-    "empty" in result || "error" in result
-      ? ""
-      : [
-          ...READOUT_LABELS.map((label) => `${label}=${result.url[label]}`),
-          ...result.url.queryRows.map((row) => `?${row.key}=${row.value}`),
-        ].join("\n");
-
+/** Presentational: the input + result live in UrlTool (see the seam note there). */
+function ParseMode({ input, onInput, result }: ParseModeProps) {
   return (
     <div className="flex min-w-0 flex-col gap-4">
-      <UrlSuccess ok={parsedOk} output={parsedOutput} />
       <section className="flex min-w-0 flex-col gap-2">
         <label
           htmlFor="url-parse-input"
@@ -90,7 +71,7 @@ function ParseMode() {
         <textarea
           id="url-parse-input"
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(e) => onInput(e.target.value)}
           spellCheck={false}
           autoComplete="off"
           autoCapitalize="off"
@@ -221,30 +202,28 @@ function OutputPane({
   );
 }
 
-function EncodeMode() {
-  const [input, setInput] = useState("");
-  const [scope, setScope] = useState<Scope>("full");
+type PaneResult = { value: string } | { error: string };
 
-  const encoded = useMemo(
-    () => (scope === "component" ? encodeComponent(input) : encodeFull(input)),
-    [input, scope],
-  );
-  const decoded = useMemo(
-    () => (scope === "component" ? decodeComponent(input) : decodeFull(input)),
-    [input, scope],
-  );
+interface EncodeModeProps {
+  input: string;
+  onInput: (next: string) => void;
+  scope: Scope;
+  onScope: (next: Scope) => void;
+  encoded: PaneResult;
+  decoded: PaneResult;
+}
 
-  // Both panes are outputs (D-04). A success needs a non-empty input and at
-  // least one pane that produced a value — a bad percent-sequence errors only
-  // the affected pane (D-14), which is still a usable result on the other side.
-  const encodedValue = "error" in encoded ? "" : encoded.value;
-  const decodedValue = "error" in decoded ? "" : decoded.value;
-  const encodeOk =
-    input !== "" && (encodedValue !== "" || decodedValue !== "");
-
+/** Presentational: the input/scope + both derived panes live in UrlTool. */
+function EncodeMode({
+  input,
+  onInput,
+  scope,
+  onScope,
+  encoded,
+  decoded,
+}: EncodeModeProps) {
   return (
     <div className="flex min-w-0 flex-col gap-4">
-      <UrlSuccess ok={encodeOk} output={`${encodedValue}\n${decodedValue}`} />
       <section className="flex min-w-0 flex-col gap-2">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <label
@@ -256,14 +235,14 @@ function EncodeMode() {
           <SegmentedControl
             options={SCOPE_OPTIONS}
             value={scope}
-            onChange={setScope}
+            onChange={onScope}
             ariaLabel="Encoding scope"
           />
         </div>
         <textarea
           id="url-encode-input"
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(e) => onInput(e.target.value)}
           spellCheck={false}
           autoComplete="off"
           autoCapitalize="off"
@@ -287,6 +266,62 @@ const MODE_OPTIONS = [
 
 export default function UrlTool() {
   const [mode, setMode] = useState<Mode>("parse");
+  // Both modes' state lives HERE, not in the mode components. The mode
+  // components mount/unmount as the user toggles, and the UP5-01 seam's dedup
+  // memory is a ref — so a seam call inside them (directly or through a
+  // null-rendering reporter) forgot what it had already counted on every mode
+  // switch, and switching back re-counted the same work. One call at this level
+  // stays mounted for the tool's whole life.
+  //
+  // Switching modes still CLEARS both inputs and resets the scope, so the
+  // previously observable behaviour (each mode component remounted empty; D-01/02/03
+  // "no persistence") is unchanged.
+  const [parseInput, setParseInput] = useState("");
+  const [encodeInput, setEncodeInput] = useState("");
+  const [scope, setScope] = useState<Scope>("full");
+
+  const parseResult = useMemo(() => parseUrl(parseInput), [parseInput]);
+  const encoded = useMemo(
+    () =>
+      scope === "component"
+        ? encodeComponent(encodeInput)
+        : encodeFull(encodeInput),
+    [encodeInput, scope],
+  );
+  const decoded = useMemo(
+    () =>
+      scope === "component"
+        ? decodeComponent(encodeInput)
+        : decodeFull(encodeInput),
+    [encodeInput, scope],
+  );
+
+  function switchMode(next: Mode) {
+    setMode(next);
+    setParseInput("");
+    setEncodeInput("");
+    setScope("full");
+  }
+
+  // PARSE success: an absolute URL that split cleanly. Empty input and a
+  // relative/scheme-less URL are not successes.
+  const parsedOk = !("empty" in parseResult) && !("error" in parseResult);
+  // ENCODE success (D-04): a non-empty input plus at least one pane that
+  // produced a value — a bad percent-sequence errors only the affected pane
+  // (D-14), which is still a usable result on the other side.
+  const encodeOk =
+    encodeInput !== "" &&
+    (("error" in encoded ? "" : encoded.value) !== "" ||
+      ("error" in decoded ? "" : decoded.value) !== "");
+
+  // UP5-01: identity = the mode plus THAT mode's submitted source. The mode is
+  // part of it because the same string means different work on each side; the
+  // encoding-scope toggle is NOT, because it re-presents the same submission.
+  const identityInput = useMemo(
+    () => `${mode}\n${mode === "parse" ? parseInput : encodeInput}`,
+    [mode, parseInput, encodeInput],
+  );
+  useToolSuccess("url", mode === "parse" ? parsedOk : encodeOk, identityInput);
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">
@@ -294,10 +329,25 @@ export default function UrlTool() {
         <SegmentedControl
           options={MODE_OPTIONS}
           value={mode}
-          onChange={setMode}
+          onChange={switchMode}
           ariaLabel="URL tool mode"
         />
-        {mode === "parse" ? <ParseMode /> : <EncodeMode />}
+        {mode === "parse" ? (
+          <ParseMode
+            input={parseInput}
+            onInput={setParseInput}
+            result={parseResult}
+          />
+        ) : (
+          <EncodeMode
+            input={encodeInput}
+            onInput={setEncodeInput}
+            scope={scope}
+            onScope={setScope}
+            encoded={encoded}
+            decoded={decoded}
+          />
+        )}
       </div>
     </div>
   );

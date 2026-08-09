@@ -142,14 +142,9 @@ export default function UnixTimeTool() {
       ? "empty"
       : "ok";
 
-  // Shared success seam (UP5-01) — one call, no counting logic here. The output
-  // is the three derived rows; the live "now" ticker is deliberately EXCLUDED
-  // (it changes every second on its own, so including it would mean no output
-  // could ever sit still long enough to settle).
-  const derivedRows = formatted
-    ? `${formatted.local}\n${formatted.utc}\n${formatted.iso}`
-    : "";
-  useToolSuccess("unix-time", parseState === "ok", derivedRows);
+  // UP5-01: the identity is the timestamp the user submitted. The live "now"
+  // ticker and the unit toggle are excluded by construction — neither is input.
+  useToolSuccess("unix-time", parseState === "ok", raw);
 
   const nowValue = String(fromMs(nowMs, activeUnit));
 

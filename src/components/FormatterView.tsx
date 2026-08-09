@@ -201,11 +201,14 @@ export function FormatterView({
 }: FormatterViewProps) {
   const [copied, confirmCopy] = useCopyFeedback();
 
-  // Shared success seam (UP5-01) — one call, no counting logic here. This ONE
-  // call covers all four formatter tools. `pending` excludes deliberately: an
-  // async formatter keeps its previous "ok" parseState while the NEXT format is
-  // in flight, so a pending render is showing a stale result, not a settled one.
-  useToolSuccess(toolId, status.parseState === "ok" && !status.pending, output);
+  // UP5-01: ONE call covers all four formatter tools. The identity is the INPUT
+  // the user pasted, so re-formatting the same source at a different
+  // indent/width/semi/sort-keys setting stays ONE episode — those toggles change
+  // how one result is PRESENTED, not what was accomplished. `pending` is
+  // excluded from `ok` deliberately: an async formatter keeps its previous "ok"
+  // parseState while the NEXT format is in flight, so a pending render is
+  // showing a stale result, not a settled one.
+  useToolSuccess(toolId, status.parseState === "ok" && !status.pending, input);
 
   function handleCopy() {
     void platform.clipboard.writeText(output);

@@ -144,16 +144,22 @@ export default function UuidUlidTool() {
   const [decodeRaw, setDecodeRaw] = useState("");
   const [copiedAll, confirmCopyAll] = useCopyFeedback();
 
-  // True once the user has EXPLICITLY generated (Generate / kind / count). The
-  // mount-time batch below is produced by mere NAVIGATION to the tool, which must
-  // never count as a success (UP5-01) — this flag is the tool's own success
-  // discriminant, not counting logic.
-  const [generated, setGenerated] = useState(false);
+  // UP5-01 provenance for the generate half: null until the user EXPLICITLY
+  // generates (Generate / kind / count), then the ids that action produced. The
+  // mount-time batch is produced by mere NAVIGATION, which must never count.
+  //
+  // This deliberately replaces a sticky `generated` boolean: a latch that stayed
+  // true forever meant every later keystroke in the DECODE field arrived at the
+  // seam as another "generate success". Carrying the ids themselves makes the
+  // flag and the identity the same fact — one episode per generate action, and
+  // the string is built at ACTION time, never per render.
+  const [generatedIds, setGeneratedIds] = useState<string | null>(null);
 
   const regenerate = useCallback(
     (k: Kind = kind, c: number = clampCount(countText)) => {
-      setIds(generateBatch(k, c));
-      setGenerated(true);
+      const batch = generateBatch(k, c);
+      setIds(batch);
+      setGeneratedIds(batch.join("\n"));
     },
     [kind, countText],
   );
@@ -187,14 +193,17 @@ export default function UuidUlidTool() {
 
   const generatedLabel = useMemo(() => COPY_LABEL[kind], [kind]);
 
-  // Shared success seam (UP5-01) — one call, no counting logic here. This tool
-  // has TWO success shapes: an explicitly generated batch and a valid decode.
-  // Both are folded into a single output identity so the file keeps ONE call.
-  useToolSuccess(
-    "uuid-ulid",
-    generated || decoded.kind === "ok",
-    `${ids.join("\n")}\n${decoded.kind === "ok" ? decodeRaw.trim() : ""}`,
-  );
+  // UP5-01. This tool has TWO INDEPENDENT success surfaces, so it makes two
+  // seam calls — one per surface — rather than folding them into a single
+  // identity string. Folding them coupled the two: clearing the decode field
+  // changed the combined identity back to the generate-only shape and re-counted
+  // a batch that had already been counted. Each call keeps its own dedup ref.
+  //
+  //   (1) GENERATE — an explicit user action; the identity is the ids it made.
+  //   (2) DECODE — a valid decode of pasted text; `ok` goes false the moment the
+  //       field is cleared or the value stops parsing.
+  useToolSuccess("uuid-ulid", generatedIds !== null, generatedIds ?? "");
+  useToolSuccess("uuid-ulid", decoded.kind === "ok", decodeRaw);
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">

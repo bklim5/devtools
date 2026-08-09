@@ -24,10 +24,11 @@ import { detectEncoding } from "./detectEncoding";
 let writeText: ReturnType<typeof vi.fn<(text: string) => Promise<void>>>;
 
 // The shared success seam (UP5-01) is mocked to a spy: this file asserts the
-// WIRING (id / ok / output text), not the seam's own settle + counting logic,
+// WIRING (id / ok / identity input), not the seam's own settle + counting logic,
 // which src/shell/useToolSuccess.test.tsx owns.
-const useToolSuccessMock =
-  vi.hoisted(() => vi.fn<(id: string, ok: boolean, output: string) => void>());
+const useToolSuccessMock = vi.hoisted(() =>
+  vi.fn<(id: string, ok: boolean, identityInput: string) => void>(),
+);
 vi.mock("@/shell/useToolSuccess", () => ({
   useToolSuccess: useToolSuccessMock,
 }));
@@ -358,7 +359,7 @@ describe("ProtobufDecoder", () => {
     }
   });
 
-  it("reaches the shared success seam with the tool id, ok, and the output text (UP5-01)", () => {
+  it("reaches the shared success seam keyed on the PASTED SOURCE, not the rendered tree (UP5-01)", () => {
     const { container } = render(<ProtobufDecoder />);
     const lastCall = () => {
       const calls = useToolSuccessMock.mock.calls;
@@ -369,15 +370,46 @@ describe("ProtobufDecoder", () => {
     expect(lastCall()[0]).toBe("protobuf-decoder");
     expect(lastCall()[1]).toBe(false);
 
-    // A successful decode: ok=true and the OUTPUT text is the copy-all-as-JSON
-    // serialization the user sees (never a second, invented one).
+    // A successful decode: ok=true and the identity is the RAW INPUT the user
+    // pasted — never a serialization of the output.
     fireEvent.change(input(container), { target: { value: "089601" } });
     expect(lastCall()[0]).toBe("protobuf-decoder");
     expect(lastCall()[1]).toBe(true);
-    expect(lastCall()[2]).toContain('"1": "150"');
+    expect(lastCall()[2]).toBe("089601");
 
     // A group byte errors (PRO-02) — ok flips back to false.
     fireEvent.change(input(container), { target: { value: "1c" } });
     expect(lastCall()[1]).toBe(false);
+  });
+
+  it("a LEN-chip selection change does NOT create a new success identity (UP5-01)", () => {
+    const { container } = render(<ProtobufDecoder />);
+    const lastCall = () => {
+      const calls = useToolSuccessMock.mock.calls;
+      return calls[calls.length - 1];
+    };
+
+    // {3:{1:150}} — the outer LEN node offers interpretation chips.
+    fireEvent.change(input(container), { target: { value: "1a03089601" } });
+    expect(lastCall()[1]).toBe(true);
+    const identityBefore = lastCall()[2];
+    expect(identityBefore).toBe("1a03089601");
+
+    // Re-interpret the outer node (the chip click that used to re-serialize the
+    // whole tree and therefore manufacture a second success episode).
+    const firstGroup = container.querySelector('[role="radiogroup"]')!;
+    const radios = firstGroup.querySelectorAll('[role="radio"]');
+    fireEvent.click(radios[radios.length - 1]);
+
+    // The view genuinely changed…
+    expect(
+      Array.from(container.querySelectorAll("[data-fnum]")).some((n) =>
+        (n.textContent ?? "").includes("#1"),
+      ),
+    ).toBe(false);
+    // …but the seam still sees the SAME (ok, identity) pair: looking at one
+    // decode differently is not a second success.
+    expect(lastCall()[1]).toBe(true);
+    expect(lastCall()[2]).toBe(identityBefore);
   });
 });

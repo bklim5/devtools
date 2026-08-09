@@ -127,11 +127,11 @@ export default function Base64Tool() {
       ? "empty"
       : "ok";
 
-  // Shared success seam (UP5-01) — one call, no counting logic here. All three
-  // panes are derived from ONE internal byte array, and `hex` is that array's
-  // canonical rendering, so it identifies the converted result exactly: different
-  // bytes always differ, and a base64/base64url alphabet flip (same bytes, same
-  // result) correctly stays a single episode.
+  // UP5-01. This tool has THREE interchangeable input fields (text/base64/hex)
+  // all backed by ONE internal byte array, so "the source the user submitted" IS
+  // those bytes; `hex` is their canonical rendering (a stable state string, not a
+  // per-render allocation). Different bytes always differ, and an alphabet flip —
+  // same bytes, same conversion — correctly stays a single episode.
   useToolSuccess("base64", parseState === "ok", hex);
 
   return (
