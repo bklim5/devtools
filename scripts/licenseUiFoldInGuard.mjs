@@ -1,24 +1,23 @@
 // scripts/licenseUiFoldInGuard.mjs
-// SINGLE source of truth for the D-04 fold-in guard. Imported by BOTH
-// vite.config.ts (the production appstore plugin) AND verify-appstore-bundle.sh's
+// SINGLE source of truth for the D-04 fold-in guard POLICY (which modules, which
+// sentinel, which message); the shared mechanism it is built from — the
+// chunk.modules inventory + the load-bearing sentinel + the throw — lives in
+// scripts/lib/chunkModuleGuard.mjs. Imported by BOTH vite.config.ts (the
+// production appstore plugin) AND verify-appstore-bundle.sh's
 // --selftest-realbuild harness, so the self-test exercises the EXACT production
 // guard (same regex, same emitFile, same throw) — a divergent test guard is
 // impossible by construction.
 //
-// Inspects the REAL per-chunk module inventory (chunk.modules — the absolute module
-// IDs Rollup ACTUALLY folded into each chunk) and FAILS the build if
-// src/lib/license/licenseUi is folded into ANY chunk (D-04). This is the
-// authoritative fold-in inventory the Vite chunk/asset manifest LACKS: a static
-// licenseUi import folded into the main entry chunk leaves the Vite manifest keyed
-// as src/main.tsx while the JS still ships the license-UI code (the false-GREEN this
-// replaces). The guard ALSO emits a load-bearing sentinel asset
-// (licenseui-inventory.json) so verify-appstore-bundle.sh can assert
+// FAILS the build if src/lib/license/licenseUi is folded into ANY chunk (D-04),
+// and emits licenseui-inventory.json so verify-appstore-bundle.sh can assert
 // {licenseUiInChunks:false} on the SIGNED bundle.
 //
 // The module-ID regex matches the RESOLVED absolute Rollup module id, which ends in
 // the repo-relative path src/lib/license/licenseUi.{ts,tsx,js,jsx}. It lives ONLY
 // here — vite.config.ts and the self-test reference the guard via import and never
 // re-declare it.
+import { makeChunkModuleGuard } from "./lib/chunkModuleGuard.mjs";
+
 export const LICENSE_UI_MODULE = /src\/lib\/license\/licenseUi\.[tj]sx?$/;
 
 // Phase 29 (MAS-NATIVE-02/03) — the updater UI subtree (the App-shell updater
@@ -60,43 +59,29 @@ export const UPDATER_MODULES = [
 ];
 
 export function licenseUiFoldInGuard() {
-  return {
+  return makeChunkModuleGuard({
     name: "appstore-licenseui-foldin-guard",
-    generateBundle(_options, bundle) {
-      const hits = [];
-      const updaterHits = [];
-      for (const file of Object.values(bundle)) {
-        if (file.type !== "chunk" || !file.modules) continue;
-        for (const id of Object.keys(file.modules)) {
-          if (LICENSE_UI_MODULE.test(id)) hits.push(`${file.fileName}: ${id}`);
-          if (UPDATER_MODULES.some((re) => re.test(id)))
-            updaterHits.push(`${file.fileName}: ${id}`);
-        }
-      }
-      const licenseUiInChunks = hits.length > 0;
-      const updaterInChunks = updaterHits.length > 0;
-      // Emit the load-bearing sentinel REGARDLESS (so the verifier has a positive
-      // artifact; a missing sentinel is itself a verifier failure). Keep the D-04
-      // licenseUi fields AND add the Phase-29 updater fields in the SAME sentinel.
-      this.emitFile({
-        type: "asset",
-        fileName: "licenseui-inventory.json",
-        source: JSON.stringify(
-          { licenseUiInChunks, hits, updaterInChunks, updaterHits },
-          null,
-          2,
-        ),
-      });
-      if (licenseUiInChunks) {
-        throw new Error(
+    // verify-appstore-bundle.sh FATALs when this file is missing, duplicated, or
+    // reports either flag true — so it is emitted on every outcome.
+    sentinelFile: "licenseui-inventory.json",
+    // No `scopeChunks`: neither family may ship in ANY store chunk, lazily
+    // loaded or not. Group ORDER is the sentinel's field order (licenseUiInChunks,
+    // hits, updaterInChunks, updaterHits) and the throw precedence.
+    groups: [
+      {
+        flagKey: "licenseUiInChunks",
+        hitsKey: "hits",
+        patterns: [LICENSE_UI_MODULE],
+        message: (hits) =>
           `[D-04] src/lib/license/licenseUi was folded into the appstore bundle:\n  ${hits.join("\n  ")}`,
-        );
-      }
-      if (updaterInChunks) {
-        throw new Error(
-          `[Phase-29] an updater UI subtree module was folded into the appstore bundle:\n  ${updaterHits.join("\n  ")}`,
-        );
-      }
-    },
-  };
+      },
+      {
+        flagKey: "updaterInChunks",
+        hitsKey: "updaterHits",
+        patterns: UPDATER_MODULES,
+        message: (hits) =>
+          `[Phase-29] an updater UI subtree module was folded into the appstore bundle:\n  ${hits.join("\n  ")}`,
+      },
+    ],
+  });
 }

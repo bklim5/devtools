@@ -3,21 +3,15 @@
 // BOTH vite.config.ts (the production DIRECT-build plugin) AND
 // scripts/reviewPromptFoldInGuard.selftest.mjs, so the self-test exercises the
 // EXACT production guard (same regex, same emitFile, same throw) — a divergent
-// test guard is impossible by construction.
+// test guard is impossible by construction. The shared mechanism (chunk.modules
+// inventory + sentinel + throw) lives in scripts/lib/chunkModuleGuard.mjs; this
+// file is the UP5-03 POLICY: which modules, which sentinel, which message.
 //
 // THE INVERSION. scripts/licenseUiFoldInGuard.mjs runs on the APPSTORE build to
 // keep the Keygen licence UI (and the direct-only updater subtree) OUT of the
 // store bundle. This guard is its mirror image: it runs on the DIRECT build to
-// keep the App Store review prompt OUT of the direct bundle. Same mechanism —
-// inspect the REAL per-chunk module inventory (chunk.modules, the absolute module
-// IDs Rollup ACTUALLY folded into each chunk), emit a load-bearing sentinel, and
-// FAIL the build on any hit — opposite channel.
-//
-// WHY chunk.modules and not the Vite manifest: the manifest is keyed by ENTRY,
-// so a reviewPrompt module statically folded into the main entry chunk still
-// shows up as `src/main.tsx` while the shipped JS carries the review-prompt code
-// (the same false-GREEN the D-04 guard was built to close, and the
-// `keygen-compileout-d04-proof` lesson: a manifest is not a module inventory).
+// keep the App Store review prompt OUT of the direct bundle — same factory,
+// opposite channel.
 //
 // The module-ID regex matches the RESOLVED absolute Rollup module id, which ends
 // in the repo-relative path src/shell/reviewPrompt.{ts,tsx,js,jsx}. It lives ONLY
@@ -52,34 +46,28 @@
 //       even EVALUATE ./reviewPrompt), and
 //   (d) the real-WKWebView runtime no-invoke + prefs proof in
 //       test/e2e/review-prompt.e2e.ts.
+import { makeChunkModuleGuard } from "./lib/chunkModuleGuard.mjs";
+
 export const REVIEW_PROMPT_MODULES = [/src\/shell\/reviewPrompt\.[tj]sx?$/];
 
+/** The emitted sentinel — asserted by the direct release preflight
+ *  (scripts/build-and-publish.mjs), which FAILS if it is missing or dirty. */
+export const REVIEW_PROMPT_SENTINEL = "reviewprompt-inventory.json";
+
 export function reviewPromptFoldInGuard() {
-  return {
+  return makeChunkModuleGuard({
     name: "direct-reviewprompt-foldin-guard",
-    generateBundle(_options, bundle) {
-      const hits = [];
-      for (const file of Object.values(bundle)) {
-        if (file.type !== "chunk" || !file.modules) continue;
-        for (const id of Object.keys(file.modules)) {
-          if (REVIEW_PROMPT_MODULES.some((re) => re.test(id)))
-            hits.push(`${file.fileName}: ${id}`);
-        }
-      }
-      const reviewPromptInChunks = hits.length > 0;
-      // Emit the load-bearing sentinel REGARDLESS of the outcome (so the verifier
-      // has a POSITIVE artifact to read; a MISSING sentinel is itself a failure
-      // signal, not a pass). Same contract as licenseui-inventory.json.
-      this.emitFile({
-        type: "asset",
-        fileName: "reviewprompt-inventory.json",
-        source: JSON.stringify({ reviewPromptInChunks, hits }, null, 2),
-      });
-      if (reviewPromptInChunks) {
-        throw new Error(
+    sentinelFile: REVIEW_PROMPT_SENTINEL,
+    // No `scopeChunks`: this module may not ship in ANY chunk of a direct build,
+    // lazily loaded or not.
+    groups: [
+      {
+        flagKey: "reviewPromptInChunks",
+        hitsKey: "hits",
+        patterns: REVIEW_PROMPT_MODULES,
+        message: (hits) =>
           `[UP5-03] src/shell/reviewPrompt was folded into the DIRECT bundle:\n  ${hits.join("\n  ")}`,
-        );
-      }
-    },
-  };
+      },
+    ],
+  });
 }
