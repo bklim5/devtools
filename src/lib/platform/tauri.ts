@@ -235,4 +235,20 @@ export const tauriPlatform: Platform = {
       };
     },
   },
+  // UP5-02: ask the OS for an App Store review (StoreKit 2
+  // `AppStore.requestReview(in:)`, behind the appstore-only Rust command). Reuses
+  // the ALREADY-imported `invoke` — no new import. The command is compiled ONLY
+  // under the `appstore` cargo feature, so on the DIRECT build this literal is a
+  // dead string: nothing ever calls it (the reviewPrompt core is behind a
+  // channel-gated dynamic import that the direct bundle tree-shakes away).
+  //
+  // The literal riding along in the direct bundle is the ACCEPTED shared-seam
+  // posture — exactly like the license/iap invoke literals (see the
+  // `keygen-compileout-d04-proof` reasoning: a copy-string grep is NOT a
+  // load-bearing absence proof). The load-bearing direct-absence proofs are the
+  // Rust `#[cfg(feature = "appstore")]`, the build.rs Swift-compile gate, the
+  // chunk-module fold-in guard + sentinel, and the runtime no-invoke tests.
+  review: {
+    request: () => invoke<void>("request_app_store_review"),
+  },
 };

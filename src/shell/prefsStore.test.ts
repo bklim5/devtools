@@ -468,3 +468,65 @@ describe("defaultToolId coercion (SET-09, T-24-02)", () => {
     expect(mergePreferences({ defaultToolId: 7 }).defaultToolId).toBeNull();
   });
 });
+
+// toolSuccessCount / lastReviewRequestAt are the App Store review cadence fields
+// (UP5-01/UP5-02) and are UNTRUSTED: a hand-edited prefs.json must not be able to
+// make the prompt fire early, fire repeatedly, or crash the app. The counter
+// coerces to a clamped non-negative INTEGER; the stamp copies lastUpdateCheck's
+// finite-positive discipline.
+describe("toolSuccessCount / lastReviewRequestAt coercion (UP5-01/UP5-02)", () => {
+  /** Mirrors the LOCAL ceiling in prefsStore.ts (and reviewPrompt's exported
+   *  MAX_TOOL_SUCCESS_COUNT — reviewPrompt Test 13 asserts they stay equal). */
+  const MAX = 1_000_000;
+
+  it("Test 16: an empty blob yields the additive defaults (0 / null)", () => {
+    expect(mergePreferences({}).toolSuccessCount).toBe(0);
+    expect(mergePreferences({}).lastReviewRequestAt).toBeNull();
+  });
+
+  it("Test 17: junk toolSuccessCount values all coerce to 0; a valid count survives; a huge one clamps", () => {
+    for (const bad of [-1, "3", 1.5, NaN, Infinity, {}, null, undefined, true]) {
+      expect(mergePreferences({ toolSuccessCount: bad }).toolSuccessCount).toBe(0);
+    }
+    expect(mergePreferences({ toolSuccessCount: 2 }).toolSuccessCount).toBe(2);
+    expect(mergePreferences({ toolSuccessCount: 1e12 }).toolSuccessCount).toBe(MAX);
+    // The ceiling is deliberately NOT a multiple of SUCCESS_INTERVAL (3), so a
+    // clamped counter can never stand permanently on a request boundary.
+    expect(MAX % 3).not.toBe(0);
+  });
+
+  it("Test 18: junk lastReviewRequestAt values all coerce to null; a finite positive stamp survives", () => {
+    for (const bad of [0, -5, "x", NaN, Infinity, true, {}, undefined]) {
+      expect(mergePreferences({ lastReviewRequestAt: bad }).lastReviewRequestAt).toBeNull();
+    }
+    expect(mergePreferences({ lastReviewRequestAt: 1_700_000_000_000 }).lastReviewRequestAt).toBe(
+      1_700_000_000_000,
+    );
+  });
+
+  it("Test 19: a blob lacking both new keys round-trips every OTHER field unchanged (additive-only)", () => {
+    const legacy = {
+      theme: "light",
+      accent: "#ff0000",
+      lastUsedId: "base64",
+      recentToolIds: ["base64", "hash"],
+      toolOrder: ["hash", "base64"],
+      pinnedToolIds: ["jwt"],
+      protobufTreeStyle: "rows",
+      autoUpdateCheck: true,
+      lastUpdateCheck: 1_699_000_000_000,
+      entitlementsOverride: "free",
+      licenseDropNoticeAck: false,
+      summonChord: "CommandOrControl+Shift+J",
+      paletteChord: "CommandOrControl+P",
+      launchAtLogin: true,
+      startInTray: true,
+      defaultToolId: "protobuf-decoder",
+    };
+    const merged = mergePreferences(legacy);
+
+    expect(merged).toMatchObject(legacy); // no regression on any pre-existing field
+    expect(merged.toolSuccessCount).toBe(0); // the new fields land at their defaults
+    expect(merged.lastReviewRequestAt).toBeNull();
+  });
+});

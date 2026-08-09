@@ -141,4 +141,11 @@ export const browserPlatform: Platform = {
   // import the native StoreKit plugin companion — that path stays in tauri.ts (and in
   // MODE A is never imported at all; the seam reaches StoreKit Rust-side).
   iap: createIapStub(),
+  // The App Store review request is Tauri-only (UP5-02, appstore build): outside
+  // Tauri this is a deterministic no-op that NEVER touches the OS, so
+  // jsdom/vite-preview can never surface a review sheet. This file must NOT
+  // import @tauri-apps/*.
+  review: {
+    async request(): Promise<void> {},
+  },
 };

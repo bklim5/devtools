@@ -71,6 +71,7 @@ describe("platform seam", () => {
         currentEntitlements: vi.fn().mockResolvedValue([]),
         onPurchaseUpdated: vi.fn().mockResolvedValue(() => {}),
       },
+      review: { request: vi.fn().mockResolvedValue(undefined) },
     };
     setPlatformForTest(stub);
 
@@ -196,6 +197,7 @@ describe("platform seam — native capabilities (NAT-01)", () => {
         currentEntitlements: vi.fn().mockResolvedValue([]),
         onPurchaseUpdated: vi.fn().mockResolvedValue(() => {}),
       },
+      review: { request: vi.fn().mockResolvedValue(undefined) },
     };
     setPlatformForTest(stub);
 
@@ -280,6 +282,7 @@ describe("platform seam — auto-updater (DST-02)", () => {
         currentEntitlements: vi.fn().mockResolvedValue([]),
         onPurchaseUpdated: vi.fn().mockResolvedValue(() => {}),
       },
+      review: { request: vi.fn().mockResolvedValue(undefined) },
     };
     setPlatformForTest(stub);
 
@@ -346,6 +349,7 @@ describe("platform seam — events bind to the resolved impl (HIGH-22-01)", () =
         currentEntitlements: vi.fn().mockResolvedValue([]),
         onPurchaseUpdated: vi.fn().mockResolvedValue(() => {}),
       },
+      review: { request: vi.fn().mockResolvedValue(undefined) },
     };
     // setPlatformForTest seeds the memoised init promise with the stub, so
     // `await initPlatform()` resolves to it — mirroring how App.tsx awaits init
@@ -468,5 +472,28 @@ describe("platform seam — app.getVersion (SET-10)", () => {
     };
     setPlatformForTest(stub);
     await expect(platform.app.getVersion()).resolves.toBe("9.9.9-fixture");
+  });
+});
+
+// UP5-02: the OS App Store review request. It is Tauri/appstore-only, so the
+// browser/test fallback MUST be a deterministic no-op — jsdom, vite preview and
+// the DIRECT build can never surface a review sheet — and the `platform` accessor
+// MUST forward to the ACTIVE impl (getter wiring, not a snapshot).
+describe("platform seam — review.request (UP5-02)", () => {
+  it("browser fallback review.request() resolves and makes NO native call (Test 20)", async () => {
+    setPlatformForTest(browserPlatform);
+    // The arm is a plain no-op: it resolves undefined without touching any
+    // native/global bridge (`__TAURI_INTERNALS__` is absent under node/jsdom, so
+    // any invoke attempt would have thrown instead of resolving).
+    expect("__TAURI_INTERNALS__" in (globalThis as Record<string, unknown>)).toBe(false);
+    await expect(platform.review.request()).resolves.toBeUndefined();
+  });
+
+  it("accessor delegates review.request to the active injected impl (Test 20b)", async () => {
+    const request = vi.fn().mockResolvedValue(undefined);
+    const stub: Platform = { ...browserPlatform, review: { request } };
+    setPlatformForTest(stub);
+    await platform.review.request();
+    expect(request).toHaveBeenCalledTimes(1);
   });
 });

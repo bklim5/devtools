@@ -86,6 +86,19 @@ export interface Preferences {
    *  getToolById against ENABLED_TOOLS, T-02-08); an unknown/removed id coerces to
    *  null. resolveStartupTool consumes it between the explicit target and last-used. */
   defaultToolId: string | null;
+  /** LIFETIME count of SETTLED successful tool outputs (UP5-01). It increments
+   *  FOREVER and is NEVER reset by a review request; every 3rd value (3, 6, 9, …)
+   *  is a review-request boundary. Written only by the appstore build (the direct
+   *  build never increments it — the counting seam's prompt arm is compiled out).
+   *  UNTRUSTED (hand-editable): coerced to a clamped non-negative integer. */
+  toolSuccessCount: number;
+  /** Epoch-ms of the MOST RECENT SUCCESSFUL App Store review request (UP5-02).
+   *  null = never requested. This is a RATE-LIMIT stamp, NOT a one-shot claim —
+   *  the next 3rd-success boundary may request again once MIN_REQUEST_GAP_MS
+   *  (7 days) has elapsed. Stamped only AFTER the native request resolves, so a
+   *  request the OS never received cannot consume a whole 7-day window.
+   *  UNTRUSTED: same finite-positive discipline as lastUpdateCheck. */
+  lastReviewRequestAt: number | null;
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -107,6 +120,8 @@ export const DEFAULT_PREFERENCES: Preferences = {
   launchAtLogin: false,
   startInTray: false,
   defaultToolId: null, // null = "Last used" (today's behavior)
+  toolSuccessCount: 0,
+  lastReviewRequestAt: null, // null = never requested a review
 };
 
 /** Single namespaced store key holding the whole prefs blob. One key keeps the

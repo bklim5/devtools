@@ -12,6 +12,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const enableSpy = vi.fn(async () => {});
 const disableSpy = vi.fn(async () => {});
 const isEnabledSpy = vi.fn(async () => true);
+// UP5-02: observe the command name + argument shape the review arm invokes.
+const invokeSpy = vi.hoisted(() =>
+  vi.fn<(...args: unknown[]) => Promise<unknown>>(async () => undefined),
+);
 
 // IS_APPSTORE is a build-time const read once at tauri.ts module-eval, so each
 // channel needs a fresh module import (vi.resetModules + a fresh doMock).
@@ -43,7 +47,7 @@ function installTauriMocks(): void {
   vi.doMock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
   vi.doMock("@tauri-apps/api/core", () => ({
     Channel: class {},
-    invoke: vi.fn(),
+    invoke: invokeSpy,
   }));
   vi.doMock("@tauri-apps/plugin-opener", () => ({ openUrl: vi.fn() }));
   vi.doMock("@tauri-apps/api/app", () => ({ getVersion: vi.fn() }));
@@ -60,6 +64,7 @@ async function importTauriPlatform(isAppstore: boolean) {
   enableSpy.mockClear();
   disableSpy.mockClear();
   isEnabledSpy.mockClear();
+  invokeSpy.mockClear();
   installTauriMocks();
   const mod = await import("./tauri");
   return mod.tauriPlatform;
@@ -98,5 +103,23 @@ describe("tauri autostart seam — D-05 (store build no-op)", () => {
     expect(disableSpy).toHaveBeenCalledTimes(1);
     expect(isEnabledSpy).toHaveBeenCalledTimes(1);
     expect(on).toBe(true); // delegates → the plugin's resolved value
+  });
+});
+
+// UP5-02: the review arm is a bare `invoke` of the appstore-only Rust command,
+// reusing the already-imported `invoke` (no new @tauri-apps import). The command
+// takes NO arguments — the cadence (every 3rd settled success, min 7 days apart)
+// lives entirely in the webview, so nothing crosses the IPC boundary that the
+// native side could be asked to trust.
+describe("tauri review seam — UP5-02 (request_app_store_review)", () => {
+  it("review.request() invokes request_app_store_review with no arguments (Test 21)", async () => {
+    const platform = await importTauriPlatform(true);
+
+    await platform.review.request();
+
+    expect(invokeSpy).toHaveBeenCalledTimes(1);
+    expect(invokeSpy).toHaveBeenCalledWith("request_app_store_review");
+    // Exactly ONE argument — no payload object rides along.
+    expect(invokeSpy.mock.calls[0]).toHaveLength(1);
   });
 });

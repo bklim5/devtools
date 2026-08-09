@@ -88,6 +88,14 @@ export const noopApp: Platform["app"] = {
  *  without re-drifting the iap shape. */
 export const noopIap: Platform["iap"] = createIapStub();
 
+/** Shared no-op review arm for test Platform stubs (UP5-02): the OS review
+ *  request is Tauri/appstore-only, so jsdom tests NEVER touch it — one source of
+ *  truth so every inline literal / makeMemoryPlatform spread satisfies the
+ *  widened interface without re-drifting the review shape. */
+export const noopReview: Platform["review"] = {
+  async request() {},
+};
+
 export function makeMemoryPlatform(
   store: Store = createStoreStub(),
   /** Optional license arm override (Phase 21 D-85 flip tests): drive a specific
@@ -107,5 +115,6 @@ export function makeMemoryPlatform(
     autostart: noopAutostart,
     app: noopApp,
     iap: noopIap,
+    review: noopReview,
   };
 }

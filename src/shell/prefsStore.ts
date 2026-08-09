@@ -120,6 +120,42 @@ function coerceDefaultToolId(value: unknown): string | null {
   return typeof value === "string" && getToolById(value) ? value : null;
 }
 
+/** Upper bound for the lifetime settled-success counter (UP5-01). DELIBERATELY
+ *  DUPLICATED from `MAX_TOOL_SUCCESS_COUNT` in src/shell/reviewPrompt.ts rather
+ *  than imported: reviewPrompt is the APPSTORE-ONLY prompt core, loaded only
+ *  through a channel-gated dynamic import, so importing it from this (always
+ *  loaded) module would fold it into the direct build's chunk graph and RED the
+ *  direct-absence fold-in guard. reviewPrompt Test 13 asserts the two constants
+ *  are equal, so the duplication cannot silently drift.
+ *
+ *  The value is deliberately NOT a multiple of SUCCESS_INTERVAL (1_000_000 % 3
+ *  === 1): a counter pinned at the ceiling — by a hand-edited blob or a truly
+ *  prolific user — must never stand PERMANENTLY on a request boundary, which
+ *  would ask for a review at every settled success forever (bounded only by the
+ *  7-day gap). reviewPrompt Test 13 asserts that property too. */
+const MAX_TOOL_SUCCESS_COUNT = 1_000_000;
+
+/** Untrusted (the user can hand-edit prefs.json): accept only a NON-NEGATIVE
+ *  INTEGER; everything else — non-number, "3", 1.5, NaN, Infinity, -1, objects,
+ *  null — → 0. A valid value is clamped to MAX_TOOL_SUCCESS_COUNT so a forged
+ *  huge/absurd count can neither overflow nor sit on a boundary (UP5-01). */
+function coerceToolSuccessCount(value: unknown): number {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0) return 0;
+  return Math.min(value, MAX_TOOL_SUCCESS_COUNT);
+}
+
+/** Untrusted (the user can hand-edit prefs.json): accept only a finite POSITIVE
+ *  number (epoch ms); everything else — non-number, NaN, Infinity, <= 0 — → null
+ *  ("never requested"). Copies coerceLastUpdateCheck's discipline verbatim. A
+ *  hand-edited FUTURE stamp is deliberately left alone: the gap test in
+ *  reviewPrompt is fail-closed (a negative elapsed delta simply never elapses),
+ *  so a forged stamp can only DELAY a prompt, never trigger one early (UP5-02). */
+function coerceLastReviewRequestAt(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value > 0
+    ? value
+    : null;
+}
+
 /** Keep only string ids, de-dupe (most-recent-first wins), cap the length. */
 export function normalizeRecents(value: unknown): string[] {
   const raw = Array.isArray(value) ? value : [];
@@ -197,6 +233,8 @@ export function mergePreferences(stored: unknown): Preferences {
     launchAtLogin: coerceLaunchAtLogin(blob.launchAtLogin),
     startInTray: coerceStartInTray(blob.startInTray),
     defaultToolId: coerceDefaultToolId(blob.defaultToolId),
+    toolSuccessCount: coerceToolSuccessCount(blob.toolSuccessCount),
+    lastReviewRequestAt: coerceLastReviewRequestAt(blob.lastReviewRequestAt),
   };
 }
 

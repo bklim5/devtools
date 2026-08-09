@@ -217,6 +217,16 @@ export interface Platform {
      *  channel, not a global event) — real wiring lands in Phase 28. */
     onPurchaseUpdated(handler: () => void): Promise<() => void>;
   };
+  /** OS App Store review request (UP5-02, appstore build only). The webview NEVER
+   *  renders its own review UI — this asks the OS, which decides whether to show
+   *  the sheet and enforces its own quota (Apple 5.6.1: OS mechanism, no
+   *  incentive, no feature gating). No-op in the browser/test fallback. Reached
+   *  ONLY through this seam; the invoke lives in tauri.ts. Concurrency-safe by
+   *  contract: the native side holds a process-level IN-FLIGHT guard, so a call
+   *  overlapping another is a no-op, never two simultaneous sheets. CADENCE
+   *  (every 3rd settled success, min 7 days apart) is the webview's job, NOT this
+   *  seam's and NOT the native layer's. */
+  review: { request(): Promise<void> };
 }
 
 /**
@@ -278,6 +288,9 @@ export const platform: Platform = {
   },
   get iap() {
     return active.iap;
+  },
+  get review() {
+    return active.review;
   },
 };
 
