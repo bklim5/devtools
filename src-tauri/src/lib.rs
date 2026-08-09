@@ -31,6 +31,14 @@ mod license;
 // the gated compile/link + the pure verify/grant decision core.
 #[cfg(feature = "appstore")]
 mod iap;
+// StoreKit 2 App Store review request (quick-260808-up5, UP5-02). Whole module is
+// `#[cfg(feature = "appstore")]`, and build.rs gates the swiftc compile of
+// src/review/review.swift on the same CARGO_FEATURE_APPSTORE — so the direct
+// build compiles no Rust here, no Swift, links no StoreKit, and registers no
+// `request_app_store_review` command. Cadence (every 3rd settled tool success,
+// min 7 days apart) lives in the webview; this module only asks the OS.
+#[cfg(feature = "appstore")]
+mod review;
 
 use tauri::{
     menu::{Menu, MenuBuilder, MenuItem, PredefinedMenuItem, SubmenuBuilder},
@@ -460,19 +468,28 @@ pub fn run() {
         license::commands::refresh_license_if_needed,
         license::commands::deactivate_machine
     ]);
+    //
+    // quick-260808-up5 (UP5-02): `review::request_app_store_review` joins BOTH
+    // appstore arms (debug and release) and NEITHER direct arm — the module it
+    // lives in is `feature = "appstore"`-gated, so a direct build has no such
+    // item to register. Like every other app-defined command here it needs NO
+    // capability entry (only PLUGIN commands do), so capabilities/default.json
+    // and both tauri.*.conf.json overlays stay byte-unchanged.
     #[cfg(all(debug_assertions, feature = "appstore"))]
     let builder = builder.invoke_handler(tauri::generate_handler![
         iap::commands::iap_products,
         iap::commands::iap_purchase,
         iap::commands::iap_restore,
-        iap::commands::iap_current_entitlements
+        iap::commands::iap_current_entitlements,
+        review::request_app_store_review
     ]);
     #[cfg(all(not(debug_assertions), feature = "appstore"))]
     let builder = builder.invoke_handler(tauri::generate_handler![
         iap::commands::iap_products,
         iap::commands::iap_purchase,
         iap::commands::iap_restore,
-        iap::commands::iap_current_entitlements
+        iap::commands::iap_current_entitlements,
+        review::request_app_store_review
     ]);
 
     builder
