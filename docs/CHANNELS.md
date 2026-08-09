@@ -1,6 +1,6 @@
 # CHANNELS.md — direct vs App Store, in one table
 
-> Verified against the live tree on **2026-08-08**.
+> Verified against the live tree on **2026-08-09**.
 
 The app ships as two products from one source tree:
 
@@ -26,6 +26,7 @@ and is wrong.
 | Pro entitlement source | Keygen licence (`baseFromLicense`) | StoreKit (`baseFromStoreKit`) | `baseFromLicense` / `baseFromStoreKit` in `src/lib/entitlements/resolve.ts`; `assert_no_keygen_strings` |
 | Licence UI | present | compiled/tree-shaken out | `scripts/licenseUiFoldInGuard.mjs` (gated on `VITE_CHANNEL=appstore` in `vite.config.ts`); `assert_no_license_ui_module` |
 | Updater UI + launch-at-login | present | absent | the `IS_APPSTORE` branch in `src/App.tsx`; `assert_no_license_ui_module` (updater subtree) |
+| App Store review prompt | absent (no Rust command, no Swift compiled/linked, no `reviewPrompt` module in any chunk) | `request_app_store_review` + `src/shell/reviewPrompt.ts` at every 3rd settled success, min 7 days apart (`lastReviewRequestAt`); StoreKit 2 `AppStore.requestReview(in:)` via `src-tauri/src/review/review.swift` | `#[cfg(feature = "appstore")]` on `src-tauri/src/review/` + the `CARGO_FEATURE_APPSTORE` swiftc gate in `src-tauri/build.rs`; `scripts/reviewPromptFoldInGuard.mjs` (gated on the **direct** build in `vite.config.ts`) + its `reviewprompt-inventory.json` sentinel; `test/e2e/review-prompt.e2e.ts` |
 | Keychain / keyring | `keyring` links; licence stored in the macOS Keychain | no Keychain at all | `keyring` under `[features] direct`; `assert_plugins_absent`, `assert_entitlements_present` (no `keychain-access-groups`) |
 | Entitlements file | `entitlements.plist` — hardened-runtime JIT / unsigned-memory / library-validation exceptions | `entitlements.appstore.plist` — `app-sandbox`, `network.client`, `application-identifier`, `team-identifier` | `bundle.macOS.entitlements` in each conf; `assert_entitlements_present` |
 | Hardened runtime | `true` | `false` | `bundle.macOS.hardenedRuntime` in each conf |
@@ -41,6 +42,17 @@ and is wrong.
 
 `assert_*` names above refer to `scripts/verify-appstore-bundle.sh`; the invariant index at
 the top of that file maps each one to what it asserts.
+
+Note the direction of the two fold-in guards: they are **mirror images** and mutually
+exclusive by channel. `licenseUiFoldInGuard` runs on the *appstore* build (keep Keygen/updater
+UI out of the store bundle); `reviewPromptFoldInGuard` runs on the *direct* build (keep the
+review prompt out of the direct bundle). Neither is registered on the other channel.
+
+The appstore channel now compiles **two** Swift units — `tauri-plugin-iap`'s bundled
+`macos/Sources/IapPlugin.swift` and our own `src-tauri/src/review/review.swift` (swiftc
+straight to a static archive in `OUT_DIR`) — so a Swift toolchain (and
+`MACOSX_DEPLOYMENT_TARGET`, defaulted to 13.0) remains an appstore-build prerequisite; the
+direct build compiles neither.
 
 ## Call-out 1 — the capability silent-drop trap (F7)
 
