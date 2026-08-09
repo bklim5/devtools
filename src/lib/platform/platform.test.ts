@@ -12,6 +12,9 @@ import {
   type Platform,
 } from "./index";
 import { browserPlatform } from "./browser";
+// THE shared no-op review arm for Platform stubs — one definition, so a widened
+// review surface cannot be satisfied four different ways in this one file.
+import { noopReview } from "@/shell/testStore";
 
 afterEach(() => {
   resetPlatformForTest();
@@ -71,7 +74,7 @@ describe("platform seam", () => {
         currentEntitlements: vi.fn().mockResolvedValue([]),
         onPurchaseUpdated: vi.fn().mockResolvedValue(() => {}),
       },
-      review: { request: vi.fn().mockResolvedValue(undefined) },
+      review: noopReview,
     };
     setPlatformForTest(stub);
 
@@ -197,7 +200,7 @@ describe("platform seam — native capabilities (NAT-01)", () => {
         currentEntitlements: vi.fn().mockResolvedValue([]),
         onPurchaseUpdated: vi.fn().mockResolvedValue(() => {}),
       },
-      review: { request: vi.fn().mockResolvedValue(undefined) },
+      review: noopReview,
     };
     setPlatformForTest(stub);
 
@@ -282,7 +285,7 @@ describe("platform seam — auto-updater (DST-02)", () => {
         currentEntitlements: vi.fn().mockResolvedValue([]),
         onPurchaseUpdated: vi.fn().mockResolvedValue(() => {}),
       },
-      review: { request: vi.fn().mockResolvedValue(undefined) },
+      review: noopReview,
     };
     setPlatformForTest(stub);
 
@@ -349,7 +352,7 @@ describe("platform seam — events bind to the resolved impl (HIGH-22-01)", () =
         currentEntitlements: vi.fn().mockResolvedValue([]),
         onPurchaseUpdated: vi.fn().mockResolvedValue(() => {}),
       },
-      review: { request: vi.fn().mockResolvedValue(undefined) },
+      review: noopReview,
     };
     // setPlatformForTest seeds the memoised init promise with the stub, so
     // `await initPlatform()` resolves to it — mirroring how App.tsx awaits init

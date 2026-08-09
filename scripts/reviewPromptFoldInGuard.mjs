@@ -23,10 +23,9 @@
 // every real direct build):
 //
 //   1. src/shell/useToolSuccess.ts — the ONE shared settled-success seam that all
-//      13 tools call. It ships in both channels by design; its channel gate is a
-//      module-scope ternary whose DIRECT arm is an empty function
-//      (`IS_APPSTORE ? () => void import("./reviewPrompt")… : () => {}`), so the
-//      seam is present and inert. What must be absent is the module the appstore
+//      13 tools call. It ships in both channels by design, present and INERT on
+//      the direct one (its channel gate is stated in full in that module's
+//      reviewPrompt.ts header). What must be absent is the module its appstore
 //      arm imports — which is exactly what this guard asserts.
 //   2. the `invoke("request_app_store_review")` literal inside the SHARED
 //      src/lib/platform/tauri.ts. index.ts loads tauri.ts through ONE shared

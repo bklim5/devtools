@@ -115,11 +115,11 @@ function coerceDefaultToolId(value: unknown): string | null {
 }
 
 /** Ceiling for the lifetime settled-success counter (UP5-01). DUPLICATED from
- *  `MAX_TOOL_SUCCESS_COUNT` in the APPSTORE-ONLY src/shell/reviewPrompt.ts (this
- *  always-loaded module must not import it — that would fold the review prompt
- *  into the direct bundle). Deliberately NOT a multiple of SUCCESS_INTERVAL, so
- *  a pinned counter cannot stand permanently on a request boundary. reviewPrompt
- *  Test 13 pins both properties, so the duplication cannot drift. */
+ *  `MAX_TOOL_SUCCESS_COUNT` in src/shell/reviewPrompt.ts — see that file's
+ *  CHANNEL GATE header for why this always-loaded module must not import it.
+ *  Deliberately NOT a multiple of SUCCESS_INTERVAL, so a pinned counter cannot
+ *  stand permanently on a request boundary. reviewPrompt Test 13 pins both
+ *  properties, so the duplication cannot drift. */
 const MAX_TOOL_SUCCESS_COUNT = 1_000_000;
 
 /** Untrusted (the user can hand-edit prefs.json): accept only a NON-NEGATIVE

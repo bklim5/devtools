@@ -24,14 +24,10 @@
 // request rides on (UP5-02) — mid-paste and mid-typing keystrokes restart it, so
 // the OS sheet can never land on top of someone still working.
 //
-// CHANNEL GATE: `notifySettledSuccess` is selected at MODULE SCOPE from the
-// build constant IS_APPSTORE, as a ternary between a dynamic import and a no-op —
-// the same shape src/components/ToolRoute.tsx uses. A plain static import behind a
-// runtime `if` keeps BOTH arms in the bundle; this form lets Rollup drop the dead
-// arm, so `./reviewPrompt` is statically unreachable in the DIRECT build and the
-// fold-in guard passes. If that guard ever REDs on the direct build (Rollup
-// keeping the async chunk), the fix is to strengthen this arm selection — NEVER
-// to weaken the guard.
+// CHANNEL GATE: `notifySettledSuccess` is a MODULE-SCOPE ternary on the build
+// constant IS_APPSTORE. The rationale for that exact shape (and what depends on
+// it) is stated ONCE, in src/shell/reviewPrompt.ts's header — read it before
+// touching the arm selection below.
 import { useEffect, useRef } from "react";
 import { IS_APPSTORE } from "@/lib/platform/channel";
 import { isTestOrDev } from "@/lib/env";

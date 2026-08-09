@@ -1,11 +1,31 @@
 // App Store review prompt core (UP5-01/UP5-02) — APPSTORE BUILD ONLY.
 //
-// This module is loaded ONLY through the channel-gated dynamic import in
-// src/shell/useToolSuccess.ts (`IS_APPSTORE ? import("./reviewPrompt") : …`), so
-// it must NEVER be statically imported by shell/tool/prefs code — a static import
-// would fold it into the DIRECT build's chunk graph and RED the fold-in guard.
-// (That is also why prefsStore.ts duplicates MAX_TOOL_SUCCESS_COUNT instead of
-// importing it from here.)
+// ===========================================================================
+// THE CHANNEL GATE (canonical statement — everything else points HERE).
+//
+// This module is loaded ONLY through the gate in src/shell/useToolSuccess.ts:
+//
+//     const notifySettledSuccess = IS_APPSTORE
+//       ? () => { void import("./reviewPrompt")… }
+//       : () => {};
+//
+// WHY THAT SHAPE. `IS_APPSTORE` is a BUILD CONSTANT, so Rollup folds the ternary
+// and drops the dead arm — on the direct build the dynamic import is not merely
+// unreachable, it is not emitted at all. A plain static import behind a runtime
+// `if` would keep BOTH arms in the bundle. (Same idiom as
+// src/components/ToolRoute.tsx.)
+//
+// WHAT THAT BUYS. This module and everything it pulls in are ABSENT from the
+// direct bundle, which scripts/reviewPromptFoldInGuard.mjs enforces per build
+// (chunk-module inventory + sentinel) and scripts/build-and-publish.mjs asserts
+// per release. So: NEVER give this module a static importer from shell/tool/prefs
+// code — that single import would fold it back in and RED the guard. It is also
+// why prefsStore.ts DUPLICATES MAX_TOOL_SUCCESS_COUNT rather than importing it
+// from here (reviewPrompt Test 13 pins the two copies together).
+//
+// If that guard ever REDs on a direct build, the fix is to strengthen the arm
+// selection — NEVER to weaken the guard.
+// ===========================================================================
 //
 // APPLE 5.6.1 POSTURE. We ask the OS and nothing else: no custom pre-prompt, no
 // card, no "rate us" UI anywhere in the webview, no incentive, and no feature is
