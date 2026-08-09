@@ -20,7 +20,7 @@
 //   - the only place StoreKit ACTUALLY executes: the Task-5 native capture of the
 //     built appstore .app.
 //
-// What THIS spec proves that none of those can: after three REAL, output-distinct,
+// What THIS spec proves that none of those can: after three REAL, input-distinct,
 // fully SETTLED successful decodes on the real webview, the shipped direct app
 // counts nothing and stamps nothing. That is the runtime counterpart of the
 // build-time chunk-module guard (scripts/reviewPromptFoldInGuard.mjs) — the
@@ -30,14 +30,17 @@
 //
 // NON-VACUITY IS THE WHOLE DIFFICULTY HERE — "nothing happened" is the trivially
 // passing assertion. Three separate guards make it earn its green:
-//   1. the decodes are proven REAL (each waits for [data-fnum] to render, each
-//      output is DISTINCT, each sits unchanged past SETTLE_MS, and the third is
-//      screenshotted);
+//   1. the decodes are proven REAL (each waits for its OWN distinctive decoded
+//      value to render — not bare [data-fnum] existence, which the previous
+//      payload's tree already satisfies — each input is DISTINCT, each sits
+//      unchanged past the quiet window, and the third is screenshotted);
 //   2. the prefs WRITE PATH is proven ALIVE in this same session against the same
 //      blob (a tool switch persists `lastUsedId` while the counter stays 0) — so
 //      "counter is 0" cannot be explained away by "prefs never persisted";
-//   3. the module-load probe is only asserted when resource timing is shown to be
-//      capturing Vite module fetches at all.
+//   3. the module-load probe clears the resource-timing buffer (and raises its
+//      cap) before the decodes, so a buffer overflowed by the boot-time module
+//      flood cannot masquerade as "nothing was fetched", and it is only asserted
+//      when that buffer is shown to be capturing Vite module fetches at all.
 //
 // The plan's fourth probe — a `__TAURI_INTERNALS__.invoke` wrapper recording every
 // command name — is attempted but SELF-VALIDATED before it is trusted, because on
@@ -55,20 +58,30 @@
 import { assert, navigateToTool, readPrefsBlob, saveScreenshot } from "./helpers";
 
 // Must match SETTLE_MS in src/shell/useToolSuccess.ts (3000 ms) with headroom —
-// the seam only counts an output that has sat UNCHANGED for a full quiet window.
+// the seam only counts an input that has sat UNCHANGED for a full quiet window.
 const SETTLE_PAUSE_MS = 3500;
 
-// Three payloads whose DECODED OUTPUT differs — not merely their byte counts.
-// That matters because the Task-2 success identity is a FULL-OUTPUT digest: three
-// same-length-but-different payloads would still be three distinct episodes, and
-// three identical ones would be a single episode. Using genuinely distinct
-// decodes means an appstore build running this exact flow WOULD reach the count-3
-// boundary, so the direct build's zero is a real difference, not an artefact of
-// the inputs.
+// The dev/e2e SETTLE_MS override (src/shell/useToolSuccess.ts
+// `__setSettleMsForTest`, registered on `window` in test/dev builds ONLY). Using
+// it turns three 3.5 s wall-clock sleeps into three ~0.4 s ones without weakening
+// the proof: the settle is still a REAL quiet window the seam measured, just a
+// shorter one. If the seam is not reachable (a build where the guarded seam is
+// inert) the spec falls back to the shipped window and says so.
+const SETTLE_OVERRIDE_MS = 250;
+
+// Three payloads whose DECODE differs — not merely their byte counts. Each one
+// has a UNIQUE rendered marker, which is what the drive loop waits for: waiting
+// on bare `[data-fnum]` existence would be satisfied by the PREVIOUS payload's
+// tree still on screen, so all three "decodes" could be one stale render and the
+// three-distinct-successes premise would be fiction.
 //   089601         -> field #1, varint 150
 //   08c801         -> field #1, varint 200   (same shape, different value)
 //   120568656c6c6f -> field #2, LEN "hello"  (different field AND different type)
-const PAYLOADS = ["089601", "08c801", "120568656c6c6f"];
+const PAYLOADS: { hex: string; marker: string }[] = [
+  { hex: "089601", marker: "150" },
+  { hex: "08c801", marker: "200" },
+  { hex: "120568656c6c6f", marker: "hello" },
+];
 
 interface RecorderState {
   status: "live" | "locked" | "no-internals";
@@ -132,6 +145,35 @@ function restoreInvokeRecorder(): Promise<void> {
   });
 }
 
+/** Install the dev-only SETTLE_MS override; false when the seam is unreachable. */
+function trySetSettleMs(ms: number | null): Promise<boolean> {
+  return browser.execute((value: number | null) => {
+    const w = window as unknown as {
+      __setSettleMsForTest?: (ms?: number) => void;
+    };
+    if (typeof w.__setSettleMsForTest !== "function") return false;
+    // `null` restores the shipped SETTLE_MS.
+    if (value === null) w.__setSettleMsForTest();
+    else w.__setSettleMsForTest(value);
+    return true;
+  }, ms);
+}
+
+/**
+ * Make the resource-timing buffer a TRUSTWORTHY witness before the decodes run.
+ * The default buffer is ~250 entries and this app's boot fetches far more than
+ * that in `tauri dev` (one entry per unbundled ES module): a FULL buffer silently
+ * drops every later entry, so "no reviewPrompt fetch" would be indistinguishable
+ * from "no entries recorded at all". Raise the cap, then clear — so every entry
+ * the probe reads was recorded DURING the decodes, with room to spare.
+ */
+function resetResourceTiming(): Promise<void> {
+  return browser.execute(() => {
+    performance.setResourceTimingBufferSize(10_000);
+    performance.clearResourceTimings();
+  });
+}
+
 // Resource-timing view of which modules the page actually FETCHED. In `tauri dev`
 // Vite serves unbundled ES modules over http, so a dynamic import that executes
 // leaves an entry here; one that never executes leaves none.
@@ -160,6 +202,7 @@ function stampOf(blob: Record<string, unknown> | null): unknown {
 
 describe("App Store review prompt — direct-channel absence (real WKWebView)", () => {
   let recorderStatus: RecorderState["status"] = "no-internals";
+  let settleOverridden = false;
   let blobAfter: Record<string, unknown> | null = null;
 
   before(async () => {
@@ -171,29 +214,58 @@ describe("App Store review prompt — direct-channel absence (real WKWebView)", 
 
   after(async () => {
     await restoreInvokeRecorder();
+    if (settleOverridden) await trySetSettleMs(null);
   });
 
-  it("performs three real, output-distinct, settled successful decodes", async () => {
+  it("performs three real, INPUT-distinct, settled successful decodes", async () => {
     await navigateToTool("protobuf-decoder");
     const input = await $("#protobuf-input");
     await input.waitForExist({ timeout: 15_000 });
+
+    // The tool's module graph is loaded now, so the dev-only seam (if this build
+    // has one) is registered. Shorten the quiet window BEFORE the first decode.
+    settleOverridden = await trySetSettleMs(SETTLE_OVERRIDE_MS);
+    const settlePause = settleOverridden ? SETTLE_OVERRIDE_MS + 150 : SETTLE_PAUSE_MS;
+    console.log(
+      settleOverridden
+        ? `[review-prompt] SETTLE_MS overridden to ${SETTLE_OVERRIDE_MS} ms via the dev seam — pausing ${settlePause} ms per payload`
+        : `[review-prompt] dev SETTLE_MS seam unavailable — using the shipped window (${settlePause} ms per payload)`,
+    );
+
+    // Only entries recorded from HERE ON count as module fetches (see
+    // resetResourceTiming): the boot-time flood would otherwise overflow the
+    // buffer and make the later absence check unfalsifiable.
+    await resetResourceTiming();
+
     await input.click();
 
-    for (const payload of PAYLOADS) {
-      await input.setValue(payload);
-      // The decode must genuinely SUCCEED — a rendered field number is the same
-      // signal the hero spec uses. An errored/empty output would not count as a
-      // success on ANY channel, which would make the absence proof vacuous.
-      const fnum = await $("[data-fnum]");
-      await fnum.waitForExist({ timeout: 10_000 });
+    for (const { hex, marker } of PAYLOADS) {
+      await input.setValue(hex);
+      // The decode must genuinely SUCCEED, and must be THIS payload's decode —
+      // waiting on a UNIQUE rendered value (not bare [data-fnum] existence) is
+      // what rules out the previous payload's tree still being on screen.
+      await browser.waitUntil(
+        async () => {
+          const vals = await $$(".val");
+          for (const v of vals) {
+            if ((await v.getText()).includes(marker)) return true;
+          }
+          return false;
+        },
+        {
+          timeout: 10_000,
+          interval: 100,
+          timeoutMsg: `payload ${hex} never rendered its distinctive decoded value "${marker}" — this decode did not actually happen, so it cannot count as a settled success`,
+        },
+      );
       const noAlert = await $("[role='alert']");
       assert(
         !(await noAlert.isExisting()),
-        `payload ${payload} produced an error alert — it must decode cleanly for this to count as a successful output`,
+        `payload ${hex} produced an error alert — it must decode cleanly for this to count as a successful result`,
       );
-      // Sit past the quiet window with the output UNCHANGED: this is exactly the
+      // Sit past the quiet window with the INPUT UNCHANGED: this is exactly the
       // "natural pause" the appstore build would count as one settled success.
-      await browser.pause(SETTLE_PAUSE_MS);
+      await browser.pause(settlePause);
     }
 
     // The evidence artefact: the third settled decode really rendered.
@@ -282,11 +354,14 @@ describe("App Store review prompt — direct-channel absence (real WKWebView)", 
   });
 
   it("never even FETCHED the reviewPrompt module", async () => {
+    // The buffer was cleared (and its cap raised) before the decodes, so every
+    // entry here was recorded during this spec's own interactions — including the
+    // lazily-routed tool chunks the previous test's two tool switches fetched,
+    // which is what proves the buffer is live rather than merely empty.
     const probe = await moduleFetchProbe();
     if (probe.srcModules === 0) {
-      // Resource timing is not capturing Vite module fetches in this session (an
-      // overflowed/cleared buffer) — the absence below would be vacuous, so it is
-      // reported rather than asserted.
+      // Resource timing is not capturing Vite module fetches in this session —
+      // the absence below would be vacuous, so it is reported, not asserted.
       console.log(
         `[review-prompt] resource timing captured no /src/ module fetches (total=${probe.total}) — skipping the module-load probe as non-observable`,
       );

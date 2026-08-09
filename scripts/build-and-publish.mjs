@@ -52,6 +52,7 @@ import process, { stdout, stderr } from "node:process";
 
 import { buildLatestJson } from "../src/lib/release/manifest.ts";
 import { resolveReleaseNotes } from "./lib/releaseNotes.mjs";
+import { REVIEW_PROMPT_SENTINEL } from "./reviewPromptFoldInGuard.mjs";
 // Pure decision core — import the publishPlan helpers (mirrors bumpPlan.ts split):
 import {
   parsePublishArgs,
@@ -374,6 +375,36 @@ function publish(view, version, { x86Present, buildOnly }) {
     "--config",
     "src-tauri/tauri.direct.conf.json",
   ]);
+
+  // 3.5. UP5-03 direct-absence sentinel. The DIRECT build registers
+  //      reviewPromptFoldInGuard, which writes dist/reviewprompt-inventory.json on
+  //      EVERY outcome — so a MISSING file means the guard did not run for this
+  //      build (i.e. this dist/ is not a guarded direct build) and is as fatal as a
+  //      dirty one. Same posture verify-appstore-bundle.sh takes with
+  //      licenseui-inventory.json, applied to the channel this guard actually runs
+  //      on: without it the guard is only ever exercised by a developer's local
+  //      build, and the shipped DMG could carry the App-Store review prompt with
+  //      nothing in the release path noticing. `dist/` is the authoritative
+  //      pre-compression frontend Tauri brotli-embeds into the binary in the SAME
+  //      invocation above, so reading it here binds the sentinel to what shipped.
+  const reviewSentinelPath = `dist/${REVIEW_PROMPT_SENTINEL}`;
+  if (!existsSync(reviewSentinelPath)) {
+    abort(
+      `${reviewSentinelPath} is missing after the direct build — the UP5-03 fold-in guard did not run, so the App-Store review prompt's absence from this release is UNPROVEN. Refusing to publish.`,
+    );
+  }
+  let reviewSentinel;
+  try {
+    reviewSentinel = JSON.parse(readFileSync(reviewSentinelPath, "utf8"));
+  } catch (err) {
+    abort(`could not parse ${reviewSentinelPath}: ${err?.message ?? err}`);
+  }
+  if (reviewSentinel.reviewPromptInChunks !== false) {
+    abort(
+      `[UP5-03] ${reviewSentinelPath} reports the appstore-only review prompt was folded into the DIRECT bundle: ${JSON.stringify(reviewSentinel.hits)}. Refusing to publish.`,
+    );
+  }
+  log("\nUP5-03 sentinel: reviewPromptInChunks=false (review prompt absent from the direct bundle)");
 
   // 4. lipo both-arch assert (REL-05, T-11-12) — path derived, never hardcoded.
   const machoPath = universalMachoPath(

@@ -14,6 +14,8 @@
     "tauri:build:appstore:pkg": "VITE_CHANNEL=appstore bash scripts/build-appstore-pkg.sh",
     "test": "vitest run",
     "lint": "eslint .",
+    "guard:selftest": "node scripts/reviewPromptFoldInGuard.selftest.mjs && node scripts/prettierChunkGuard.selftest.mjs",
+    "cargo:test:appstore": "CARGO_TARGET_DIR=\"$PWD/src-tauri/target/appstore-test\" cargo test --quiet --manifest-path src-tauri/Cargo.toml --no-default-features --features appstore review::",
     "release:bump": "tsx scripts/bump-and-tag.mjs",
     "release:changelog": "tsx scripts/changelog.mjs",
     "release:publish": "tsx scripts/build-and-publish.mjs",

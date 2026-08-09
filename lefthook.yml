@@ -51,8 +51,22 @@ pre-commit:
 # `cargo test` runs on pre-PUSH, not pre-commit, to keep commit latency sane
 # (a cold cargo build would dominate every commit). Per-task DoD still runs
 # `cargo test --manifest-path src-tauri/Cargo.toml` explicitly for Rust tasks.
+#
+# WHY THE OTHER TWO ARE HERE TOO (quick-260808-up5 review): a test nothing runs
+# is not a gate. The appstore `review::` tests and both chunk-guard self-tests
+# were only ever invoked by hand, so they could rot silently — and the whole
+# point of the self-tests is to catch a guard that has gone vacuous. Both are
+# pre-PUSH for the same latency reason as cargo-test (measured: appstore review
+# tests 36 s cold / 2.5 s warm; guard self-tests ~0.8 s), and the appstore run
+# uses its OWN CARGO_TARGET_DIR so it neither thrashes nor is thrashed by the
+# default-feature (direct) target dir — the two feature sets would otherwise
+# rebuild the whole tree against each other on every alternation.
 pre-push:
   commands:
     cargo-test:
       run: cargo test --quiet --manifest-path src-tauri/Cargo.toml
+    cargo-test-appstore-review:
+      run: pnpm cargo:test:appstore
+    guard-selftest:
+      run: pnpm guard:selftest
 
