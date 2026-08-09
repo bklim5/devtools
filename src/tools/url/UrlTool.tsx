@@ -17,6 +17,7 @@
 import { useMemo, useState } from "react";
 import { CopyButton } from "@/components/CopyButton";
 import { SegmentedControl } from "@/components/SegmentedControl";
+import { useToolSuccess } from "@/shell/useToolSuccess";
 import {
   parseUrl,
   encodeComponent,
@@ -38,6 +39,17 @@ function Value({ value }: { value: string }) {
   );
 }
 
+/**
+ * Shared success seam (UP5-01) — one call, no counting logic here. This tool's
+ * output lives inside its two MODE components, so both render this null-rendering
+ * reporter instead of calling the seam themselves; the file keeps exactly ONE
+ * `useToolSuccess` call and neither mode needs its state lifted.
+ */
+function UrlSuccess({ ok, output }: { ok: boolean; output: string }) {
+  useToolSuccess("url", ok, output);
+  return null;
+}
+
 const READOUT_LABELS = [
   "scheme",
   "host",
@@ -54,8 +66,20 @@ function ParseMode() {
   const [input, setInput] = useState("");
   const result = useMemo(() => parseUrl(input), [input]);
 
+  // The parsed output as the user sees it: the readout rows plus the decoded
+  // query table. Empty input and a relative/scheme-less URL are not successes.
+  const parsedOk = !("empty" in result) && !("error" in result);
+  const parsedOutput =
+    "empty" in result || "error" in result
+      ? ""
+      : [
+          ...READOUT_LABELS.map((label) => `${label}=${result.url[label]}`),
+          ...result.url.queryRows.map((row) => `?${row.key}=${row.value}`),
+        ].join("\n");
+
   return (
     <div className="flex min-w-0 flex-col gap-4">
+      <UrlSuccess ok={parsedOk} output={parsedOutput} />
       <section className="flex min-w-0 flex-col gap-2">
         <label
           htmlFor="url-parse-input"
@@ -210,8 +234,17 @@ function EncodeMode() {
     [input, scope],
   );
 
+  // Both panes are outputs (D-04). A success needs a non-empty input and at
+  // least one pane that produced a value — a bad percent-sequence errors only
+  // the affected pane (D-14), which is still a usable result on the other side.
+  const encodedValue = "error" in encoded ? "" : encoded.value;
+  const decodedValue = "error" in decoded ? "" : decoded.value;
+  const encodeOk =
+    input !== "" && (encodedValue !== "" || decodedValue !== "");
+
   return (
     <div className="flex min-w-0 flex-col gap-4">
+      <UrlSuccess ok={encodeOk} output={`${encodedValue}\n${decodedValue}`} />
       <section className="flex min-w-0 flex-col gap-2">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <label

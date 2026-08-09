@@ -44,6 +44,7 @@ export default function XmlFormatterTool() {
 
   return (
     <FormatterView
+      toolId="xml-formatter"
       inputId="xml-input"
       outputId="xml-output"
       input={input}

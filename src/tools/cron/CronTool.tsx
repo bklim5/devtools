@@ -14,6 +14,7 @@
 import { useMemo, useState } from "react";
 import { CopyButton } from "@/components/CopyButton";
 import { analyzeCron } from "@/lib/cron/cron";
+import { useToolSuccess } from "@/shell/useToolSuccess";
 import { relativeTime } from "@/lib/timeFormat";
 
 const LABEL_CLASS =
@@ -39,6 +40,18 @@ export default function CronTool() {
   }, [expr, zone]);
 
   const isError = result.kind === "error";
+
+  // Shared success seam (UP5-01) — one call, no counting logic here. A success
+  // is any expression the core could describe (scheduled / never / reboot); the
+  // rendered description + run labels are the output. `now` is frozen per
+  // [expr, zone] compute, so the labels are stable across unrelated re-renders.
+  const successOutput =
+    result.kind === "scheduled"
+      ? `${result.description}\n${result.runs.map((r) => r.label).join("\n")}`
+      : result.kind === "never" || result.kind === "reboot"
+        ? result.description
+        : "";
+  useToolSuccess("cron", successOutput !== "", successOutput);
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">

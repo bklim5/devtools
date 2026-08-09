@@ -8,6 +8,7 @@
 //   - example payload chips fill + decode the input — D-03
 //   - the rows/cards toggle reads + persists protobufTreeStyle via usePreferences — D-07
 //   - copy-all-as-JSON writes fieldsToJson(...) through the platform clipboard seam — D-11
+//   - the hero tool reaches the SHARED success seam with (id, ok, output text) — UP5-01
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, within } from "@testing-library/react";
 import {
@@ -22,7 +23,17 @@ import { detectEncoding } from "./detectEncoding";
 
 let writeText: ReturnType<typeof vi.fn<(text: string) => Promise<void>>>;
 
+// The shared success seam (UP5-01) is mocked to a spy: this file asserts the
+// WIRING (id / ok / output text), not the seam's own settle + counting logic,
+// which src/shell/useToolSuccess.test.tsx owns.
+const useToolSuccessMock =
+  vi.hoisted(() => vi.fn<(id: string, ok: boolean, output: string) => void>());
+vi.mock("@/shell/useToolSuccess", () => ({
+  useToolSuccess: useToolSuccessMock,
+}));
+
 beforeEach(() => {
+  useToolSuccessMock.mockClear();
   writeText = vi.fn<(text: string) => Promise<void>>(async () => {});
   const p: Platform = {
     ...makeMemoryPlatform(),
@@ -345,5 +356,28 @@ describe("ProtobufDecoder", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("reaches the shared success seam with the tool id, ok, and the output text (UP5-01)", () => {
+    const { container } = render(<ProtobufDecoder />);
+    const lastCall = () => {
+      const calls = useToolSuccessMock.mock.calls;
+      return calls[calls.length - 1];
+    };
+
+    // Empty input is neutral — not a success.
+    expect(lastCall()[0]).toBe("protobuf-decoder");
+    expect(lastCall()[1]).toBe(false);
+
+    // A successful decode: ok=true and the OUTPUT text is the copy-all-as-JSON
+    // serialization the user sees (never a second, invented one).
+    fireEvent.change(input(container), { target: { value: "089601" } });
+    expect(lastCall()[0]).toBe("protobuf-decoder");
+    expect(lastCall()[1]).toBe(true);
+    expect(lastCall()[2]).toContain('"1": "150"');
+
+    // A group byte errors (PRO-02) — ok flips back to false.
+    fireEvent.change(input(container), { target: { value: "1c" } });
+    expect(lastCall()[1]).toBe(false);
   });
 });

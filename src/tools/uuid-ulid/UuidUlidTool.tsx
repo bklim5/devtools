@@ -19,6 +19,7 @@ import { CopyButton } from "@/components/CopyButton";
 import { SegmentedControl } from "@/components/SegmentedControl";
 import { StatusBar, type ParseState } from "@/components/StatusBar";
 import { useCopyFeedback } from "@/shell/useCopyFeedback";
+import { useToolSuccess } from "@/shell/useToolSuccess";
 import { generateUlid } from "@/lib/ulid";
 import { generateUuidV7 } from "@/lib/uuidv7";
 import { formatTimestamp, relativeTime } from "@/lib/timeFormat";
@@ -143,8 +144,17 @@ export default function UuidUlidTool() {
   const [decodeRaw, setDecodeRaw] = useState("");
   const [copiedAll, confirmCopyAll] = useCopyFeedback();
 
+  // True once the user has EXPLICITLY generated (Generate / kind / count). The
+  // mount-time batch below is produced by mere NAVIGATION to the tool, which must
+  // never count as a success (UP5-01) — this flag is the tool's own success
+  // discriminant, not counting logic.
+  const [generated, setGenerated] = useState(false);
+
   const regenerate = useCallback(
-    (k: Kind = kind, c: number = clampCount(countText)) => setIds(generateBatch(k, c)),
+    (k: Kind = kind, c: number = clampCount(countText)) => {
+      setIds(generateBatch(k, c));
+      setGenerated(true);
+    },
     [kind, countText],
   );
 
@@ -176,6 +186,15 @@ export default function UuidUlidTool() {
     decoded.kind === "error" ? "error" : decoded.kind === "empty" ? "empty" : "ok";
 
   const generatedLabel = useMemo(() => COPY_LABEL[kind], [kind]);
+
+  // Shared success seam (UP5-01) — one call, no counting logic here. This tool
+  // has TWO success shapes: an explicitly generated batch and a valid decode.
+  // Both are folded into a single output identity so the file keeps ONE call.
+  useToolSuccess(
+    "uuid-ulid",
+    generated || decoded.kind === "ok",
+    `${ids.join("\n")}\n${decoded.kind === "ok" ? decodeRaw.trim() : ""}`,
+  );
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">

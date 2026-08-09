@@ -89,6 +89,7 @@ export default function HtmlFormatterTool() {
 
   return (
     <FormatterView
+      toolId="html-formatter"
       inputId="html-input"
       outputId="html-output"
       input={input}

@@ -23,6 +23,7 @@ import { useEffect, useState } from "react";
 import { CopyButton } from "@/components/CopyButton";
 import { SegmentedControl } from "@/components/SegmentedControl";
 import { StatusBar, type ParseState } from "@/components/StatusBar";
+import { useToolSuccess } from "@/shell/useToolSuccess";
 import {
   classifyUnit,
   formatTimestamp,
@@ -140,6 +141,15 @@ export default function UnixTimeTool() {
     : isEmpty
       ? "empty"
       : "ok";
+
+  // Shared success seam (UP5-01) — one call, no counting logic here. The output
+  // is the three derived rows; the live "now" ticker is deliberately EXCLUDED
+  // (it changes every second on its own, so including it would mean no output
+  // could ever sit still long enough to settle).
+  const derivedRows = formatted
+    ? `${formatted.local}\n${formatted.utc}\n${formatted.iso}`
+    : "";
+  useToolSuccess("unix-time", parseState === "ok", derivedRows);
 
   const nowValue = String(fromMs(nowMs, activeUnit));
 

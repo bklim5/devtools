@@ -12,6 +12,7 @@
 import { useEffect, useState } from "react";
 import { CopyButton } from "@/components/CopyButton";
 import { StatusBar, type ParseState } from "@/components/StatusBar";
+import { useToolSuccess } from "@/shell/useToolSuccess";
 import { formatTimestamp, relativeTime } from "@/lib/timeFormat";
 import { decodeJwt } from "./decodeJwt";
 
@@ -120,6 +121,13 @@ export default function JwtTool() {
   const parseState: ParseState =
     decoded.kind === "error" ? "error" : decoded.kind === "empty" ? "empty" : "ok";
 
+  // The decoded payload block, in the SAME serialization the Payload OutputBlock
+  // renders and copies (never a second, invented one).
+  const payloadText =
+    decoded.kind === "ok" ? JSON.stringify(decoded.payload, null, 2) : "";
+  // Shared success seam (UP5-01) — one call, no counting logic here.
+  useToolSuccess("jwt", parseState === "ok", payloadText);
+
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-auto p-4">
@@ -174,7 +182,7 @@ export default function JwtTool() {
             <OutputBlock
               blockId="jwt-payload"
               label="Payload"
-              value={JSON.stringify(decoded.payload, null, 2)}
+              value={payloadText}
             />
             <OutputBlock
               blockId="jwt-signature"

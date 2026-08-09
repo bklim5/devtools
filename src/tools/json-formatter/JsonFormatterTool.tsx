@@ -45,6 +45,7 @@ export default function JsonFormatterTool() {
 
   return (
     <FormatterView
+      toolId="json-formatter"
       inputId="json-input"
       outputId="json-output"
       input={input}

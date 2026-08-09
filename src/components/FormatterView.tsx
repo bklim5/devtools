@@ -17,6 +17,7 @@
 import { Check, Copy } from "lucide-react";
 import { platform } from "@/lib/platform";
 import { useCopyFeedback } from "@/shell/useCopyFeedback";
+import { useToolSuccess } from "@/shell/useToolSuccess";
 import { ResizableSplit } from "@/components/ResizableSplit";
 import { StatusBar, type ParseState } from "@/components/StatusBar";
 import type { IndentMode } from "@/lib/format/types";
@@ -61,6 +62,11 @@ export interface FormatterStatus {
 }
 
 export interface FormatterViewProps {
+  /** Registry tool id (json-formatter / xml-formatter / html-formatter /
+   *  js-formatter), used ONLY by the shared success seam — it is part of the
+   *  success-episode identity so the same text from two formatters counts twice.
+   *  Rendered nowhere. */
+  toolId: string;
   /** Stable id for the input textarea (e2e selector). */
   inputId: string;
   /** Stable id for the read-only output region (e2e selector). */
@@ -183,6 +189,7 @@ function Toggle({ label, pressed, onToggle, ariaLabel }: ToggleProps) {
 }
 
 export function FormatterView({
+  toolId,
   inputId,
   outputId,
   input,
@@ -193,6 +200,12 @@ export function FormatterView({
   status,
 }: FormatterViewProps) {
   const [copied, confirmCopy] = useCopyFeedback();
+
+  // Shared success seam (UP5-01) — one call, no counting logic here. This ONE
+  // call covers all four formatter tools. `pending` excludes deliberately: an
+  // async formatter keeps its previous "ok" parseState while the NEXT format is
+  // in flight, so a pending render is showing a stale result, not a settled one.
+  useToolSuccess(toolId, status.parseState === "ok" && !status.pending, output);
 
   function handleCopy() {
     void platform.clipboard.writeText(output);

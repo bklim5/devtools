@@ -89,6 +89,7 @@ export default function JsFormatterTool() {
 
   return (
     <FormatterView
+      toolId="js-formatter"
       inputId="js-input"
       outputId="js-output"
       input={input}

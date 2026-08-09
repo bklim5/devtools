@@ -75,6 +75,7 @@ function renderView(o: Overrides = {}) {
   const onSingleQuote = hasSingleQuote ? (o.onSingleQuote ?? vi.fn()) : undefined;
   const utils = render(
     <FormatterView
+      toolId="json-formatter"
       inputId="fv-input"
       outputId="fv-output"
       input={o.input ?? ""}

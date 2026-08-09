@@ -26,6 +26,7 @@
 // responsive Tailwind, min-w-0, no fixed widths.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CopyButton } from "@/components/CopyButton";
+import { useToolSuccess } from "@/shell/useToolSuccess";
 import {
   COMMON_PATTERNS,
   type RegexMatch,
@@ -266,6 +267,22 @@ export default function RegexTool() {
   const view: ViewResult = isEmpty ? { empty: true } : result;
   const isError = "error" in view;
   const matches = "matches" in view ? view.matches : [];
+
+  // Shared success seam (UP5-01) — one call, no counting logic here. A success
+  // is a completed worker run: not empty, not a bad pattern, and not the
+  // watchdog's timedOut state (a terminated catastrophic regex produced no
+  // output at all). The output is the rendered match view plus, when the
+  // Replace field is in use, the replaced result.
+  const ranOk = "matches" in view && !isError;
+  const replaced = "replaced" in view ? view.replaced : undefined;
+  const successOutput = ranOk
+    ? [
+        `${matches.length} matches`,
+        ...matches.map((m) => `${m.index}:${m.full}`),
+        ...(replaced === undefined ? [] : [`=>${replaced}`]),
+      ].join("\n")
+    : "";
+  useToolSuccess("regex", ranOk, successOutput);
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">

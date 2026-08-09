@@ -11,6 +11,7 @@ import { useState } from "react";
 import { Check, Copy } from "lucide-react";
 import { platform } from "@/lib/platform";
 import { useCopyFeedback } from "@/shell/useCopyFeedback";
+import { useToolSuccess } from "@/shell/useToolSuccess";
 import { useBytesConvert } from "./useBytesConvert";
 import { SegmentedControl } from "@/components/SegmentedControl";
 import { StatusBar, type ParseState } from "@/components/StatusBar";
@@ -125,6 +126,13 @@ export default function Base64Tool() {
     : byteCount === 0
       ? "empty"
       : "ok";
+
+  // Shared success seam (UP5-01) — one call, no counting logic here. All three
+  // panes are derived from ONE internal byte array, and `hex` is that array's
+  // canonical rendering, so it identifies the converted result exactly: different
+  // bytes always differ, and a base64/base64url alphabet flip (same bytes, same
+  // result) correctly stays a single episode.
+  useToolSuccess("base64", parseState === "ok", hex);
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">

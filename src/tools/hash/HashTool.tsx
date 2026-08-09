@@ -16,6 +16,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CopyButton } from "@/components/CopyButton";
 import { SegmentedControl } from "@/components/SegmentedControl";
 import { StatusBar, type ParseState } from "@/components/StatusBar";
+import { useToolSuccess } from "@/shell/useToolSuccess";
 import { utf8ToBytes } from "@/lib/bytes";
 import { md5Hex, shaHex, type DigestRow, type ShaAlgorithm } from "./hashes";
 
@@ -118,6 +119,14 @@ export default function HashTool() {
     if (algo === "MD5") return { algo, hex: md5Hex5 };
     return shaRows.find((r) => r.algo === algo) ?? { algo, hex: "" };
   });
+
+  // Shared success seam (UP5-01) — one call, no counting logic here. The output
+  // is the five rendered digest rows. There is no explicit `pending` flag: the
+  // four async SHA rows are "" until they resolve, so the output CHANGES on
+  // resolve and the quiet window simply restarts — an in-flight digest can never
+  // settle as a finished result.
+  const digestsText = orderedRows.map((r) => `${r.algo} ${r.hex}`).join("\n");
+  useToolSuccess("hash", parseState === "ok", digestsText);
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">
