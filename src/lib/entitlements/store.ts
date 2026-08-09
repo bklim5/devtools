@@ -10,6 +10,7 @@ import { loadPreferences } from "@/shell/prefsStore";
 import { isTestOrDev } from "@/lib/env";
 import {
   updatePreferences,
+  updatePreferencesDurable,
   whenPreferencesLoaded,
 } from "@/shell/usePreferences";
 import { FREE_SET, isPro, type EntitlementSet } from "./entitlements";
@@ -154,7 +155,15 @@ export async function clearEntitlementsOverride(): Promise<void> {
   // snapshot, the two could clobber each other's fields (and a successful activate
   // runs clear → refresh back-to-back). Keeping every override write on the singleton
   // means the drop flag merges into a blob that already carries the cleared override.
-  updatePreferences({ entitlementsOverride: null });
+  //
+  // AWAITED to durability: this function's whole contract is "callers run it
+  // BEFORE refreshEntitlements so the next resolve sees the cleared prefs", and
+  // resolve.ts re-reads the PERSISTED blob. Returning while the write is still in
+  // flight makes that contract a race the caller cannot see — the resolve can
+  // read the stale override and re-apply the free tier right after a successful
+  // activation. A failed write resolves false (logged in dev) and is left to the
+  // next flush; the in-memory blob is cleared either way.
+  await updatePreferencesDurable({ entitlementsOverride: null });
 }
 
 /** Test seam: force a specific set and notify. No-op in production builds. Forcing

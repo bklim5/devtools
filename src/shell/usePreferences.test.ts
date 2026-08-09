@@ -3,7 +3,7 @@
 // (via setPlatformForTest + the in-memory stub) and falls back to defaults on a
 // corrupt/absent blob (untrusted-store mitigation, threat T-02-08). No
 // @tauri-apps import anywhere.
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import {
   platform,
@@ -12,7 +12,13 @@ import {
   type Store,
 } from "@/lib/platform";
 import { createStoreStub } from "@/lib/platform/stub";
-import { resetPreferencesForTest, usePreferences } from "./usePreferences";
+import {
+  flushPreferences,
+  resetPreferencesForTest,
+  updatePreferences,
+  updatePreferencesDurable,
+  usePreferences,
+} from "./usePreferences";
 import { useRecentTools } from "./useRecentTools";
 import { DEFAULT_PREFERENCES, PREFERENCES_STORE_KEY } from "./preferences";
 import { makeMemoryPlatform } from "./testStore";
@@ -327,6 +333,135 @@ describe("usePreferences", () => {
     // And the live hook state agrees (one source of truth).
     expect(result.current.preferences.theme).toBe("light");
     expect(result.current.preferences.pinnedToolIds).toEqual(["base64", "unix-time"]);
+  });
+
+  // --- Durability of the write path (UP5 review remediation) ----------------
+  //
+  // `deferredSavePending` used to be cleared BEFORE the async save resolved, so a
+  // rejected write (or a webview torn down mid-save) dropped the outstanding
+  // change with no retry and no signal. The flag now clears only on a RESOLVED
+  // save, which is what makes `updatePreferencesDurable` (the UP5-02 stamp path)
+  // meaningful at all.
+  describe("write durability", () => {
+    /** Drain microtasks AND the awaits inside savePreferences (initPlatform). */
+    const tick = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+    /** A store whose `set` fails until `failing` is flipped off. */
+    function makeFlakyStore(): {
+      store: Store;
+      writes: () => number;
+      readBlob: () => Record<string, unknown> | undefined;
+      setFailing: (v: boolean) => void;
+    } {
+      const map = new Map<string, unknown>();
+      let failing = true;
+      let writes = 0;
+      return {
+        store: {
+          get: async (key: string) => map.get(key),
+          set: async (key: string, value: unknown) => {
+            writes++;
+            if (failing) throw new Error("store write failed");
+            map.set(key, value);
+          },
+        },
+        writes: () => writes,
+        readBlob: () => map.get(PREFERENCES_STORE_KEY) as Record<string, unknown> | undefined,
+        setFailing: (v: boolean) => {
+          failing = v;
+        },
+      };
+    }
+
+    it("a REJECTED save keeps the change outstanding, and a later flush retries it", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const flaky = makeFlakyStore();
+      setPlatformForTest(makeMemoryPlatform(flaky.store));
+
+      // A deferred write, then a flush that FAILS.
+      updatePreferences({ toolSuccessCount: 2 }, { persist: "deferred" });
+      expect(await flushPreferences()).toBe(false);
+      expect(flaky.readBlob()).toBeUndefined();
+      expect(warn).toHaveBeenCalled();
+
+      // The old code cleared the pending flag here, so this second flush was a
+      // silent no-op and the count was lost forever. It must RETRY instead.
+      flaky.setFailing(false);
+      expect(await flushPreferences()).toBe(true);
+      expect(flaky.readBlob()?.toolSuccessCount).toBe(2);
+
+      // …and once it has landed, a further flush is a genuine no-op.
+      const before = flaky.writes();
+      expect(await flushPreferences()).toBe(true);
+      expect(flaky.writes()).toBe(before);
+      warn.mockRestore();
+    });
+
+    it("a REJECTED immediate write also stays flushable (not just deferred ones)", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const flaky = makeFlakyStore();
+      setPlatformForTest(makeMemoryPlatform(flaky.store));
+
+      updatePreferences({ theme: "light" }); // persist: "now" — and it fails
+      await tick();
+      expect(flaky.readBlob()).toBeUndefined();
+
+      flaky.setFailing(false);
+      expect(await flushPreferences()).toBe(true);
+      expect(flaky.readBlob()?.theme).toBe("light");
+      warn.mockRestore();
+    });
+
+    it("updatePreferencesDurable resolves only AFTER the write lands, and reports failure", async () => {
+      const flaky = makeFlakyStore();
+      setPlatformForTest(makeMemoryPlatform(flaky.store));
+
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      // Failing store → resolves false, never rejects, and the in-memory merge
+      // still applied (callers' in-session gates keep exact semantics).
+      await expect(updatePreferencesDurable({ lastReviewRequestAt: 111 })).resolves.toBe(
+        false,
+      );
+      expect(flaky.readBlob()).toBeUndefined();
+      warn.mockRestore();
+
+      flaky.setFailing(false);
+      await expect(updatePreferencesDurable({ lastReviewRequestAt: 222 })).resolves.toBe(true);
+      // Resolved ⇒ already on "disk" (no extra tick needed).
+      expect(flaky.readBlob()?.lastReviewRequestAt).toBe(222);
+    });
+
+    it("overlapping saves land in order — an older blob never overwrites a newer one", async () => {
+      const map = new Map<string, unknown>();
+      const releases: Array<() => void> = [];
+      const store: Store = {
+        get: async (key: string) => map.get(key),
+        set: async (key: string, value: unknown) => {
+          await new Promise<void>((resolve) => releases.push(resolve));
+          map.set(key, value);
+        },
+      };
+      setPlatformForTest(makeMemoryPlatform(store));
+
+      // Save 1 STARTS (its snapshot is #111111) …
+      const first = updatePreferencesDurable({ accent: "#111111" });
+      await tick();
+      expect(releases).toHaveLength(1);
+
+      // … then a second write arrives while it is still in flight.
+      const second = updatePreferencesDurable({ accent: "#222222" });
+      await tick();
+      expect(releases).toHaveLength(1); // serialized — save 2 has not started
+
+      releases[0]!();
+      await first;
+      await tick();
+      expect(releases).toHaveLength(2);
+      releases[1]!();
+      await second;
+
+      expect((map.get(PREFERENCES_STORE_KEY) as { accent: string }).accent).toBe("#222222");
+    });
   });
 
   it("falls back to DEFAULT_PREFERENCES for a corrupt/garbage stored blob", async () => {

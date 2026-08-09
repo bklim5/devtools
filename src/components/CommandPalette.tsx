@@ -34,7 +34,7 @@ import { openSettings } from "@/shell/settingsStore";
 import { routeProUpsell } from "@/shell/proUpsellRouter";
 import { useEntitlements } from "@/shell/useEntitlements";
 import {
-  updatePreferences,
+  updatePreferencesDurable,
   usePreferences,
 } from "@/shell/usePreferences";
 import { matchesChord } from "@/shell/hotkeyAccelerator";
@@ -89,7 +89,12 @@ const DEV_COMMANDS: CommandRow[] = import.meta.env.DEV
           // the blob (the D-07 Pro→free drop flag), and a stale-snapshot bypass
           // writer here would be clobbered by that singleton write (it would drop
           // the override this toggle just persisted). One writer = one blob.
-          updatePreferences({ entitlementsOverride: next });
+          // AWAITED to durability: refreshEntitlements() below re-resolves from
+          // the PERSISTED blob (resolve.ts reads loadPreferences), so a
+          // fire-and-forget write here is a read-after-write race — the resolve
+          // can reach the store first and re-apply the OLD tier, leaving the
+          // toggle visibly dead until the next refresh.
+          await updatePreferencesDurable({ entitlementsOverride: next });
           // Notify ALL gate consumers (Pitfall 3 — prefs hook instances don't
           // sync; the entitlements store is the one live channel).
           await refreshEntitlements();

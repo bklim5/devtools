@@ -9,6 +9,7 @@
 // the seam routes to the real impl (tauri.ts) or the browser/in-memory fallback.
 
 import { useCallback, useEffect, useState } from "react";
+import { isTestOrDev } from "@/lib/env";
 import {
   DEFAULT_PREFERENCES,
   type Preferences,
@@ -43,8 +44,15 @@ function notify(): void {
   for (const l of listeners) l();
 }
 
+// Monotonic version of `sharedPrefs`, bumped by EVERY mutation. A save records
+// the version of the snapshot it wrote, so a write that lands WHILE a save is in
+// flight is not mistaken for "already on disk" when that older save resolves
+// (see `persistShared`).
+let prefsVersion = 0;
+
 function setSharedPrefs(next: Preferences): void {
   sharedPrefs = next;
+  prefsVersion++;
   notify();
 }
 
@@ -144,45 +152,123 @@ export interface UpdatePreferencesOptions {
   persist?: "now" | "deferred";
 }
 
-/** True when a `"deferred"` write has changed the shared blob without persisting it. */
-let deferredSavePending = false;
+/** True while the IN-MEMORY blob is ahead of the on-disk one: a `"deferred"`
+ *  write has not been persisted yet, OR a save is in flight, OR the last save
+ *  FAILED.
+ *
+ *  It is cleared ONLY when a save RESOLVES successfully (and only if nothing
+ *  changed the blob after the snapshot that save wrote). Clearing it up-front —
+ *  as this module used to — silently dropped the outstanding write whenever the
+ *  save rejected or the webview was torn down mid-save, with no retry: the
+ *  pending counter was gone and `flushPreferences` had nothing left to do. */
+let unsavedChanges = false;
+
+/** Serializes saves. Without it, two overlapping `store.set`s can resolve out of
+ *  order and leave an OLDER blob on disk. Also makes "await durability" mean what
+ *  it says: a durable write cannot resolve before the writes queued ahead of it. */
+let saveChain: Promise<void> = Promise.resolve();
+
+/** Write the CURRENT shared blob to the store, behind the save chain.
+ *
+ *  Resolves `true` when the blob reached the store, `false` when the write
+ *  failed (logged in dev/test only — a prefs write failure is never fatal and
+ *  must never throw into a React effect or park a caller's queue).
+ *
+ *  The snapshot + version are taken when this save actually RUNS, so queued
+ *  saves coalesce onto the latest blob; the version guard then means a write
+ *  that lands mid-save keeps `unsavedChanges` set for the next flush. */
+function persistShared(): Promise<boolean> {
+  const run = async (): Promise<boolean> => {
+    const snapshot = sharedPrefs;
+    const version = prefsVersion;
+    try {
+      await savePreferences(snapshot);
+    } catch (err) {
+      // Leave `unsavedChanges` SET so a later flush (pagehide / window-hide /
+      // any other write) retries instead of the change being lost silently.
+      if (isTestOrDev()) console.warn("[prefs] persist failed", err);
+      return false;
+    }
+    if (version === prefsVersion) unsavedChanges = false;
+    return true;
+  };
+  const result = saveChain.then(run, run);
+  // The chain must never reject and never carry a value.
+  saveChain = result.then(
+    () => {},
+    () => {},
+  );
+  return result;
+}
 
 /** Apply a partial change to the shared blob AND persist it. The merge ALWAYS
  *  reads the LIVE `sharedPrefs`, so concurrent writers (usePreferences +
  *  useRecentTools) never clobber each other's fields. Notifies all subscribers
- *  (cross-instance live propagation). */
+ *  (cross-instance live propagation).
+ *
+ *  Fire-and-forget: use `updatePreferencesDurable` when the CALLER must know the
+ *  change reached disk. */
 export function updatePreferences(
   patch: Partial<Preferences>,
   options?: UpdatePreferencesOptions,
 ): void {
   dirty = true;
   setSharedPrefs({ ...sharedPrefs, ...patch });
-  if (options?.persist === "deferred") {
-    deferredSavePending = true;
-    return;
-  }
+  unsavedChanges = true;
+  if (options?.persist === "deferred") return;
   // This writes the WHOLE blob, so it also satisfies any pending deferred write.
-  deferredSavePending = false;
-  void savePreferences(sharedPrefs);
+  void persistShared();
 }
 
-/** Persist a pending `"deferred"` write, if any. Idempotent and cheap when there
- *  is nothing outstanding. Called on window-hide / pagehide (below) and safe to
- *  call from anywhere that wants the on-disk blob current. */
-export function flushPreferences(): void {
-  if (!deferredSavePending) return;
-  deferredSavePending = false;
-  void savePreferences(sharedPrefs);
+/** Apply a partial change AND AWAIT its durable persistence.
+ *
+ *  Resolves `true` once the whole blob (including this patch) has reached the
+ *  store, `false` if that write failed — never rejects, so an `await` on it can
+ *  never poison the caller's promise chain. The in-memory merge is applied
+ *  SYNCHRONOUSLY either way, so every in-session gate that reads the blob keeps
+ *  exact semantics even when the disk write fails.
+ *
+ *  Exists for the ONE write whose loss changes behaviour: UP5-02's
+ *  `lastReviewRequestAt` stamp. It is written immediately after the OS was asked
+ *  for a review, and losing it (a quit, or a store rejection, right after the
+ *  native call) would let the app ask again at the very next boundary instead of
+ *  honouring the 7-day floor. Ordinary preference writes stay fire-and-forget. */
+export function updatePreferencesDurable(patch: Partial<Preferences>): Promise<boolean> {
+  dirty = true;
+  setSharedPrefs({ ...sharedPrefs, ...patch });
+  unsavedChanges = true;
+  return persistShared();
+}
+
+/** Persist an outstanding write, if any. Idempotent and cheap when there is
+ *  nothing outstanding. Called on window-hide / pagehide (below) and safe to
+ *  call from anywhere that wants the on-disk blob current.
+ *
+ *  Returns the save's outcome for callers that care; the event listeners ignore
+ *  it. `true` with nothing outstanding means "already current". */
+export function flushPreferences(): Promise<boolean> {
+  if (!unsavedChanges) return Promise.resolve(true);
+  // NOT cleared here — `persistShared` clears it only once the save RESOLVES,
+  // so a rejected/torn-down save stays flushable.
+  return persistShared();
 }
 
 // The "beforeunload" half of the deferred-write contract. macOS quit and window
 // close both hide the webview first, so these two events between them cover the
-// realistic exits; a hard kill (SIGKILL, crash) can still lose the deferred
-// field, which is exactly why only losable bookkeeping may use `"deferred"`.
+// realistic exits.
+//
+// ACCEPTED BY DESIGN: a HARD kill (SIGKILL, crash, power loss) can still lose an
+// outstanding deferred write — the webview never gets a hide event, and no
+// browser API can make an async store write survive it. That is exactly why only
+// LOSABLE bookkeeping may use `"deferred"`: today only UP5-01's sub-boundary
+// `toolSuccessCount` increments, where the cost is at most ~2 lost counts, i.e.
+// one review boundary arriving a little late. The one write whose loss WOULD
+// change behaviour — the UP5-02 stamp — does not use this path at all; it goes
+// through `updatePreferencesDurable` and is awaited.
 if (typeof window !== "undefined" && typeof document !== "undefined") {
-  window.addEventListener("pagehide", flushPreferences);
+  window.addEventListener("pagehide", () => void flushPreferences());
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden") flushPreferences();
+    if (document.visibilityState === "hidden") void flushPreferences();
   });
 }
 
@@ -196,7 +282,9 @@ export function resetPreferencesForTest(): void {
   sharedLoadOk = false;
   loadStarted = false;
   dirty = false;
-  deferredSavePending = false;
+  unsavedChanges = false;
+  prefsVersion = 0;
+  saveChain = Promise.resolve();
   listeners.clear();
 }
 
