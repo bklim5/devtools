@@ -10,6 +10,7 @@
 // already makes get() return undefined on corruption) yields the defaults.
 
 import { initPlatform } from "@/lib/platform";
+import { isTestOrDev } from "@/lib/env";
 import { getToolById } from "@/lib/tools/registry";
 import { isValidAccelerator } from "./hotkeyAccelerator";
 import {
@@ -51,13 +52,6 @@ function coerceLastUpdateCheck(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) && value > 0
     ? value
     : null;
-}
-
-/** True under vitest or a dev build — never in a production bundle. Mirrors the
- *  guard in src/lib/entitlements/store.ts (setEntitlementsForTest). */
-function isTestOrDev(): boolean {
-  const env = (import.meta as { env?: { MODE?: string; DEV?: boolean } }).env;
-  return env?.MODE === "test" || env?.DEV === true;
 }
 
 /** Untrusted entitlement override (D-31). "free" is honored in ANY build
@@ -120,36 +114,26 @@ function coerceDefaultToolId(value: unknown): string | null {
   return typeof value === "string" && getToolById(value) ? value : null;
 }
 
-/** Upper bound for the lifetime settled-success counter (UP5-01). DELIBERATELY
- *  DUPLICATED from `MAX_TOOL_SUCCESS_COUNT` in src/shell/reviewPrompt.ts rather
- *  than imported: reviewPrompt is the APPSTORE-ONLY prompt core, loaded only
- *  through a channel-gated dynamic import, so importing it from this (always
- *  loaded) module would fold it into the direct build's chunk graph and RED the
- *  direct-absence fold-in guard. reviewPrompt Test 13 asserts the two constants
- *  are equal, so the duplication cannot silently drift.
- *
- *  The value is deliberately NOT a multiple of SUCCESS_INTERVAL (1_000_000 % 3
- *  === 1): a counter pinned at the ceiling — by a hand-edited blob or a truly
- *  prolific user — must never stand PERMANENTLY on a request boundary, which
- *  would ask for a review at every settled success forever (bounded only by the
- *  7-day gap). reviewPrompt Test 13 asserts that property too. */
+/** Ceiling for the lifetime settled-success counter (UP5-01). DUPLICATED from
+ *  `MAX_TOOL_SUCCESS_COUNT` in the APPSTORE-ONLY src/shell/reviewPrompt.ts (this
+ *  always-loaded module must not import it — that would fold the review prompt
+ *  into the direct bundle). Deliberately NOT a multiple of SUCCESS_INTERVAL, so
+ *  a pinned counter cannot stand permanently on a request boundary. reviewPrompt
+ *  Test 13 pins both properties, so the duplication cannot drift. */
 const MAX_TOOL_SUCCESS_COUNT = 1_000_000;
 
 /** Untrusted (the user can hand-edit prefs.json): accept only a NON-NEGATIVE
  *  INTEGER; everything else — non-number, "3", 1.5, NaN, Infinity, -1, objects,
- *  null — → 0. A valid value is clamped to MAX_TOOL_SUCCESS_COUNT so a forged
- *  huge/absurd count can neither overflow nor sit on a boundary (UP5-01). */
+ *  null — → 0, then clamp to the ceiling above (UP5-01). */
 function coerceToolSuccessCount(value: unknown): number {
   if (typeof value !== "number" || !Number.isInteger(value) || value < 0) return 0;
   return Math.min(value, MAX_TOOL_SUCCESS_COUNT);
 }
 
-/** Untrusted (the user can hand-edit prefs.json): accept only a finite POSITIVE
- *  number (epoch ms); everything else — non-number, NaN, Infinity, <= 0 — → null
- *  ("never requested"). Copies coerceLastUpdateCheck's discipline verbatim. A
- *  hand-edited FUTURE stamp is deliberately left alone: the gap test in
- *  reviewPrompt is fail-closed (a negative elapsed delta simply never elapses),
- *  so a forged stamp can only DELAY a prompt, never trigger one early (UP5-02). */
+/** Untrusted epoch-ms review stamp (UP5-02): accept only a finite POSITIVE
+ *  number; everything else → null ("never requested"). A wildly FUTURE value
+ *  survives here but is ignored by reviewPrompt's gap test, which treats a stamp
+ *  more than a day ahead as garbage rather than letting it brick the prompt. */
 function coerceLastReviewRequestAt(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) && value > 0
     ? value

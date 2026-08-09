@@ -7,6 +7,7 @@
 // licensed set; it notifies subscribers only when the set actually changes.
 
 import { loadPreferences } from "@/shell/prefsStore";
+import { isTestOrDev } from "@/lib/env";
 import {
   updatePreferences,
   whenPreferencesLoaded,
@@ -154,13 +155,6 @@ export async function clearEntitlementsOverride(): Promise<void> {
   // runs clear → refresh back-to-back). Keeping every override write on the singleton
   // means the drop flag merges into a blob that already carries the cleared override.
   updatePreferences({ entitlementsOverride: null });
-}
-
-/** True under vitest or a dev build — never in a production bundle. Same guard
- *  as setPlatformForTest (src/lib/platform/index.ts). */
-function isTestOrDev(): boolean {
-  const env = (import.meta as { env?: { MODE?: string; DEV?: boolean } }).env;
-  return env?.MODE === "test" || env?.DEV === true;
 }
 
 /** Test seam: force a specific set and notify. No-op in production builds. Forcing

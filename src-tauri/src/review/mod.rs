@@ -21,7 +21,7 @@
 //!
 //! REJECTION CONTRACT: the webview stamps `lastReviewRequestAt` only after this command
 //! RESOLVES, so this command must REJECT whenever the OS was not actually asked (no window /
-//! no presentation anchor, main-thread dispatch failure). Silently succeeding there would burn
+//! no presentation anchor, main-thread dispatch failure, or an overlapping request). Silently succeeding there would burn
 //! a whole 7-day window on a request that never happened. A rejection is a normal, handled
 //! outcome: the webview persists nothing and retries at the next 3rd-success boundary.
 //! Errors serialize as `{"code": "..."}` (the prose-free rejection contract shared with the
@@ -48,25 +48,29 @@ extern "C" {
 /// process, breaking the recurring cadence.
 static REVIEW_IN_FLIGHT: AtomicBool = AtomicBool::new(false);
 
-/// Claim the single in-flight slot. `true` = this caller owns it and MUST release it (do that
-/// by binding an `InFlight`, never by hand).
-fn try_claim() -> bool {
+/// Claim the single in-flight slot. `Some(InFlight)` = this caller owns it; the claim is
+/// released when (and ONLY when) that guard drops. Handing back the GUARD rather than a bool
+/// is what makes "claimed but never released" and "released without claiming" unrepresentable:
+/// there is no free release function to call by hand.
+#[must_use]
+fn try_claim() -> Option<InFlight> {
     REVIEW_IN_FLIGHT
         .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
         .is_ok()
+        // `then`, NEVER `then_some`: `then_some` takes its argument BY VALUE, so it would
+        // construct an `InFlight` even on the losing branch and immediately drop it —
+        // releasing the WINNER's claim. (Observed: 4 of 16 barrier-synchronized threads
+        // "winning".) The closure form only constructs it when the CAS actually succeeded.
+        .then(|| InFlight)
 }
 
-fn release_claim() {
-    REVIEW_IN_FLIGHT.store(false, Ordering::SeqCst);
-}
-
-/// RAII release — the ONLY way the claim is dropped on the request path, so a future early
-/// return (or a panic, or a dropped/cancelled future) cannot forget it.
+/// RAII release — the ONLY way the claim is dropped, so an early `?` return (or a panic, or a
+/// dropped/cancelled future) cannot forget it.
 struct InFlight;
 
 impl Drop for InFlight {
     fn drop(&mut self) {
-        release_claim();
+        REVIEW_IN_FLIGHT.store(false, Ordering::SeqCst);
     }
 }
 
@@ -76,9 +80,10 @@ impl Drop for InFlight {
 /// behavior — and a wider error surface across the IPC boundary is surface for nothing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReviewError {
-    /// The OS was NOT asked: no window / no presentation anchor (non-zero Swift return), or
-    /// the main-thread dispatch itself failed. Never returned for "the OS declined to show a
-    /// sheet" — that is indistinguishable from success by design and IS a success here.
+    /// THIS CALL did not ask the OS: no window / no presentation anchor (non-zero Swift
+    /// return), a main-thread dispatch failure, or another request already in flight. Never
+    /// returned for "the OS declined to show a sheet" — that is indistinguishable from success
+    /// by design and IS a success here.
     Unavailable,
 }
 
@@ -91,15 +96,9 @@ impl ReviewError {
     }
 }
 
-/// Tauri command errors must Serialize; the wire shape is `{"code": "..."}`.
-impl serde::Serialize for ReviewError {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        use serde::ser::SerializeStruct;
-        let mut s = serializer.serialize_struct("ReviewError", 1)?;
-        s.serialize_field("code", self.code())?;
-        s.end()
-    }
-}
+// Tauri command errors must Serialize; the wire shape is `{"code": "..."}`
+// (crate::code_error).
+crate::impl_code_error_serialize!(ReviewError, "ReviewError");
 
 /// Ask the OS to consider showing its App Store review sheet. Takes no arguments, returns no
 /// data. App-defined commands registered through `generate_handler!` need NO capability entry
@@ -114,22 +113,26 @@ pub async fn request_app_store_review<R: Runtime>(app: AppHandle<R>) -> Result<(
 }
 
 /// The claim → present → classify core, factored out of the command so all four exit shapes
-/// (overlap no-op, success, non-zero Swift return, dispatch failure) are unit-testable without
-/// a live `AppHandle`.
+/// (overlap rejection, success, non-zero Swift return, dispatch failure) are unit-testable
+/// without a live `AppHandle`.
 async fn with_in_flight_claim<F, Fut>(present: F) -> Result<(), ReviewError>
 where
     F: FnOnce() -> Fut,
     Fut: std::future::Future<Output = Result<i32, ReviewError>>,
 {
-    // An OVERLAPPING call is a silent no-op, NOT an error: its twin is already presenting, so
-    // surfacing an error would only invite a retry (and the webview would treat it as "the OS
-    // was never asked"). Note this returns BEFORE binding the guard, so it cannot release the
-    // winner's claim.
-    if !try_claim() {
-        return Ok(());
-    }
-    // Releases the claim on EVERY exit path below — the `?`, both match arms, and any panic.
-    let _in_flight = InFlight;
+    // An OVERLAPPING call REJECTS. `Ok(())` here would be a LIE with a persistent
+    // consequence: `Ok` is the webview's signal that the OS was asked, so it would stamp
+    // `lastReviewRequestAt` and burn a whole 7-day window on a request this call never made.
+    // Rejecting costs nothing — the webview's reaction to any failure is "persist nothing,
+    // retry at the next 3rd-success boundary", and the twin that IS presenting will stamp on
+    // its own success. Returning here (before any guard is bound) also means the loser can
+    // never release the winner's claim.
+    let Some(_in_flight) = try_claim() else {
+        eprintln!("review: another request is already in flight; not asking again");
+        return Err(ReviewError::Unavailable);
+    };
+    // `_in_flight` releases the claim on EVERY exit path below — the `?`, both match arms,
+    // and any panic.
 
     match present().await? {
         0 => Ok(()),
@@ -173,50 +176,50 @@ async fn present_on_main_thread<R: Runtime>(app: AppHandle<R>) -> Result<i32, Re
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::{atomic::AtomicUsize, Arc, Barrier, Mutex, MutexGuard};
+    use std::sync::{Arc, Barrier, Mutex, MutexGuard};
     use tauri::async_runtime::block_on;
 
     /// `REVIEW_IN_FLIGHT` is process-global while `cargo test` runs test fns on MULTIPLE
     /// THREADS, so every test that touches it holds this lock — otherwise the suite races
     /// itself. Poison-tolerant: one panicking test must not cascade into the others. Each
-    /// acquisition also resets the static, so every test starts unclaimed.
+    /// acquisition also resets the static (the one place that is legitimate — a leaked guard
+    /// from a panicking test must not wedge the rest of the suite), so every test starts
+    /// unclaimed.
     static TEST_LOCK: Mutex<()> = Mutex::new(());
 
     fn claim_static() -> MutexGuard<'static, ()> {
         let guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-        release_claim();
+        REVIEW_IN_FLIGHT.store(false, Ordering::SeqCst);
         guard
     }
 
-    /// Test 1: the guard admits exactly ONE in-flight request at a time.
+    /// Test 1: the guard admits exactly ONE in-flight request at a time. Every thread's guard
+    /// is held until ALL threads have raced (the Vec outlives the joins), so a winner cannot
+    /// release early and let a second caller in — which would make the assertion vacuous.
     #[test]
     fn concurrent_claims_admit_exactly_one() {
         let _lock = claim_static();
 
-        let winners = Arc::new(AtomicUsize::new(0));
         let barrier = Arc::new(Barrier::new(16));
         let handles: Vec<_> = (0..16)
             .map(|_| {
-                let winners = Arc::clone(&winners);
                 let barrier = Arc::clone(&barrier);
                 std::thread::spawn(move || {
                     barrier.wait(); // maximize the overlap
-                    if try_claim() {
-                        winners.fetch_add(1, Ordering::SeqCst);
-                    }
+                    try_claim()
                 })
             })
             .collect();
-        for h in handles {
-            h.join().expect("claim thread panicked");
-        }
+        let guards: Vec<Option<InFlight>> = handles
+            .into_iter()
+            .map(|h| h.join().expect("claim thread panicked"))
+            .collect();
 
         assert_eq!(
-            winners.load(Ordering::SeqCst),
+            guards.iter().filter(|g| g.is_some()).count(),
             1,
             "exactly one of 16 concurrent callers may hold the in-flight claim"
         );
-        release_claim();
     }
 
     /// The Swift bridge actually LINKS. Taking the address forces the linker to resolve
@@ -252,28 +255,33 @@ mod tests {
     fn sequential_claims_both_succeed() {
         let _lock = claim_static();
 
-        assert!(try_claim(), "first claim");
         {
-            let _in_flight = InFlight; // dropping it releases
-        }
+            let first = try_claim();
+            assert!(first.is_some(), "first claim");
+        } // dropping the guard releases
         assert!(
-            try_claim(),
+            try_claim().is_some(),
             "a released claim must be re-claimable — the static is not a once-ever latch"
         );
-        release_claim();
     }
 
     /// Test 4: the claim is released on EVERY exit path — success, non-zero Swift return, and
-    /// dispatch failure — and an overlapping call is a silent no-op that neither reaches
-    /// StoreKit nor releases the winner's claim.
+    /// dispatch failure — and an overlapping call REJECTS without presenting and without
+    /// releasing the winner's claim.
+    ///
+    /// Every path is driven through `with_in_flight_claim` (the code the command runs), and
+    /// the "was it released?" probe is a claim ATTEMPT whose guard drops at the end of the
+    /// statement — the test never touches the static by hand.
     #[test]
     fn every_exit_path_releases_the_claim() {
         let _lock = claim_static();
 
         // (a) SUCCESS path.
         assert_eq!(block_on(with_in_flight_claim(|| async { Ok(0) })), Ok(()));
-        assert!(try_claim(), "the success path must release the claim");
-        release_claim();
+        assert!(
+            try_claim().is_some(),
+            "the success path must release the claim"
+        );
 
         // (b) Non-zero Swift return (no window / no presentation anchor) → REJECT, released.
         assert_eq!(
@@ -281,10 +289,9 @@ mod tests {
             Err(ReviewError::Unavailable)
         );
         assert!(
-            try_claim(),
+            try_claim().is_some(),
             "the non-zero-return path must release the claim"
         );
-        release_claim();
 
         // (c) Dispatch failure (the `?` early return) → REJECT, released.
         assert_eq!(
@@ -294,15 +301,18 @@ mod tests {
             Err(ReviewError::Unavailable)
         );
         assert!(
-            try_claim(),
+            try_claim().is_some(),
             "the run_on_main_thread-failure path must release the claim"
         );
-        release_claim();
 
-        // (d) OVERLAP: a call arriving while another is in flight never presents, returns Ok
-        // (a silent no-op, not an error the webview would retry), and must NOT release the
-        // in-flight owner's claim.
-        assert!(try_claim(), "simulate an in-flight request owned elsewhere");
+        // (d) OVERLAP: a call arriving while another is in flight never presents, REJECTS
+        // (an Ok would tell the webview the OS was asked and burn a 7-day window on a
+        // request this call never made), and must NOT release the in-flight owner's claim.
+        let owner = try_claim();
+        assert!(
+            owner.is_some(),
+            "simulate an in-flight request owned elsewhere"
+        );
         let presented = Arc::new(AtomicBool::new(false));
         let flag = Arc::clone(&presented);
         assert_eq!(
@@ -310,16 +320,21 @@ mod tests {
                 flag.store(true, Ordering::SeqCst);
                 Ok(0)
             })),
-            Ok(())
+            Err(ReviewError::Unavailable),
+            "an overlapping call must REJECT, never Ok-without-asking"
         );
         assert!(
             !presented.load(Ordering::SeqCst),
             "an overlapping call must not reach StoreKit"
         );
         assert!(
-            !try_claim(),
-            "an overlapping no-op must not release the in-flight owner's claim"
+            try_claim().is_none(),
+            "an overlapping rejection must not release the in-flight owner's claim"
         );
-        release_claim();
+        drop(owner);
+        assert!(
+            try_claim().is_some(),
+            "the owner's guard still releases normally"
+        );
     }
 }

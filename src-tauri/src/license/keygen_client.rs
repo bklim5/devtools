@@ -75,15 +75,9 @@ impl LicenseError {
     }
 }
 
-/// Tauri command errors must Serialize; the wire shape is `{"code": "..."}`.
-impl serde::Serialize for LicenseError {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        use serde::ser::SerializeStruct;
-        let mut s = serializer.serialize_struct("LicenseError", 1)?;
-        s.serialize_field("code", self.code())?;
-        s.end()
-    }
-}
+// Tauri command errors must Serialize; the wire shape is `{"code": "..."}`
+// (crate::code_error).
+crate::impl_code_error_serialize!(LicenseError, "LicenseError");
 
 // ---------------------------------------------------------------------------
 // Validate-key outcome (Pitfall 3: branch on meta.code, NEVER meta.valid)

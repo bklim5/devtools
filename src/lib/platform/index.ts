@@ -9,6 +9,7 @@
 // (navigator.clipboard) is used, so importing this module never pulls in Tauri.
 
 import { browserPlatform } from "./browser";
+import { isTestOrDev } from "@/lib/env";
 import type { Store } from "./stub";
 
 export type { Store };
@@ -316,15 +317,6 @@ export async function initPlatform(): Promise<Platform> {
     return p;
   });
   return initPromise;
-}
-
-/** True under vitest or a dev build — never in a production bundle. Guards the
- *  test seam so production code can't silently swap capability routing. */
-function isTestOrDev(): boolean {
-  // `import.meta.env` is defined by Vite/vitest; MODE is "test" under vitest,
-  // "development" under `vite dev`, and "production" in the shipped bundle.
-  const env = (import.meta as { env?: { MODE?: string; DEV?: boolean } }).env;
-  return env?.MODE === "test" || env?.DEV === true;
 }
 
 /** Test seam (FND-04): inject a stub impl so jsdom/node tests exercise the seam

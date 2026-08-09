@@ -69,15 +69,9 @@ impl IapError {
     }
 }
 
-/// Tauri command errors must Serialize; the wire shape is `{"code": "..."}`.
-impl serde::Serialize for IapError {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        use serde::ser::SerializeStruct;
-        let mut s = serializer.serialize_struct("IapError", 1)?;
-        s.serialize_field("code", self.code())?;
-        s.end()
-    }
-}
+// Tauri command errors must Serialize; the wire shape is `{"code": "..."}`
+// (crate::code_error).
+crate::impl_code_error_serialize!(IapError, "IapError");
 
 /// List purchasable products. MODE A: `app.iap().get_products([PRO_PRODUCT_ID],
 /// "inapp")` → map StoreKit's localized `formattedPrice`/`title` onto the TS

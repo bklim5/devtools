@@ -14,6 +14,7 @@ import {
   platform,
   type LicenseStatusPayload,
 } from "@/lib/platform";
+import { isTestOrDev } from "@/lib/env";
 
 /** The pre-resolution default — matches the Rust payload for a machine with no
  *  machine.lic and no stored key, so a fresh install never flashes a state. */
@@ -139,13 +140,6 @@ async function refresh(detailed: boolean): Promise<void> {
   if (payloadsEqual(next, current)) return;
   current = next;
   notify();
-}
-
-/** True under vitest or a dev build — never in a production bundle. Same guard
- *  as setPlatformForTest (src/lib/platform/index.ts). */
-function isTestOrDev(): boolean {
-  const env = (import.meta as { env?: { MODE?: string; DEV?: boolean } }).env;
-  return env?.MODE === "test" || env?.DEV === true;
 }
 
 /** Test seam: force a specific snapshot and notify. No-op in production. */

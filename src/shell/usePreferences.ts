@@ -129,14 +129,61 @@ export function whenPreferencesLoaded(): Promise<void> {
   });
 }
 
+export interface UpdatePreferencesOptions {
+  /** `"now"` (default) writes the whole blob to disk immediately.
+   *
+   *  `"deferred"` merges + notifies IN MEMORY but does NOT write. It exists for
+   *  high-frequency bookkeeping fields whose loss on a hard kill is acceptable —
+   *  today only UP5-01's `toolSuccessCount`, which would otherwise rewrite the
+   *  entire prefs blob to disk after every settled tool success. The pending
+   *  write lands at the next NON-deferred write (savePreferences persists the
+   *  whole blob, so any other setter carries it along for free) or at
+   *  `flushPreferences()`, which the window-hidden / pagehide listeners below
+   *  call. In-memory state is ALWAYS current either way, so every gate that
+   *  reads the blob keeps exact semantics — only the I/O is bounded. */
+  persist?: "now" | "deferred";
+}
+
+/** True when a `"deferred"` write has changed the shared blob without persisting it. */
+let deferredSavePending = false;
+
 /** Apply a partial change to the shared blob AND persist it. The merge ALWAYS
  *  reads the LIVE `sharedPrefs`, so concurrent writers (usePreferences +
  *  useRecentTools) never clobber each other's fields. Notifies all subscribers
  *  (cross-instance live propagation). */
-export function updatePreferences(patch: Partial<Preferences>): void {
+export function updatePreferences(
+  patch: Partial<Preferences>,
+  options?: UpdatePreferencesOptions,
+): void {
   dirty = true;
   setSharedPrefs({ ...sharedPrefs, ...patch });
+  if (options?.persist === "deferred") {
+    deferredSavePending = true;
+    return;
+  }
+  // This writes the WHOLE blob, so it also satisfies any pending deferred write.
+  deferredSavePending = false;
   void savePreferences(sharedPrefs);
+}
+
+/** Persist a pending `"deferred"` write, if any. Idempotent and cheap when there
+ *  is nothing outstanding. Called on window-hide / pagehide (below) and safe to
+ *  call from anywhere that wants the on-disk blob current. */
+export function flushPreferences(): void {
+  if (!deferredSavePending) return;
+  deferredSavePending = false;
+  void savePreferences(sharedPrefs);
+}
+
+// The "beforeunload" half of the deferred-write contract. macOS quit and window
+// close both hide the webview first, so these two events between them cover the
+// realistic exits; a hard kill (SIGKILL, crash) can still lose the deferred
+// field, which is exactly why only losable bookkeeping may use `"deferred"`.
+if (typeof window !== "undefined" && typeof document !== "undefined") {
+  window.addEventListener("pagehide", flushPreferences);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") flushPreferences();
+  });
 }
 
 /** TEST-ONLY: reset the module-singleton between tests so the shared prefs blob,
@@ -149,6 +196,7 @@ export function resetPreferencesForTest(): void {
   sharedLoadOk = false;
   loadStarted = false;
   dirty = false;
+  deferredSavePending = false;
   listeners.clear();
 }
 

@@ -16,6 +16,12 @@ compile_error!(
      hybrid binary with keyring/updater/autostart compiled in)."
 );
 
+// THE `{"code": "..."}` command-error wire contract (impl_code_error_serialize!).
+// Unconditional: both channels have command errors, and the macro must be
+// defined before the modules that invoke it.
+#[macro_use]
+mod code_error;
+
 // The Keygen license Rust surface (Phase 19) — direct channel ONLY (Phase 29
 // D-01/MAS-NATIVE-03). The whole module (MacKeychain + the keyring dep +
 // keygen_client + fingerprint + the 4 license commands + the LicenseState/

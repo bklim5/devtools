@@ -21,7 +21,16 @@ import StoreKit
 /// NSViewController to present from. We attach a zero-size hidden view to the real
 /// contentView (never reparenting the webview) and keep the controller alive for the
 /// process — releasing it mid-presentation would pull the anchor out from under the sheet.
+///
+/// KEYED TO THE WINDOW IT WAS BUILT FOR. The cached controller's view lives inside ONE
+/// window's contentView. This app closes and re-creates its window (tray/summon hide-close,
+/// single-instance re-show), so a later request can resolve a DIFFERENT NSWindow — and
+/// presenting from a controller whose view is not in that window means presenting from a
+/// detached (or dead) view hierarchy, which is at best no sheet and at worst a crash. The
+/// window reference is WEAK so a closed window is not kept alive by this cache; it going nil
+/// is itself the "rebuild" signal.
 private enum ReviewAnchor {
+    static weak var window: NSWindow?
     static var controller: NSViewController?
 }
 
@@ -29,21 +38,33 @@ private enum ReviewAnchor {
 private func presentReview() -> Int32 {
     guard let window = NSApp.keyWindow ?? NSApp.mainWindow
             ?? NSApp.windows.first(where: { $0.isVisible }) else { return 1 }
-    let controller: NSViewController
+
+    // The real contentViewController, when one exists, is always the best anchor.
     if let existing = window.contentViewController {
-        controller = existing
-    } else if let anchor = ReviewAnchor.controller {
-        controller = anchor
-    } else if let content = window.contentView {
-        let vc = NSViewController()
-        let view = NSView(frame: .zero)   // MUST set .view before reading it: a bare
-        view.isHidden = true              // NSViewController would try to load a nib.
-        vc.view = view
-        content.addSubview(view)
-        ReviewAnchor.controller = vc
-        controller = vc
-    } else { return 1 }
-    AppStore.requestReview(in: controller)
+        AppStore.requestReview(in: existing)
+        return 0
+    }
+    // Reuse the cached anchor ONLY if it was built for THIS window and is still installed in
+    // it (both checks matter: the window may have been re-created, or the view removed).
+    if let cached = ReviewAnchor.controller,
+       ReviewAnchor.window === window,
+       cached.view.window === window {
+        AppStore.requestReview(in: cached)
+        return 0
+    }
+    guard let content = window.contentView else { return 1 }
+    // Rebuilding: detach the stale anchor's view so we do not leave orphan subviews behind in
+    // a window that is still alive. Safe here — the process-level in-flight guard on the Rust
+    // side means no presentation can be running while this executes.
+    ReviewAnchor.controller?.view.removeFromSuperview()
+    let vc = NSViewController()
+    let view = NSView(frame: .zero)   // MUST set .view before reading it: a bare
+    view.isHidden = true              // NSViewController would try to load a nib.
+    vc.view = view
+    content.addSubview(view)
+    ReviewAnchor.window = window
+    ReviewAnchor.controller = vc
+    AppStore.requestReview(in: vc)
     return 0
 }
 

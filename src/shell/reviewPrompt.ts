@@ -30,10 +30,13 @@
 // below (it IS this instance's pending claim — a concurrent caller cannot reach
 // the request gate while one is in flight). Callers this module cannot see (a
 // second module instance) are deduped natively by the process-level IN-FLIGHT
-// guard in src-tauri/src/review/mod.rs, and their persisted stamp write is
-// suppressed by the post-resolve gap re-read.
+// guard in src-tauri/src/review/mod.rs, which REJECTS the overlapping call — so
+// the loser lands in the catch below and persists nothing. (An `Ok` there would
+// have told us the OS was asked and burned a 7-day window on a request that
+// never happened.) The post-resolve gap re-read is the second line of defence.
 
 import { platform } from "@/lib/platform";
+import { isTestOrDev } from "@/lib/env";
 import {
   getPreferencesLoadOk,
   getSharedPreferences,
@@ -54,12 +57,22 @@ export const MIN_REQUEST_GAP_MS = 7 * 24 * 60 * 60 * 1000;
  *  this appstore-only one; Test 13 asserts the two stay equal. */
 export const MAX_TOOL_SUCCESS_COUNT = 1_000_000;
 
-/** True under vitest or a dev build — never in a production bundle. Mirrors the
- *  guard in src/lib/platform/index.ts (setPlatformForTest). */
-function isTestOrDev(): boolean {
-  const env = (import.meta as { env?: { MODE?: string; DEV?: boolean } }).env;
-  return env?.MODE === "test" || env?.DEV === true;
-}
+/** How far in the FUTURE a persisted stamp may sit before it is treated as
+ *  garbage rather than as a rate limit. A stamp can legitimately be slightly
+ *  ahead of `now` (an NTP correction, a DST-adjacent clock nudge), but a stamp
+ *  a full day ahead means the clock moved backwards or the blob was edited —
+ *  and honoring it would BRICK the prompt until real time caught up, which for
+ *  a hand-edited year-2100 value is forever. See `gapElapsed`. */
+export const FUTURE_STAMP_SLACK_MS = 24 * 60 * 60 * 1000;
+
+/** How long a native review request may take before we give up on it. StoreKit
+ *  presenting a sheet is fast; a promise that never settles (a wedged main
+ *  thread, a lost IPC reply) must not park this module's queue forever, because
+ *  the queue IS the serialization primitive — every later settled success would
+ *  stop being counted. On timeout nothing is stamped, so the next boundary
+ *  genuinely retries. Generous on purpose: this is a deadlock escape, not a
+ *  latency budget. */
+export const REQUEST_TIMEOUT_MS = 30_000;
 
 // INJECTABLE CLOCK (mandatory). Every read of "now" — the gap comparison AND the
 // stamp value — goes through this one seam, mirroring the license `_with_clock`
@@ -76,17 +89,44 @@ let now: () => number = Date.now;
 let queue: Promise<void> = Promise.resolve();
 
 /** Has the 7-day floor elapsed since `last`? `null` (never requested) always
- *  passes. FAIL-CLOSED by construction against a backwards system clock or a
- *  hand-edited FUTURE stamp: a negative delta simply never reaches the gap, so a
- *  forged value can only DELAY a prompt, never trigger one early. The OS enforces
- *  its own 3-per-365-day cap on top of this floor. */
+ *  passes.
+ *
+ *  A stamp more than FUTURE_STAMP_SLACK_MS AHEAD of `now` is treated as INVALID
+ *  (allow the request; the next successful one overwrites it) rather than as a
+ *  rate limit. Treating it as a rate limit was fail-closed in the wrong
+ *  direction: a backwards system-clock correction, a timezone/RTC mishap, or a
+ *  hand-edited year-2100 value would suppress the prompt until real time caught
+ *  up — permanently, in the hand-edited case. Nothing is at stake in the other
+ *  direction: the worst a forged past/future stamp can buy is ONE extra ask,
+ *  which the OS itself rate-limits (3 real prompts per 365 days) and may
+ *  legitimately answer with nothing. A small skew still counts as "not
+ *  elapsed", so ordinary clock jitter cannot fire the prompt early. */
 function gapElapsed(last: number | null): boolean {
-  return last === null || now() - last >= MIN_REQUEST_GAP_MS;
+  if (last === null) return true;
+  const elapsed = now() - last;
+  if (elapsed < -FUTURE_STAMP_SLACK_MS) return true; // implausible future stamp → ignore it
+  return elapsed >= MIN_REQUEST_GAP_MS;
+}
+
+/** Reject after `ms` if `p` has not settled. See REQUEST_TIMEOUT_MS: a native
+ *  call that never settles would park the whole queue. The timer is always
+ *  cleared, so a resolved request leaves nothing pending. */
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return Promise.race([
+    p,
+    new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(() => reject(new Error("review request timed out")), ms);
+    }),
+  ]).finally(() => clearTimeout(timer));
 }
 
 async function runOnce(): Promise<void> {
   // (a) Wait for the REAL persisted blob, and never write over it after a
-  // transient read failure (the DEFAULT_PREFERENCES fail-soft fallback).
+  // transient read failure (the DEFAULT_PREFERENCES fail-soft fallback). This is
+  // the ONE load-bearing await: everything below runs in the same call, so the
+  // blob cannot become un-loaded again — later re-READS of the blob are still
+  // required (another writer may have changed it), but re-awaiting is not.
   await whenPreferencesLoaded();
   if (!getPreferencesLoadOk()) return;
 
@@ -94,11 +134,24 @@ async function runOnce(): Promise<void> {
   // against the LIVE shared blob, so theme/pins/license are never clobbered.
   const prev = getSharedPreferences();
   const next = Math.min(prev.toolSuccessCount + 1, MAX_TOOL_SUCCESS_COUNT);
-  if (next !== prev.toolSuccessCount) updatePreferences({ toolSuccessCount: next });
+  if (next === prev.toolSuccessCount) return; // pinned at the ceiling — nothing to do
 
   // (c) Boundary test. The ceiling is deliberately not a multiple of
   // SUCCESS_INTERVAL, so a clamped counter can never stand permanently here.
-  if (next === 0 || next % SUCCESS_INTERVAL !== 0) return;
+  const boundary = next % SUCCESS_INTERVAL === 0;
+
+  // Sub-boundary counts are memory-only (`persist: "deferred"`): rewriting the
+  // WHOLE prefs blob to disk after every settled success is I/O churn for a
+  // number nothing reads until a boundary. Boundary counts persist immediately —
+  // those are the ones a restart must not lose, since they gate the request —
+  // and a deferred count also lands on any other prefs write or at window-hide
+  // (usePreferences.flushPreferences). The accepted cost is ≤2 lost sub-boundary
+  // counts on a hard kill, i.e. at worst one boundary arrives a little late.
+  updatePreferences(
+    { toolSuccessCount: next },
+    { persist: boundary ? "now" : "deferred" },
+  );
+  if (!boundary) return;
 
   // (d) 7-day floor since the last SUCCESSFUL request.
   if (!gapElapsed(prev.lastReviewRequestAt)) return;
@@ -111,22 +164,24 @@ async function runOnce(): Promise<void> {
   // (f) The final gate: re-read → invoke → stamp ONLY on success. Do not trust
   // the (b) snapshot: another writer (a second module instance, a prefs reload,
   // a settings pane) may have stamped since.
-  await whenPreferencesLoaded();
   if (!gapElapsed(getSharedPreferences().lastReviewRequestAt)) return; // another writer won
 
   try {
-    await platform.review.request(); // may reject; may be a legitimate OS no-op
+    // May reject; may be a legitimate OS no-op; may (in the pathological case)
+    // never settle at all — hence the timeout.
+    await withTimeout(platform.review.request(), REQUEST_TIMEOUT_MS);
   } catch {
     // (g) Swallow: a failed OS call must never throw into a React effect. Persist
     // NOTHING — the prefs blob is untouched, so the NEXT boundary genuinely
-    // retries instead of the failure consuming a 7-day window.
+    // retries instead of the failure consuming a 7-day window. A TIMEOUT lands
+    // here too: we cannot know whether the OS was asked, and the conservative
+    // reading ("it was not") only ever costs one extra ask later.
     return;
   }
 
   // The stamp lands AFTER the await, so re-apply the gap test once more: a
   // concurrent instance may have stamped while we were awaiting the OS, and the
   // loser must skip rather than write a second stamp.
-  await whenPreferencesLoaded();
   if (!gapElapsed(getSharedPreferences().lastReviewRequestAt)) return; // loser skips
   updatePreferences({ lastReviewRequestAt: now() }); // stamped after success only
 }

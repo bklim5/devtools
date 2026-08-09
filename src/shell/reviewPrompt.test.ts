@@ -25,12 +25,15 @@ import {
 } from "./preferences";
 import { mergePreferences } from "./prefsStore";
 import {
+  flushPreferences,
   getSharedPreferences,
   resetPreferencesForTest,
 } from "./usePreferences";
 import {
+  FUTURE_STAMP_SLACK_MS,
   MAX_TOOL_SUCCESS_COUNT,
   MIN_REQUEST_GAP_MS,
+  REQUEST_TIMEOUT_MS,
   SUCCESS_INTERVAL,
   __resetReviewPromptForTest,
   __setReviewClockForTest,
@@ -134,10 +137,10 @@ describe("reviewPrompt — the recurring 3rd-success boundary (UP5-01/UP5-02)", 
     expect(request).toHaveBeenCalledTimes(1);
 
     await flush();
-    // Persisted through the single-writer singleton, one blob per increment.
-    expect(writtenBlobs(set).map((b) => b.toolSuccessCount)).toEqual(
-      expect.arrayContaining([1, 2, 3]),
-    );
+    // Persisted through the single-writer singleton — but only the BOUNDARY
+    // count reaches disk (counts 1 and 2 are memory-only; see Test 16), so the
+    // writes here are the count-3 blob and the stamp blob that follows it.
+    expect(writtenBlobs(set).map((b) => b.toolSuccessCount)).toEqual([3, 3]);
   });
 
   it("Test 2: the stamp is persisted ONLY AFTER the native request resolves", async () => {
@@ -412,6 +415,94 @@ describe("reviewPrompt — the recurring 3rd-success boundary (UP5-01/UP5-02)", 
     expect(getSharedPreferences().toolSuccessCount).toBe(MAX_TOOL_SUCCESS_COUNT);
     expect(set).toHaveBeenCalledTimes(0);
     expect(request).toHaveBeenCalledTimes(0);
+  });
+
+  it("Test 16: sub-boundary counts are memory-only; a flush persists them", async () => {
+    const { set } = install();
+
+    await drive(2);
+    // In MEMORY the counter is exact — every gate below reads this, so cadence
+    // semantics are untouched by the write bound.
+    expect(getSharedPreferences().toolSuccessCount).toBe(2);
+    // …but nothing has hit disk: two settled successes = zero prefs writes.
+    expect(writtenBlobs(set)).toHaveLength(0);
+
+    // The window-hide / pagehide path (and any other prefs write) lands it.
+    flushPreferences();
+    await flush();
+    expect(writtenBlobs(set).map((b) => b.toolSuccessCount)).toEqual([2]);
+
+    // A second flush with nothing outstanding is a no-op, not a rewrite.
+    flushPreferences();
+    await flush();
+    expect(writtenBlobs(set)).toHaveLength(1);
+  });
+
+  it("Test 17: an implausibly FUTURE stamp is ignored rather than bricking the prompt", async () => {
+    // A backwards clock correction / hand-edited blob leaves a stamp a YEAR
+    // ahead. Honoring it as a rate limit would suppress the prompt until real
+    // time caught up — i.e. forever, in practice.
+    const { request } = install({
+      toolSuccessCount: 2,
+      lastReviewRequestAt: T0 + 365 * DAY_MS,
+    });
+
+    await drive(1); // count 3 — the boundary
+    expect(request).toHaveBeenCalledTimes(1);
+    // …and the garbage stamp is overwritten by a real one.
+    expect(getSharedPreferences().lastReviewRequestAt).toBe(T0);
+  });
+
+  it("Test 17b: a stamp only SLIGHTLY ahead is still honored as a rate limit", async () => {
+    // Ordinary clock jitter (NTP step, DST-adjacent nudge) must not become a
+    // licence to prompt early — only an implausible future is discarded.
+    const { request } = install({
+      toolSuccessCount: 2,
+      lastReviewRequestAt: T0 + FUTURE_STAMP_SLACK_MS - 1,
+    });
+
+    await drive(1); // count 3 — a boundary, but inside the (negative) gap
+    expect(request).toHaveBeenCalledTimes(0);
+    expect(getSharedPreferences().lastReviewRequestAt).toBe(
+      T0 + FUTURE_STAMP_SLACK_MS - 1,
+    );
+  });
+
+  it("Test 18: a native request that never settles times out, stamps nothing, and leaves the queue usable", async () => {
+    vi.useFakeTimers();
+    try {
+      const request = vi.fn<() => Promise<void>>(async () => {});
+      // The pathological case: a wedged main thread / lost IPC reply.
+      request.mockImplementationOnce(() => new Promise<void>(() => {}));
+      const { set } = install({}, { request });
+
+      const first = drive(3);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(request).toHaveBeenCalledTimes(1);
+      expect(getSharedPreferences().toolSuccessCount).toBe(3);
+
+      // One millisecond short of the deadline: still outstanding, still unstamped.
+      await vi.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS - 2);
+      expect(getSharedPreferences().lastReviewRequestAt).toBeNull();
+
+      await vi.advanceTimersByTimeAsync(2);
+      await first;
+      // Timed out = "we cannot know the OS was asked" → persist NOTHING.
+      expect(getSharedPreferences().lastReviewRequestAt).toBeNull();
+
+      // The queue is NOT parked behind the dead promise: the next boundary runs.
+      const second = drive(3);
+      await vi.advanceTimersByTimeAsync(1);
+      await second;
+      expect(request).toHaveBeenCalledTimes(2);
+      expect(getSharedPreferences().toolSuccessCount).toBe(6);
+      expect(getSharedPreferences().lastReviewRequestAt).toBe(T0);
+      expect(
+        writtenBlobs(set).filter((b) => b.lastReviewRequestAt !== null),
+      ).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("Test 15: the injection seam defaults to the real clock, and the reset restores it", async () => {
