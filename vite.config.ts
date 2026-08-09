@@ -7,6 +7,8 @@ import { fileURLToPath, URL } from "node:url";
 import { licenseUiFoldInGuard } from "./scripts/licenseUiFoldInGuard.mjs";
 // @ts-expect-error .mjs guard module has no type declarations (nodejs ESM)
 import { prettierChunkGuard } from "./scripts/prettierChunkGuard.mjs";
+// @ts-expect-error .mjs guard module has no type declarations (nodejs ESM)
+import { reviewPromptFoldInGuard } from "./scripts/reviewPromptFoldInGuard.mjs";
 
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
@@ -31,7 +33,16 @@ export default defineConfig(async () => ({
     // the build if a prettier/esbuild-wasm module becomes initially-reachable from
     // an entry chunk via static imports, and emits prettier-chunk-inventory.json.
     prettierChunkGuard(),
-    ...(isAppstoreBuild ? [licenseUiFoldInGuard()] : []),
+    // The two fold-in guards are MIRROR IMAGES and are therefore mutually
+    // exclusive by channel: on the APPSTORE build licenseUiFoldInGuard keeps the
+    // Keygen licence UI + the direct-only updater subtree out of the store
+    // bundle; on the DIRECT build reviewPromptFoldInGuard (UP5-03) keeps
+    // src/shell/reviewPrompt out of the direct bundle. Neither channel's plugin
+    // list is "unchanged" any more — each carries exactly one fold-in guard.
+    // What is DELIBERATELY not asserted (the shared useToolSuccess seam and the
+    // request_app_store_review invoke literal in the shared tauri.ts) is
+    // documented once, in scripts/reviewPromptFoldInGuard.mjs.
+    ...(isAppstoreBuild ? [licenseUiFoldInGuard()] : [reviewPromptFoldInGuard()]),
   ],
 
   resolve: {
