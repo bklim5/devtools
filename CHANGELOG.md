@@ -11,7 +11,8 @@ release body (falling back to the bare tag when a section is absent).
 
 ## [Unreleased]
 
-- _Nothing yet._
+- App Store edition: TinkerDev may occasionally invite you to rate it on the App Store after repeated successful use — never while you're typing, at most rarely, and entirely handled by macOS (users who already reviewed see nothing).
+- More reliable settings persistence: preferences now save durably on quit, fixing rare cases where a change made just before closing the app could be lost.
 
 ## [1.0.2] - 2026-08-07
 
